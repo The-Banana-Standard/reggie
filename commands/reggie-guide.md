@@ -87,7 +87,7 @@ UTILITIES
 HELP
   /reggie-guide            This help (you're here)
 
-Try: /reggie-guide pipelines, /reggie-guide agents, /reggie-guide quality gates, /reggie-guide agent memory, /reggie-guide which command, /reggie-guide task management, /reggie-guide system evaluation, /reggie-guide system changes
+Try: /reggie-guide pipelines, /reggie-guide agents, /reggie-guide quality gates, /reggie-guide agent memory, /reggie-guide which command, /reggie-guide task management, /reggie-guide system evaluation, /reggie-guide system changes, /reggie-guide installation
 ```
 
 ---
@@ -391,6 +391,54 @@ Each active task has a `.pipeline/[slug]/STAGE` file that stores the current sta
 
 **Can I use a flat backlog?**
 Yes. Section headers are optional. A backlog with no `### ` headers works exactly as before.
+
+---
+
+### Topic: Installation & File Structure
+
+**How is Reggie installed?**
+Reggie is a git repo that symlinks into `~/.claude/`. The `install.sh` script creates symlinks so that `~/.claude/` points to the repo — edits in either location are the same file. The `uninstall.sh` script removes the symlinks and restores from backup if available.
+
+**What gets symlinked?**
+
+| ~/.claude/ path | Repo path | Type |
+|----------------|-----------|------|
+| `agents/` | `agents/` | Directory symlink |
+| `commands/` | `commands/` | Directory symlink |
+| `hooks/` | `hooks/` | Directory symlink |
+| `REGGIE.md` | `REGGIE.md` | File symlink |
+| `PORTABLE-PACKAGE.md` | `docs/PORTABLE-PACKAGE.md` | File symlink |
+| `agents-is-all-you-need.md` | `docs/agents-is-all-you-need.md` | File symlink |
+| `reggie-quickstart.md` | `docs/reggie-quickstart.md` | File symlink |
+
+**What stays local (NOT symlinked)?**
+These files are user-specific and not part of the open-source repo:
+
+| File | Purpose |
+|------|---------|
+| `settings.json` | Permissions, hooks config, plugins, effort level |
+| `AGENT-IMPROVE.md` | Accumulated agent learnings (processed by `/improve`) |
+| `IMPROVE-CHANGELOG.md` | Record of improvement changes applied |
+| `voice-profile.md` | Personal writing style profile |
+| `current_thoughts.md` | Scratch notes |
+| `agent-memory/` | Global agent memory |
+| `cache/`, `debug/`, `file-history/` | Runtime data |
+
+**What does this mean for /reggie-system-change?**
+When `/reggie-system-change` edits agents, commands, hooks, or docs, those changes happen in the git repo via the symlinks. You can commit and push them. Changes to local-only files (settings.json, AGENT-IMPROVE.md, etc.) are not version-controlled.
+
+**How do I install/update?**
+```bash
+git clone https://github.com/The-Banana-Standard/reggie.git
+cd reggie
+./install.sh    # Creates symlinks, backs up existing files
+```
+
+**How do I uninstall?**
+```bash
+cd /path/to/reggie
+./uninstall.sh  # Removes symlinks, restores from backup
+```
 
 ---
 
