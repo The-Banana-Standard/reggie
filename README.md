@@ -14,13 +14,25 @@ See [REGGIE.md](REGGIE.md) for the full philosophy and principles.
 
 ## Install
 
+**macOS / Linux:**
+
 ```bash
 git clone https://github.com/The-Banana-Standard/reggie.git
 cd reggie
 ./install.sh
 ```
 
-This symlinks `agents/` and `commands/` into `~/.claude/`, copies the stats hook, and backs up any existing files. Restart Claude Code after installing.
+**Windows (PowerShell as Administrator):**
+
+```powershell
+git clone https://github.com/The-Banana-Standard/reggie.git
+cd reggie
+.\install.ps1
+```
+
+This symlinks `agents/` and `commands/` into `~/.claude/`, configures the stats hook, and backs up any existing files. Restart Claude Code after installing.
+
+> **Windows note:** Creating symlinks requires running PowerShell as Administrator, or having Developer Mode enabled in Windows Settings.
 
 ## What You Get
 
@@ -96,9 +108,18 @@ Since `~/.claude/agents/` and `~/.claude/commands/` are symlinks to the repo, up
 
 ## Uninstall
 
+**macOS / Linux:**
+
 ```bash
 cd ~/path/to/reggie
 ./uninstall.sh
+```
+
+**Windows (PowerShell):**
+
+```powershell
+cd ~\path\to\reggie
+.\uninstall.ps1
 ```
 
 Restores your original agents/commands from the backup created during install.
