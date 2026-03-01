@@ -440,6 +440,12 @@ Each tech stack has a standard scaffold:
 ├── [ProjectName]Tests/
 ├── [ProjectName]UITests/
 ├── docs/
+│   ├── soul.md
+│   ├── architecture.md
+│   ├── patterns.md
+│   ├── styling-guide.md
+│   ├── getting-started.md
+│   └── contributing.md
 ├── TASKS.md          ← from PLAN-TASKS
 ├── .gitignore
 ├── CLAUDE.md
@@ -462,6 +468,13 @@ Each tech stack has a standard scaffold:
 ├── types/
 ├── public/
 ├── docs/
+│   ├── soul.md
+│   ├── architecture.md
+│   ├── patterns.md
+│   ├── styling-guide.md
+│   ├── data-models.md
+│   ├── getting-started.md
+│   └── contributing.md
 ├── TASKS.md          ← from PLAN-TASKS
 ├── .gitignore
 ├── .env.example
@@ -487,6 +500,12 @@ Each tech stack has a standard scaffold:
 │   └── services/
 ├── pkg/
 ├── docs/
+│   ├── soul.md
+│   ├── architecture.md
+│   ├── patterns.md
+│   ├── data-models.md
+│   ├── getting-started.md
+│   └── contributing.md
 ├── TASKS.md          ← from PLAN-TASKS
 ├── .gitignore
 ├── CLAUDE.md
@@ -506,6 +525,12 @@ Each tech stack has a standard scaffold:
 ├── tests/
 │   └── __init__.py
 ├── docs/
+│   ├── soul.md
+│   ├── architecture.md
+│   ├── patterns.md
+│   ├── data-models.md
+│   ├── getting-started.md
+│   └── contributing.md
 ├── TASKS.md          ← from PLAN-TASKS
 ├── .gitignore
 ├── .env.example
@@ -523,6 +548,12 @@ Each tech stack has a standard scaffold:
 │   └── index.ts
 ├── tests/
 ├── docs/
+│   ├── soul.md
+│   ├── architecture.md
+│   ├── patterns.md
+│   ├── data-models.md
+│   ├── getting-started.md
+│   └── contributing.md
 ├── TASKS.md          ← from PLAN-TASKS
 ├── .gitignore
 ├── .env.example
@@ -637,8 +668,13 @@ Create CLAUDE.md with the following structure:
 
 ## Documentation
 See `docs/` for:
-- [doc 1]
-- [doc 2]
+- `soul.md` — project purpose, target users, core mechanics
+- `architecture.md` — system design, components, data flow
+- `patterns.md` — coding conventions and anti-patterns
+- `styling-guide.md` — UI/UX design system (if applicable)
+- `data-models.md` — data structures and relationships (if applicable)
+- `getting-started.md` — setup and first run
+- `contributing.md` — how to contribute
 
 ## Agent Preferences
 - Use [specific agent] for [specific task type]
@@ -655,16 +691,24 @@ Quality gate: Would an AI agent landing in this repo for the first time have eve
 
 ### DOCS Stage
 
-Launch technical-writer agent to create documentation structure:
+Launch technical-writer agent to create foundational documentation. Use the templates defined in `onboard-pipeline-manager.md` (Foundational Doc Templates section) as the structure, but populate with project-specific content from the PROJECT-VISION loop.
 
 ```
 docs/
-├── architecture.md      # High-level architecture overview
-├── getting-started.md   # Setup and first run instructions
-├── contributing.md      # How to contribute
-└── decisions/           # Architecture Decision Records
+├── soul.md               # Project purpose, target users, core mechanics
+├── architecture.md       # System design, components, data flow, decisions
+├── patterns.md           # Coding conventions, approved patterns, anti-patterns
+├── styling-guide.md      # UI/UX design system (skip for non-UI projects: APIs, CLIs, libraries)
+├── data-models.md        # Data structures, relationships, constraints (skip if no DB/API/models)
+├── getting-started.md    # Setup and first run instructions
+├── contributing.md       # How to contribute, branch conventions, PR process
+└── decisions/            # Architecture Decision Records
     └── 001-initial-stack.md
 ```
+
+**Conditional generation:**
+- `styling-guide.md` — only for projects with UI (iOS, web, Android). Skip for APIs, CLIs, libraries.
+- `data-models.md` — only for projects with a database, API layer, or typed models. Skip for simple scripts or static sites.
 
 Also create README.md:
 - Project name and description
@@ -674,7 +718,7 @@ Also create README.md:
 - Link to docs/
 - License
 
-Quality gate: Are the docs accurate, complete, and useful for a new contributor?
+Quality gate: Are the docs accurate, complete, and useful? Do they follow the foundational doc templates? Would an agent have the context it needs to write good code?
 
 ---
 

@@ -20,7 +20,14 @@ You are a code simplification specialist responsible for the SIMPLIFY stage of t
 ### Step 0: Consult Memory
 Before starting, review your agent memory for relevant context: past decisions, scoring patterns, project conventions, and known issues that may apply to this evaluation.
 
-### Step 1: Identify Scope
+### Step 1: Read Foundational Documentation
+Before identifying refactoring opportunities, read project documentation to understand established patterns:
+- `docs/patterns.md` (if exists) — coding conventions, approved patterns, preferred abstractions
+- `docs/architecture.md` (if exists) — system design, module boundaries, where logic belongs
+
+Use these docs to guide refactoring decisions. Do not introduce patterns that contradict established conventions. Do not refactor toward a style that conflicts with the project's documented approach. If a doc is missing, infer patterns from existing code.
+
+### Step 2: Identify Scope
 
 Determine which files were changed in the current pipeline run. Only simplify files that appear in the recent changes -- do not refactor untouched code.
 
@@ -28,19 +35,19 @@ Determine which files were changed in the current pipeline run. Only simplify fi
 git diff --name-only HEAD~1
 ```
 
-### Step 2: Read and Understand
+### Step 3: Read and Understand
 
 Read each modified file completely. Understand the intent, the data flow, and why the code exists before changing anything. If you are unsure why code exists, leave it alone and note your uncertainty.
 
-### Step 3: Identify Opportunities
+### Step 4: Identify Opportunities
 
 For each file, identify the top simplification opportunities ranked by impact. Prioritize removals (dead code, unused imports) first since they are lowest risk, then consolidations, then clarifications.
 
-### Step 4: Apply Incrementally
+### Step 5: Apply Incrementally
 
 Make one simplification at a time. After each change, run the test suite or type checker to verify behavior is preserved. If a change breaks tests, revert it immediately.
 
-### Step 5: Measure and Report
+### Step 6: Measure and Report
 
 Count lines before and after. Document every simplification made. Provide the final report using the output format below.
 

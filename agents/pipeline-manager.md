@@ -518,31 +518,41 @@ This runs once, automatically, whenever a pipeline first reads a TASKS.md with t
 **Key rule: always pick from the backlog, never grab an active task.** Active tasks belong to other sessions. There is no session-ownership tracking in TASKS.md, so the only safe assumption is that every active task is someone else's work-in-progress.
 
 1. Show active tasks (FYI — belong to other sessions) + backlog
-2. User selects from backlog, describes a new task, or auto-picks highest-priority backlog item
-3. Generate slug from task name (collision check: append `-2` if slug exists)
-4. Record base branch: `git branch --show-current`
-5. Create worktree:
+2. **Precondition: Check for CLAUDE.md and foundational docs.**
+   If `CLAUDE.md` does not exist in the project root, print:
+   ```
+   WARNING: CLAUDE.md not found. Agents will have limited project context.
+   Options:
+     1. Run /onboard first (recommended — generates CLAUDE.md + foundational docs)
+     2. Continue without it
+   ```
+   If user chooses option 1, stop PICKUP and prompt them to run `/onboard`.
+   If user chooses option 2, continue. This is a soft gate — the pipeline works without CLAUDE.md, but agents produce better results with it.
+3. User selects from backlog, describes a new task, or auto-picks highest-priority backlog item
+4. Generate slug from task name (collision check: append `-2` if slug exists)
+5. Record base branch: `git branch --show-current`
+6. Create worktree:
    ```bash
    git worktree prune
    git worktree remove --force .worktree/[slug] 2>/dev/null || true
    git branch -D task/[slug] 2>/dev/null || true
    git worktree add -b task/[slug] .worktree/[slug] [base-branch]
    ```
-6. Copy untracked essentials:
+7. Copy untracked essentials:
    ```bash
    for f in .env .env.local .env.development.local; do
        [ -f "$f" ] && cp "$f" ".worktree/[slug]/$f"
    done
    ```
-7. If project uses `node_modules/`, run install command in worktree
-8. Create `.pipeline/[slug]/` with seeded `CONTEXT.md` and `STAGE` file containing `PLAN` (in main repo). See **Context Seeding** below.
-9. Compute skip list. See **Skip List** below. Write to `.pipeline/[slug]/SKIP` if any stages should be skipped. If pipeline mode is `design`, merge design-mode default skips into the skip list.
-10. Ensure `.pipeline/` and `.worktree/` are in `.gitignore`
-11. Add `### [slug]` section to `## Active Tasks` in TASKS.md (include **Branch**, **Worktree**, **Base** fields)
-12. Remove the picked-up task's `- [ ] slug: ...` entry from `## Backlog` in TASKS.md. Delete the entire entry including any indented `>` context lines below it.
-13. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: pickup [slug]" --no-gpg-sign 2>/dev/null`
-14. If > 3 active tasks: warn user ("You have [N] active tasks — consider completing some before starting more")
-15. Advance to PLAN (or BRAINSTORM if brainstorm-workflow)
+8. If project uses `node_modules/`, run install command in worktree
+9. Create `.pipeline/[slug]/` with seeded `CONTEXT.md` and `STAGE` file containing `PLAN` (in main repo). See **Context Seeding** below.
+10. Compute skip list. See **Skip List** below. Write to `.pipeline/[slug]/SKIP` if any stages should be skipped. If pipeline mode is `design`, merge design-mode default skips into the skip list.
+11. Ensure `.pipeline/` and `.worktree/` are in `.gitignore`
+12. Add `### [slug]` section to `## Active Tasks` in TASKS.md (include **Branch**, **Worktree**, **Base** fields)
+13. Remove the picked-up task's `- [ ] slug: ...` entry from `## Backlog` in TASKS.md. Delete the entire entry including any indented `>` context lines below it.
+14. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: pickup [slug]" --no-gpg-sign 2>/dev/null`
+15. If > 3 active tasks: warn user ("You have [N] active tasks — consider completing some before starting more")
+16. Advance to PLAN (or BRAINSTORM if brainstorm-workflow)
 
 ### Context Seeding (at PICKUP)
 

@@ -31,6 +31,15 @@ Your job is not to recite what exists. It is to identify what is next and transl
 ### Step 0: Consult Memory
 Before starting, review your agent memory for relevant context: past decisions, project conventions, patterns, and known issues that may apply to this task.
 
+### Step 1: Read Foundational Documentation
+Before generating design concepts, read the project's product context and design system documentation:
+- `docs/soul.md` (if exists) — project purpose, target users, core mechanics, success criteria — design must serve these
+- `docs/styling-guide.md` (if exists) — existing color palette, typography, spacing, component patterns, animation principles
+
+This establishes the design constraints and existing visual language. Your concepts should extend the system, not contradict it. Propose new patterns that harmonize with what exists. If no styling guide exists, you have a blank canvas — but note your design decisions so they can seed a new styling guide.
+
+### Step 2: Design
+
 1. **Understand the Brief** — Clarify the product context, target users, platform constraints, and business goals before generating ideas.
 2. **Research Current Landscape** — Search for the latest relevant trends, award-winning examples, and experimental work in the problem space. Use WebSearch and WebFetch to pull real, current references.
 3. **Identify Opportunity Space** — Map what is common (table stakes), what is emerging (early adopter), and what is experimental (frontier). Focus energy on the emerging-to-experimental boundary.

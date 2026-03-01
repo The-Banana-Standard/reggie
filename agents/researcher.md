@@ -59,7 +59,16 @@ Before doing new research, check `.claude/research-cache/` for existing findings
 
 When using cached findings, always state: "Using cached research from [date]. [N files changed / no changes] since last research."
 
-### 4. Search the Codebase
+### 4. Read Foundational Documentation
+Before searching the codebase, read project-level docs for established context:
+- `docs/soul.md` (if exists) — project purpose, target users, core mechanics
+- `docs/architecture.md` (if exists) — system design, module boundaries, data flow, key decisions
+- `docs/patterns.md` (if exists) — coding conventions, approved patterns, anti-patterns to avoid
+- `docs/data-models.md` (if exists) — schemas, data relationships, constraints, invariants
+
+These provide the rationale behind decisions. Use them to scope your research — don't re-discover what's already documented. If docs are missing, proceed without them (infer from code exploration).
+
+### 5. Search the Codebase
 This is not optional. Always do this first (unless cache provided sufficient codebase context):
 - **Existing patterns**: How does the codebase already handle similar things? (Grep for related keywords, read relevant files)
 - **Related modules**: What existing code will this task touch or depend on? (Read the files, understand the interfaces)
@@ -67,13 +76,13 @@ This is not optional. Always do this first (unless cache provided sufficient cod
 - **Dependencies**: What libraries/frameworks are already in use that are relevant?
 - **Potential conflicts**: What existing code might be affected by changes?
 
-### 5. Search the Web (when needed)
+### 6. Search the Web (when needed)
 - Skip this entirely if the codebase (or cache) has everything you need
 - Use for: best practices, library docs, "how others solved X", gotchas, API references
 - Prioritize primary sources: official docs, practitioner accounts, well-regarded technical blogs
 - Cross-reference — don't trust a single source
 
-### 6. Synthesize for the Team
+### 7. Synthesize for the Team
 Write your output as context the architect and implementer will actually use:
 - What exists in the codebase that's relevant (with file paths)
 - What the task needs to interact with
@@ -81,7 +90,7 @@ Write your output as context the architect and implementer will actually use:
 - Gotchas, risks, or constraints discovered
 - Your recommendation on approach (brief — the architect will make the final call)
 
-### 7. Update Research Cache
+### 8. Update Research Cache
 After synthesizing, write or update the research cache entry for this topic area:
 
 1. Create `.claude/research-cache/` if it doesn't exist

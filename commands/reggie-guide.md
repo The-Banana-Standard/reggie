@@ -87,7 +87,7 @@ UTILITIES
 HELP
   /reggie-guide            This help (you're here)
 
-Try: /reggie-guide pipelines, /reggie-guide agents, /reggie-guide quality gates, /reggie-guide agent memory, /reggie-guide which command, /reggie-guide task management, /reggie-guide system evaluation, /reggie-guide system changes, /reggie-guide installation
+Try: /reggie-guide pipelines, /reggie-guide agents, /reggie-guide quality gates, /reggie-guide agent memory, /reggie-guide which command, /reggie-guide task management, /reggie-guide system evaluation, /reggie-guide system changes, /reggie-guide foundational docs, /reggie-guide installation
 ```
 
 ---
@@ -123,7 +123,7 @@ The audit pipeline (AUDIT → PRIORITIZE) populates a backlog in TASKS.md. A `/c
 ### Topic: Agents
 
 **What is an agent?**
-An agent is a specialized AI subprocess that Claude Code launches via the Task tool. Each agent has a defined role, specific tools it can access, and a structured output format. You don't invoke agents directly — commands and pipelines invoke them for you.
+An agent is a specialized AI subprocess that Claude Code launches via the Task tool. Each agent has a defined role, specific tools it can access, and a structured output format. You don't invoke agents directly — commands and pipelines invoke them for you. Work agents (developers, reviewers, testers, architect, refactorer) read relevant foundational docs from `docs/` at Step 1 before starting their main work. Non-technical agents (thought-partner, design-innovator) read `docs/soul.md` for product context.
 
 **Agent categories:**
 
@@ -194,6 +194,40 @@ A cumulative document the pipeline-manager maintains during a pipeline run. Each
 
 **What survives context compaction?**
 TASKS.md, `.pipeline/[slug]/CONTEXT.md`, `.pipeline/[slug]/HANDOFF.md`, and `.pipeline/[slug]/DECISIONS.md` are all re-read if the conversation context gets compacted. The worktree and its branch persist on disk — if the worktree is missing on resume, it's recreated from the branch.
+
+---
+
+### Topic: Foundational Docs
+
+**What are foundational docs?**
+Standardized documentation files in `docs/` that agents read before starting work. They provide project-level context about architecture, conventions, data models, and design — the stable knowledge that applies across all tasks in a project.
+
+**Which docs exist?**
+
+| File | Contents | When created |
+|------|----------|--------------|
+| `docs/soul.md` | Project purpose, target users, core mechanics, success criteria | Always |
+| `docs/architecture.md` | System design, components, data flow, key decisions | Always |
+| `docs/patterns.md` | Coding conventions, approved patterns, anti-patterns | Always (if 3+ source files) |
+| `docs/styling-guide.md` | UI/UX design system, component library, tokens | UI projects only |
+| `docs/data-models.md` | Data structures, relationships, constraints, migrations | DB/API/models projects only |
+| `docs/getting-started.md` | Setup, dependencies, first run | Always |
+| `docs/contributing.md` | Contribution workflow, branch strategy, PR guidelines | Always |
+
+**How do agents use them?**
+Every work agent (developers, reviewers, testers, architect, refactorer) reads the subset of foundational docs relevant to their role at Step 1, before their main work. Non-technical agents (thought-partner, design-innovator) read `docs/soul.md` only for product context. The technical-writer is the only agent that creates or updates them.
+
+**How are they created and maintained?**
+- `/onboard` GENERATE stage — creates them for existing repos
+- `/new-repo` DOCS stage — creates them for new projects
+- `/sync-docs` — keeps them current after code changes
+- `/update-claude` — routes new learnings to the appropriate doc
+
+**How are they different from CLAUDE.md?**
+`CLAUDE.md` is the top-level project context: rules, key commands, entry points, what matters most. Foundational docs go deeper on specific domains (architecture, patterns, data models). If information conflicts, `CLAUDE.md` wins.
+
+**How are they different from CONTEXT.md?**
+`CONTEXT.md` is per-task and ephemeral — it records pipeline state for a single task run. Foundational docs are project-level, persistent, and version-controlled. They survive across tasks, pipelines, and sessions.
 
 ---
 
@@ -531,6 +565,7 @@ A 7-stage workflow that prepares any existing repository for the Claude Code age
 - `.pipeline/.gitkeep` — Pipeline metadata directory
 - `MEMORY.md` — Project memory (in ~/.claude/projects/)
 - `.claude/agent-memory/` — Initial agent memory for relevant agents (based on detected tech stack)
+- Foundational docs: `docs/soul.md`, `docs/architecture.md`, `docs/patterns.md`, `docs/getting-started.md`, `docs/contributing.md` (plus `docs/styling-guide.md` and `docs/data-models.md` if applicable)
 
 **Examples:**
 

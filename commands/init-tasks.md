@@ -217,6 +217,8 @@ For each task (or grouped task), iterate through this cycle:
 ```
 ## Quick Codebase Exploration for Task Refinement
 
+Before exploring, read `docs/soul.md` and `docs/architecture.md` (if they exist) for product and structural context.
+
 Task: [task description]
 [If grouped: Sub-items: [list sub-items]]
 
@@ -338,6 +340,8 @@ Launch **code-architect** agent to assign refined tasks to areas of focus and pr
 
 ```
 ## Task: Assign refined tasks to areas of focus and prioritize
+
+Before exploring, read `docs/soul.md` and `docs/architecture.md` (if they exist) for product and structural context.
 
 These tasks are already refined with full descriptions. Your job is to
 organize them, not modify them.

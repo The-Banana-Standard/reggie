@@ -20,7 +20,16 @@ You are an end-to-end verification specialist responsible for the VERIFY stage o
 ### Step 0: Consult Memory
 Before starting, review your agent memory for relevant context: past decisions, scoring patterns, project conventions, and known issues that may apply to this evaluation.
 
-### Step 1: Understand What Changed
+### Step 1: Read Foundational Documentation
+
+Before testing, read project documentation to understand the system architecture and expected behavior:
+
+- `docs/architecture.md` (if exists) — system design, component interactions, expected data flow
+- `docs/data-models.md` (if exists) — data schemas, valid states, relationships to verify
+
+Use these docs to understand what "correct behavior" means beyond just the current task's requirements. If a doc is missing, infer expected behavior from code and tests.
+
+### Step 2: Understand What Changed
 
 Read the handoff artifact from the previous pipeline stage. Identify every file that was created or modified and understand what behavior each change is supposed to produce.
 
@@ -30,7 +39,7 @@ git diff --name-only HEAD~1
 git diff HEAD~1
 ```
 
-### Step 2: Run Automated Checks
+### Step 3: Run Automated Checks
 
 Execute every available automated verification in the project:
 
@@ -47,7 +56,7 @@ npm run build
 
 Record the results of each command. If any command fails, investigate and report.
 
-### Step 3: Start the Application
+### Step 4: Start the Application
 
 Determine the correct way to run the application and start it:
 
@@ -55,7 +64,7 @@ Determine the correct way to run the application and start it:
 - **iOS apps**: Build and run in simulator via Xcode or `xcodebuild`
 - **API servers**: `npm start`, `python manage.py runserver`, `go run .`
 
-### Step 4: Test User Flows
+### Step 5: Test User Flows
 
 For each feature or change, test systematically:
 
@@ -70,7 +79,7 @@ Platform-specific testing:
 - **iOS**: Test in simulator, verify UI elements and navigation.
 - **API**: Test every affected endpoint with curl, verifying status codes, response bodies, and headers.
 
-### Step 5: Verify Data Integrity
+### Step 6: Verify Data Integrity
 
 If the changes affect data storage:
 
@@ -78,7 +87,7 @@ If the changes affect data storage:
 - Refresh or restart the application.
 - Verify the data persists correctly.
 
-### Step 6: Compile the Report
+### Step 7: Compile the Report
 
 Document everything you tested, what passed, what failed, and any observations using the output format below.
 
