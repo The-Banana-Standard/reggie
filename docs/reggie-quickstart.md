@@ -1,6 +1,6 @@
 ---
 title: "Reggie: Quickstart Guide"
-description: "From zip folder to automated workflow in minutes"
+description: "From git clone to automated workflow in minutes"
 date: "2026-02-05"
 status: published
 tags: [Reggie, How-To, Agentic Engineering]
@@ -8,17 +8,16 @@ tags: [Reggie, How-To, Agentic Engineering]
 
 # Reggie: Quickstart Guide
 
-Congrats! You just received Reggie. Unzip the folder and follow the steps below to get started.
-
 ## What's Inside?
 
-- **agents/** -- 41 specialized AI agents
-- **commands/** -- 41 slash commands, including 11 pipeline commands
-- **portable-package/** -- System documentation and reference guides
-- **reggie.md** -- System architecture and philosophy overview
-- **AGENT-IMPROVE.md** -- Learnings accumulator for the improve pipeline
+- **agents/** -- 37 specialized AI agents
+- **commands/** -- 34 slash commands, including 11 pipeline commands
 - **hooks/** -- Post-task hooks for tracking and automation
-- **all_you_need_is_agents.md** -- Article for deeper understanding
+- **docs/** -- System documentation and reference guides
+  - `PORTABLE-PACKAGE.md` -- Full system reference
+  - `agents-is-all-you-need.md` -- Article for deeper understanding
+- **REGGIE.md** -- System architecture and philosophy overview
+- **install.sh** / **uninstall.sh** -- Install and uninstall scripts
 
 ---
 
@@ -35,31 +34,42 @@ If you need help with either, check out the [Claude Code CLI](https://code.claud
 
 ## Install
 
-1. Navigate to this folder in your terminal:
+1. Clone the repo:
 
    ```bash
-   cd ~/Downloads/Reggie
+   git clone https://github.com/The-Banana-Standard/reggie.git
+   cd reggie
    ```
 
-2. Copy the system files to your Claude config:
+2. Run the install script:
 
    ```bash
-   cp -r agents/ ~/.claude/agents/
-   cp -r commands/ ~/.claude/commands/
-   cp -r portable-package/ ~/.claude/
-   cp reggie.md ~/.claude/
-   cp AGENT-IMPROVE.md ~/.claude/
-   cp -r hooks/ ~/.claude/hooks/
+   ./install.sh
    ```
 
-3. Verify the installation:
+   This symlinks `agents/`, `commands/`, `hooks/`, and key docs into `~/.claude/`, configures the stats tracking hook in `settings.json`, and backs up any existing files before overwriting.
+
+3. Restart Claude Code, then verify the installation:
 
    ```bash
    claude
    /reggie-guide
    ```
 
-   If the command loads the guide, your installation succeeded. If Claude Code was already running when you installed, exit and restart it to pick up the new commands.
+   If the command loads the guide, your installation succeeded.
+
+---
+
+## Pulling Updates
+
+Since everything is symlinked to the repo, updates are simple:
+
+```bash
+cd ~/path/to/reggie
+git pull
+```
+
+Changes take effect immediately -- no reinstall needed.
 
 ---
 
@@ -88,19 +98,30 @@ Already have a project? Use `/onboard` to analyze your codebase and generate TAS
 
 ---
 
+## Uninstall
+
+```bash
+cd ~/path/to/reggie
+./uninstall.sh
+```
+
+This removes the symlinks and restores your original files from the backup created during install.
+
+---
+
 That's it, you're using Reggie!
 
 ## Troubleshooting
 
-**`/reggie-guide` shows nothing:** Your commands folder didn't copy correctly. Re-run `cp -r commands/ ~/.claude/commands/`, then exit and restart Claude Code.
+**`/reggie-guide` shows nothing:** Your commands didn't symlink correctly. Re-run `./install.sh` from the repo directory, then restart Claude Code.
 
 **GitHub operations fail:** Run `gh auth status` to verify GitHub CLI is authenticated. If not, run `gh auth login`.
 
-**Commands work inconsistently:** Exit Claude Code completely and restart it. Claude reads `~/.claude/` when it launches, not when commands are copied.
+**Commands work inconsistently:** Exit Claude Code completely and restart it. Claude reads `~/.claude/` when it launches.
 
 ---
 
 ## Helpful Tips
 
 - **When in doubt, run `/reggie-guide`** -- Explores the full system and shows available commands
-- **Read "All You Need Is Agents"** (`all_you_need_is_agents.md`) for the technical and philosophical perspective on the system
+- **Read "Agents Is All You Need"** (`docs/agents-is-all-you-need.md`) for the technical and philosophical perspective on the system

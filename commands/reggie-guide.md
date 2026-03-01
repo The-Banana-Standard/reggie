@@ -397,7 +397,7 @@ Yes. Section headers are optional. A backlog with no `### ` headers works exactl
 ### Topic: Installation & File Structure
 
 **How is Reggie installed?**
-Reggie is a git repo that symlinks into `~/.claude/`. The `install.sh` script creates symlinks so that `~/.claude/` points to the repo — edits in either location are the same file. The `uninstall.sh` script removes the symlinks and restores from backup if available.
+Reggie is a git repo that symlinks into `~/.claude/`. The `install.sh` script creates symlinks so that `~/.claude/` points to the repo, configures the stats tracking hook in `settings.json`, and backs up any existing files. Edits in either location are the same file. The `uninstall.sh` script removes the symlinks, removes the stats hooks from `settings.json`, and restores from backup if available.
 
 **What gets symlinked?**
 
@@ -410,6 +410,9 @@ Reggie is a git repo that symlinks into `~/.claude/`. The `install.sh` script cr
 | `PORTABLE-PACKAGE.md` | `docs/PORTABLE-PACKAGE.md` | File symlink |
 | `agents-is-all-you-need.md` | `docs/agents-is-all-you-need.md` | File symlink |
 | `reggie-quickstart.md` | `docs/reggie-quickstart.md` | File symlink |
+
+**What gets configured automatically?**
+The install script adds stats tracking hooks to `~/.claude/settings.json` (idempotent — safe to run multiple times). These hooks track Task and Skill tool usage for pipeline stats. The uninstall script removes them.
 
 **What stays local (NOT symlinked)?**
 These files are user-specific and not part of the open-source repo:
@@ -431,13 +434,19 @@ When `/reggie-system-change` edits agents, commands, hooks, or docs, those chang
 ```bash
 git clone https://github.com/The-Banana-Standard/reggie.git
 cd reggie
-./install.sh    # Creates symlinks, backs up existing files
+./install.sh    # Symlinks files, configures hooks, backs up existing files
+```
+
+**How do I update?**
+```bash
+cd /path/to/reggie
+git pull        # Changes take effect immediately via symlinks
 ```
 
 **How do I uninstall?**
 ```bash
 cd /path/to/reggie
-./uninstall.sh  # Removes symlinks, restores from backup
+./uninstall.sh  # Removes symlinks and hooks, restores from backup
 ```
 
 ---

@@ -68,19 +68,73 @@ echo "    PORTABLE-PACKAGE.md    -> $REPO_DIR/docs/PORTABLE-PACKAGE.md"
 echo "    agents-is-all-you-need.md -> $REPO_DIR/docs/agents-is-all-you-need.md"
 echo "    reggie-quickstart.md   -> $REPO_DIR/docs/reggie-quickstart.md"
 echo ""
-echo "Manual step: Add the stats hooks to ~/.claude/settings.json:"
-echo ""
-echo '  "hooks": {'
-echo '    "PostToolUse": ['
-echo '      {'
-echo '        "matcher": "Task",'
-echo '        "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/track-stats.sh", "timeout": 10}]'
-echo '      },'
-echo '      {'
-echo '        "matcher": "Skill",'
-echo '        "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/track-stats.sh", "timeout": 10}]'
-echo '      }'
-echo '    ]'
-echo '  }'
+
+# 6. Add stats hooks to settings.json
+SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+
+if [ ! -f "$SETTINGS_FILE" ]; then
+  # No settings file — create one with just the hooks
+  cat > "$SETTINGS_FILE" << 'SETTINGS_EOF'
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/track-stats.sh", "timeout": 10}]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/track-stats.sh", "timeout": 10}]
+      }
+    ]
+  }
+}
+SETTINGS_EOF
+  echo "  Created settings.json with stats hooks"
+elif command -v python3 &>/dev/null; then
+  # Settings file exists — merge hooks using python3 (idempotent)
+  python3 - "$SETTINGS_FILE" << 'PYEOF'
+import json, sys
+
+settings_path = sys.argv[1]
+with open(settings_path) as f:
+    settings = json.load(f)
+
+hook_cmd = "$HOME/.claude/hooks/track-stats.sh"
+task_hook = {"matcher": "Task", "hooks": [{"type": "command", "command": hook_cmd, "timeout": 10}]}
+skill_hook = {"matcher": "Skill", "hooks": [{"type": "command", "command": hook_cmd, "timeout": 10}]}
+
+if "hooks" not in settings:
+    settings["hooks"] = {}
+if "PostToolUse" not in settings["hooks"]:
+    settings["hooks"]["PostToolUse"] = []
+
+existing = settings["hooks"]["PostToolUse"]
+
+def has_hook(matcher):
+    for entry in existing:
+        if entry.get("matcher") == matcher:
+            for h in entry.get("hooks", []):
+                if h.get("command") == hook_cmd:
+                    return True
+    return False
+
+if not has_hook("Task"):
+    existing.append(task_hook)
+if not has_hook("Skill"):
+    existing.append(skill_hook)
+
+with open(settings_path, "w") as f:
+    json.dump(settings, f, indent=2)
+    f.write("\n")
+PYEOF
+  echo "  Added stats hooks to settings.json"
+else
+  echo ""
+  echo "  Could not auto-configure hooks (python3 not found)."
+  echo "  Manually add to $SETTINGS_FILE:"
+  echo '    "hooks": { "PostToolUse": [ { "matcher": "Task", "hooks": [{"type":"command","command":"$HOME/.claude/hooks/track-stats.sh","timeout":10}] }, { "matcher": "Skill", "hooks": [{"type":"command","command":"$HOME/.claude/hooks/track-stats.sh","timeout":10}] } ] }'
+fi
+
 echo ""
 echo "Restart Claude Code to pick up the new commands."

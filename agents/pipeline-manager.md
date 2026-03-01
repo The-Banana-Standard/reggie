@@ -227,6 +227,8 @@ done
 All agent prompts for code-modifying stages (IMPLEMENT, TEST, SIMPLIFY, etc.) include:
 > "The project root for this task is: [absolute path to .worktree/[slug]]. All file reads, writes, and bash commands must operate in this directory."
 
+> "You may only create or modify files listed in the plan's `### Files` section. If you discover issues in other files, list them under `## Discovered Issues` at the end of your output — do not edit those files. This is a hard constraint, not a suggestion."
+
 Agents that only manage pipeline metadata (judge, pipeline-manager) operate from main repo root.
 
 ### Agent Memory
@@ -301,9 +303,10 @@ Only present if context was available. Downstream agents should read this before
 
 ## Architecture Plan
 [Full plan from PLAN stage — added verbatim by pipeline-manager]
-[The implementer reads this as context, not as a rigid spec. They have
-autonomy to make implementation decisions and adjust the approach based
-on what they discover while coding.]
+[The file list in ### Files is a hard boundary — the implementer must
+not modify files outside this list. Within those files, the implementer
+has autonomy over implementation decisions and can adjust the approach
+based on what they discover while coding.]
 
 ## Implementation Notes
 [Key decisions and deviations from IMPLEMENT stage — added by pipeline-manager]
@@ -329,8 +332,8 @@ on what they discover while coding.]
 Each agent is trusted within their domain:
 - The **architect** makes architectural decisions — the implementer should respect those unless they discover something that changes the calculus
 - The **implementer** makes implementation decisions — how to write the code, what patterns to use, whether to adjust the approach based on what they find
+- Autonomy applies to **how** code is written within planned files, NOT **which** files are modified. The file list from PLAN is a hard boundary. If unrelated files need changes, report them under Discovered Issues.
 - If an agent deviates significantly from a previous stage's output, they add a note to the Decisions Log explaining why
-- This is not "ask permission" — it's "document what you learned"
 
 ### Discovered Issues → Backlog
 
@@ -683,6 +686,47 @@ Options:
 
 Logic: tasks still in PLAN or earlier have no file list yet (shown as `(pending PLAN)`), so they're skipped. Only tasks that have passed PLAN (with a populated `**Files**` field) are checked.
 
+### Post-IMPLEMENT Scope Validation
+
+After IMPLEMENT passes its quality gate but before advancing to the next stage, validate that only planned files were modified:
+
+1. Get the list of files actually changed in the worktree:
+   ```bash
+   git -C .worktree/[slug] diff --name-only $(git -C .worktree/[slug] merge-base task/[slug] [base-branch])..HEAD
+   ```
+   Use the `**Base**` field from TASKS.md for `[base-branch]` — do not hardcode `main`.
+2. Filter out generated/build artifacts that are never scope-relevant:
+   - `node_modules/**`
+   - `dist/**`, `build/**`, `out/**`
+   - `*.lock`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
+   - `.DS_Store`
+3. Read the planned file list from this task's `**Files**` field in TASKS.md (the `NEW:` and `MOD:` entries written at Post-PLAN)
+4. Compare: any file in the actual diff that is NOT in the planned file list is an **unplanned modification**
+5. If no unplanned files: proceed silently to the next stage
+6. If unplanned files exist, warn the user:
+
+```
+SCOPE WARNING
+
+IMPLEMENT modified files not in the architecture plan:
+
+  - src/utils/helpers.ts (not in plan)
+  - src/config/routes.ts (not in plan)
+
+Planned files:
+  - NEW: src/services/StreakManager.swift
+  - MOD: src/models/UserProgress.swift
+
+Options:
+  1. Proceed — accept the extra files as necessary
+  2. Revert — discard changes to unplanned files (git checkout)
+  3. Back to IMPLEMENT — send agent back with stricter scope instructions
+```
+
+7. If user chooses **Proceed**: advance normally (no further action)
+8. If user chooses **Revert**: run `git -C .worktree/[slug] checkout [base-branch] -- [file]` for each unplanned file, then commit the revert and advance
+9. If user chooses **Back to IMPLEMENT**: re-run IMPLEMENT with additional prompt context noting which files were out of scope and must not be modified
+
 ### Complete Task
 1. Identify which task is completing (from context or ask if ambiguous)
 2. Final commit in worktree: `git -C .worktree/[slug] add -A && git -C .worktree/[slug] commit -m "complete: [task name]"`
@@ -898,6 +942,7 @@ After iteration completes, show the re-judge result (compact — no progress tra
 - Skipping the skip-list check before launching a stage agent
 - Forgetting to print the stage summary box after every stage (pass or fail)
 - Not running conflict detection after PLAN passes — file overlaps cause merge conflicts at completion
+- Not running Post-IMPLEMENT Scope Validation — unplanned file modifications cause breakage when merged
 - Advancing after a quality gate failure without the judge re-scoring the updated output
 - Creating a worktree without checking for slug collisions first
 - Editing TASKS.md or HISTORY.md without committing immediately — uncommitted metadata changes cause stash conflicts in parallel sessions. Always use the `meta:` commit pattern after any metadata edit (see Metadata Commit System section)

@@ -41,6 +41,35 @@ else
   mkdir -p "$CLAUDE_DIR/commands"
 fi
 
+# 4. Remove stats hooks from settings.json
+SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+if [ -f "$SETTINGS_FILE" ] && command -v python3 &>/dev/null; then
+  python3 - "$SETTINGS_FILE" << 'PYEOF'
+import json, sys
+
+settings_path = sys.argv[1]
+with open(settings_path) as f:
+    settings = json.load(f)
+
+hook_cmd = "$HOME/.claude/hooks/track-stats.sh"
+
+if "hooks" in settings and "PostToolUse" in settings["hooks"]:
+    settings["hooks"]["PostToolUse"] = [
+        entry for entry in settings["hooks"]["PostToolUse"]
+        if not any(h.get("command") == hook_cmd for h in entry.get("hooks", []))
+    ]
+    # Clean up empty structures
+    if not settings["hooks"]["PostToolUse"]:
+        del settings["hooks"]["PostToolUse"]
+    if not settings["hooks"]:
+        del settings["hooks"]
+
+with open(settings_path, "w") as f:
+    json.dump(settings, f, indent=2)
+    f.write("\n")
+PYEOF
+  echo "Removed stats hooks from settings.json"
+fi
+
 echo ""
 echo "Reggie uninstalled."
-echo "Remember to remove the hooks from ~/.claude/settings.json if you added them."
