@@ -397,7 +397,7 @@ Yes. Section headers are optional. A backlog with no `### ` headers works exactl
 ### Topic: Installation & File Structure
 
 **How is Reggie installed?**
-Reggie is a git repo that symlinks into `~/.claude/`. The `install.sh` script creates symlinks so that `~/.claude/` points to the repo, configures the stats tracking hook in `settings.json`, and backs up any existing files. Edits in either location are the same file. The `uninstall.sh` script removes the symlinks, removes the stats hooks from `settings.json`, and restores from backup if available.
+Reggie is a git repo that symlinks into `~/.claude/`. The install script (`install.sh` on macOS/Linux, `install.ps1` on Windows) creates symlinks so that `~/.claude/` points to the repo, configures the stats tracking hook in `settings.json`, and backs up any existing files. Edits in either location are the same file. The uninstall script (`uninstall.sh` / `uninstall.ps1`) removes the symlinks, removes the stats hooks from `settings.json`, and restores from backup if available. On Windows, creating symlinks requires running PowerShell as Administrator or having Developer Mode enabled.
 
 **What gets symlinked?**
 
@@ -430,23 +430,45 @@ These files are user-specific and not part of the open-source repo:
 **What does this mean for /reggie-system-change?**
 When `/reggie-system-change` edits agents, commands, hooks, or docs, those changes happen in the git repo via the symlinks. You can commit and push them. Changes to local-only files (settings.json, AGENT-IMPROVE.md, etc.) are not version-controlled.
 
-**How do I install/update?**
+**How do I install?**
+
+macOS/Linux:
+
 ```bash
 git clone https://github.com/The-Banana-Standard/reggie.git
 cd reggie
-./install.sh    # Symlinks files, configures hooks, backs up existing files
+./install.sh
+```
+
+Windows (PowerShell as Administrator):
+
+```powershell
+git clone https://github.com/The-Banana-Standard/reggie.git
+cd reggie
+.\install.ps1
 ```
 
 **How do I update?**
+
 ```bash
 cd /path/to/reggie
 git pull        # Changes take effect immediately via symlinks
 ```
 
 **How do I uninstall?**
+
+macOS/Linux:
+
 ```bash
 cd /path/to/reggie
-./uninstall.sh  # Removes symlinks and hooks, restores from backup
+./uninstall.sh
+```
+
+Windows (PowerShell):
+
+```powershell
+cd ~\path\to\reggie
+.\uninstall.ps1
 ```
 
 ---

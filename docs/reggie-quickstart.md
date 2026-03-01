@@ -17,7 +17,8 @@ tags: [Reggie, How-To, Agentic Engineering]
   - `PORTABLE-PACKAGE.md` -- Full system reference
   - `agents-is-all-you-need.md` -- Article for deeper understanding
 - **REGGIE.md** -- System architecture and philosophy overview
-- **install.sh** / **uninstall.sh** -- Install and uninstall scripts
+- **install.sh** / **uninstall.sh** -- Install and uninstall scripts (macOS/Linux)
+- **install.ps1** / **uninstall.ps1** -- Install and uninstall scripts (Windows)
 
 ---
 
@@ -43,11 +44,21 @@ If you need help with either, check out the [Claude Code CLI](https://code.claud
 
 2. Run the install script:
 
+   **macOS / Linux:**
+
    ```bash
    ./install.sh
    ```
 
+   **Windows (PowerShell as Administrator):**
+
+   ```powershell
+   .\install.ps1
+   ```
+
    This symlinks `agents/`, `commands/`, `hooks/`, and key docs into `~/.claude/`, configures the stats tracking hook in `settings.json`, and backs up any existing files before overwriting.
+
+   > **Windows note:** Creating symlinks requires running PowerShell as Administrator, or having Developer Mode enabled in Windows Settings.
 
 3. Restart Claude Code, then verify the installation:
 
@@ -100,9 +111,18 @@ Already have a project? Use `/onboard` to analyze your codebase and generate TAS
 
 ## Uninstall
 
+**macOS / Linux:**
+
 ```bash
 cd ~/path/to/reggie
 ./uninstall.sh
+```
+
+**Windows (PowerShell):**
+
+```powershell
+cd ~\path\to\reggie
+.\uninstall.ps1
 ```
 
 This removes the symlinks and restores your original files from the backup created during install.
