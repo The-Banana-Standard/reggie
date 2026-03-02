@@ -46,6 +46,8 @@ This command orchestrates the **evaluate-reggie pipeline** — a periodic archit
 
 **IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the evaluate-reggie-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/evaluate-reggie-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. BRAINSTORM confirmation, PROPOSE approval, IMPLEMENT per-proposal approval, and all other human prompts are auto-approved. Automated quality gates still run normally.
+
 **This is NOT /improve.** The improve pipeline processes per-agent learnings accumulated during pipeline runs. This pipeline evaluates the system architecture itself: are there missing agents, redundant commands, permission mismatches, outdated patterns, or broken integrations?
 
 ### Arguments
@@ -54,6 +56,8 @@ This command orchestrates the **evaluate-reggie pipeline** — a periodic archit
 /evaluate-reggie                    # Full evaluation: SCAN → EVALUATE → BRAINSTORM → PROPOSE
 /evaluate-reggie --scan-only        # Just produce the system inventory
 /evaluate-reggie --implement        # Full evaluation + implement + verify
+/evaluate-reggie --yes              # Auto-approve all gates (Ralph Wiggum mode)
+/evaluate-reggie --yes --implement  # Full auto: evaluate + implement + verify
 $ARGUMENTS
 ```
 

@@ -55,6 +55,8 @@ ls -la .claude/port-plans/ 2>/dev/null || echo "No existing port plans"
 
 **IMPORTANT**: You (main Claude) orchestrate this pipeline directly. Reference `~/.claude/agents/port-pipeline-manager.md` for pipeline structure, stage flow, and quality gates. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. All human prompts are auto-approved. Automated quality gates (9.0/10 judge scoring) still run normally.
+
 ### Arguments
 
 ```

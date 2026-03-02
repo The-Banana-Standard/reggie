@@ -51,6 +51,8 @@ This command runs the **design mode** of the development pipeline. It shares all
 
 **IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Read `~/.claude/agents/pipeline-manager.md` for detailed infrastructure guidance (worktrees, quality gates, TASKS.md management, stage summaries, merge strategies). This file specifies only the design-mode differences. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. DESIGN-REVIEW approval, stage advancement, merge strategy selection, and any other human confirmation prompts are auto-approved. Automated quality gates (9.0/10 judge scoring) still run normally. When active, print `⚙ Mode: --yes (Ralph Wiggum)` during PICKUP.
+
 **DISCOVERED ISSUES**: Same as code-workflow — always include the discovered issues instruction when prompting any agent. After each stage, check for discovered issues and add them to `### Ungroomed` at the bottom of `## Backlog` in TASKS.md (create the section if it doesn't exist).
 
 **METADATA COMMITS**: All TASKS.md and HISTORY.md edits must be immediately committed using the `meta:` commit pattern from pipeline-manager.md → "Metadata Commit System". This prevents stash conflicts when multiple sessions run in parallel.
@@ -101,6 +103,7 @@ UPDATE-CLAUDE: design mode — skipped
 
 ```
 /design-workflow                   # Auto-detect platform, auto-pick from backlog
+/design-workflow --yes             # Auto-approve all confirmation gates (Ralph Wiggum mode)
 /design-workflow ios               # Force iOS mode
 /design-workflow react             # Force React mode
 /design-workflow ios onboarding    # iOS design for specific feature

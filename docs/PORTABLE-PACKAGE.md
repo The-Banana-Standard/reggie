@@ -174,6 +174,13 @@ Every pipeline follows the same pattern:
 
 **Why this architecture?** Subagents (launched via Task) cannot launch other subagents. Pipeline manager agents contain detailed orchestration guidance but run as reference docs, not as subagent orchestrators.
 
+### Universal Flags
+
+| Flag | Effect | Available On |
+|------|--------|-------------|
+| `--yes` | Skip all confirmation gates. Pipeline runs end-to-end without user input. Automated quality gates (9.0/10) still run. | All pipeline commands |
+| `--opus` | Force `model: "opus"` on every agent launch. | `/code-workflow`, `/design-workflow` |
+
 ### Quality Gate Escalation
 
 When a stage fails its quality gate:

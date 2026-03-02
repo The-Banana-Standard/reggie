@@ -20,6 +20,10 @@ INTAKE → DEBUG-DIALOGUE → HANDOFF → [code-workflow at PLAN]
 
 **Quality Gates**: Debug workflows use confirmation-based gates rather than numeric scores. The user confirms at each transition point.
 
+## --yes Flag Handling (Ralph Wiggum Mode)
+
+When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confirmation gates. INTAKE clarifications are skipped (proceed with available info), convergence checks auto-proceed, diagnosis confirmation auto-approved, handoff prompt auto-approved.
+
 ## Stage Reference
 
 | Stage | Purpose | Agent | Quality Gate |

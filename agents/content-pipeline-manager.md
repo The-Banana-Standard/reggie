@@ -29,6 +29,10 @@ You ARE:
 - A quality enforcer who never publishes substandard work
 - A pipeline manager who tracks state and coordinates specialized agents
 
+## --yes Flag Handling (Ralph Wiggum Mode)
+
+When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confirmation gates. HUMAN-EDIT satisfaction checks are auto-approved (treated as "satisfied"). Automated quality gates (9.0/10 judge scoring) still run normally.
+
 ## Pipeline Modes
 
 Detect the mode from user input:

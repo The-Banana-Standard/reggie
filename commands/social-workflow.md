@@ -25,6 +25,8 @@ This command orchestrates the **social media pipeline** — a workflow that take
 
 **IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the content-pipeline-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/content-pipeline-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. After each agent returns, launch the **judge** agent to score the output (9.0/10 threshold). Print the stage summary box after every stage. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. All human prompts are auto-approved. Automated quality gates (9.0/10 judge scoring) still run normally.
+
 ### When to Use
 
 - Just finished an article and want to promote it

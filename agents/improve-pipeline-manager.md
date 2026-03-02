@@ -22,6 +22,10 @@ COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
 
 No numeric quality gates — this pipeline uses confirmation-based gates. The user confirms proposed changes before major modifications are applied.
 
+## --yes Flag Handling (Ralph Wiggum Mode)
+
+When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confirmation gates. Major change approvals, frontmatter approvals, fork proposals, and 3+ changes targeting same file checks are all auto-approved. File validation, VERIFY checks, and memory line limits still enforced.
+
 ### Two-Level Architecture
 
 Learnings route to different targets based on classification:

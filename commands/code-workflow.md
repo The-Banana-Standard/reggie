@@ -53,6 +53,8 @@ This command orchestrates the **full development pipeline** for a single task.
 
 **`--opus` flag**: If `$ARGUMENTS` contains `--opus`, strip it from arguments before further parsing and force `model: "opus"` on **every** Task tool agent launch for the entire pipeline run. This disables all Sonnet optimizations. Use when maximum quality is needed on every stage. When active, print `⚙ Mode: all-opus` during PICKUP.
 
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. Stage advancement, REVIEW-WITH-USER acceptance, DESIGN-REVIEW approval, merge strategy selection, and any other human confirmation prompts are auto-approved. Automated quality gates (9.0/10 judge scoring) still run normally. When active, print `⚙ Mode: --yes (Ralph Wiggum)` during PICKUP.
+
 **DISCOVERED ISSUES**: When prompting any agent, always include: "If you discover unrelated issues in the codebase (bugs, tech debt, security problems, missing tests), list them under a `## Discovered Issues` heading at the end of your output. Do not fix them." After each stage returns, check for discovered issues and add them to `### Ungroomed` at the bottom of `## Backlog` in TASKS.md (create the section if it doesn't exist).
 
 **DESIGN MODE**: For design-focused work (redesigning screens, new UI themes, visual polish), use `/design-workflow` instead. It runs a design-optimized stage sequence with different agents (design-innovator, visual-architect) and a human review gate. See `~/.claude/agents/pipeline-manager.md` → "Pipeline Modes" for how modes work.
@@ -786,6 +788,7 @@ If verification/review fails, increment attempts in the quality scores table.
 ```
 /code-workflow                    # Start/continue workflow (picks from backlog)
 /code-workflow --opus             # Force Opus for all agents (no Sonnet overrides)
+/code-workflow --yes              # Auto-approve all confirmation gates (Ralph Wiggum mode)
 /code-workflow status             # Show current workflow state
 /code-workflow pause              # Pause and save progress
 /code-workflow resume [slug]      # Resume paused workflow
@@ -797,6 +800,7 @@ If verification/review fails, increment attempts in the quality scores table.
 | Flag | Effect |
 |------|--------|
 | `--opus` | Force `model: "opus"` on every agent launch. Disables Sonnet optimizations for the entire pipeline run. Use for critical tasks or when Sonnet quality has been insufficient. |
+| `--yes` | Skip all confirmation gates. Pipeline runs end-to-end without user input. Automated quality gates (9.0/10) still run. |
 
 **Note**: To add new tasks, use `/init-tasks` first to refine them with codebase context and acceptance criteria, then `/code-workflow` to pick them up from the backlog.
 

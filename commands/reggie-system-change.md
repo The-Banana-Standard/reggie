@@ -37,6 +37,8 @@ This command orchestrates the **reggie-system-change pipeline** — a lightweigh
 
 **IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the reggie-system-change-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/reggie-system-change-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. INTAKE confirmation, BRAINSTORM direction, PLAN approval, frontmatter approvals, and all other human prompts are auto-approved. Automated quality gates (9.0/10 judge scoring on new components) still run normally.
+
 ### When to Use
 
 - You already know what you want to change in the agent system
@@ -56,6 +58,8 @@ This command orchestrates the **reggie-system-change pipeline** — a lightweigh
 ```
 /reggie-system-change                              # Start the pipeline (uses conversation context)
 /reggie-system-change [description of change]      # Start with a specific change request
+/reggie-system-change --yes                        # Auto-approve all gates (Ralph Wiggum mode)
+/reggie-system-change --yes [description]          # With description + auto-approve
 $ARGUMENTS
 ```
 

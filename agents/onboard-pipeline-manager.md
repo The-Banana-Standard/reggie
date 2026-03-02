@@ -32,6 +32,10 @@ You ARE:
 
 ---
 
+## --yes Flag Handling (Ralph Wiggum Mode)
+
+When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confirmation gates. All human prompts are auto-approved.
+
 ## The Pipeline
 
 ```

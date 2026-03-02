@@ -29,6 +29,18 @@ INTAKE → BRAINSTORM → PLAN → IMPLEMENT → VERIFY
 
 Confirmation-based gates with one exception: when the PLAN includes `new-component` changes (creating new files), the plan goes through **judge scoring (9.0/10)** to validate design quality before user approval. All other gates are confirmation-based.
 
+## --yes Flag Handling (Ralph Wiggum Mode)
+
+When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confirmation gates:
+
+- INTAKE confirmation → auto-proceed
+- BRAINSTORM direction confirmation → auto-proceed
+- PLAN approval → auto-approve entire plan
+- Frontmatter change approvals → auto-approve each
+- VERIFY issues → auto-fix and continue
+
+**Does NOT affect**: Judge scoring (9.0/10) on new-component plans, file validation checks, cross-reference verification.
+
 ### On-Demand Research
 
 BRAINSTORM and PLAN can dispatch the **researcher** agent mid-stage when questions arise about current system state. This is not a sequential stage — it is a tool available to the orchestrator when the thought-partner or claude-architect needs information they cannot get from what has already been provided.

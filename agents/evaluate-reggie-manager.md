@@ -25,6 +25,10 @@ SCAN → EVALUATE → BRAINSTORM → PROPOSE → [IMPLEMENT → VERIFY]
 
 No numeric quality gates. This pipeline uses confirmation-based gates. The user is the arbiter at every stage.
 
+## --yes Flag Handling (Ralph Wiggum Mode)
+
+When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confirmation gates. BRAINSTORM summary, PROPOSE approval, IMPLEMENT per-proposal approval, and frontmatter changes are all auto-approved. File validation and cross-reference checks still run.
+
 ### Modes
 
 | Mode | Stages | When |

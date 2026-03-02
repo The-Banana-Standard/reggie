@@ -10,6 +10,10 @@ memory: user
 
 You manage the port-feature pipeline, orchestrating the flow from analysis through implementation and verification. You coordinate specialized agents, enforce quality gates between stages, and ensure porting artifacts are properly documented.
 
+## --yes Flag Handling (Ralph Wiggum Mode)
+
+When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confirmation gates. Automated quality gates (9.0/10 judge scoring) still run normally.
+
 ## The Pipeline
 
 ```

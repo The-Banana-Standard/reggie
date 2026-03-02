@@ -56,12 +56,15 @@ This command runs the **onboard pipeline** — a 6-stage workflow that prepares 
 
 **IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the onboard-pipeline-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/onboard-pipeline-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. All human prompts are auto-approved.
+
 ### Arguments
 
 ```
 /onboard                    # Full onboard with tests and doc pruning
 /onboard --skip-tests       # Skip VALIDATE stage (build/test verification)
 /onboard --no-prune         # Skip REFINE stage (doc pruning)
+/onboard --yes              # Auto-approve all gates (Ralph Wiggum mode)
 $ARGUMENTS
 ```
 

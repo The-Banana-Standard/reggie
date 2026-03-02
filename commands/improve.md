@@ -45,6 +45,8 @@ This command runs the **two-level improve pipeline** -- the agent self-improveme
 
 **IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the improve-pipeline-manager as a subagent -- subagents cannot launch other subagents. Instead, read `~/.claude/agents/improve-pipeline-manager.md` for detailed guidance, then run each stage yourself. Launch the **researcher** agent via the Task tool during ANALYZE. All other stages you execute directly. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. Major change approvals, frontmatter approvals, fork proposals, and all other human prompts are auto-approved.
+
 ### When to Use
 
 - Auto-triggered at the end of every pipeline (if AGENT-IMPROVE.md has entries)
@@ -59,6 +61,7 @@ This command runs the **two-level improve pipeline** -- the agent self-improveme
 /improve --minor-only       # Only process minor (auto-apply) changes
 /improve --target [agent]   # Only process learnings for a specific agent
 /improve --curate-only      # Only run the CURATE stage (memory maintenance)
+/improve --yes              # Auto-approve all gates (Ralph Wiggum mode)
 $ARGUMENTS
 ```
 

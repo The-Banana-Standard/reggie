@@ -92,6 +92,22 @@ Try: /reggie-guide pipelines, /reggie-guide agents, /reggie-guide quality gates,
 
 ---
 
+### Topic: Universal Flags
+
+**`--yes` (Ralph Wiggum mode)**
+
+Auto-approve ALL confirmation gates in any pipeline command. The pipeline runs end-to-end without stopping for user input — no stage confirmations, no approval prompts, no human review gates. Full send.
+
+- **Applies to**: All pipeline commands (`/code-workflow`, `/design-workflow`, `/reggie-system-change`, `/evaluate-reggie`, `/improve`, `/audit-workflow`, `/article-workflow`, `/social-workflow`, `/debug-workflow`, `/port`, `/onboard`)
+- **Does NOT bypass**: Automated quality gates (9.0/10 judge scoring still runs and iterates)
+- **Usage**: Append `--yes` to any pipeline command, e.g. `/code-workflow --yes`, `/reggie-system-change --yes [description]`
+
+**`--opus`**
+
+Force `model: "opus"` on every agent launch for the entire pipeline run. Available on `/code-workflow` and `/design-workflow`.
+
+---
+
 ### Topic: Pipelines
 
 **What is a pipeline?**

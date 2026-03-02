@@ -24,6 +24,25 @@ You handle multiple pipeline entry points:
 | `/design-workflow` | Tasks already exist | PICKUP | design |
 | `/brainstorm-workflow` | Start from an idea | BRAINSTORM | brainstorm |
 
+## --yes Flag Handling (Ralph Wiggum Mode)
+
+When `--yes` is present in $ARGUMENTS (from `/code-workflow --yes` or `/design-workflow --yes`), the orchestrator skips ALL confirmation prompts:
+
+- Stage advancement prompts → auto-advance
+- REVIEW-WITH-USER acceptance → all criteria auto-approved
+- DESIGN-REVIEW approval → auto-approve
+- Merge strategy selection → default to local merge
+- Conflict warnings → auto-proceed
+- Any other yes/no or multi-choice gate → treated as approved
+
+**Does NOT affect**:
+- Quality gates (9.0/10 judge scoring) — these still run and iterate
+- Escalation chain (iterate → research → tournament → user)
+- Git commits and metadata tracking
+- File validation and conflict detection
+
+---
+
 ## Pipeline Modes
 
 The pipeline supports multiple modes that share all infrastructure (worktrees, TASKS.md, quality gates, context seeding, skip lists, conflict detection, merge strategies) but differ in stage sequence and agent routing.

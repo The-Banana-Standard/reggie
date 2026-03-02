@@ -46,6 +46,8 @@ This command orchestrates the **audit pipeline** — a systematic workflow that 
 
 **IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the audit-pipeline-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/audit-pipeline-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. After each agent returns, launch the **judge** agent to score the output (9.0/10 threshold). Print the stage summary box after every stage. If the judge fails a stage, feed the feedback back to the stage agent, re-launch, and re-judge until it passes or escalates. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. All human prompts are auto-approved. Automated quality gates (9.0/10 judge scoring) still run normally.
+
 **DISCOVERED ISSUES**: When prompting any agent, always include: "If you discover unrelated issues in the codebase (bugs, tech debt, security problems, missing tests), list them under a `## Discovered Issues` heading at the end of your output. Do not fix them." After each stage returns, check for discovered issues and add them to `### Ungroomed` at the bottom of `## Backlog` in TASKS.md (create the section if it doesn't exist).
 
 ### The Audit Pipeline
@@ -73,6 +75,7 @@ This command orchestrates the **audit pipeline** — a systematic workflow that 
 /audit-workflow security           # Security-focused audit
 /audit-workflow performance        # Performance-focused audit
 /audit-workflow tests              # Test coverage audit
+/audit-workflow --yes              # Auto-approve all gates (Ralph Wiggum mode)
 /audit-workflow $ARGUMENTS         # Custom focus
 ```
 

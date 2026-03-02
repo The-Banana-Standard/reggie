@@ -32,6 +32,8 @@ You are orchestrating a debug workflow. This is a conversational debugging proce
 
 **IMPORTANT**: You (the main Claude) run this workflow directly. Read `~/.claude/agents/debug-pipeline-manager.md` for stage guidance, then launch the codebase-debugger agent via the Task tool during DEBUG-DIALOGUE. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. INTAKE clarifications, convergence checks, diagnosis confirmation, and handoff prompts are auto-approved.
+
 ### The Pipeline
 
 ```
@@ -48,6 +50,7 @@ INTAKE → DEBUG-DIALOGUE → HANDOFF → [code-workflow at PLAN]
 ```
 /debug-workflow                              # Prompts for symptom description
 /debug-workflow the app crashes on launch    # With initial symptoms
+/debug-workflow --yes                        # Auto-approve all gates (Ralph Wiggum mode)
 /debug-workflow $ARGUMENTS                   # Captures all args as symptoms
 ```
 
