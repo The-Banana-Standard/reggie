@@ -630,7 +630,7 @@ When processing learnings, `/improve` classifies each one:
 No. `.claude/agent-memory/` and `.claude/research-cache/` are `.gitignore`d. They're local developer knowledge, not shared code.
 
 **What is the research cache?**
-The researcher writes structured findings to `.claude/research-cache/` after moderate and complex research tasks. Each cache file has a topic, keywords, timestamp, and the actual findings. On subsequent tasks, the researcher checks the cache first — if a relevant entry exists and is less than 90 days old, it uses the cached findings (with a git delta check for file changes). This prevents redundant research on the same codebase areas.
+The researcher caches **web research findings only** (external best practices, library comparisons, API docs) to `.claude/research-cache/`. Codebase context is never cached — it's gathered live each time (by the orchestrator in pipeline mode, or by the researcher in standalone mode). Cache entries expire after 30 days. Size limit is 10-15k characters per entry. This prevents redundant web research while ensuring codebase context is always fresh.
 
 ---
 
@@ -709,11 +709,11 @@ The unified pipeline for formalizing changes to the ~/.claude/ agent system — 
 |-------|-------|---------|
 | INTAKE | Main Claude | Capture the change request |
 | BRAINSTORM | thought-partner | Explore design space (quick if obvious) |
-| PLAN | claude-architect | File-by-file change plan with classifications and validation |
+| PLAN | orchestrator (direct) | File-by-file change plan with classifications and validation |
 | IMPLEMENT | Main Claude | Apply edits, create new files, update integration docs |
 | VERIFY | researcher | Validate consistency after changes |
 
-**On-demand research.** BRAINSTORM and PLAN can dispatch the researcher agent when questions arise about current system state. Research is not a sequential stage — it's available when needed.
+**On-demand research.** The orchestrator reads files directly during PLAN (orchestrator-direct mode). For broad dependency tracing requiring many files, the researcher agent can be dispatched. BRAINSTORM can also dispatch the researcher when questions arise about current system state.
 
 **Change classifications:**
 - `direct-edit` — Modify existing file inline

@@ -44,7 +44,7 @@ Check for the existence and basic quality of:
 - HISTORY.md (exists? tracks completed work?)
 - .pipeline/ directory (exists? has active task directories?)
 - .claude/agent-memory/ (exists? which agents have memory? how many?)
-- .claude/research-cache/ (exists? how many cached topics? any stale entries?)
+- .claude/research-cache/ (exists? how many cached web research topics? any stale entries >30 days?)
 - .claude/stats.json (exists? has data?)
 - Git repository status (is it a git repo? has remote? recent commits?)
 

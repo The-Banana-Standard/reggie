@@ -55,8 +55,8 @@ Every `→` is a quality gate (9.0/10 minimum via judge agent). Every quality ga
 |-------|-------|---------|
 | AUDIT | researcher | Full codebase audit — find all issues |
 | PRIORITIZE | audit-pipeline-manager | Rank issues by impact/effort, create TASKS.md |
-| RESEARCH | researcher | Scan codebase for context relevant to this fix |
-| PLAN | code-architect | Design fix approach for current task |
+| RESEARCH | orchestrator (direct) + researcher (web only) | Orchestrator scans codebase directly; researcher called only for web research if needed |
+| PLAN | orchestrator (direct) | Orchestrator explores codebase, writes plan, judge evaluates |
 | IMPLEMENT | ios-developer / web-developer / appropriate dev agent | Write the fix |
 | WRITE-TESTS | qa-engineer | Create or update test coverage for the fix |
 | QUALITY-CHECK | qa-engineer | Validate test quality and coverage |
@@ -282,7 +282,7 @@ After iteration, show re-judge result (compact):
 ### Post-PLAN Conflict Detection
 
 After PLAN passes its quality gate for an audit task:
-1. Parse the code-architect's file list from the plan output
+1. Parse the file list from the plan output (look for `### Files` section)
 2. Write the file list to this task's `**Files**` field in TASKS.md (format: `NEW: path` or `MOD: path`)
 3. Compare against all other active tasks' `**Files**` lists — including tasks from other pipelines (e.g., a `/code-workflow` session running in another terminal)
 4. If overlap exists, show conflict warning:

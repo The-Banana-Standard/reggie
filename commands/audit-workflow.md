@@ -204,26 +204,9 @@ For each task from the prioritized backlog:
 
 ### Step 1: RESEARCH
 
-```
-## Research Phase
+**You (the orchestrator) handle codebase research for this fix directly.** Use Glob/Grep/Read to scan for context relevant to this specific audit finding. Write findings to `.pipeline/[slug]/CONTEXT.md`. If web research is needed (best practices, security advisories), launch **researcher** with a web-only prompt including your codebase findings. See `~/.claude/agents/pipeline-manager.md` → "RESEARCH (Orchestrator-Direct Mode)".
 
-[Launch **researcher** agent]
-
-Prompt: "Research context for fixing this audit finding:
-
-  Finding: [audit finding description]
-  Severity: [severity]
-
-  1. Search the codebase for all files and patterns related to this issue
-  2. Understand what existing code does and how it's structured
-  3. Identify conventions and patterns already in use
-  4. Note any dependencies or side effects a fix might have
-  5. If needed, search the web for best practices on fixing this type of issue
-
-  Output in Pipeline Context format for CONTEXT.md."
-```
-
-The researcher should calibrate:
+Calibrate research depth to the fix:
 - **Simple fix** (rename, add constant, fix typo): Quick codebase scan, 5-10 lines of context
 - **Moderate fix** (refactor pattern, add validation): Codebase scan + relevant conventions, 20-40 lines
 - **Complex fix** (architecture change, security overhaul): Deep scan + web research, 40-80 lines
@@ -239,9 +222,9 @@ Append research output to `.pipeline/[slug]/CONTEXT.md`.
 ```
 ## Planning Phase
 
-[Launch **code-architect** agent]
+**You (the orchestrator) handle the PLAN stage directly.** Do NOT launch code-architect as a subagent. Explore the codebase, write the plan following code-architect's output format (see `~/.claude/agents/code-architect.md`), then launch judge to evaluate. See `~/.claude/agents/pipeline-manager.md` → "PLAN (Orchestrator-Direct Mode)".
 
-Prompt: "Design a fix for this audit finding:
+Prompt context for planning: "Design a fix for this audit finding:
 
   [Include research context from .pipeline/[slug]/CONTEXT.md]
 

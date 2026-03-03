@@ -107,32 +107,26 @@ After the thought-partner produces the Brainstorm Summary and the user confirms,
 
 ---
 
-## Phase 3: PLAN
+## Phase 3: PLAN (Orchestrator-Direct)
 
-Launch **claude-architect** agent via Task tool.
+You (main Claude) handle this directly. No subagent.
 
-Read `~/.claude/agents/reggie-system-change-manager.md` Stage 3: PLAN for the full prompt template. Provide:
-- The confirmed change request from INTAKE
-- The brainstorm summary with direction and design decisions
-- The content of key files that will be affected (read them and include them)
+Read `~/.claude/agents/reggie-system-change-manager.md` Stage 3: PLAN (Orchestrator-Direct Mode) for full details.
 
-The claude-architect produces a file-by-file change plan with:
-- Each change classified as `direct-edit`, `new-component`, or `integration-update`
-- Frontmatter changes flagged for per-change approval
-- Risks and dependencies identified
-- Execution order specified
+1. Read the files most likely to be affected (use Read tool directly)
+2. Use Grep to trace dependencies across the system (which files reference what)
+3. Write a file-by-file change plan with:
+   - Each change classified as `direct-edit`, `new-component`, or `integration-update`
+   - Frontmatter changes flagged for per-change approval
+   - Risks and dependencies identified
+   - Execution order specified
+4. Run validation checks on your own plan (naming, tool permissions, required sections, description quality)
+5. If the plan includes `new-component` changes, launch the **judge** agent to score design quality (9.0/10 threshold)
+6. Present the plan to the user for approval. If `--yes` flag is active, auto-approve.
 
-After the architect returns, the orchestrator runs validation checks (naming, tool permissions, required sections, description quality). If the plan includes `new-component` changes, launch the **judge** agent to score design quality (9.0/10 threshold).
+**On-demand research**: For broad dependency analysis requiring many files, dispatch **researcher**. For simple grep-based checks, do it yourself.
 
-**On-demand research**: If the architect needs dependency analysis (which files reference agent X? which commands use pipeline stage Y?), dispatch **researcher** before or during planning. Provide findings to the architect.
-
-**Approval gate**: Present the plan to the user. They may:
-- Approve all changes
-- Approve some and reject others
-- Request modifications to specific changes
-- Ask to re-plan with different constraints
-
-After the user approves the plan, print the PLAN summary box.
+**Approval gate**: The user may approve all changes, approve some and reject others, request modifications, or ask to re-plan. After approval, print the PLAN summary box.
 
 ---
 
@@ -201,7 +195,7 @@ After the pipeline completes, capture agent-level learnings. This feeds the self
 
 **Focus areas for reggie-system-change**:
 - Did the thought-partner correctly gauge brainstorm depth (quick vs deep)?
-- Did the claude-architect identify all affected files and dependencies?
+- Did the orchestrator's plan identify all affected files and dependencies?
 - Were integration updates (PORTABLE-PACKAGE.md, reggie-guide.md, MEMORY.md) identified upfront or caught only during VERIFY?
 - Did any files have unexpected current state during IMPLEMENT?
 

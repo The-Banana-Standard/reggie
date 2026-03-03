@@ -57,6 +57,10 @@ This command orchestrates the **full development pipeline** for a single task.
 
 **DISCOVERED ISSUES**: When prompting any agent, always include: "If you discover unrelated issues in the codebase (bugs, tech debt, security problems, missing tests), list them under a `## Discovered Issues` heading at the end of your output. Do not fix them." After each stage returns, check for discovered issues and add them to `### Ungroomed` at the bottom of `## Backlog` in TASKS.md (create the section if it doesn't exist).
 
+**PRE-LAUNCH CONTEXT**: Before launching any subagent, pre-read relevant files (~200 line budget) and include their contents in the Task prompt. See `~/.claude/agents/pipeline-manager.md` → "Pre-Launch Context Loading" for what to include and the format template.
+
+**MODEL ROUTING**: Use the tier table in `~/.claude/agents/pipeline-manager.md` → "Model Routing" to select the correct model for each agent launch. Tier 1 (judge, code-reviewer, security-reviewer) always Opus. Tier 2 (developers, qa-engineer, etc.) Opus default. Tier 3 (technical-writer, etc.) Sonnet acceptable.
+
 **DESIGN MODE**: For design-focused work (redesigning screens, new UI themes, visual polish), use `/design-workflow` instead. It runs a design-optimized stage sequence with different agents (design-innovator, visual-architect) and a human review gate. See `~/.claude/agents/pipeline-manager.md` → "Pipeline Modes" for how modes work.
 
 ### The Pipeline
@@ -182,18 +186,15 @@ Before launching any stage agent, check `.pipeline/[slug]/SKIP`. If the current 
 
 ## Stage 2: RESEARCH
 
-```
-## Research Phase
+**You (the orchestrator) handle codebase research directly.** Do NOT launch researcher for codebase exploration.
 
-Before planning, let's understand the problem space.
-
-[Use **researcher** agent]
-
-Researching: [task topic]
-- How have others solved this?
-- What patterns should we follow?
-- Any gotchas to watch for?
-```
+1. Read `.pipeline/[slug]/CONTEXT.md` for pre-existing context
+2. Assess complexity: simple (existing pattern, small change) / moderate (new feature, some unknowns) / complex (new architecture, unfamiliar domain)
+3. Read foundational docs if they exist (`docs/soul.md`, `docs/architecture.md`, `docs/patterns.md`, `docs/data-models.md`)
+4. Search the codebase with Glob/Grep/Read: existing patterns, related modules, conventions, dependencies
+5. Write findings to `.pipeline/[slug]/CONTEXT.md` under `## Research Findings`
+6. **If web research is needed** (unfamiliar API, external best practices, library comparison): launch **researcher** agent with a web-research-only prompt. Include your codebase findings so the researcher skips codebase exploration.
+7. Launch **judge** to evaluate research quality (9.0/10 threshold, standard escalation)
 
 After research completes:
 ```
@@ -205,32 +206,28 @@ Research complete. Key findings:
 Ready to plan? (y/n)
 ```
 
+See `~/.claude/agents/pipeline-manager.md` → "RESEARCH (Orchestrator-Direct Mode)" for full process details.
+
 ---
 
 ## Stage 3: PLAN
 
-```
-## Planning Phase
+**You (the orchestrator) handle this stage directly.** Do NOT launch code-architect as a subagent.
 
-[Use **code-architect** agent]
+1. Read foundational docs (`docs/soul.md`, `docs/architecture.md`, `docs/patterns.md`, `docs/data-models.md`) if they exist
+2. Explore the codebase: use Glob/Grep/Read to understand existing architecture, conventions, and code the task will touch
+3. Write the plan following the format in `~/.claude/agents/code-architect.md` → Output Format:
+   - Overview, Files (NEW/MOD), Approach (numbered steps), Key Decisions, Gotchas, Risks, Verification
+4. Append the plan to `.pipeline/[slug]/CONTEXT.md` under `## Architecture Plan`
+5. Launch **judge** to evaluate (9.0/10 threshold, standard escalation)
+6. After judge passes: present plan to user for approval (auto-approve if `--yes`)
 
-Creating technical plan for: [task]
-```
-
-After plan completes:
-```
-Plan complete:
-- [X] files to create/modify
-- [X] step approach
-- Key decisions documented
-
-Review the plan above. Ready to implement? (y/n)
-```
+See `~/.claude/agents/pipeline-manager.md` → "PLAN (Orchestrator-Direct Mode)" for full process details.
 
 ### Post-PLAN: Conflict Detection
 
 After PLAN passes its quality gate, before advancing to IMPLEMENT:
-1. Parse the code-architect's file list from the plan output (look for `### Files` section)
+1. Parse the file list from the plan output (look for `### Files` section)
 2. Write the file list to this task's `**Files**` field in TASKS.md (format: `NEW: path` or `MOD: path`)
 3. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: files [slug]" --no-gpg-sign 2>/dev/null`
 4. Compare against all other active tasks' `**Files**` lists in TASKS.md
@@ -596,8 +593,8 @@ Before committing, capture any agent-level learnings from this pipeline run. Thi
    - If unsure, default to PROJECT
 
 **Focus areas for code-workflow**:
-- Did the researcher provide enough context for the architect?
-- Did the architect's plan survive implementation, or did the developer deviate significantly?
+- Did the orchestrator's codebase research provide enough context for planning?
+- Did the plan survive implementation, or did the developer deviate significantly?
 - Did tests catch real issues, or were they superficial?
 - Did the refactorer actually simplify, or just rearrange?
 - Did reviews (code + security) catch things that earlier stages should have prevented?
@@ -830,7 +827,7 @@ Starting RESEARCH stage.
 │   - UTC midnight reset avoids timezone edge cases                │
 │   - Grace period pattern from Duolingo reduces churn             │
 │                                                                  │
-│ Next: PLAN → code-architect                                      │
+│ Next: PLAN (orchestrator-direct)                                  │
 └──────────────────────────────────────────────────────────────────┘
 
 ... [PLAN, IMPLEMENT, WRITE-TESTS, etc. proceed normally] ...

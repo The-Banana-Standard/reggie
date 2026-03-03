@@ -92,9 +92,9 @@ Every `→` is a quality gate (9.0/10 minimum). Every quality gate pass = git co
 | Stage | Code Mode Agent | Design Mode Agent | Purpose |
 |-------|----------------|-------------------|---------|
 | BRAINSTORM | thought-partner | thought-partner | Explore idea, define what to build |
-| RESEARCH | researcher | design-innovator + researcher | Investigate problem space (design: trends + platform conventions) |
+| RESEARCH | orchestrator (direct) | design-innovator + researcher | Investigate problem space (code mode: orchestrator explores codebase directly, launches researcher for web research if needed; design: trends + platform conventions) |
 | PICKUP | pipeline-manager | pipeline-manager | Select task from backlog |
-| PLAN | code-architect | design-innovator + visual-architect | Design approach (design: visual concept + component specs) |
+| PLAN | orchestrator (direct) | design-innovator + visual-architect | Design approach (code mode: orchestrator explores codebase, writes plan, judge evaluates; design: visual concept + component specs) |
 | IMPLEMENT | ios/android/web/go/ts-developer | same dev agent (visual emphasis) | Write the code |
 | TEST | qa-engineer | *skip* | Create test coverage |
 | QUALITY-CHECK | qa-engineer | *skip* | Validate test quality |
@@ -145,6 +145,58 @@ Tournament is a quality escalation, not a separate pipeline. Two agents work the
 **Tournamentable stages**: BRAINSTORM, RESEARCH, PLAN, IMPLEMENT, TEST, DRAFT
 
 **Non-tournamentable**: PICKUP, COMMIT, PUSH (mechanical/single-source)
+
+## Model Routing
+
+The orchestrator selects the model for each subagent launch via the Task tool's `model` parameter. Agent frontmatter defaults to `model: opus` — the orchestrator overrides this at launch time based on the tier below.
+
+**Hard ban: Never use `model: "haiku"`.** Haiku is below the system floor. All agents require at least Sonnet-level capability to follow their instruction sets.
+
+### Tier Table
+
+| Tier | Model | Agents | Rationale |
+|------|-------|--------|-----------|
+| 1 — Always Opus | `model: "opus"` | judge, code-reviewer, security-reviewer | Judgment, nuance, and adversarial review require maximum capability. Never downgrade. |
+| 2 — Opus default, Sonnet acceptable | `model: "opus"` (Sonnet on iteration passes after specific judge feedback) | ios-developer, android-developer, web-developer, go-developer, typescript-developer, qa-engineer, app-tester, refactorer, code-architect, researcher | Core work agents. Start on Opus. Sonnet acceptable for iteration passes where judge feedback compensates for reduced capability. |
+| 3 — Sonnet acceptable | `model: "sonnet"` | technical-writer, thought-partner, design-innovator, visual-architect | Structured output, creative exploration, or template-following tasks where Sonnet produces equivalent results. |
+
+### Override Rules
+
+- **`--opus` flag**: Forces `model: "opus"` on every launch. Tier 3 agents run on Opus. No exceptions.
+- **Escalation (attempt 3)**: If a stage fails twice on Sonnet, retry on Opus. This is already in the Quality Gate System above — model routing provides the *initial* selection; escalation handles *recovery*.
+- **Tier 1 agents are never downgraded**, even for iteration passes. Judge quality directly determines pipeline correctness.
+
+## Pre-Launch Context Loading
+
+Before launching any subagent via Task tool, the orchestrator pre-reads relevant files and includes their contents directly in the Task prompt. This eliminates the cold-start problem where subagents spend their first actions re-discovering context the orchestrator already has.
+
+**Budget**: ~200 lines of file content per subagent launch. This is a soft target, not a hard limit — slightly over is fine, significantly over wastes context window.
+
+**What to include** (in priority order, stop when budget is reached):
+1. **CONTEXT.md** — always include the full pipeline context (research findings, plan, prior stage outputs)
+2. **Primary files** — the 2-3 files most relevant to the stage (e.g., for IMPLEMENT: the files listed in the plan's NEW/MOD list; for REVIEW: the diff)
+3. **Convention files** — `CLAUDE.md` key sections, `docs/patterns.md` excerpts if relevant
+4. **Prior stage output** — if the stage needs it (e.g., IMPLEMENT needs the plan, WRITE-TESTS needs the implementation summary)
+
+**What NOT to include**:
+- Entire large files when only a section is relevant (use line ranges)
+- Files the subagent will naturally discover through its own exploration
+- Duplicate content already in CONTEXT.md
+
+**Format in Task prompt**:
+```
+Here is pre-loaded context for this stage:
+
+--- CONTEXT.md ---
+[contents]
+
+--- src/models/User.swift (lines 1-45) ---
+[contents]
+
+--- [end pre-loaded context] ---
+
+[stage instructions follow]
+```
 
 ## Git Checkpoint System
 
@@ -515,7 +567,7 @@ The backlog uses `### Section Name` headers to organize tasks into areas of focu
 
 Key fields:
 - **Task slug** as the `###` heading (derived from task name: lowercase, hyphens)
-- **`Files` field** populated after PLAN from code-architect's `### Files` output. Format: `NEW: path` or `MOD: path`
+- **`Files` field** populated after PLAN from the plan's `### Files` output. Format: `NEW: path` or `MOD: path`
 - Multiple tasks can be active simultaneously under `## Active Tasks`
 
 ## TASKS.md Migration
@@ -669,6 +721,52 @@ When `/code-workflow` is run with no arguments and no task is specified:
 6. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: stage [slug] [STAGE-NAME]" --no-gpg-sign 2>/dev/null`
 7. Write current stage to `.pipeline/[slug]/STAGE` file (plain text, e.g., `IMPLEMENT`). This file is read by `/status` to show progress without parsing TASKS.md.
 
+### RESEARCH (Orchestrator-Direct Mode)
+
+In code mode, the orchestrator handles codebase research directly instead of launching the researcher agent. The orchestrator already has Glob/Grep/Read access — launching a subagent for codebase exploration adds context transfer overhead with no benefit.
+
+**Process:**
+1. Read `.pipeline/[slug]/CONTEXT.md` for pre-existing context (audit findings, task context blocks)
+2. Assess complexity: simple (existing pattern, small change) / moderate (new feature, some unknowns) / complex (new architecture, unfamiliar domain)
+3. Read foundational docs: `docs/soul.md`, `docs/architecture.md`, `docs/patterns.md`, `docs/data-models.md` (if they exist)
+4. Search the codebase:
+   - Existing patterns: How does the codebase handle similar things?
+   - Related modules: What existing code will this task touch?
+   - Conventions: Naming, structure, architecture decisions
+   - Dependencies: Relevant libraries/frameworks already in use
+5. Write findings to `.pipeline/[slug]/CONTEXT.md` under `## Research Findings` using the researcher's Pipeline Context format (see `~/.claude/agents/researcher.md` → Output Format → Pipeline Context)
+6. **If web research is needed** (unfamiliar API, external best practices, library comparison): launch the **researcher** agent with a web-research-only prompt. Include your codebase findings in the prompt so the researcher does not re-explore the codebase.
+7. Launch **judge** to evaluate research quality (9.0/10 threshold, standard escalation)
+
+**The researcher agent is NOT deleted or renamed.** It remains available for:
+- Web research when launched from pipelines (orchestrator provides codebase context, researcher adds external findings)
+- Standalone `/research` command (full codebase + web research, unchanged)
+- Design mode RESEARCH stage (design-innovator + researcher, unchanged)
+- Quality gate escalation attempt 2 (researcher provides new context — focus on web sources since the orchestrator already covered the codebase)
+- Onboard pipeline DISCOVER/ANALYZE/DOC-AUDIT stages (unchanged)
+
+### PLAN (Orchestrator-Direct Mode)
+
+In code mode, the orchestrator handles the PLAN stage directly instead of launching code-architect as a subagent. This eliminates context transfer overhead — the orchestrator already has full codebase access, research findings, and pipeline context.
+
+**Process:**
+1. Read foundational docs: `docs/soul.md`, `docs/architecture.md`, `docs/patterns.md`, `docs/data-models.md` (if they exist)
+2. Explore the codebase using Glob, Grep, Read — understand the existing architecture, conventions, and related code the task will touch
+3. Write the plan following code-architect's output format (see `~/.claude/agents/code-architect.md` → Output Format):
+   - Overview, Files (NEW/MOD), Approach (numbered steps), Key Decisions table, Gotchas, Risks, Verification
+4. Append the plan to `.pipeline/[slug]/CONTEXT.md` under `## Architecture Plan`
+5. Launch **judge** agent to evaluate the plan against code-architect quality standards (9.0/10 threshold)
+6. If judge fails it: iterate on the plan yourself using judge feedback, re-submit to judge
+7. Escalation follows the standard Quality Gate System (but Sonnet-to-Opus retry is N/A since the orchestrator is already Opus)
+8. After plan passes: present to user for approval. If `--yes` flag is active, auto-approve.
+
+**The code-architect agent is NOT deleted.** It remains available for:
+- Standalone `/plan` command (user explicitly wants a subagent to plan)
+- Design mode PLAN stage (design-innovator + visual-architect handle this, not the orchestrator)
+- `/init-tasks` ORGANIZE phase (code-architect groups and prioritizes tasks)
+- `/new-repo` task breakdown (code-architect analyzes project structure)
+- Tournament mode (if PLAN stage escalates to tournament, code-architect is launched as one of the two competitors)
+
 ### Pre-PLAN Dependency Validation
 Before starting the PLAN stage, check if the picked task has `[depends: slug]` tags:
 1. Parse the dependency slugs from the task line
@@ -690,7 +788,7 @@ Before starting the PLAN stage, check if the picked task has `[depends: slug]` t
 
 ### Post-PLAN Conflict Detection
 After PLAN passes its quality gate, before advancing to IMPLEMENT:
-1. Parse the code-architect's file list from the plan output
+1. Parse the file list from the plan output (look for `### Files` section)
 2. Write the file list to this task's `**Files**` field in TASKS.md (format: `NEW: path` or `MOD: path`)
 3. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: files [slug]" --no-gpg-sign 2>/dev/null`
 4. Compare against all other active tasks' `**Files**` lists

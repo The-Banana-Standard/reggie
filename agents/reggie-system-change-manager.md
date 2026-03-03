@@ -43,7 +43,7 @@ When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confir
 
 ### On-Demand Research
 
-BRAINSTORM and PLAN can dispatch the **researcher** agent mid-stage when questions arise about current system state. This is not a sequential stage — it is a tool available to the orchestrator when the thought-partner or claude-architect needs information they cannot get from what has already been provided.
+BRAINSTORM and PLAN can dispatch the **researcher** agent when questions arise about current system state that require reading many files. This is not a sequential stage — it is a tool available to the orchestrator when the thought-partner needs information not already in context, or when dependency tracing during planning requires broad file exploration.
 
 **When to dispatch researcher**:
 - Thought-partner asks "how does X currently work?" and you do not have the answer in context
@@ -63,7 +63,7 @@ BRAINSTORM and PLAN can dispatch the **researcher** agent mid-stage when questio
 |-------|---------|----------|------|
 | INTAKE | Capture the change request with full context | Main Claude | Auto (requirement stated) |
 | BRAINSTORM | Explore the design space, confirm direction | thought-partner agent | User confirms direction |
-| PLAN | Concrete file-by-file change plan with classifications | claude-architect agent | User approves plan (+ judge 9.0/10 if new components) |
+| PLAN | Concrete file-by-file change plan with classifications | Main Claude (orchestrator-direct) | User approves plan (+ judge 9.0/10 if new components) |
 | IMPLEMENT | Execute approved plan: direct edits + file creation | Main Claude | Changes applied |
 | VERIFY | Validate consistency after changes | researcher agent | All checks pass |
 
@@ -154,25 +154,19 @@ When the direction is confirmed, produce a summary:
 
 ---
 
-### Stage 3: PLAN
+### Stage 3: PLAN (Orchestrator-Direct Mode)
 
-**Executor**: Launch **claude-architect** agent via Task tool
+**Executor**: Main Claude (orchestrator handles planning directly)
 
-**Purpose**: Produce a concrete, file-by-file change plan with classifications, risks, and dependencies.
+**Purpose**: Produce a concrete, file-by-file change plan with classifications, risks, and dependencies. The orchestrator writes the plan directly instead of delegating to claude-architect — this eliminates context transfer overhead since the orchestrator already has the conversation context, brainstorm findings, and direct file access.
 
-**Prompt Template**:
+**Process**:
+
+1. Read the files most likely to be affected (use Read tool directly)
+2. If tracing dependencies (which commands reference an agent, which pipeline managers list a stage), use Grep to search across the system
+3. Write the plan following this format:
+
 ```
-Create an implementation plan for this system change to ~/.claude/:
-
-[Include confirmed change request from INTAKE]
-[Include brainstorm summary with direction and design decisions]
-
-You are planning changes to the Claude Code agent system — not a software codebase. Read the relevant files before planning:
-
-[List the files most likely to be affected — the orchestrator should read and include key files, or instruct the architect to read them]
-
-For each change, produce:
-
 ## Change Plan
 
 ### Change 1: [file path]
@@ -210,14 +204,18 @@ N. Integration updates (always last)
 - Frontmatter changes requiring approval: [N]
 ```
 
-**On-demand research**: If the architect needs to trace dependencies — which commands reference an agent, which pipeline managers list a stage, what files would break if a name changes — dispatch the **researcher** agent to do the dependency analysis before or during planning.
+4. Run validation checks on your own plan (see below)
+5. If the plan includes `new-component` changes, launch the **judge** agent to score design quality (9.0/10 threshold)
+6. Present the plan to the user for approval. If `--yes` flag is active, auto-approve.
+
+**On-demand research**: If you need to trace dependencies that require reading many files — dispatch the **researcher** agent to do the dependency analysis. For simple dependency checks (grep for a name across a few files), do it yourself.
 
 **Classification rules**:
 - **direct-edit**: Any modification to an existing agent, command, or pipeline manager file. This includes adding sections, changing content, updating descriptions, adjusting process steps.
 - **new-component**: Any brand-new agent, command, or workflow file that does not yet exist. Created directly during IMPLEMENT using the Write tool, following the file templates and validation checks below.
 - **integration-update**: Updates to PORTABLE-PACKAGE.md, reggie-guide.md, MEMORY.md to reflect changes made. Always the last step.
 
-**Validation checks** (performed by the orchestrator after the architect produces the plan):
+**Validation checks** (performed by the orchestrator on its own plan):
 
 1. **Naming conflicts**: Do any proposed filenames already exist in `~/.claude/agents/` or `~/.claude/commands/`?
 2. **Naming conventions**: Do names follow role-based pattern (e.g., `researcher` not `research`)?
@@ -235,6 +233,12 @@ N. Integration updates (always last)
 8. **No skills**: Reject any attempt to create a skill — language/framework patterns belong in developer agents.
 
 **Conditional judge scoring**: If the plan includes ANY `new-component` changes, launch the **judge** agent to score the plan design quality at 9.0/10 threshold. The judge evaluates: naming quality, tool permission appropriateness, section completeness, description quality, integration coverage. If the plan has only `direct-edit` and `integration-update` changes, skip judge scoring.
+
+**The claude-architect agent is NOT deleted.** It remains available for:
+- Standalone `/plan` command (user explicitly wants a subagent to plan)
+- `/init-tasks` ORGANIZE phase (code-architect groups and prioritizes tasks)
+- `/new-repo` task breakdown (code-architect analyzes project structure)
+- Tournament mode (if PLAN stage escalates to tournament, code-architect is launched as one of the two competitors)
 
 **Pass Criteria**: User approves the plan. They may approve all changes, approve some and reject others, or request modifications to specific changes. If judge scoring was triggered, plan must also pass 9.0/10.
 
