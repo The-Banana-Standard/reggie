@@ -1,0 +1,226 @@
+# MCP Registry — Curated mapping of project signals to MCP servers
+# Used by /find-tools, /onboard, /new-repo, and /improve (TOOLING-CHECK)
+#
+# Signal types:
+#   files — Config files that indicate this tech is in use
+#   deps  — Package dependencies (checked in package.json, go.mod, requirements.txt, etc.)
+#   dirs  — Directory patterns that indicate this tech
+#
+# Scope:
+#   project — Install per-project (.mcp.json), not globally
+#   global  — Install globally (~/.claude/settings.json or claude_mcp_settings.json)
+#   either  — Let user choose
+#
+# Token profile: low | medium | high (rough context cost indicator)
+# Category: backend | frontend | devops | productivity | testing | docs
+#
+# IMPORTANT: MCP tools propagate to ALL subagents launched via Task, regardless
+# of their tools: allowlist. token_profile cost is multiplied by subagent count
+# in pipelines. Use ENABLE_TOOL_SEARCH and the relevant_agents field to mitigate.
+#
+# relevant_agents: Which agent types actually use this MCP server's tools.
+# The pipeline-manager uses this to include MCP guidance in subagent prompts.
+# Agents NOT listed receive "No MCP tools are relevant for this stage."
+
+servers:
+
+  firebase:
+    signals:
+      files: ["firebase.json", ".firebaserc", "firestore.rules", "firestore.indexes.json", "storage.rules"]
+      deps: ["firebase", "firebase-admin", "firebase-tools", "firebase-functions"]
+      dirs: ["functions/"]
+    config:
+      command: "npx"
+      args: ["-y", "firebase-tools@latest", "mcp"]
+    transport: stdio
+    scope: project
+    env_vars: []
+    token_profile: medium
+    category: backend
+    relevant_agents: [cloud-engineer, firebase-debugger, app-tester]
+
+  github:
+    signals:
+      files: [".github/workflows/"]
+      deps: []
+    config:
+      type: http
+      url: "https://api.githubcopilot.com/mcp/"
+      headers:
+        Authorization: "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"
+    transport: http
+    scope: global
+    env_vars: ["GITHUB_PERSONAL_ACCESS_TOKEN"]
+    token_profile: low
+    category: productivity
+    notes: "Useful for any git repo. Requires GitHub PAT."
+    relevant_agents: [cloud-engineer, web-developer, typescript-developer]
+
+  playwright:
+    signals:
+      files: ["playwright.config.ts", "playwright.config.js", "playwright.config.mjs"]
+      deps: ["@playwright/test", "playwright"]
+      dirs: []
+    config:
+      command: "npx"
+      args: ["@playwright/mcp@latest"]
+    transport: stdio
+    scope: project
+    env_vars: []
+    token_profile: medium
+    category: testing
+    relevant_agents: [qa-engineer, app-tester]
+
+  supabase:
+    signals:
+      files: ["supabase/config.toml"]
+      deps: ["@supabase/supabase-js", "supabase"]
+      dirs: ["supabase/"]
+    config:
+      type: http
+      url: "https://mcp.supabase.com/mcp"
+    transport: http
+    scope: project
+    env_vars: []
+    token_profile: medium
+    category: backend
+    relevant_agents: [web-developer, typescript-developer, go-developer]
+
+  slack:
+    signals:
+      files: []
+      deps: ["@slack/bolt", "@slack/web-api"]
+      dirs: []
+    config:
+      type: http
+      url: "https://mcp.slack.com/mcp"
+    transport: http
+    scope: global
+    env_vars: []
+    token_profile: low
+    category: productivity
+    notes: "OAuth-based. User-intent tool — only suggested in /find-tools OPTIONAL."
+    relevant_agents: []
+
+  linear:
+    signals:
+      files: []
+      deps: ["@linear/sdk"]
+      dirs: []
+    config:
+      type: http
+      url: "https://mcp.linear.app/mcp"
+    transport: http
+    scope: global
+    env_vars: []
+    token_profile: low
+    category: productivity
+    notes: "User-intent tool — only suggested in /find-tools OPTIONAL."
+    relevant_agents: []
+
+  stripe:
+    signals:
+      files: []
+      deps: ["stripe", "@stripe/stripe-js", "@stripe/react-stripe-js"]
+      dirs: []
+    config:
+      type: http
+      url: "https://mcp.stripe.com"
+    transport: http
+    scope: project
+    env_vars: []
+    token_profile: medium
+    category: backend
+    relevant_agents: [web-developer, typescript-developer]
+
+  context7:
+    signals:
+      files: []
+      deps: []
+      dirs: []
+    config:
+      command: "npx"
+      args: ["-y", "@upstash/context7-mcp"]
+    transport: stdio
+    scope: either
+    env_vars: []
+    token_profile: low
+    category: docs
+    notes: "Docs lookup tool. No signal match — always shown in /find-tools OPTIONAL."
+    relevant_agents: [researcher]
+
+  chrome-devtools:
+    signals:
+      files: ["index.html", "next.config.js", "next.config.ts", "next.config.mjs", "vite.config.ts", "vite.config.js", "vite.config.mjs"]
+      deps: ["react", "vue", "svelte", "next", "nuxt", "vite", "angular", "@angular/core"]
+      dirs: []
+    config:
+      plugin: "chrome-devtools-mcp"
+    transport: plugin
+    scope: project
+    env_vars: []
+    token_profile: high
+    category: frontend
+    notes: "Currently enabled globally in many setups. /find-tools offers to move to project-level for web projects."
+    relevant_agents: [web-developer, app-tester, codebase-debugger]
+
+  sentry:
+    signals:
+      files: ["sentry.properties", ".sentryclirc", "sentry.client.config.ts", "sentry.server.config.ts"]
+      deps: ["@sentry/react", "@sentry/node", "@sentry/nextjs", "@sentry/browser", "sentry-sdk", "sentry_sdk"]
+      dirs: []
+    config:
+      command: "npx"
+      args: ["-y", "@sentry/mcp-server"]
+    transport: stdio
+    scope: project
+    env_vars: ["SENTRY_AUTH_TOKEN"]
+    token_profile: low
+    category: devops
+    relevant_agents: [cloud-engineer, app-tester]
+
+  figma:
+    signals:
+      files: []
+      deps: []
+      dirs: []
+    config:
+      command: "npx"
+      args: ["-y", "@anthropic/figma-mcp"]
+    transport: stdio
+    scope: global
+    env_vars: ["FIGMA_ACCESS_TOKEN"]
+    token_profile: medium
+    category: frontend
+    notes: "Design-driven, no file signals. User-intent tool — only in /find-tools OPTIONAL."
+    relevant_agents: [web-developer, ios-developer, android-developer, design-innovator]
+
+  docker:
+    signals:
+      files: ["Dockerfile", "docker-compose.yml", "docker-compose.yaml", ".dockerignore"]
+      deps: []
+      dirs: []
+    config:
+      command: "docker"
+      args: ["mcp"]
+    transport: stdio
+    scope: project
+    env_vars: []
+    token_profile: low
+    category: devops
+    relevant_agents: [cloud-engineer]
+
+  postgresql:
+    signals:
+      files: []
+      deps: ["pg", "postgres", "knex", "prisma", "drizzle-orm", "typeorm", "sequelize", "psycopg2", "sqlalchemy"]
+      dirs: ["prisma/", "drizzle/"]
+    config:
+      command: "npx"
+      args: ["-y", "@anthropic/postgres-mcp"]
+    transport: stdio
+    scope: project
+    env_vars: ["DATABASE_URL"]
+    token_profile: medium
+    category: backend
+    relevant_agents: [web-developer, typescript-developer, go-developer]
