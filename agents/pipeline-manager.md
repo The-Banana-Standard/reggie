@@ -311,6 +311,47 @@ Agents with `memory: project` in their frontmatter automatically read/write to `
 3. **After PICKUP**: If `.claude/agent-memory/` doesn't exist in the project, agents will create it on their first memory write. No special setup needed.
 4. **Memory is local**: Agent memory is in `.gitignore` -- it's per-machine context, not committed.
 
+### MCP Tool Routing
+
+MCP tool schemas propagate to every subagent launched via Task — the `tools:` allowlist filters built-in tools but does NOT filter MCP tools. With `ENABLE_TOOL_SEARCH=auto:5`, tool schemas are deferred (names listed, not loaded) until an agent calls ToolSearch, making the cost near-zero for agents that never invoke them. The orchestrator's job is to tell the right agents about the right tools and stay silent for the rest.
+
+#### At Pipeline Start (PICKUP)
+
+1. **Check `ENABLE_TOOL_SEARCH`**: If MCP servers are configured (`.mcp.json` exists or global MCP config has entries), check whether `ENABLE_TOOL_SEARCH` is set. If not, print:
+   ```
+   WARNING: MCP servers configured but ENABLE_TOOL_SEARCH not set.
+   Without it, MCP tool schemas load into every subagent context — multiplying
+   token cost by the number of agent launches in this pipeline.
+
+   To fix, add to your shell profile (~/.zshrc or ~/.bashrc):
+     export ENABLE_TOOL_SEARCH=auto:5
+
+   Continuing without it. MCP tools will still work but at higher context cost.
+   ```
+   This is a warning, not a hard gate — the pipeline continues either way.
+
+2. **Build MCP routing map**: Read `.mcp.json` (project-level) to get configured servers. Cross-reference each server name against `~/.claude/mcp-registry.yaml` to get its `relevant_agents` list. Store a map of `agent-type → [server names]` for the pipeline run. Servers not in the registry are ignored (agents may still discover them independently via ToolSearch).
+
+#### Before Each Subagent Launch
+
+Check the routing map for the agent type being launched:
+
+**If relevant MCP tools exist for this agent:**
+> "MCP tools available for this stage: [server names]. Use ToolSearch to find these tools if they would help accomplish the task."
+
+**If NO relevant MCP tools exist (or no MCP servers configured):**
+> Say nothing about MCP. The agent won't call ToolSearch for MCP tools unprompted, so context cost is zero.
+
+Keep the instruction to 1-2 lines. Do not list individual tool names — just server names. The agent uses ToolSearch to discover specific tools.
+
+#### During Orchestrator-Direct Stages (RESEARCH, PLAN)
+
+When the orchestrator handles a stage directly (not via subagent), it should use ToolSearch itself if the task involves technology matching a configured MCP server. For example:
+- Task involves Firebase + `firebase` server configured → use ToolSearch to find Firebase MCP tools for querying Firestore, checking function logs, etc.
+- Task involves a web app + `chrome-devtools` configured → use ToolSearch for browser debugging during VERIFY-APP orchestration
+
+The orchestrator follows the same routing logic: check `.mcp.json` against the registry, use ToolSearch only for servers relevant to the task's technology.
+
 ### Committing in Worktree
 
 ```bash

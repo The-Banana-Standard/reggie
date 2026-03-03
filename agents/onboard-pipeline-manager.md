@@ -39,9 +39,9 @@ When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confir
 ## The Pipeline
 
 ```
-DISCOVER → VALIDATE → ANALYZE → DOC-AUDIT → GENERATE → SEED-MEMORY → REFINE
-             ↑                                                          ↑
-          (skippable)                                               (skippable)
+DISCOVER → VALIDATE → ANALYZE → DOC-AUDIT → GENERATE → SEED-MEMORY → CONFIGURE-TOOLS → REFINE
+             ↑                                                                           ↑
+          (skippable)                                                                 (skippable)
 ```
 
 ### Arguments
@@ -70,6 +70,7 @@ Two stages require human confirmation before proceeding:
 | DOC-AUDIT | researcher | Assess existing docs for signal vs noise |
 | GENERATE | technical-writer | Create CLAUDE.md, foundational docs, TASKS.md, .pipeline/, MEMORY.md |
 | SEED-MEMORY | (main Claude) | Create agent memory directories with initial context |
+| CONFIGURE-TOOLS | (main Claude) | Scan project, recommend and configure MCP servers |
 | REFINE | technical-writer | Prune/enhance docs per audit recommendations |
 
 ---
@@ -258,6 +259,27 @@ They do not duplicate code — they provide context agents need to make good dec
 4. Create `.claude/research-cache/` directory for the researcher's cached findings
 5. Add `.claude/agent-memory/` and `.claude/research-cache/` to `.gitignore` if not already present
 6. No quality gate -- informational stage
+
+---
+
+### CONFIGURE-TOOLS Stage
+
+1. Read `~/.claude/mcp-registry.yaml` to load the MCP server registry
+2. Scan the project for signal matches using the tech stack already discovered in DISCOVER:
+   - Check for registry `signals.files` in the project (use Glob)
+   - Check `signals.deps` against detected dependencies (package.json, go.mod, requirements.txt, etc.)
+   - Check `signals.dirs` against project directory structure
+3. Read current MCP config (`.mcp.json` if it exists, `~/.claude/settings.json` for global servers)
+4. Present categorized recommendations:
+   - **RECOMMENDED**: Matched signals, not yet configured — include server name, matched signals, scope, env vars needed, token profile
+   - **ALREADY CONFIGURED**: Matched and configured — no action needed
+   - **OPTIONAL**: No signal match but potentially useful (context7, figma, etc.) — brief description only
+   - **UNUSED**: Configured but no matching signals in this project — note context cost
+5. User selects which tools to enable
+6. Install selected tools via `claude mcp add --scope project` (or `--scope user` for `scope: global` servers)
+7. Note any required env vars that need to be set
+8. Check whether `ENABLE_TOOL_SEARCH` is active. If MCP servers are now configured but ToolSearch is not enabled, recommend adding `export ENABLE_TOOL_SEARCH=auto:5` to the user's shell profile. Explain why: defers MCP schema loading so pipeline subagents only pay context cost for tools they actually invoke.
+9. No quality gate — interactive, user-driven
 
 ---
 

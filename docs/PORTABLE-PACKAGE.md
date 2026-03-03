@@ -107,7 +107,7 @@ Specialized AI agents that Claude Code invokes as subprocesses. Each has a defin
 |-------|------|-------|
 | `repo-advisor` | Evaluate repo readiness for agent system | Read, Write, Bash |
 
-### 34 Slash Commands
+### 35 Slash Commands
 
 Commands invoke pipelines or individual stages.
 
@@ -156,6 +156,7 @@ Commands invoke pipelines or individual stages.
 | `/sync-docs` | Sync all documentation |
 | `/update-claude` | Capture learnings in CLAUDE.md |
 | `/fix-tests` | Fix failing tests |
+| `/find-tools` | Scan project, configure MCP servers |
 | `/guide` | Topic-based help for the agent system |
 
 ---
@@ -234,8 +235,21 @@ Agents report unrelated issues they find during work under a `## Discovered Issu
 | Design | `/design-workflow` | BRAINSTORM → RESEARCH-TRENDS → CONCEPT → [worktree] → PROTOTYPE → TEST → REFINE → BUILD → DESIGN-REVIEW → [merge] |
 | Article | `/article-workflow` | BRAINSTORM → RESEARCH → OUTLINE → DRAFT → EDIT → HUMAN-EDIT → [loop until satisfied] → REVIEW → PUBLISH |
 | Social | `/social-workflow` | EXTRACT-SNIPPETS → ADAPT-PER-PLATFORM → REVIEW |
-| Repo Setup | `/new-repo` | BRAINSTORM → SCAFFOLD → GIT-INIT → CLAUDE-MD → DOCS → COMMIT → PUSH |
-| Onboard | `/onboard` | DISCOVER → VALIDATE → ANALYZE → DOC-AUDIT → GENERATE → REFINE |
+| Repo Setup | `/new-repo` | PROJECT-VISION (loop) → SCAFFOLD → SEED-MEMORY → CONFIGURE-TOOLS → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH |
+| Onboard | `/onboard` | DISCOVER → VALIDATE → ANALYZE → DOC-AUDIT → GENERATE → SEED-MEMORY → CONFIGURE-TOOLS → REFINE |
+| Improve | `/improve` | TOOLING-CHECK → COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE |
+
+### MCP Tool Management
+
+MCP (Model Context Protocol) servers extend agent capabilities with external tools (Firebase, browser automation, databases, etc.). The system manages MCP tools through:
+
+- **`mcp-registry.yaml`** — Curated mapping of project signals to MCP servers with `relevant_agents` field for pipeline routing
+- **`/find-tools`** — Scan a project and configure relevant MCP servers on demand
+- **CONFIGURE-TOOLS stage** — Automatically scan and configure during `/onboard` and `/new-repo`
+- **TOOLING-CHECK stage** — Periodic drift check during `/improve` (unused servers, missing tools)
+- **Pipeline MCP routing** — The orchestrator reads `.mcp.json` at pipeline start and tells each subagent which MCP tools are available via ToolSearch, keeping context cost at zero for agents that don't need them
+
+Requires `ENABLE_TOOL_SEARCH=auto:5` to defer MCP schema loading in subagents.
 
 ---
 
@@ -423,7 +437,7 @@ Add a `CLAUDE.md` to any project root. Agents read this file to understand proje
 Package version: 2.8.0
 Last updated: 2026-02-06
 Agents: 37
-Commands: 34
+Commands: 35
 Pipelines: 9 (audit, design, article, social, repo-setup, brainstorm, workflow-generator, port-feature, onboard, debug)
 Features: Git worktree isolation for parallel tasks, branch-per-task with merge strategies, cross-pipeline task sharing, conflict detection, discovered issues → backlog, researcher as context builder, always-loaded language patterns in developer agents, meta-workflow for creating new workflows with permission validation, onboard workflow for existing repos, conversational debug workflow with Socratic diagnosis
 ```

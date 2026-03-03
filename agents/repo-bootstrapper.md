@@ -25,7 +25,7 @@ This document guides the main Claude orchestrator through the repo bootstrap pip
 │                                   ↓ yes                  │
 └──────────────────────────────────────────────────────────┘
                               ↓
-           SCAFFOLD → SEED-MEMORY → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH
+           SCAFFOLD → SEED-MEMORY → CONFIGURE-TOOLS → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH
 ```
 
 The PROJECT-VISION loop runs until the user is satisfied with the complete project summary (vision + design + tasks).
@@ -37,6 +37,7 @@ The PROJECT-VISION loop runs until the user is satisfied with the complete proje
 | PROJECT-VISION | thought-partner, researcher, design-innovator, code-architect | Complete project exploration loop |
 | SCAFFOLD | (main Claude) | Create directory structure and config files |
 | SEED-MEMORY | (main Claude) | Create agent memory directories with initial context |
+| CONFIGURE-TOOLS | (main Claude) | Scan project, recommend and configure MCP servers |
 | GIT-INIT | (main Claude) | Initialize git, create .gitignore |
 | CLAUDE-MD | (main Claude) | Create CLAUDE.md with project context |
 | DOCS | technical-writer | Set up documentation structure |
@@ -50,6 +51,7 @@ The PROJECT-VISION loop runs until the user is satisfied with the complete proje
 | PROJECT-VISION | User explicitly says "satisfied" with the summary |
 | SCAFFOLD | Is the scaffold correct and idiomatic for the stack? |
 | SEED-MEMORY | Are agent memory dirs created with relevant initial context? |
+| CONFIGURE-TOOLS | Are relevant MCP servers configured for the stack? |
 | GIT-INIT | Is the .gitignore comprehensive for this stack? |
 | CLAUDE-MD | Would an AI agent have everything it needs? |
 | DOCS | Are the docs accurate, complete, and useful? |
@@ -612,6 +614,25 @@ Create agent memory directories with initial context based on the project's tech
 6. Ensure `.claude/` directory structure is correct
 
 Quality gate: Are the right agents seeded for this stack? Is initial context accurate?
+
+---
+
+### CONFIGURE-TOOLS Stage
+
+1. Read `~/.claude/mcp-registry.yaml` to load the MCP server registry
+2. The tech stack is already known from PROJECT-VISION. Match against registry signals:
+   - Check `signals.deps` against the chosen dependencies (e.g., Firebase, Stripe, Playwright)
+   - Check `signals.files` against scaffolded config files (e.g., `firebase.json`, `Dockerfile`)
+   - Check `signals.dirs` against scaffolded directory structure
+3. Present categorized recommendations:
+   - **RECOMMENDED**: Matched signals — include server name, why it matched, scope, env vars, token profile
+   - **OPTIONAL**: No signal match but potentially useful (context7, figma, etc.)
+4. User selects which tools to enable
+5. Install selected tools via `claude mcp add --scope project` (or `--scope user` for `scope: global` servers)
+6. Note any required env vars that need to be set
+7. Check whether `ENABLE_TOOL_SEARCH` is active. If MCP servers are now configured but ToolSearch is not enabled, recommend adding `export ENABLE_TOOL_SEARCH=auto:5` to the user's shell profile.
+
+Quality gate: Are relevant MCP servers configured for the stack?
 
 ---
 

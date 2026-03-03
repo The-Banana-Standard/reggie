@@ -83,11 +83,12 @@ UTILITIES
   /sync-docs               Sync all documentation
   /update-claude           Capture learnings in CLAUDE.md
   /repo-advisor            Evaluate repo's agent-readiness
+  /find-tools              Scan project, configure MCP servers
 
 HELP
   /reggie-guide            This help (you're here)
 
-Try: /reggie-guide pipelines, /reggie-guide agents, /reggie-guide quality gates, /reggie-guide agent memory, /reggie-guide which command, /reggie-guide task management, /reggie-guide system evaluation, /reggie-guide system changes, /reggie-guide foundational docs, /reggie-guide installation
+Try: /reggie-guide pipelines, /reggie-guide agents, /reggie-guide quality gates, /reggie-guide agent memory, /reggie-guide which command, /reggie-guide task management, /reggie-guide system evaluation, /reggie-guide system changes, /reggie-guide mcp tools, /reggie-guide foundational docs, /reggie-guide installation
 ```
 
 ---
@@ -123,10 +124,10 @@ A pipeline is a sequence of stages that takes work from start to finish. Each st
 | Social | `/social-workflow` | EXTRACT-SNIPPETS → ADAPT-PER-PLATFORM → REVIEW |
 | Design | `/design-workflow` | PICKUP → RESEARCH → PLAN → IMPLEMENT → VERIFY-APP → REFINE → DESIGN-REVIEW → COMMIT → COMPLETE (design mode of code-workflow) |
 | Audit | `/audit-workflow` | AUDIT → PRIORITIZE → [loop: RESEARCH → PLAN → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → COMMIT per task] |
-| Repo Setup | `/new-repo` | PROJECT-VISION (loop with 4 agents until satisfied) → SCAFFOLD → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH |
+| Repo Setup | `/new-repo` | PROJECT-VISION (loop with 4 agents until satisfied) → SCAFFOLD → SEED-MEMORY → CONFIGURE-TOOLS → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH |
 | Port Feature | `/port` | ANALYZE → PLAN → IMPLEMENT → VERIFY |
-| Onboard | `/onboard` | DISCOVER → VALIDATE → ANALYZE → DOC-AUDIT → GENERATE → SEED-MEMORY → REFINE |
-| Improve | `/improve` | COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE |
+| Onboard | `/onboard` | DISCOVER → VALIDATE → ANALYZE → DOC-AUDIT → GENERATE → SEED-MEMORY → CONFIGURE-TOOLS → REFINE |
+| Improve | `/improve` | TOOLING-CHECK → COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE |
 
 **How stages connect:**
 The pipeline-manager maintains a cumulative `.pipeline/[slug]/CONTEXT.md` per task (in the main repo). Each agent's output is added verbatim (never summarized). The next agent gets relevant context from it. Agents have autonomy — the context is reference material, not rigid orders. The **researcher** agent builds the initial context by searching the codebase and web, calibrated to task complexity. Code-modifying agents work in the task's worktree (`.worktree/[slug]/`), while pipeline metadata stays in the main repo.
@@ -363,9 +364,9 @@ Agents store project-specific learnings in `.claude/agent-memory/<agent>/MEMORY.
 **What is the improve pipeline?**
 A two-level feedback loop that makes agents better over time. Every pipeline run captures learnings about agent behavior — quality gate failures, iteration patterns, missed context. These accumulate in `~/.claude/AGENT-IMPROVE.md` with a classification tag.
 
-**The pipeline (7 stages):**
+**The pipeline (8 stages):**
 ```
-COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
+TOOLING-CHECK → COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
 ```
 
 **How does classification work?**
@@ -396,6 +397,40 @@ Each learning is classified and routed to the correct target:
 - `/improve --minor-only` — Only auto-apply minor changes
 
 **Safety:** Max 15 system changes/run (memory entries don't count). Never auto-deletes content. Never auto-modifies frontmatter. All changes logged. 3+ changes to same file triggers manual review. Fork proposals always require approval with trade-off analysis.
+
+---
+
+### Topic: MCP Tools
+
+**What are MCP tools?**
+MCP (Model Context Protocol) servers extend Claude Code with external capabilities — Firebase management, browser automation, database queries, Stripe API access, etc. They're configured per-project (`.mcp.json`) or globally (`~/.claude/settings.json`).
+
+**How does Reggie manage MCP tools?**
+Three layers:
+
+1. **Configuration** — Getting the right servers into `.mcp.json`:
+   - `/find-tools` — Scan a project and configure relevant MCP servers on demand
+   - `/onboard` CONFIGURE-TOOLS stage — Automatically scan and configure during onboarding
+   - `/new-repo` CONFIGURE-TOOLS stage — Configure for new projects based on chosen stack
+   - `/improve` TOOLING-CHECK stage — Periodic drift check (new signals, unused servers)
+
+2. **Orchestrator awareness** — The pipeline-manager reads `.mcp.json` at pipeline start and cross-references with `mcp-registry.yaml` to build a map of which MCP servers are relevant to which agent types.
+
+3. **Subagent routing** — Before each subagent launch, the orchestrator checks the routing map. Agents that match a configured server's `relevant_agents` list get a prompt hint: "MCP tools available: [server]. Use ToolSearch to find these tools if needed." Agents not listed get no mention of MCP — they won't search for tools they don't know about, keeping context cost at zero.
+
+**What is `ENABLE_TOOL_SEARCH`?**
+The single most important setting for MCP efficiency. Without it, every MCP tool schema loads into every subagent's context window, multiplying token cost by the number of agent launches per pipeline. With `ENABLE_TOOL_SEARCH=auto:5`, schemas are deferred — agents only pay for tools they actively search for via ToolSearch.
+
+```
+# Add to ~/.zshrc or ~/.bashrc
+export ENABLE_TOOL_SEARCH=auto:5
+```
+
+**What is `mcp-registry.yaml`?**
+A curated mapping of project signals (files, dependencies, directories) to MCP servers. Used by `/find-tools`, `/onboard`, `/new-repo`, and `/improve` to automatically detect which servers are relevant for a project. Each entry includes `relevant_agents` — which agent types actually use that server's tools during pipelines.
+
+**How do I add MCP tools to a project?**
+Run `/find-tools`. It scans the project, matches against the registry, and offers to install relevant servers via `claude mcp add --scope project`. Prefer project-scope over global to reduce context cost in other projects.
 
 ---
 
@@ -460,6 +495,7 @@ Reggie is a git repo that symlinks into `~/.claude/`. The install script (`insta
 | `PORTABLE-PACKAGE.md` | `docs/PORTABLE-PACKAGE.md` | File symlink |
 | `agents-is-all-you-need.md` | `docs/agents-is-all-you-need.md` | File symlink |
 | `reggie-quickstart.md` | `docs/reggie-quickstart.md` | File symlink |
+| `mcp-registry.yaml` | `mcp-registry.yaml` | File symlink |
 
 **What gets configured automatically?**
 The install script adds stats tracking hooks to `~/.claude/settings.json` (idempotent — safe to run multiple times). These hooks track Task and Skill tool usage for pipeline stats. The uninstall script removes them.
@@ -548,7 +584,7 @@ Yes. Commands like `/plan`, `/implement`, `/code-review`, `/review-security` etc
 ### Topic: Onboarding
 
 **What is /onboard?**
-A 7-stage workflow that prepares any existing repository for the Claude Code agent system. It discovers the codebase structure, validates build/test commands work, analyzes patterns and conventions, audits existing documentation, generates CLAUDE.md and supporting files, seeds agent memory based on the tech stack, and optionally prunes outdated docs.
+An 8-stage workflow that prepares any existing repository for the Claude Code agent system. It discovers the codebase structure, validates build/test commands work, analyzes patterns and conventions, audits existing documentation, generates CLAUDE.md and supporting files, seeds agent memory based on the tech stack, scans for and configures relevant MCP tools, and optionally prunes outdated docs.
 
 **When to use it:**
 
@@ -567,6 +603,7 @@ A 7-stage workflow that prepares any existing repository for the Claude Code age
 | DOC-AUDIT | Assess existing docs for signal vs noise | No |
 | GENERATE | Create CLAUDE.md, TASKS.md, .pipeline/ | No |
 | SEED-MEMORY | Create agent memory directories based on stack | No |
+| CONFIGURE-TOOLS | Scan for and configure relevant MCP servers | No |
 | REFINE | Prune/update docs per audit | `--no-prune` |
 
 **Human checkpoints:**

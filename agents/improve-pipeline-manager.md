@@ -1,6 +1,6 @@
 ---
 name: improve-pipeline-manager
-description: "Pipeline manager for the two-level agent improvement loop. Orchestrates COLLECT, CLASSIFY, ANALYZE, PROPOSE, APPLY, VERIFY, and CURATE stages. Routes learnings to system agents (universal), project agent memory (project-specific), or commands (process). Supports fork suggestions when project needs diverge. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then run each stage yourself."
+description: "Pipeline manager for the two-level agent improvement loop. Orchestrates TOOLING-CHECK, COLLECT, CLASSIFY, ANALYZE, PROPOSE, APPLY, VERIFY, and CURATE stages. Routes learnings to system agents (universal), project agent memory (project-specific), or commands (process). Supports fork suggestions when project needs diverge. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then run each stage yourself."
 tools: Glob, Grep, Read, Edit, Write
 model: opus
 memory: user
@@ -17,7 +17,7 @@ This document guides the main Claude orchestrator through the two-level improve 
 ## Pipeline Overview
 
 ```
-COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
+TOOLING-CHECK → COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
 ```
 
 No numeric quality gates — this pipeline uses confirmation-based gates. The user confirms proposed changes before major modifications are applied.
@@ -41,6 +41,7 @@ Learnings route to different targets based on classification:
 
 | Stage | Purpose | Executor | Gate |
 |-------|---------|----------|------|
+| TOOLING-CHECK | Scan project MCP config against registry, identify gaps | Main Claude | Silent if no gaps |
 | COLLECT | Parse AGENT-IMPROVE.md, group by target | Main Claude | Entries exist |
 | CLASSIFY | Tag each learning UNIVERSAL/PROJECT/PROCESS/FORK | Main Claude | All entries classified |
 | ANALYZE | Filter, dedupe, categorize, prioritize | researcher agent | Actionable items identified |
@@ -52,6 +53,44 @@ Learnings route to different targets based on classification:
 ---
 
 ## Stage Details
+
+### Stage 0: TOOLING-CHECK
+
+**Executor**: Main Claude (no subagent)
+
+**Purpose**: Evaluate whether the current project's MCP tool configuration matches its tech stack. This runs independently of AGENT-IMPROVE.md — it's a state check, not a learning-driven process.
+
+**Process**:
+
+1. Read `~/.claude/mcp-registry.yaml` to load the MCP server registry
+2. Scan the current project for signal matches (files, deps, dirs from the registry)
+3. Read current MCP config: `.mcp.json` (project-level) and `~/.claude/settings.json` (global)
+4. Compare: identify gaps (matched signals but not configured) and unused tools (configured but no matching signals)
+5. Check whether `ENABLE_TOOL_SEARCH` is active — if MCP servers are configured but ToolSearch is not enabled, flag this as the highest-priority recommendation
+6. **If no gaps, no unused tools, and ToolSearch is active**: print nothing, advance silently to COLLECT
+7. **If gaps or unused tools found**: store them as TOOLING proposals for the PROPOSE stage
+
+**TOOLING proposals** are presented alongside learning-driven proposals in PROPOSE:
+
+```
+TOOLING CHANGES (MCP configuration):
+
+  ADD: firebase (matched signals: firebase.json, firebase-admin dep)
+       Scope: project | Env vars: none | Token profile: medium
+
+  REMOVE: supabase (configured globally, no signals in this project)
+          Context cost: MCP schemas load into every pipeline subagent —
+          removing saves tokens across all Task launches.
+
+  SETUP: ENABLE_TOOL_SEARCH=auto:5 not configured.
+         Without it, all MCP tool schemas load into every subagent context.
+```
+
+**Important**: TOOLING-CHECK never auto-installs or auto-removes. It only generates proposals. The user approves or skips them in APPLY, same as any other change.
+
+**Servers with no signals** (context7, figma, linear, slack) are never proposed by TOOLING-CHECK — they are user-intent tools only available through explicit `/find-tools` runs.
+
+---
 
 ### Stage 1: COLLECT
 
@@ -269,6 +308,10 @@ Create fork? (y/n)
 | NEW COMPONENT PROPOSALS:                                          |
 |                                                                   |
 | [Any gap proposals]                                               |
+|                                                                   |
+| TOOLING CHANGES (MCP configuration):                              |
+|                                                                   |
+| [Any tool add/remove/setup proposals from TOOLING-CHECK]          |
 +------------------------------------------------------------------+
 ```
 
