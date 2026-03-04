@@ -1,6 +1,6 @@
 #!/bin/bash
 # track-stats.sh — Claude Code PostToolUse hook for automatic stats tracking
-# Fires on Task (agent calls) and Skill (command invocations)
+# Fires on Task (agent calls), Skill (command invocations), and ToolSearch (MCP tool discovery)
 
 set -euo pipefail
 
@@ -26,7 +26,7 @@ mkdir -p "$(dirname "$STATS_FILE")"
 
 # Initialize if missing
 if [ ! -f "$STATS_FILE" ]; then
-  echo '{"agents":{},"commands":{}}' > "$STATS_FILE"
+  echo '{"agents":{},"commands":{},"tool_searches":{}}' > "$STATS_FILE"
 fi
 
 TODAY=$(date +%Y-%m-%d)
@@ -63,6 +63,29 @@ elif [ "$TOOL_NAME" = "Skill" ]; then
      .commands[$cmd] //= {"runs": 0, "last": null} |
      .commands[$cmd].runs += 1 |
      .commands[$cmd].last = $date
+     ' "$STATS_FILE" > "${STATS_FILE}.tmp" && mv "${STATS_FILE}.tmp" "$STATS_FILE"
+
+elif [ "$TOOL_NAME" = "ToolSearch" ]; then
+  QUERY=$(echo "$INPUT" | jq -r '.tool_input.query // empty')
+
+  [ -z "$QUERY" ] && exit 0
+
+  # Extract server/tool name from query:
+  #   "select:mcp__firebase__get_doc" -> "firebase"
+  #   "+firebase create" -> "firebase"
+  #   "firebase" -> "firebase"
+  #   "slack message" -> "slack"
+  SERVER=$(echo "$QUERY" | sed 's/^select://; s/^+//; s/^mcp__//; s/__.*//; s/ .*//')
+
+  [ -z "$SERVER" ] && exit 0
+
+  jq --arg server "$SERVER" \
+     --arg date "$TODAY" \
+     '
+     .tool_searches //= {} |
+     .tool_searches[$server] //= {"searches": 0, "last": null} |
+     .tool_searches[$server].searches += 1 |
+     .tool_searches[$server].last = $date
      ' "$STATS_FILE" > "${STATS_FILE}.tmp" && mv "${STATS_FILE}.tmp" "$STATS_FILE"
 fi
 
