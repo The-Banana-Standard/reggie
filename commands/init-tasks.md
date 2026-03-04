@@ -1,6 +1,6 @@
 # Initialize Tasks
 
-Refine loosely-formed tasks into a structured TASKS.md with rich, implementation-ready descriptions and grouped areas of focus.
+Refine loosely-formed tasks into a structured TASKS.md with implementation-ready task files, rich metadata, and grouped areas of focus.
 
 ## Context
 
@@ -20,6 +20,18 @@ if [ -f "HISTORY.md" ]; then
   wc -l HISTORY.md
 else
   echo "No HISTORY.md found"
+fi
+
+echo ""
+echo "=== Checking for existing task files ==="
+if [ -d ".pipeline" ]; then
+  for d in .pipeline/*/; do
+    if [ -f "${d}task.md" ]; then
+      echo "  ${d}task.md exists"
+    fi
+  done
+else
+  echo "No .pipeline/ directory"
 fi
 
 echo ""
@@ -44,13 +56,23 @@ fi
 echo ""
 echo "=== Project Structure ==="
 ls -1 | head -30
+
+echo ""
+echo "=== MCP Servers ==="
+if [ -f ".mcp.json" ]; then
+  cat .mcp.json | head -20
+else
+  echo "No .mcp.json"
+fi
 ```
 
 ## Instructions
 
-This command takes a loose task list, iteratively refines each task with codebase-aware dialogue, and writes a structured TASKS.md with rich descriptions, acceptance criteria, and grouped areas of focus.
+This command takes a loose task list and — through collaborative dialogue with the user — researches each task against the codebase, creates implementation plans, and writes a structured TASKS.md with slim metadata lines pointing to individual `.pipeline/[slug]/task.md` files.
 
-**IMPORTANT**: You (the main Claude) run this directly. Subagent calls: **researcher** during DEEPEN (codebase exploration per task), **code-architect** during ORGANIZE (section assignment). All other phases are handled by you. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
+**Init-tasks is a partnership.** Reggie researches, asks targeted questions grounded in the codebase, and the user makes decisions. Every implementation choice that could go multiple ways gets surfaced as a question — never resolved silently.
+
+**IMPORTANT**: You (the main Claude) run this directly. Subagent calls: **researcher** (web research when needed), **code-architect** during ORGANIZE (section assignment + metadata). All other phases are handled by you directly — including codebase research and planning. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
 ### Two Modes
 
@@ -81,6 +103,8 @@ If user picks option 4, extract all items from `### Ungroomed` and feed them int
 ### Migration Check
 
 If TASKS.md contains a `## Completed` section (old format), auto-migrate those entries to `HISTORY.md` and remove the section before proceeding.
+
+If TASKS.md contains old-format tasks with inline `>` context blocks, those are from the previous init-tasks format. They still work — code-workflow can read them. But new tasks will use the task.md file format.
 
 ---
 
@@ -120,7 +144,7 @@ Then proceed to INTAKE with all items from the conversation.
 
 Parse the raw input (from `$ARGUMENTS`, pasted text, or brain dump) into discrete task items.
 
-**Ungroomed items**: If the input includes items pulled from `### Ungroomed` (option 4 above), parse them the same as any other input. They already have slug and description from when they were discovered — preserve those but still run them through CLARIFY and DEEPEN like any other item. Strip the `> context` lines and use them as starting context for DEEPEN.
+**Ungroomed items**: If the input includes items pulled from `### Ungroomed` (option 4 above), parse them the same as any other input. They already have slug and description from when they were discovered — preserve those but still run them through CLARIFY and RESEARCH+PLAN like any other item. Strip any `> context` lines and use them as starting context for research.
 
 For each item, extract:
 - **What**: The task (concrete action)
@@ -171,20 +195,22 @@ After answers:
 
 If no items were vague, skip this phase:
 ```
-All items are clear. Moving to task refinement...
+All items are clear. Moving to research and planning...
 ```
 
 ---
 
-## Phase 3: DEEPEN
+## Phase 3: RESEARCH+PLAN
 
-Iteratively refine each task with codebase-aware exploration and user dialogue. This phase transforms thin task descriptions into rich, implementation-ready entries with acceptance criteria.
+Research each task against the codebase and create implementation plans through collaborative dialogue with the user. This is the core of init-tasks — it transforms thin descriptions into fully researched, implementation-ready task files.
 
-**DEEPEN always runs** — even after brain dump mode. Brain dump captures intent; DEEPEN validates it against the codebase and adds precision.
+**This phase always runs** — even after brain dump mode. Brain dump captures intent; RESEARCH+PLAN validates it against the codebase and produces actionable plans.
+
+**Tasks are processed sequentially** so each plan can build on previous plans. When planning task B, the orchestrator has task A's full plan as context — so B's plan can reference files A creates or modifies.
 
 ### Step 1: Smart Grouping
 
-Before refining individual tasks, scan the full task list for clusters of related tasks that share the same area (same screen, same module, same file set). When found, propose bundling:
+Before researching individual tasks, scan the full task list for clusters of related tasks that share the same area (same screen, same module, same file set). When found, propose bundling:
 
 ```
 I noticed these tasks all touch the same area (Settings screen):
@@ -205,41 +231,45 @@ Rules:
 - 2 related tasks: mention the relationship but don't force grouping
 - User must approve every grouping proposal — "no" is valid
 - If approved, merged tasks get a new parent slug and the originals become sub-items
-- If rejected, keep tasks separate and refine individually
-- Run smart grouping once at the start of DEEPEN, before per-task refinement
+- If rejected, keep tasks separate and research individually
+- Run smart grouping once at the start, before per-task research
 
-### Step 2: Per-Task Refinement
+### Step 2: Per-Task Research+Plan
 
-For each task (or grouped task), iterate through this cycle:
+For each task (or grouped task), work through this cycle:
 
-**a) Codebase exploration** — Launch the **researcher** agent with a targeted prompt:
+**a) Codebase research** — You (the orchestrator) explore the codebase directly:
 
+1. Read foundational docs if they exist (`docs/soul.md`, `docs/architecture.md`, `docs/patterns.md`, `docs/data-models.md`)
+2. Use Glob, Grep, Read to understand:
+   - What files/modules does this task touch?
+   - What existing patterns or conventions are relevant?
+   - What related areas might be affected?
+   - What's the approximate complexity?
+3. **Use MCP tools when relevant** — check if the project has MCP servers configured (`.mcp.json`). Use `ToolSearch` to discover MCP tools that match the task's domain:
+   - **Chrome DevTools MCP**: For UI tasks — inspect current page state, check layout, measure performance
+   - **Firebase MCP**: For backend tasks — check Firestore structure, Cloud Functions, auth config
+   - **Other configured servers**: Any MCP server relevant to the task's technology
+   - Only invoke MCP tools when they provide context you can't get from the codebase alone
+4. **Launch researcher for web research** if needed (unfamiliar APIs, external best practices, library comparison). Include your codebase findings so the researcher skips codebase exploration:
+   ```
+   Codebase context for [task]:
+   [your findings — affected files, existing patterns, conventions]
+
+   Research these external questions:
+   - [specific question needing web research]
+   ```
+
+**Efficiency shortcut**: For clearly trivial tasks (typo fix, config change, one-liner), do a quick `Grep` or `Read` directly. The enriched format still applies but Problem/Vision sections can be brief and the implementation plan should be minimal (files + 1-2 steps).
+
+**If this isn't the first task**: Include a summary of prior task plans as context:
 ```
-## Quick Codebase Exploration for Task Refinement
-
-Before exploring, read `docs/soul.md` and `docs/architecture.md` (if they exist) for product and structural context.
-
-Task: [task description]
-[If grouped: Sub-items: [list sub-items]]
-
-Explore the codebase to understand:
-1. What files/modules does this task likely touch?
-2. What existing patterns or conventions are relevant?
-3. Are there related areas that might be affected?
-4. What's the approximate complexity?
-
-Return a brief (10-15 line) summary with:
-- Affected files/directories
-- Relevant patterns found
-- Complexity notes
-- Any risks or dependencies spotted
-
-Keep it lightweight — this is for task refinement, not full research.
+Prior task plans (for context — this task may reference their outputs):
+- [slug-a]: Creates src/utils/auth.ts, modifies src/middleware/auth.ts
+- [slug-b]: Adds new API routes at src/routes/billing.ts
 ```
 
-**Efficiency shortcut**: For clearly trivial tasks (typo fix, config change, one-liner), skip the researcher call. Main Claude can do a quick `Grep` or `Read` directly. The enriched format still applies but Problem/Vision sections can be brief.
-
-**b) Code-informed questions** — Based on the researcher's findings, ask the user targeted questions grounded in actual code. These are NOT generic questions:
+**b) Code-informed questions** — Based on your research, ask the user targeted questions grounded in actual code. This is the partnership — you surface decisions, the user decides:
 
 ```
 Based on what I found in the codebase:
@@ -257,56 +287,97 @@ Based on what I found in the codebase:
    increase the padding?
 ```
 
-Ask questions in batches. Focus on things the codebase revealed that the user likely hasn't thought about — specific constants, existing patterns, related components that would need to change.
+Ask questions in batches. Focus on things the codebase revealed that the user likely hasn't thought about — specific constants, existing patterns, related components that would need to change. **Never silently resolve an implementation choice that could go multiple ways.**
 
-**c) Build enriched description** — From the user's answers + researcher findings, construct the enriched task:
+**c) Build enriched description + plan** — From the user's answers + your research, construct the full task:
 
 ```
 Here's the refined task:
 
-polish-settings-screen: Polish settings screen UI [P2]
+add-jwt-auth: Add JWT authentication to login endpoint
 
   ## Problem
-  The settings screen feels unfinished — toggles don't align with
-  each other, section spacing is inconsistent, and the back button
-  is hard to tap. Overall it doesn't match the polish level of the
-  rest of the app.
+  Login uses session cookies which don't work well for the mobile
+  app and create server-side state management overhead.
 
   ## Vision
-  Settings should feel as tight as the main dashboard. Clean
-  alignment, consistent rhythm between sections, comfortable tap
-  targets throughout.
+  Stateless JWT auth via httpOnly cookies — works for web and mobile,
+  no server-side session storage needed.
 
   ## Context
-  Part of a broader pre-launch polish pass. Dashboard already
-  cleaned up — settings should match that standard. Design tokens
-  are in theme.ts. SettingsRow components are reused across all
-  settings sections.
+  Currently using express-session with connect-redis. Mobile app
+  launching next quarter needs token-based auth.
 
   ## Affected Areas
-  src/screens/Settings/, src/components/SettingsRow, theme.ts
-
-  ## Sub-items
-  - Fix toggle alignment in notification preferences
-  - Adjust section header spacing to match dashboard sections (16px)
-  - Increase back button tap target to 44px minimum
+  src/middleware/auth.ts, src/routes/login.ts, src/utils/
 
   ## Acceptance Criteria
-  - All toggles left-edge aligned within their rows
-  - Consistent 16px spacing between section groups
-  - Back button passes minimum 44pt tap target
-  - Visual consistency with dashboard screen's polish level
+  - JWT issued on successful login, stored in httpOnly cookie
+  - All authenticated routes validate JWT instead of session
+  - Token refresh mechanism prevents forced re-login
+  - express-session dependency removed
+
+  ## Implementation Plan
+  ### Overview
+  Replace express-session with JWT-based auth using httpOnly cookies.
+  ### Files
+  - NEW: src/utils/jwt.ts — JWT sign/verify utility
+  - MOD: src/middleware/auth.ts — Replace session validation with JWT
+  - MOD: src/routes/login.ts — Return JWT in httpOnly cookie
+  ### Approach
+  1. Create JWT utility with sign/verify using jsonwebtoken
+  2. Replace session middleware with JWT validation middleware
+  3. Update login route to return JWT in httpOnly cookie
+  4. Add token refresh endpoint
+  ### Key Decisions
+  | Decision | Rationale |
+  | httpOnly cookie over localStorage | XSS protection |
+  | Clean replacement over parallel migration | User chose simplicity |
+  ### Risks
+  - Existing session-dependent code needs migration — grep for req.session
 ```
+
+**Complexity classification** — determines the depth of `## Implementation Plan`:
+
+**All tasks get an implementation plan.** Simple tasks get a minimal plan (files + 1-2 steps); complex tasks get a full plan. Init-tasks already has the codebase context — writing down what you already know is cheap and saves code-workflow from running full RESEARCH+PLAN stages later.
+
+**Complex** (full plan):
+- Tasks with 3+ files/directories in Affected Areas
+- Tasks involving architecture decisions (new patterns, migrations, multi-system integration)
+- Tasks with 4+ acceptance criteria
+- P1 tasks (blocking/critical/foundational)
+
+**Simple** (minimal plan — files + 1-2 steps, no Key Decisions/Risks):
+- Single-file changes, config tweaks, cosmetic fixes
+- Tasks with 1-2 acceptance criteria
+- Tasks where the implementation path is obvious from the acceptance criteria alone
+- The minimal plan should take seconds to write, not another research pass
 
 **d) User approval gate** — Present the enriched task and ask:
 
 ```
-Is this task refined enough? (approve / edit / dig deeper)
+Is this task ready? (approve / edit / dig deeper)
 ```
 
 - **approve** — Task is locked, move to next task
 - **edit** — User provides corrections, Claude revises and re-presents
-- **dig deeper** — Run another researcher pass on a specific aspect the user wants to explore
+- **dig deeper** — Run another research pass on a specific aspect the user wants to explore
+
+**e) Planning discussion** — For complex tasks, discuss implementation choices interactively:
+
+```
+For add-jwt-auth, I'm looking at two approaches:
+
+1. Replace express-session middleware entirely with a new jwt-auth.ts
+   middleware. Clean but requires touching every authenticated route.
+
+2. Add JWT as a parallel auth method alongside sessions, then
+   migrate routes incrementally. Safer but more temporary complexity.
+
+Which direction?
+```
+
+Ground questions in what you found in the codebase. The user should feel like they're making decisions with a knowledgeable partner, not answering a survey.
 
 ### Step 3: Batch Approval for Simple Tasks
 
@@ -314,17 +385,18 @@ If remaining tasks are clearly simple and the user is moving fast, offer batch m
 
 ```
 The remaining 4 tasks look straightforward. Want to:
-1. Review each one individually
-2. Let me refine them all and present as a batch for approval
+1. Research and plan each one individually
+2. Let me research them all and present as a batch for approval
 ```
 
-If batch mode: refine all remaining tasks, present as a list, user approves/edits the batch.
+If batch mode: research all remaining tasks, present as a list, user approves/edits the batch.
 
 ### Transition
 
 After all tasks are approved:
 ```
-All [N] tasks refined with acceptance criteria.
+All [N] tasks researched and planned.
+All planned ([M] with full plans, [K] with minimal plans).
 Moving to organization...
 ```
 
@@ -332,23 +404,23 @@ Moving to organization...
 
 ## Phase 4: ORGANIZE
 
-Launch **code-architect** agent to assign refined tasks to areas of focus and prioritize them.
+Launch **code-architect** agent to assign refined tasks to areas of focus, prioritize, and compute rich metadata.
 
-**IMPORTANT**: ORGANIZE does NOT modify task descriptions, sub-items, or acceptance criteria. Tasks are already fully refined from DEEPEN. ORGANIZE only handles section assignment, priority ordering, and dependency flagging.
+**IMPORTANT**: ORGANIZE does NOT modify task descriptions, sub-items, acceptance criteria, or implementation plans. Tasks are already fully refined from RESEARCH+PLAN. ORGANIZE only handles section assignment, priority ordering, dependency mapping, conflict detection, and metadata assignment.
 
 **Prompt for code-architect:**
 
 ```
-## Task: Assign refined tasks to areas of focus and prioritize
+## Task: Assign refined tasks to areas of focus and compute metadata
 
 Before exploring, read `docs/soul.md` and `docs/architecture.md` (if they exist) for product and structural context.
 
-These tasks are already refined with full descriptions. Your job is to
-organize them, not modify them.
+These tasks are already refined with full descriptions and plans. Your job is to
+organize them and compute metadata, not modify them.
 
 ### The Tasks
 
-[paste full list of refined task slugs and one-line descriptions]
+[paste full list of refined task slugs, one-line descriptions, and file lists]
 
 ### Your Job
 
@@ -382,34 +454,54 @@ organize them, not modify them.
    on the others. Add `[depends: slug-a]` (or `[depends: slug-a, slug-b]`
    for multiple) to dependent tasks.
 
-5. **Check for staleness**: Flag tasks that may be stale:
+5. **Detect file conflicts**: Compare the file lists across all tasks.
+   When two tasks modify the same file, flag them as conflicting:
+   - Add `[conflicts: slug-x]` to both tasks
+   - This tells the orchestrator to avoid running them in parallel
+
+6. **Classify complexity**: Based on the task's plan (or lack thereof):
+   - `[simple]` — minimal implementation plan (files + 1-2 steps), 1-2 files, obvious path
+   - `[moderate]` — has a plan, 2-4 files, some decisions
+   - `[complex]` — has a plan, 5+ files or architecture decisions
+
+7. **Assign pipeline mode**: Based on task nature:
+   - `[code]` — default, standard code-workflow
+   - `[design]` — UI/UX focused, should use design-workflow
+
+8. **Mark plan status**:
+   - `[planned]` — has a full implementation plan in task.md
+   - `[unplanned]` — has acceptance criteria only, no implementation plan (code-workflow will reject these at PICKUP with a redirect to /init-tasks)
+
+9. **Check for staleness**: Flag tasks that may be stale:
    - References files that no longer exist in the project
-   - Describes fixing something that appears already fixed (check completed
-     tasks in HISTORY.md if provided)
+   - Describes fixing something that appears already fixed
    - Duplicates or near-duplicates of other tasks
-   - Superseded by completed work
    Mark stale tasks with `[STALE: reason]` so the user can confirm removal.
 
-6. **Order groups by priority** — first group is highest priority.
+10. **Order groups by priority** — first group is highest priority.
 
-7. **Order tasks within each group** by priority then dependency order.
+11. **Order tasks within each group** by priority then dependency order.
 
-8. **Handle singles**: If only 1 task fits a group, put it in "Other"
-   at the bottom. Every group needs at least 2 items.
+12. **Handle singles**: If only 1 task fits a group, put it in "Other"
+    at the bottom. Every group needs at least 2 items.
 
 ### Output Format
 
-Return ONLY the grouped list with slugs and one-line descriptions:
+Return the grouped list with full metadata:
 
 ### [Area of Focus 1]
-- [slug]: [One-line description] [P1]
-- [slug]: [One-line description] [P2] [depends: slug-above]
+- [slug]: [One-line description] [P1] [complex] [code] [planned]
+  files: src/middleware/auth.ts (MOD), src/utils/jwt.ts (NEW)
+- [slug]: [One-line description] [P2] [depends: slug-above] [conflicts: slug-above] [moderate] [code] [planned]
+  files: src/middleware/rbac.ts (NEW), src/routes/*.ts (MOD)
 
 ### [Area of Focus 2]
-- [slug]: [One-line description] [P2]
+- [slug]: [One-line description] [P2] [simple] [code] [planned]
+  files: src/config/colors.xml (MOD)
 
 ### Other
-- [slug]: [One-line description] [P3]
+- [slug]: [One-line description] [P3] [simple] [code] [planned]
+  files: tests/*.test.ts (MOD)
 ```
 
 **If merging into existing TASKS.md**, add to the prompt:
@@ -429,16 +521,16 @@ After code-architect returns, present the grouping:
 Here's how I'd organize these based on your project structure:
 
 ### Authentication & Security
-- add-jwt-auth: Add JWT authentication to login endpoint [P1]
-- implement-rbac: Implement role-based access control [P2] [depends: add-jwt-auth]
+- add-jwt-auth: Add JWT authentication [P1] [complex] [code] [planned]
+  files: src/utils/jwt.ts (NEW), src/middleware/auth.ts (MOD), src/routes/login.ts (MOD)
+- implement-rbac: Implement role-based access [P2] [depends: add-jwt-auth] [conflicts: add-jwt-auth] [moderate] [code] [planned]
+  files: src/middleware/rbac.ts (NEW), src/routes/*.ts (MOD)
 
 ### Settings & UI Polish
-- polish-settings-screen: Polish settings screen UI [P2]
+- polish-settings-screen: Polish settings screen UI [P2] [simple] [design] [planned]
+  files: src/screens/Settings/ (MOD), src/components/SettingsRow (MOD), theme.ts (MOD)
 
-### Data Pipeline
-- migrate-csv-parser: Migrate CSV ingestion to streaming parser [P2]
-
-Does this grouping make sense? Want to move anything or rename a section?
+Does this grouping and metadata make sense? Want to adjust anything?
 ```
 
 Wait for user approval or adjustments.
@@ -453,52 +545,17 @@ Remove them? (yes all / review individually / keep all)
 ```
 Approved stale items are moved to HISTORY.md as `- [~] slug: description -- pruned [date]`.
 
-**Ungroomed movement**: If any of the organized tasks came from `### Ungroomed`, they are now in their proper `### Section`. After writing TASKS.md in FORMALIZE, verify that `### Ungroomed` no longer contains any items that were processed. Items the user chose NOT to refine remain in `### Ungroomed`.
+**Ungroomed movement**: If any of the organized tasks came from `### Ungroomed`, they are now in their proper `### Section`. After writing TASKS.md in FORMALIZE, verify that `### Ungroomed` no longer contains any items that were processed.
 
 ---
 
 ## Phase 5: FORMALIZE
 
-Write the approved structure into TASKS.md using the enriched task format.
+Write the approved structure into TASKS.md using the slim metadata format, and create individual `.pipeline/[slug]/task.md` files for each task.
 
-### Enriched Task Format
+### Slim TASKS.md Format
 
-Each task is written with the full `>` context block containing all sections from DEEPEN:
-
-```markdown
-- [ ] polish-settings-screen: Polish settings screen UI [P2]
-  > ## Problem
-  > The settings screen feels unfinished — toggles don't align with
-  > each other, section spacing is inconsistent, and the back button
-  > is hard to tap.
-  >
-  > ## Vision
-  > Settings should feel as tight as the main dashboard. Clean
-  > alignment, consistent rhythm between sections, comfortable tap
-  > targets throughout.
-  >
-  > ## Context
-  > Part of a broader pre-launch polish pass. Dashboard already
-  > cleaned up — settings should match that standard.
-  >
-  > ## Affected Areas
-  > src/screens/Settings/, src/components/SettingsRow, theme.ts
-  >
-  > ## Sub-items
-  > - Fix toggle alignment in notification preferences
-  > - Adjust section header spacing to match dashboard sections (16px)
-  > - Increase back button tap target to 44px minimum
-  >
-  > ## Acceptance Criteria
-  > - All toggles left-edge aligned within their rows
-  > - Consistent 16px spacing between section groups
-  > - Back button passes minimum 44pt tap target
-  > - Visual consistency with dashboard screen's polish level
-```
-
-**Indentation rule**: The `>` blocks must be indented with exactly 2 spaces under the `- [ ]` line to be parsed correctly by PICKUP context seeding.
-
-### New TASKS.md
+TASKS.md is a lightweight coordination file. Each task is a slug line with rich metadata. The full task description and implementation plan live in `.pipeline/[slug]/task.md`.
 
 ```markdown
 # Tasks
@@ -510,32 +567,90 @@ Each task is written with the full `>` context block containing all sections fro
 ## Backlog
 
 ### [Area of Focus 1]
-- [ ] [slug]: [Description] [P1]
-  > ## Problem
-  > [problem text]
-  >
-  > ## Vision
-  > [vision text]
-  >
-  > ## Context
-  > [context text]
-  >
-  > ## Affected Areas
-  > [file paths]
-  >
-  > ## Sub-items
-  > - [sub-item 1]
-  > - [sub-item 2]
-  >
-  > ## Acceptance Criteria
-  > - [criterion 1]
-  > - [criterion 2]
+- [ ] add-jwt-auth: Add JWT authentication [P1] [complex] [code] [planned]
+  files: src/utils/jwt.ts (NEW), src/middleware/auth.ts (MOD), src/routes/login.ts (MOD)
+- [ ] implement-rbac: Implement role-based access [P2] [depends: add-jwt-auth] [conflicts: add-jwt-auth] [moderate] [code] [planned]
+  files: src/middleware/rbac.ts (NEW), src/routes/*.ts (MOD)
 
-- [ ] [slug]: [Description] [P2] [depends: slug]
-  > ## Problem
-  > [problem text]
-  > ...
+### [Area of Focus 2]
+- [ ] polish-settings-screen: Polish settings screen UI [P2] [simple] [design] [planned]
+  files: src/screens/Settings/ (MOD), src/components/SettingsRow (MOD), theme.ts (MOD)
+
+### Other
+- [ ] improve-test-coverage: Improve test coverage [P3] [simple] [code] [planned]
+  files: tests/*.test.ts (MOD)
 ```
+
+**Metadata tags** (all on the slug line):
+- `[P1]` / `[P2]` / `[P3]` — priority
+- `[depends: slug-a, slug-b]` — must complete first
+- `[conflicts: slug-c]` — shares files, avoid parallel execution
+- `[simple]` / `[moderate]` / `[complex]` — complexity
+- `[code]` / `[design]` — pipeline mode
+- `[planned]` — has task.md with implementation plan (init-tasks always produces `[planned]`; code-workflow requires this)
+
+**Files line** (indented under slug): `files: path (NEW/MOD), path (NEW/MOD)`
+- Enables cross-task conflict detection at PICKUP without reading task.md files
+- Uses same format as code-workflow's `**Files**` field in Active Tasks
+
+### Task File Format
+
+Each task gets a `.pipeline/[slug]/task.md` file containing the full enriched description:
+
+```markdown
+# Task: [slug]
+[one-line description]
+
+## Problem
+[what's wrong / what's needed]
+
+## Vision
+[what success looks like]
+
+## Context
+[project context, related systems, prior task references]
+
+## Affected Areas
+[file paths and directories]
+
+## Sub-items
+- [sub-item 1]
+- [sub-item 2]
+
+## Acceptance Criteria
+- [criterion 1]
+- [criterion 2]
+
+## Implementation Plan
+### Overview
+[1-2 sentences on the approach]
+### Files
+- NEW: [path] — [purpose]
+- MOD: [path] — [purpose]
+### Approach
+1. [step]
+2. [step]
+### Key Decisions
+| Decision | Rationale |
+|----------|-----------|
+| [choice] | [why] |
+### Risks
+- [risk]: [mitigation]
+```
+
+**Notes**:
+- `## Sub-items` only present for grouped tasks
+- `## Implementation Plan` is always present — minimal for simple tasks (files + 1-2 steps, no Key Decisions/Risks), full for complex tasks
+- `## Context` may reference prior task plans (e.g., "Depends on add-jwt-auth which creates src/utils/jwt.ts")
+
+### Writing Process
+
+1. Create `.pipeline/` directory if it doesn't exist
+2. Ensure `.pipeline/` is in `.gitignore`
+3. For each task:
+   a. Create `.pipeline/[slug]/` directory
+   b. Write `.pipeline/[slug]/task.md` with full enriched content
+4. Write TASKS.md with slim metadata format
 
 ### Merging into Existing TASKS.md
 
@@ -543,10 +658,11 @@ Each task is written with the full `>` context block containing all sections fro
 - New items merge into existing sections (append to bottom of matching section)
 - New sections are inserted in priority order relative to existing sections
 - Existing backlog items are NOT reorganized (unless user chose "Reorganize everything")
+- Old-format tasks with inline `>` blocks are preserved as-is — they still work with code-workflow
 
 ### Reorganize Everything
 
-All existing backlog items (stripped of section headers) + new items go through ORGANIZE together. Active Tasks preserved. New grouped backlog replaces old `## Backlog` section entirely.
+All existing backlog items (stripped of section headers) + new items go through ORGANIZE together. Active Tasks preserved. New grouped backlog replaces old `## Backlog` section entirely. Old-format `>` block tasks are converted to task.md files.
 
 ### Start Fresh
 
@@ -555,20 +671,25 @@ Active Tasks preserved. Fresh backlog written from ORGANIZE output.
 
 ### After Writing
 
-Also create `.pipeline/` directory if it doesn't exist and ensure `.pipeline/` is in `.gitignore`.
-
 Confirm:
 
 ```
 TASKS.md created with [N] tasks in [M] areas of focus:
 
-  [Section 1] — [N] tasks ([N] with sub-items)
+  [Section 1] — [N] tasks (all planned)
   [Section 2] — [N] tasks
   [Section 3] — [N] tasks
+
+Task files written to .pipeline/:
+  .pipeline/add-jwt-auth/task.md (planned)
+  .pipeline/implement-rbac/task.md (planned)
+  .pipeline/polish-settings-screen/task.md (planned)
+  ...
 
 First area of focus: [Section 1]
 First task: [slug] — [description]
   Acceptance criteria: [N] items
+  Implementation plan: [yes/no]
 
 Ready to start working? Run /code-workflow to pick up the first task.
 ```
@@ -606,9 +727,9 @@ Anything missing? Anything I misunderstood?
 
 > looks right
 
-All items are clear. Moving to task refinement...
+All items are clear. Moving to research and planning...
 
-## Phase 3: DEEPEN
+## Phase 3: RESEARCH+PLAN
 
 ### Smart Grouping
 
@@ -624,11 +745,11 @@ Want to bundle these into a single task?
 
 > yes
 
-Bundled into polish-settings-screen. Now refining each task...
+Bundled into polish-settings-screen. Now researching each task...
 
 ### Task 1 of 3: polish-settings-screen
 
-[Researcher explores settings screen code...]
+[Orchestrator explores settings screen code with Glob/Grep/Read...]
 
 Based on what I found in the codebase:
 
@@ -675,13 +796,13 @@ polish-settings-screen: Polish settings screen UI
   - Back button passes minimum 44pt tap target
   - Visual consistency with dashboard screen
 
-Is this task refined enough? (approve / edit / dig deeper)
+Is this task ready? (approve / edit / dig deeper)
 
 > approve
 
 ### Task 2 of 3: add-jwt-auth
 
-[Researcher explores auth code...]
+[Orchestrator explores auth code, middleware, routes...]
 
 Based on what I found:
 
@@ -696,25 +817,49 @@ Based on what I found:
 
 > replacing cookies entirely. new middleware file. httpOnly cookie
 
-[Builds enriched description, user approves...]
+This is complex enough for a full plan. I see two approaches:
+
+1. Replace express-session middleware entirely with jwt-auth.ts.
+   Clean but requires touching every authenticated route.
+
+2. Add JWT alongside sessions, migrate incrementally.
+   Safer but temporary complexity.
+
+> option 1, clean replacement
+
+add-jwt-auth: Add JWT authentication to login endpoint
+
+  [full enriched description + implementation plan]
+
+Is this task ready?
+
+> approve
 
 ### Task 3 of 3: migrate-csv-parser
 
-[Similar refinement flow...]
+Prior task plans (for context):
+- add-jwt-auth: Creates src/utils/jwt.ts, modifies auth.ts and login.ts
 
-All 3 tasks refined with acceptance criteria.
+[Orchestrator explores ingestion pipeline...]
+[Similar research + dialogue flow, user approves]
+
+All 3 tasks researched and planned.
+All 3 planned (2 full plans, 1 minimal plan).
 Moving to organization...
 
 ## Phase 4: ORGANIZE
 
 ### Authentication & Security
-- add-jwt-auth: Add JWT authentication to login endpoint [P1]
+- add-jwt-auth: Add JWT authentication [P1] [complex] [code] [planned]
+  files: src/utils/jwt.ts (NEW), src/middleware/auth.ts (MOD), src/routes/login.ts (MOD)
 
 ### Settings & UI Polish
-- polish-settings-screen: Polish settings screen UI [P2]
+- polish-settings-screen: Polish settings screen UI [P2] [simple] [design] [planned]
+  files: src/screens/Settings/ (MOD), src/components/SettingsRow (MOD), theme.ts (MOD)
 
 ### Data Pipeline
-- migrate-csv-parser: Migrate CSV ingestion to streaming parser [P2]
+- migrate-csv-parser: Migrate CSV ingestion [P2] [complex] [code] [planned]
+  files: src/services/ingestion/ (MOD), src/utils/csv-stream.ts (NEW)
 
 Does this grouping make sense?
 
@@ -724,13 +869,19 @@ Does this grouping make sense?
 
 TASKS.md created with 3 tasks in 3 areas of focus:
 
-  Authentication & Security — 1 task
-  Settings & UI Polish — 1 task (3 sub-items)
-  Data Pipeline — 1 task
+  Authentication & Security — 1 task (planned)
+  Settings & UI Polish — 1 task (planned)
+  Data Pipeline — 1 task (planned)
+
+Task files written to .pipeline/:
+  .pipeline/add-jwt-auth/task.md (planned)
+  .pipeline/polish-settings-screen/task.md (planned)
+  .pipeline/migrate-csv-parser/task.md (planned)
 
 First area of focus: Authentication & Security
 First task: add-jwt-auth — Add JWT authentication
   Acceptance criteria: 4 items
+  Implementation plan: yes
 
 Ready to start working? Run /code-workflow to pick up the first task.
 ```
@@ -767,15 +918,15 @@ Okay, pulling out 5 actionable items...
 4. improve-test-coverage: Improve test coverage across the app
 5. redesign-onboarding: Redesign confusing onboarding flow
 
-All clear. Moving to task refinement...
+All clear. Moving to research and planning...
 
-## Phase 3: DEEPEN
+## Phase 3: RESEARCH+PLAN
 
-No obvious groupings found. Refining individually...
+No obvious groupings found. Researching individually...
 
 ### Task 1 of 5: implement-streak-system
 
-[Researcher explores user engagement code...]
+[Orchestrator explores user engagement code...]
 
 Based on what I found:
 
@@ -790,18 +941,17 @@ Based on what I found:
 
 > build on UserProgress. yes HomeView stats. UTC midnight
 
-[Builds enriched description with Problem, Vision, Context,
-Affected Areas, Acceptance Criteria...]
+[Builds full enriched description + implementation plan...]
 
-Is this task refined enough?
+Is this task ready?
 
 > approve
 
 ### Task 2 of 5: fix-android-color-rendering
 
-This looks straightforward — let me refine it quickly.
+This looks straightforward — let me research it quickly.
 
-[Quick read of Android color code, no full researcher call]
+[Quick read of Android color code, no researcher needed]
 
 fix-android-color-rendering: Fix color rendering on Android
 
@@ -823,32 +973,45 @@ fix-android-color-rendering: Fix color rendering on Android
   - Brand primary color matches iOS rendering (#3B82F6)
   - No color shifts on tested Android devices
 
+  ## Implementation Plan
+  ### Overview
+  Update Android color values to match iOS.
+  ### Files
+  - MOD: android/app/src/main/res/values/colors.xml — Fix primary color hex value
+  ### Approach
+  1. Update colorPrimary in colors.xml to #3B82F6
+
 Is this refined enough?
 
 > approve
 
-[Remaining 3 tasks refined similarly...]
-
 The remaining 3 tasks look straightforward. Want to:
-1. Review each one individually
-2. Let me refine them all and present as a batch for approval
+1. Research and plan each one individually
+2. Let me research them all and present as a batch for approval
 
 > batch them
 
-[Presents 3 enriched tasks, user approves batch...]
+[Researches 3 tasks, presents batch, user approves...]
 
-All 5 tasks refined. Moving to organization...
+All 5 tasks researched and planned.
+All 5 planned (2 full plans, 3 minimal plans).
+Moving to organization...
 
 ## Phase 4: ORGANIZE
 
 ### User Engagement
-- implement-streak-system [P1]
-- add-push-notifications [P2]
-- redesign-onboarding [P2]
+- implement-streak-system: Build streak tracking [P1] [complex] [code] [planned]
+  files: src/models/UserProgress.swift (MOD), src/services/StreakManager.swift (NEW), src/views/HomeView.swift (MOD)
+- add-push-notifications: Add push notifications [P2] [complex] [code] [planned]
+  files: src/services/PushManager.swift (NEW), AppDelegate.swift (MOD)
+- redesign-onboarding: Redesign onboarding flow [P2] [moderate] [design] [planned]
+  files: src/views/Onboarding/ (MOD)
 
 ### Quality & Polish
-- fix-android-color-rendering [P2]
-- improve-test-coverage [P3]
+- fix-android-color-rendering: Fix Android colors [P2] [simple] [code] [planned]
+  files: android/app/src/main/res/values/colors.xml (MOD)
+- improve-test-coverage: Improve test coverage [P3] [simple] [code] [planned]
+  files: tests/*.test.ts (MOD)
 
 > looks good
 
@@ -856,11 +1019,19 @@ All 5 tasks refined. Moving to organization...
 
 TASKS.md created with 5 tasks in 2 areas of focus:
 
-  User Engagement — 3 tasks
-  Quality & Polish — 2 tasks
+  User Engagement — 3 tasks (all planned)
+  Quality & Polish — 2 tasks (all planned)
+
+Task files written to .pipeline/:
+  .pipeline/implement-streak-system/task.md (planned)
+  .pipeline/add-push-notifications/task.md (planned)
+  .pipeline/redesign-onboarding/task.md (planned)
+  .pipeline/fix-android-color-rendering/task.md (planned)
+  .pipeline/improve-test-coverage/task.md (planned)
 
 First task: implement-streak-system — Build streak tracking
   Acceptance criteria: 5 items
+  Implementation plan: yes
 
 Run /code-workflow to pick up the first task.
 ```
