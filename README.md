@@ -62,7 +62,7 @@ Slash commands that invoke pipelines or individual stages:
 | Command | What it does |
 |---------|-------------|
 | `/reggie-guide` | Help — shows all commands and topics |
-| `/code-workflow` | Full feature dev pipeline (14 stages with quality gates) |
+| `/code-workflow` | Full feature dev pipeline (12 stages with quality gates) |
 | `/brainstorm` | Think through an idea with a thought partner |
 | `/init-tasks` | Turn a brain dump into structured tasks with acceptance criteria |
 | `/status` | See current task and stage |

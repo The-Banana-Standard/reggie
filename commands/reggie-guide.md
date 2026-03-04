@@ -41,7 +41,7 @@ Use `$ARGUMENTS` to determine what they're asking about. Match their question to
 Welcome to /reggie-guide — ask me anything about this system.
 
 WORKFLOWS — start a pipeline
-  /code-workflow                Full feature dev (14 stages, tasks predefined)
+  /code-workflow                Full feature dev (13 stages, tasks predefined)
   /article-workflow        Write an article (brainstorm → publish)
   /article-workflow edit   Polish an existing draft
   /social-workflow         Turn content into social posts
@@ -84,6 +84,7 @@ UTILITIES
   /update-claude           Capture learnings in CLAUDE.md
   /repo-advisor            Evaluate repo's agent-readiness
   /find-tools              Scan project, configure MCP servers
+  /refresh-capabilities    Update capability manifest from all sources
 
 HELP
   /reggie-guide            This help (you're here)
@@ -118,7 +119,7 @@ A pipeline is a sequence of stages that takes work from start to finish. Each st
 
 | Pipeline | Command | Stages |
 |----------|---------|--------|
-| Feature (tasks ready) | `/code-workflow` | PICKUP → RESEARCH → PLAN → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE → COMMIT → COMPLETE |
+| Feature (tasks ready) | `/code-workflow` | 13 stages: PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER → COMMIT → COMPLETE (requires `/init-tasks` first) |
 | Article | `/article-workflow` | BRAINSTORM → RESEARCH → OUTLINE → DRAFT → EDIT → HUMAN-EDIT → [loop until satisfied] → REVIEW → PUBLISH |
 | Article (edit) | `/article-workflow edit` | HUMAN-EDIT → [satisfied?] → RESEARCH PLAN → RESEARCH → DRAFT → EDIT → HUMAN-EDIT (loop until satisfied) → REVIEW → PUBLISH |
 | Social | `/social-workflow` | EXTRACT-SNIPPETS → ADAPT-PER-PLATFORM → REVIEW |
@@ -175,7 +176,7 @@ Attempt 4: Escalate to user
 When a stage fails its quality gate repeatedly, the system automatically runs two agents on the same stage independently. The judge evaluates both outputs blind and picks the winner. You can also say "tournament" at any stage to force it.
 
 **What stages can tournament?**
-BRAINSTORM, RESEARCH, PLAN, IMPLEMENT, TEST, DRAFT, OUTLINE, EDIT
+BRAINSTORM, IMPLEMENT, TEST, DRAFT, OUTLINE, EDIT
 
 **What stages can't tournament?**
 PICKUP, COMMIT, PUSH, HUMAN-EDIT (mechanical or requires human)
@@ -406,7 +407,7 @@ Each learning is classified and routed to the correct target:
 MCP (Model Context Protocol) servers extend Claude Code with external capabilities — Firebase management, browser automation, database queries, Stripe API access, etc. They're configured per-project (`.mcp.json`) or globally (`~/.claude/settings.json`).
 
 **How does Reggie manage MCP tools?**
-Three layers:
+Four layers:
 
 1. **Configuration** — Getting the right servers into `.mcp.json`:
    - `/find-tools` — Scan a project and configure relevant MCP servers on demand
@@ -414,9 +415,11 @@ Three layers:
    - `/new-repo` CONFIGURE-TOOLS stage — Configure for new projects based on chosen stack
    - `/improve` TOOLING-CHECK stage — Periodic drift check (new signals, unused servers)
 
-2. **Orchestrator awareness** — The pipeline-manager reads `.mcp.json` at pipeline start and cross-references with `mcp-registry.yaml` to build a map of which MCP servers are relevant to which agent types.
+2. **Capability awareness** — The pipeline-manager reads `capability-manifest.yaml` at PICKUP and matches project signals (files, deps, directories) against the manifest. It writes a capability snapshot to CONTEXT.md listing installed tools, recommended tools (matched signals but not installed), task-relevant tools (keyword matches), and community skills (supplementary SKILL.md-based playbooks). `/init-tasks` RESEARCH+PLAN phase and IMPLEMENT stage consult this snapshot to factor available tools and skills into plans.
 
-3. **Subagent routing** — Before each subagent launch, the orchestrator checks the routing map. Agents that match a configured server's `relevant_agents` list get a prompt hint: "MCP tools available: [server]. Use ToolSearch to find these tools if needed." Agents not listed get no mention of MCP — they won't search for tools they don't know about, keeping context cost at zero.
+3. **Orchestrator awareness** — The pipeline-manager reads `.mcp.json` at pipeline start and cross-references with `mcp-registry.yaml` to build a map of which MCP servers are relevant to which agent types.
+
+4. **Subagent routing** — Before each subagent launch, the orchestrator checks the routing map. Agents that match a configured server's `relevant_agents` list get a prompt hint: "MCP tools available: [server]. Use ToolSearch to find these tools if needed." Agents not listed get no mention of MCP — they won't search for tools they don't know about, keeping context cost at zero. Each launch is logged with its full capability profile (built-in tools, MCP routing, deferred tools, pre-loaded context, agent memory, estimated context tier).
 
 **What is `ENABLE_TOOL_SEARCH`?**
 The single most important setting for MCP efficiency. Without it, every MCP tool schema loads into every subagent's context window, multiplying token cost by the number of agent launches per pipeline. With `ENABLE_TOOL_SEARCH=auto:5`, schemas are deferred — agents only pay for tools they actively search for via ToolSearch.
@@ -429,35 +432,47 @@ export ENABLE_TOOL_SEARCH=auto:5
 **What is `mcp-registry.yaml`?**
 A curated mapping of project signals (files, dependencies, directories) to MCP servers. Used by `/find-tools`, `/onboard`, `/new-repo`, and `/improve` to automatically detect which servers are relevant for a project. Each entry includes `relevant_agents` — which agent types actually use that server's tools during pipelines.
 
+**What is `capability-manifest.yaml`?**
+A pre-computed index of ~200 capabilities from five sources: official Claude plugins (42), community plugins from marketplaces like wshobson/agents (35+), community skills from skills-registry.yaml (15 curated SKILL.md-based playbooks), top Smithery servers by category (verified only), and a cross-reference to the local MCP registry (13 servers). Pipeline stages read this at PICKUP — no live API calls during planning. Run `/refresh-capabilities` to update it from external sources.
+
+**What is `skills-registry.yaml`?**
+A curated index of community Claude Code skills (SKILL.md-based playbooks) from known sources: Anthropic's official skills repo, awesome-claude-skills, and notable standalone repos (Trail of Bits, obra/superpowers, Expo). Each entry includes source trust level (official/curated/community), install instructions, keywords for task matching, and `overlaps_with` to note which Reggie agents cover similar functionality. Skills are supplementary — Reggie agents always take priority for overlapping capabilities.
+
 **How do I add MCP tools to a project?**
 Run `/find-tools`. It scans the project, matches against the registry, and offers to install relevant servers via `claude mcp add --scope project`. Prefer project-scope over global to reduce context cost in other projects.
+
+**How do I see what tools are available beyond MCP?**
+Run `/refresh-capabilities` to populate the capability manifest with plugins, Smithery servers, and community skills. `/init-tasks` RESEARCH+PLAN phase automatically consults it to recommend tools and skills that could simplify the implementation.
 
 ---
 
 ### Topic: Task Management
 
 **What is the task format?**
-Tasks in TASKS.md support priority tags, dependency tags, and optional context blocks:
+Tasks in TASKS.md use a slim metadata-rich format. Full task details live in separate `.pipeline/[slug]/task.md` files:
 
 ```markdown
 ## Backlog
 
 ### Authentication & Security
-- [ ] add-jwt-auth: Add JWT authentication to login endpoint [P1]
-  > Middleware at src/middleware/auth.ts currently uses sessions.
-  > Need to support both JWT and session during migration period.
-- [ ] implement-rbac: Implement role-based access control [P2] [depends: add-jwt-auth]
+- [ ] add-jwt-auth: Add JWT authentication to login endpoint [P1] [complex] [code] [planned]
+  files: src/utils/jwt.ts (NEW), src/middleware/auth.ts (MOD), src/routes/login.ts (MOD)
+- [ ] implement-rbac: Implement role-based access control [P2] [depends: add-jwt-auth] [conflicts: add-jwt-auth] [moderate] [code] [planned]
+  files: src/middleware/rbac.ts (NEW), src/routes/*.ts (MOD)
 
 ### Dashboard UI
-- [ ] fix-responsive-cards: Fix responsive layout on dashboard cards [P2]
-- [ ] add-loading-skeletons: Add loading skeletons to data tables [P3]
+- [ ] fix-responsive-cards: Fix responsive layout on dashboard cards [P2] [simple] [code] [planned]
+- [ ] add-loading-skeletons: Add loading skeletons to data tables [P3] [moderate] [design] [planned]
+  files: src/components/Skeleton.tsx (NEW), src/pages/Dashboard.tsx (MOD)
 ```
+
+**Metadata tags**: `[P1/P2/P3]` priority, `[depends: slug]` dependencies, `[conflicts: slug]` file overlap, `[simple/moderate/complex]` complexity, `[code/design]` pipeline mode, `[planned]` plan status (required for code-workflow). The optional `files:` line lists NEW/MOD files from the plan.
+
+**task.md files**: Pre-planned tasks (from `/init-tasks`) have a `.pipeline/[slug]/task.md` file containing the full enriched description (Problem, Vision, Context, Affected Areas, Acceptance Criteria) and an Implementation Plan. These are created by `/init-tasks` FORMALIZE phase, read by `/code-workflow` PICKUP for context seeding, and deleted by COMPLETE.
 
 **Priority tags**: `[P1]` (critical/blocking), `[P2]` (standard, default), `[P3]` (nice-to-have). Assigned by `/init-tasks` ORGANIZE phase. Tasks without tags default to P2.
 
 **Dependency tags**: `[depends: slug]` or `[depends: slug-a, slug-b]`. Mapped by `/init-tasks` ORGANIZE phase using code-architect analysis. Auto-pickup skips tasks with unmet dependencies.
-
-**Context blocks**: Indented `>` lines under a task provide richer detail. Optional — saves the researcher time when available.
 
 **How does auto-pickup work?**
 Auto-pickup is priority-aware and dependency-respecting: it scans all `- [ ]` items, filters out tasks with unmet dependencies, then picks the highest priority task (P1 > P2 > P3). Within the same priority, it picks first in document order.
@@ -466,7 +481,7 @@ Auto-pickup is priority-aware and dependency-respecting: it scans all `- [ ]` it
 `/init-tasks` uses code-architect to analyze your project structure and group tasks into areas of focus. You can also create sections manually.
 
 **How do I refine ungroomed items?**
-Run `/init-tasks` — if `### Ungroomed` has items, it offers to refine them. They go through DEEPEN for acceptance criteria, then ORGANIZE moves them to proper sections with priorities and dependencies.
+Run `/init-tasks` — if `### Ungroomed` has items, it offers to refine them. They go through RESEARCH+PLAN for acceptance criteria and implementation planning, then ORGANIZE moves them to proper sections with priorities and dependencies.
 
 **Where do discovered issues go?**
 Into `### Ungroomed` at the bottom of `## Backlog`. They stay there until refined via `/init-tasks`. Auto-pickup never selects ungroomed items.
@@ -496,9 +511,11 @@ Reggie is a git repo that symlinks into `~/.claude/`. The install script (`insta
 | `agents-is-all-you-need.md` | `docs/agents-is-all-you-need.md` | File symlink |
 | `reggie-quickstart.md` | `docs/reggie-quickstart.md` | File symlink |
 | `mcp-registry.yaml` | `mcp-registry.yaml` | File symlink |
+| `skills-registry.yaml` | `skills-registry.yaml` | File symlink |
+| `capability-manifest.yaml` | `capability-manifest.yaml` | File symlink |
 
 **What gets configured automatically?**
-The install script adds stats tracking hooks to `~/.claude/settings.json` (idempotent — safe to run multiple times). These hooks track Task and Skill tool usage for pipeline stats. The uninstall script removes them.
+The install script adds stats tracking hooks to `~/.claude/settings.json` (idempotent — safe to run multiple times). These hooks track Task, Skill, and ToolSearch usage for pipeline stats. The uninstall script removes them.
 
 **What stays local (NOT symlinked)?**
 These files are user-specific and not part of the open-source repo:
@@ -677,8 +694,8 @@ The researcher caches **web research findings only** (external best practices, l
 
 | Goal | Command | Notes |
 |------|---------|-------|
-| Build a new feature (tasks already defined) | `/code-workflow` | Full 14-stage pipeline |
-| Explore a feature idea first, then build | `/init-tasks` + `/code-workflow` | Brain dump → task breakdown → code-workflow |
+| Build a new feature (tasks already defined) | `/code-workflow` | Full 13-stage pipeline (requires /init-tasks first) |
+| Explore a feature idea first, then build | `/init-tasks` + `/code-workflow` | Brain dump → research+plan → task breakdown → code-workflow picks up pre-planned tasks |
 | Fix a bug (I know the cause) | `/code-workflow` | Create a task, use the pipeline |
 | Fix a bug (unclear root cause) | `/debug-workflow` | Socratic diagnosis → handoff to code-workflow |
 | Quickly investigate a bug | `/debug` | Lightweight, no pipeline |
@@ -700,6 +717,16 @@ The researcher caches **web research findings only** (external best practices, l
 | Evaluate the agent system itself | `/evaluate-reggie` | Architecture review, not per-agent learnings |
 | Formalize a known system change | `/reggie-system-change` | Change request already known, structured implementation |
 | Check if this repo is ready for agents | `/repo-advisor` | Per-project readiness, prescriptions, drift |
+| Scan project for relevant MCP tools | `/find-tools` | Detect project signals, configure MCP servers |
+| Update capability manifest from sources | `/refresh-capabilities` | Refresh plugins, skills, Smithery servers |
+| Write or update documentation | `/docs` | Produce documentation for code or features |
+| Update changelog | `/changelog` | Append to CHANGELOG.md |
+| Create an architecture diagram | `/diagram` | Mermaid or ASCII visualization |
+| Fix failing tests | `/fix-tests` | Diagnose and fix test failures |
+| Sync all documentation | `/sync-docs` | Keep docs current after code changes |
+| Capture learnings in CLAUDE.md | `/update-claude` | Route new learnings to the right doc |
+| Write tests for existing code | `/write-tests` | Comprehensive test suite for a feature |
+| Clean up code without behavior changes | `/simplify` | Remove dead code, simplify logic |
 
 ---
 

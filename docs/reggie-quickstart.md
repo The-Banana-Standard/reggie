@@ -11,11 +11,15 @@ tags: [Reggie, How-To, Agentic Engineering]
 ## What's Inside?
 
 - **agents/** -- 37 specialized AI agents
-- **commands/** -- 34 slash commands, including 11 pipeline commands
+- **commands/** -- 36 slash commands, including 14 pipeline commands
 - **hooks/** -- Post-task hooks for tracking and automation
 - **docs/** -- System documentation and reference guides
   - `PORTABLE-PACKAGE.md` -- Full system reference
   - `agents-is-all-you-need.md` -- Article for deeper understanding
+  - `reggie-quickstart.md` -- This guide
+- **mcp-registry.yaml** -- Curated mapping of project signals to MCP servers
+- **capability-manifest.yaml** -- Pre-computed index of ~200 plugins, skills, and servers
+- **skills-registry.yaml** -- Curated index of community Claude Code skills
 - **REGGIE.md** -- System architecture and philosophy overview
 - **install.sh** / **uninstall.sh** -- Install and uninstall scripts (macOS/Linux)
 - **install.ps1** / **uninstall.ps1** -- Install and uninstall scripts (Windows)
