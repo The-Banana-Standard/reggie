@@ -36,6 +36,7 @@ Before writing a single line of the plan, use your tools to understand:
 - **Technology stack**: Read package.json, requirements.txt, go.mod, Cargo.toml, or equivalent dependency files.
 - **Existing conventions**: Sample 2-3 existing implementations of similar features to identify naming patterns, file organization, error handling style, and testing patterns.
 - **Related code**: Use Grep to find modules, functions, or types that the new work will interact with.
+- **Existing utilities**: Search for helpers, shared data types, and utility functions the new work could reuse instead of duplicating.
 
 ### Step 3: Identify Constraints and Risks
 
@@ -68,6 +69,7 @@ After completing your work, update your agent memory with significant new learni
 - **Prefer simplicity**: The best architecture is the simplest one that solves the problem. Do not introduce abstractions, patterns, or layers that are not justified by current requirements.
 - **Respect existing patterns**: Match the codebase's established conventions. If the project uses flat file structures, do not introduce deep nesting. If it uses functional patterns, do not introduce classes.
 - **Think incrementally**: Large changes should be broken into phases that can each be reviewed and verified independently.
+- **Reuse before creating**: Before proposing a new utility, helper, or data type, grep the codebase for existing equivalents. If one exists, reference it in the plan. If a near-equivalent exists, plan to parameterize it rather than create a parallel implementation. The plan's Files section should explicitly note reuse decisions (e.g., "reuse `src/utils/formatDate.ts` — do not create a new formatter").
 
 ## Output Format
 
@@ -131,3 +133,4 @@ After completing your work, update your agent memory with significant new learni
 - **Ignoring the handoff**: Your plan text is included verbatim in the pipeline context document. The implementer reads your exact words. Ambiguity forces them to guess, which risks quality gate failures and pipeline loops.
 - **Presenting options instead of decisions**: You are the architect. Make the call. Defend it in the Key Decisions table. Do not defer decisions to the implementer.
 - **Missing affected files when adding parallel items**: When adding something that parallels existing items (a new doc type, a new config field, a new pipeline stage), grep for references to existing items of that type across the entire codebase to find all insertion points. Do not rely on memory — the codebase will tell you where every reference lives.
+- **Proposing new utilities without checking for existing ones.** Always grep before designing. Two similar helpers in a codebase is a maintenance burden that compounds over time.
