@@ -29,7 +29,7 @@ if [ "$NEEDS_BACKUP" = true ]; then
   for item in agents commands hooks; do
     [ -d "$CLAUDE_DIR/$item" ] && [ ! -L "$CLAUDE_DIR/$item" ] && cp -r "$CLAUDE_DIR/$item" "$BACKUP_DIR/$item" 2>/dev/null || true
   done
-  for item in REGGIE.md PORTABLE-PACKAGE.md agents-is-all-you-need.md reggie-quickstart.md mcp-registry.yaml; do
+  for item in REGGIE.md PORTABLE-PACKAGE.md agents-is-all-you-need.md reggie-quickstart.md mcp-registry.yaml capability-manifest.yaml skills-registry.yaml; do
     [ -f "$CLAUDE_DIR/$item" ] && [ ! -L "$CLAUDE_DIR/$item" ] && cp "$CLAUDE_DIR/$item" "$BACKUP_DIR/$item" 2>/dev/null || true
   done
 fi
@@ -43,6 +43,8 @@ rm -f "$CLAUDE_DIR/PORTABLE-PACKAGE.md"
 rm -f "$CLAUDE_DIR/agents-is-all-you-need.md"
 rm -f "$CLAUDE_DIR/reggie-quickstart.md"
 rm -f "$CLAUDE_DIR/mcp-registry.yaml"
+rm -f "$CLAUDE_DIR/capability-manifest.yaml"
+rm -f "$CLAUDE_DIR/skills-registry.yaml"
 
 # 4. Create symlinks — directories
 ln -s "$REPO_DIR/agents" "$CLAUDE_DIR/agents"
@@ -55,6 +57,8 @@ ln -s "$REPO_DIR/docs/PORTABLE-PACKAGE.md" "$CLAUDE_DIR/PORTABLE-PACKAGE.md"
 ln -s "$REPO_DIR/docs/agents-is-all-you-need.md" "$CLAUDE_DIR/agents-is-all-you-need.md"
 ln -s "$REPO_DIR/docs/reggie-quickstart.md" "$CLAUDE_DIR/reggie-quickstart.md"
 ln -s "$REPO_DIR/mcp-registry.yaml" "$CLAUDE_DIR/mcp-registry.yaml"
+ln -s "$REPO_DIR/capability-manifest.yaml" "$CLAUDE_DIR/capability-manifest.yaml"
+ln -s "$REPO_DIR/skills-registry.yaml" "$CLAUDE_DIR/skills-registry.yaml"
 
 echo ""
 echo "Reggie installed successfully."
@@ -70,6 +74,8 @@ echo "    PORTABLE-PACKAGE.md    -> $REPO_DIR/docs/PORTABLE-PACKAGE.md"
 echo "    agents-is-all-you-need.md -> $REPO_DIR/docs/agents-is-all-you-need.md"
 echo "    reggie-quickstart.md   -> $REPO_DIR/docs/reggie-quickstart.md"
 echo "    mcp-registry.yaml      -> $REPO_DIR/mcp-registry.yaml"
+echo "    capability-manifest.yaml -> $REPO_DIR/capability-manifest.yaml"
+echo "    skills-registry.yaml   -> $REPO_DIR/skills-registry.yaml"
 echo ""
 
 # 6. Add stats hooks to settings.json
@@ -87,6 +93,10 @@ if [ ! -f "$SETTINGS_FILE" ]; then
       },
       {
         "matcher": "Skill",
+        "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/track-stats.sh", "timeout": 10}]
+      },
+      {
+        "matcher": "ToolSearch",
         "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/track-stats.sh", "timeout": 10}]
       }
     ]
@@ -106,6 +116,7 @@ with open(settings_path) as f:
 hook_cmd = "$HOME/.claude/hooks/track-stats.sh"
 task_hook = {"matcher": "Task", "hooks": [{"type": "command", "command": hook_cmd, "timeout": 10}]}
 skill_hook = {"matcher": "Skill", "hooks": [{"type": "command", "command": hook_cmd, "timeout": 10}]}
+toolsearch_hook = {"matcher": "ToolSearch", "hooks": [{"type": "command", "command": hook_cmd, "timeout": 10}]}
 
 if "hooks" not in settings:
     settings["hooks"] = {}
@@ -126,6 +137,8 @@ if not has_hook("Task"):
     existing.append(task_hook)
 if not has_hook("Skill"):
     existing.append(skill_hook)
+if not has_hook("ToolSearch"):
+    existing.append(toolsearch_hook)
 
 with open(settings_path, "w") as f:
     json.dump(settings, f, indent=2)

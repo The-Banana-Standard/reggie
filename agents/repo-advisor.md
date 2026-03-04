@@ -72,6 +72,14 @@ If .claude/stats.json exists, parse it and look for these PROJECT-LEVEL signals:
 
 If .claude/stats.json does not exist, note this as a finding: the project has never completed a pipeline run, or stats tracking was added after the project was set up.
 
+**Capability-specific signals** (from `tool_searches` and `capability_runs` in stats.json):
+
+- **Recommended but never installed**: If `capability_runs` entries repeatedly list a capability in `capabilities_recommended` but it never appears in `capabilities_used_in_plan` or `mcp_servers_configured` → suggest installing it or suppressing it from the manifest
+- **Configured but never searched**: If an MCP server appears in `mcp_servers_configured` across multiple runs but never in `tool_searches` → it's costing deferred-tool-list space without being used. Suggest removal.
+- **High context agents**: If agents consistently log "high" context tier in `capability_runs.launches` → investigate if MCP routing is too broad for that agent type
+- **Deferred tools bloat**: If `deferred_tools_count` > 100 across runs → warn about context overhead even in deferred mode. Suggest reviewing which plugins and MCP servers are enabled.
+- **ENABLE_TOOL_SEARCH not set**: If `capability_runs` entries show `enable_tool_search: false` with MCP servers configured → critical warning, highest priority recommendation
+
 DO NOT analyze system-wide agent health. That is /evaluate-reggie's job. Only interpret stats as signals about THIS project's readiness.
 
 ### 6. Detect Drift (drift mode)
@@ -95,6 +103,9 @@ For each finding, prescribe the exact command to address it. Common mappings:
 - No recent agent activity -> suggest running /code-workflow or /audit-workflow
 - CLAUDE.md build commands broken -> fix manually, then /update-claude
 - Documentation out of sync -> /sync-docs
+- Capability manifest missing or stale -> /refresh-capabilities
+- MCP tools configured but never used -> /find-tools --check (review and remove unused)
+- High context cost in pipelines -> set ENABLE_TOOL_SEARCH=auto:5, move high-cost servers to project scope
 
 If a gap exists that no current command can address, say so explicitly and suggest what kind of new command or agent would help.
 

@@ -16,7 +16,7 @@ for item in agents commands hooks; do
 done
 
 # 2. Remove symlinks — files
-for item in REGGIE.md PORTABLE-PACKAGE.md agents-is-all-you-need.md reggie-quickstart.md mcp-registry.yaml; do
+for item in REGGIE.md PORTABLE-PACKAGE.md agents-is-all-you-need.md reggie-quickstart.md mcp-registry.yaml capability-manifest.yaml skills-registry.yaml; do
   if [ -L "$CLAUDE_DIR/$item" ]; then
     rm "$CLAUDE_DIR/$item"
     echo "Removed $item symlink"
@@ -31,7 +31,7 @@ if [ -n "$LATEST_BACKUP" ]; then
   for item in agents commands hooks; do
     [ -d "$LATEST_BACKUP/$item" ] && cp -r "$LATEST_BACKUP/$item" "$CLAUDE_DIR/$item" 2>/dev/null || true
   done
-  for item in REGGIE.md PORTABLE-PACKAGE.md agents-is-all-you-need.md reggie-quickstart.md mcp-registry.yaml; do
+  for item in REGGIE.md PORTABLE-PACKAGE.md agents-is-all-you-need.md reggie-quickstart.md mcp-registry.yaml capability-manifest.yaml skills-registry.yaml; do
     [ -f "$LATEST_BACKUP/$item" ] && cp "$LATEST_BACKUP/$item" "$CLAUDE_DIR/$item" 2>/dev/null || true
   done
 else

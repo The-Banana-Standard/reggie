@@ -56,6 +56,14 @@ else
 fi
 
 echo ""
+echo "=== Smithery API ==="
+if [ -n "$SMITHERY_API_KEY" ]; then
+  echo "SMITHERY_API_KEY: SET"
+else
+  echo "SMITHERY_API_KEY: NOT SET (Smithery discovery disabled)"
+fi
+
+echo ""
 echo "=== MCP Registry ==="
 cat ~/.claude/mcp-registry.yaml 2>/dev/null | head -5 || echo "Registry not found"
 ```
@@ -77,7 +85,7 @@ $ARGUMENTS
 ### The Flow
 
 ```
-SCAN → MATCH → RECOMMEND → CONFIGURE
+SCAN → MATCH LOCAL → SEARCH SMITHERY → RECOMMEND → CONFIGURE
 ```
 
 No quality gates. Interactive — user selects which tools to enable.
@@ -96,7 +104,7 @@ Build a list of matched servers with their signal evidence.
 
 ---
 
-## Step 2: MATCH
+## Step 2: MATCH LOCAL
 
 Read current MCP configuration from three sources:
 
@@ -108,7 +116,57 @@ Cross-reference matched servers against current config to categorize each.
 
 ---
 
-## Step 3: RECOMMEND
+## Step 3: SEARCH SMITHERY
+
+Search the Smithery.ai registry for verified MCP servers that match the project's tech stack. This step is **optional** — it only runs when `SMITHERY_API_KEY` is set.
+
+### If `SMITHERY_API_KEY` is NOT set:
+
+Skip this step entirely. In the RECOMMEND output, add a note at the bottom:
+
+```
+Smithery discovery disabled. Set SMITHERY_API_KEY to find additional
+verified servers from smithery.ai.
+Get your key: https://smithery.ai/account/api-keys
+```
+
+### If `SMITHERY_API_KEY` IS set:
+
+1. **Extract keywords** from the SCAN results. Map detected signals to search terms:
+   - Dependencies: `next` → "nextjs", `react` → "react", `firebase` → "firebase", `@playwright/test` → "playwright", `stripe` → "stripe", etc.
+   - Config files: `firebase.json` → "firebase", `Dockerfile` → "docker", `go.mod` → "golang", `Podfile` → "ios swift", `build.gradle` → "android"
+   - Use the most specific terms available. Aim for 3-6 keywords max — don't over-query.
+
+2. **Query the Smithery API** for each keyword. The `verified=true` parameter is **mandatory** — never omit it:
+
+   ```bash
+   curl -s -H "Authorization: Bearer $SMITHERY_API_KEY" \
+     "https://api.smithery.ai/servers?q=<keyword>&verified=true&pageSize=10"
+   ```
+
+   The response contains a `servers` array with objects like:
+   ```json
+   {
+     "qualifiedName": "owner/server-name",
+     "displayName": "Server Name",
+     "description": "What it does",
+     "verified": true,
+     "useCount": 1234
+   }
+   ```
+
+3. **Filter results** — defense-in-depth beyond the query param:
+   - Only include results where `verified: true` in the response object
+   - Remove results that match any server already in `mcp-registry.yaml` (compare `qualifiedName` and `slug` against registry server names)
+   - Remove results already configured in `.mcp.json` or global MCP settings
+
+4. **Deduplicate across keywords** — if the same server appears for multiple keywords, keep only one entry and list all matched keywords.
+
+5. **Rank by popularity** — sort remaining results by `useCount` descending. Cap at 10 total Smithery results to avoid overwhelming the user.
+
+---
+
+## Step 4: RECOMMEND
 
 Present findings in this format:
 
@@ -139,6 +197,19 @@ Present findings in this format:
 │  [6] slack — Team communication integration (low tokens)         │
 │  [7] github — GitHub API access (low tokens, needs PAT)          │
 │                                                                  │
+│ DISCOVERED ON SMITHERY (verified servers, matched your stack):    │
+│                                                                  │
+│  [8] owner/server-name (1.2k installs, verified)                 │
+│      "Description of what it does"                               │
+│      Matched: firebase keyword                                   │
+│                                                                  │
+│  [9] owner/another-server (890 installs, verified)               │
+│      "Description of what it does"                               │
+│      Matched: react, typescript keywords                         │
+│                                                                  │
+│  (Set SMITHERY_API_KEY to enable — smithery.ai/account/api-keys) │
+│  ↑ shown instead of results when API key is not set              │
+│                                                                  │
 │ UNUSED (configured but no signals match):                        │
 │                                                                  │
 │  [!] supabase — configured globally, no supabase signals found   │
@@ -156,17 +227,19 @@ Move to project-level so it's only active where you need it? (y/n)
 
 **Optional servers**: Servers with no signal matches (empty `signals.files`, `signals.deps`, `signals.dirs`) are always listed under OPTIONAL. These are "user-intent" tools — the system never auto-recommends them.
 
-If `--check` flag: stop here, don't proceed to CONFIGURE.
+If `--check` flag: stop here, don't proceed to CONFIGURE. Smithery results are still shown if the API key is set (read-only display is fine).
 
 ---
 
-## Step 4: CONFIGURE
+## Step 5: CONFIGURE
 
 Ask user which tools to enable:
 
 ```
 Which tools would you like to enable? (enter numbers, e.g. "1 2 3" or "all")
 ```
+
+Numbering is sequential across all categories: RECOMMENDED, OPTIONAL, and DISCOVERED ON SMITHERY all share the same number sequence so the user can pick from any category with a single selection.
 
 For each selected tool:
 
@@ -177,7 +250,9 @@ For each selected tool:
    Continue? (y/n)
    ```
 
-2. **Install**: Use `claude mcp add` for project-level installs:
+2. **Install** — the method depends on whether the server is from the local registry or Smithery:
+
+   **Local registry servers** — use `claude mcp add`:
    - For `transport: stdio` servers:
      ```bash
      claude mcp add --scope project [name] [command] [args...]
@@ -189,7 +264,13 @@ For each selected tool:
    - For `transport: plugin` servers: Note that plugins are configured in `~/.claude/settings.json` under `enabledPlugins` — guide the user to add it.
    - For `scope: global` servers, use `--scope user` instead of `--scope project`.
 
-3. **Report** what was configured.
+   **Smithery-discovered servers** — use the Smithery CLI:
+   ```bash
+   npx -y @smithery/cli@latest mcp add <qualifiedName> --client claude
+   ```
+   This auto-detects the server's transport and configures it. If the CLI prompts for configuration values, pass them through. The server is added to the project's MCP config.
+
+3. **Report** what was configured, noting the source (local registry vs Smithery) for each.
 
 ---
 
@@ -239,13 +320,14 @@ MCP tool schemas load into every subagent launched via the Task tool during pipe
 │ FIND-TOOLS COMPLETE                                               │
 │                                                                  │
 │ Configured: [N] MCP servers                                      │
-│   - [server1] (project-level)                                    │
-│   - [server2] (project-level)                                    │
+│   - [server1] (project-level, local registry)                    │
+│   - [server2] (project-level, smithery)                          │
 │                                                                  │
 │ Already configured: [N]                                          │
 │ Skipped: [N]                                                     │
 │ Removed: [N]                                                     │
 │                                                                  │
+│ Smithery: [N verified servers discovered / disabled — no API key]│
 │ Tool Search: [enabled / already enabled / not enabled]           │
 │                                                                  │
 │ MCP servers are now available in this project.                   │
@@ -258,11 +340,26 @@ MCP tool schemas load into every subagent launched via the Task tool during pipe
 ## For Integration: CONFIGURE-TOOLS Stage
 
 When called from `/onboard` or `/new-repo`, the flow is the same but:
-- Skip the Tool Search check (not relevant during onboard/new-repo)
+- Skip the Tool Search setup check (not relevant during onboard/new-repo)
 - Auto-scan and present recommendations without the explicit `/find-tools` framing
 - The CONFIGURE-TOOLS stage name is used in the pipeline output
+- The Smithery search step runs if `SMITHERY_API_KEY` is set — same keyword extraction from the already-discovered tech stack. This lets newly onboarded or scaffolded projects benefit from Smithery discovery automatically.
 
 When called from `/improve` (TOOLING-CHECK), the flow is read-only:
-- SCAN and MATCH only
+- SCAN and MATCH LOCAL only (no Smithery search — avoid API calls in read-only audits)
 - Produces tool gap/unused proposals that feed into PROPOSE
 - Does NOT install anything directly
+
+---
+
+## Broader Ecosystem
+
+After presenting findings, add a brief note:
+
+```
+For broader capability awareness (plugins, community agents, Smithery servers),
+run /refresh-capabilities. Pipeline planning stages automatically consult the
+capability manifest during RESEARCH and PLAN to recommend relevant tools.
+```
+
+This is informational only — `/find-tools` remains focused on MCP servers.

@@ -1,0 +1,260 @@
+# Skills Registry — Curated index of community Claude Code skills
+# Used by /refresh-capabilities to populate the skills section of capability-manifest.yaml
+# Pipeline PICKUP/PLAN stages use the manifest to recommend skills during task planning.
+#
+# Source trust levels:
+#   official  — Anthropic-maintained (anthropics/skills repo)
+#   curated   — Vetted via awesome-claude-skills or manual review
+#   community — Less vetted, from marketplaces or standalone repos
+#
+# Install types:
+#   plugin            — `claude plugin install <name>` (from a marketplace)
+#   plugin-marketplace — Install marketplace first, then plugin
+#   manual            — Copy SKILL.md to ~/.claude/skills/<name>/
+#
+# Category: development | frontend | testing | security | docs | productivity | mobile | data | creative
+#
+# IMPORTANT: Reggie agents take priority over community skills for overlapping
+# capabilities. Skills are supplementary — PLAN should note them as "also available"
+# when a Reggie agent already covers the use case.
+#
+# overlaps_with: Lists Reggie agents that cover similar functionality.
+# Pipeline stages use this to avoid recommending skills that duplicate agent capabilities.
+
+skills:
+
+  # ===========================================================================
+  # OFFICIAL — Anthropic-maintained skills (anthropics/skills repo)
+  # ===========================================================================
+  # Install marketplace: claude plugin marketplace add anthropic-agent-skills
+  # Then: claude plugin install <name>@anthropic-agent-skills
+
+  pdf:
+    name: "PDF Toolkit"
+    description: "Extract text/tables, create new PDFs, merge/split documents, handle forms"
+    source_trust: official
+    keywords: [pdf, document, extract, merge, split, forms]
+    install: "claude plugin install document-skills@anthropic-agent-skills"
+    install_type: plugin-marketplace
+    marketplace: anthropic-agent-skills
+    provides_skills: [pdf, docx, xlsx, pptx]
+    category: docs
+    notes: "Bundle of all 4 document skills. Install once for PDF, Word, Excel, and PowerPoint."
+
+  docx:
+    name: "Word Documents"
+    description: "Create, edit, and analyze Word documents with tracked changes, comments, and formatting"
+    source_trust: official
+    keywords: [word, docx, document, editing, tracked-changes]
+    install: "claude plugin install document-skills@anthropic-agent-skills"
+    install_type: plugin-marketplace
+    marketplace: anthropic-agent-skills
+    provides_skills: [pdf, docx, xlsx, pptx]
+    category: docs
+    notes: "Part of document-skills bundle."
+
+  xlsx:
+    name: "Excel Spreadsheets"
+    description: "Create, edit, and analyze Excel spreadsheets with formulas, formatting, and data visualization"
+    source_trust: official
+    keywords: [excel, xlsx, spreadsheet, formulas, data, analysis]
+    install: "claude plugin install document-skills@anthropic-agent-skills"
+    install_type: plugin-marketplace
+    marketplace: anthropic-agent-skills
+    provides_skills: [pdf, docx, xlsx, pptx]
+    category: docs
+    notes: "Part of document-skills bundle."
+
+  pptx:
+    name: "PowerPoint Presentations"
+    description: "Create, edit, and analyze PowerPoint presentations with layouts, templates, and charts"
+    source_trust: official
+    keywords: [powerpoint, pptx, presentation, slides, charts]
+    install: "claude plugin install document-skills@anthropic-agent-skills"
+    install_type: plugin-marketplace
+    marketplace: anthropic-agent-skills
+    provides_skills: [pdf, docx, xlsx, pptx]
+    category: docs
+    notes: "Part of document-skills bundle."
+
+  algorithmic-art:
+    name: "Algorithmic Art"
+    description: "Create generative art using p5.js with seeded randomness, flow fields, and particle systems"
+    source_trust: official
+    keywords: [generative-art, p5js, creative-coding, visualization]
+    install: "claude plugin install example-skills@anthropic-agent-skills"
+    install_type: plugin-marketplace
+    marketplace: anthropic-agent-skills
+    provides_skills: [algorithmic-art, canvas-design, slack-gif-creator]
+    category: creative
+
+  canvas-design:
+    name: "Canvas Design"
+    description: "Design visual art in PNG and PDF formats using design philosophies"
+    source_trust: official
+    keywords: [design, canvas, png, visual, art]
+    install: "claude plugin install example-skills@anthropic-agent-skills"
+    install_type: plugin-marketplace
+    marketplace: anthropic-agent-skills
+    provides_skills: [algorithmic-art, canvas-design, slack-gif-creator]
+    category: creative
+
+  mcp-builder:
+    name: "MCP Server Builder"
+    description: "Guide for creating high-quality MCP servers to integrate external APIs and services"
+    source_trust: official
+    keywords: [mcp, server, api, integration, builder]
+    install: "claude plugin install example-skills@anthropic-agent-skills"
+    install_type: plugin-marketplace
+    marketplace: anthropic-agent-skills
+    provides_skills: [mcp-builder, webapp-testing]
+    category: development
+
+  webapp-testing:
+    name: "Web App Testing"
+    description: "Test local web applications using Playwright for UI verification and debugging"
+    source_trust: official
+    keywords: [testing, playwright, ui, e2e, web, verification]
+    signals:
+      deps: ["@playwright/test", "playwright"]
+      files: ["playwright.config.ts", "playwright.config.js"]
+    install: "claude plugin install example-skills@anthropic-agent-skills"
+    install_type: plugin-marketplace
+    marketplace: anthropic-agent-skills
+    provides_skills: [mcp-builder, webapp-testing]
+    category: testing
+    overlaps_with: [app-tester, qa-engineer]
+
+  # ===========================================================================
+  # CURATED — Vetted community skills (from awesome-claude-skills + manual review)
+  # ===========================================================================
+
+  superpowers:
+    name: "Superpowers (obra)"
+    description: "Core skills library with 20+ battle-tested skills including TDD, debugging, and collaboration patterns"
+    source_trust: curated
+    keywords: [tdd, debugging, collaboration, workflow, testing, development]
+    install: "See https://github.com/obra/superpowers for install instructions"
+    install_type: manual
+    github_stars: 1000
+    github_url: "https://github.com/obra/superpowers"
+    provides_skills: [tdd, debugging, collaboration, code-review, refactoring]
+    category: development
+    overlaps_with: [qa-engineer, code-reviewer, refactorer, codebase-debugger]
+    notes: "Broad overlap with Reggie agents. Most useful for teams not using Reggie pipelines."
+
+  trail-of-bits-security:
+    name: "Trail of Bits Security Skills"
+    description: "Security skills for static analysis with CodeQL/Semgrep, variant analysis, code auditing, and vulnerability detection"
+    source_trust: curated
+    keywords: [security, codeql, semgrep, static-analysis, vulnerability, audit, sast]
+    install: "See https://github.com/trailofbits/claude-skills for install instructions"
+    install_type: manual
+    github_url: "https://github.com/trailofbits/claude-skills"
+    provides_skills: [codeql-analysis, semgrep-analysis, variant-analysis, code-auditing]
+    category: security
+    overlaps_with: [security-reviewer]
+    notes: "Complements security-reviewer with tool-specific static analysis (CodeQL, Semgrep). Useful when those tools are installed."
+
+  expo-skills:
+    name: "Expo Skills (official)"
+    description: "Official skills by the Expo team for developing Expo/React Native apps"
+    source_trust: curated
+    keywords: [expo, react-native, mobile, ios, android, app]
+    signals:
+      deps: ["expo", "react-native", "expo-router"]
+      files: ["app.json", "app.config.js", "app.config.ts"]
+    install: "See Expo documentation for skill installation"
+    install_type: manual
+    provides_skills: [expo-development]
+    category: mobile
+    overlaps_with: [ios-developer, android-developer]
+
+  ios-simulator-skill:
+    name: "iOS Simulator"
+    description: "iOS app building, navigation, and testing through simulator automation"
+    source_trust: curated
+    keywords: [ios, simulator, xcode, testing, automation, mobile]
+    signals:
+      files: ["Package.swift", "*.xcodeproj", "*.xcworkspace"]
+    install_type: manual
+    github_url: "https://github.com/nicobrenner/ios-simulator-skill"
+    provides_skills: [ios-simulator]
+    category: mobile
+    overlaps_with: [ios-developer, app-tester]
+    notes: "Supplements ios-developer with simulator automation for visual testing."
+
+  playwright-skill:
+    name: "Playwright Skill"
+    description: "General-purpose browser automation using Playwright for testing and scraping"
+    source_trust: curated
+    keywords: [playwright, browser, automation, testing, e2e, scraping]
+    signals:
+      deps: ["@playwright/test", "playwright"]
+    install_type: manual
+    provides_skills: [playwright-automation]
+    category: testing
+    overlaps_with: [app-tester, qa-engineer]
+
+  frontend-slides:
+    name: "Frontend Slides"
+    description: "Create animation-rich HTML presentations from scratch or by converting PowerPoint files"
+    source_trust: curated
+    keywords: [presentation, slides, html, animation, powerpoint, convert]
+    install_type: manual
+    provides_skills: [html-presentations]
+    category: creative
+
+  claude-d3js-skill:
+    name: "D3.js Visualizations"
+    description: "Create data visualizations using D3.js — charts, graphs, interactive diagrams"
+    source_trust: curated
+    keywords: [d3, visualization, charts, graphs, data, interactive]
+    install_type: manual
+    provides_skills: [d3-visualization]
+    category: data
+    overlaps_with: [visual-architect]
+
+  scientific-skills:
+    name: "Scientific Skills"
+    description: "Collection of scientific skills for working with specialized libraries and databases"
+    source_trust: curated
+    keywords: [science, research, data, analysis, scientific, libraries]
+    signals:
+      deps: ["numpy", "scipy", "matplotlib", "pandas", "biopython"]
+    install_type: manual
+    github_url: "https://github.com/areibman/claude-scientific-skills"
+    provides_skills: [scientific-analysis]
+    category: data
+
+  skill-seekers:
+    name: "Skill Seekers"
+    description: "Convert documentation websites into Claude Skills — useful for creating custom reference skills"
+    source_trust: curated
+    keywords: [documentation, skill-creation, converter, reference, docs]
+    install_type: manual
+    provides_skills: [doc-to-skill-converter]
+    category: development
+    notes: "Meta-skill for creating new skills from existing documentation."
+
+  web-asset-generator:
+    name: "Web Asset Generator"
+    description: "Generate favicons, app icons, social media images, and other web assets"
+    source_trust: curated
+    keywords: [favicon, icons, assets, social-media, images, web]
+    signals:
+      files: ["index.html", "manifest.json"]
+    install_type: manual
+    provides_skills: [asset-generation]
+    category: frontend
+
+  ffuf-web-fuzzing:
+    name: "ffuf Web Fuzzing"
+    description: "Expert guidance for ffuf web fuzzing during penetration testing — authenticated fuzzing, auto-calibration, result analysis"
+    source_trust: curated
+    keywords: [security, fuzzing, pentest, web, ffuf, reconnaissance]
+    install_type: manual
+    provides_skills: [web-fuzzing]
+    category: security
+    overlaps_with: [security-reviewer]
+    notes: "Specialized pentest skill. Only relevant for authorized security testing engagements."

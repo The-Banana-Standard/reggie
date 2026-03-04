@@ -33,7 +33,7 @@ if ($NeedsBackup) {
             Copy-Item -Recurse -Path $src -Destination (Join-Path $BackupDir $item) -ErrorAction SilentlyContinue
         }
     }
-    foreach ($item in @("REGGIE.md", "PORTABLE-PACKAGE.md", "agents-is-all-you-need.md", "reggie-quickstart.md")) {
+    foreach ($item in @("REGGIE.md", "PORTABLE-PACKAGE.md", "agents-is-all-you-need.md", "reggie-quickstart.md", "mcp-registry.yaml", "capability-manifest.yaml", "skills-registry.yaml")) {
         $src = Join-Path $ClaudeDir $item
         if ((Test-Path $src) -and -not ((Get-Item $src).Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
             Copy-Item -Path $src -Destination (Join-Path $BackupDir $item) -ErrorAction SilentlyContinue
@@ -46,7 +46,7 @@ foreach ($item in @("agents", "commands", "hooks")) {
     $target = Join-Path $ClaudeDir $item
     if (Test-Path $target) { Remove-Item -Recurse -Force $target }
 }
-foreach ($item in @("REGGIE.md", "PORTABLE-PACKAGE.md", "agents-is-all-you-need.md", "reggie-quickstart.md")) {
+foreach ($item in @("REGGIE.md", "PORTABLE-PACKAGE.md", "agents-is-all-you-need.md", "reggie-quickstart.md", "mcp-registry.yaml", "capability-manifest.yaml", "skills-registry.yaml")) {
     $target = Join-Path $ClaudeDir $item
     if (Test-Path $target) { Remove-Item -Force $target }
 }
@@ -61,6 +61,9 @@ New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "REGGIE.md") -Target
 New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "PORTABLE-PACKAGE.md") -Target (Join-Path $RepoDir "docs\PORTABLE-PACKAGE.md") | Out-Null
 New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "agents-is-all-you-need.md") -Target (Join-Path $RepoDir "docs\agents-is-all-you-need.md") | Out-Null
 New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "reggie-quickstart.md") -Target (Join-Path $RepoDir "docs\reggie-quickstart.md") | Out-Null
+New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "mcp-registry.yaml") -Target (Join-Path $RepoDir "mcp-registry.yaml") | Out-Null
+New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "capability-manifest.yaml") -Target (Join-Path $RepoDir "capability-manifest.yaml") | Out-Null
+New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "skills-registry.yaml") -Target (Join-Path $RepoDir "skills-registry.yaml") | Out-Null
 
 Write-Host ""
 Write-Host "Reggie installed successfully."
@@ -75,6 +78,9 @@ Write-Host "    REGGIE.md              -> $RepoDir\REGGIE.md"
 Write-Host "    PORTABLE-PACKAGE.md    -> $RepoDir\docs\PORTABLE-PACKAGE.md"
 Write-Host "    agents-is-all-you-need.md -> $RepoDir\docs\agents-is-all-you-need.md"
 Write-Host "    reggie-quickstart.md   -> $RepoDir\docs\reggie-quickstart.md"
+Write-Host "    mcp-registry.yaml      -> $RepoDir\mcp-registry.yaml"
+Write-Host "    capability-manifest.yaml -> $RepoDir\capability-manifest.yaml"
+Write-Host "    skills-registry.yaml   -> $RepoDir\skills-registry.yaml"
 Write-Host ""
 
 # 6. Add stats hooks to settings.json
@@ -92,6 +98,10 @@ if (-not (Test-Path $SettingsFile)) {
                 },
                 @{
                     matcher = "Skill"
+                    hooks = @(@{ type = "command"; command = $HookCmd; timeout = 10 })
+                },
+                @{
+                    matcher = "ToolSearch"
                     hooks = @(@{ type = "command"; command = $HookCmd; timeout = 10 })
                 }
             )
@@ -132,6 +142,12 @@ if (-not (Test-Path $SettingsFile)) {
     if (-not (Test-HookExists "Skill")) {
         $existing += [PSCustomObject]@{
             matcher = "Skill"
+            hooks = @([PSCustomObject]@{ type = "command"; command = $HookCmd; timeout = 10 })
+        }
+    }
+    if (-not (Test-HookExists "ToolSearch")) {
+        $existing += [PSCustomObject]@{
+            matcher = "ToolSearch"
             hooks = @([PSCustomObject]@{ type = "command"; command = $HookCmd; timeout = 10 })
         }
     }

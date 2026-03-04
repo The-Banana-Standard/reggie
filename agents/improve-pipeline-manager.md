@@ -90,6 +90,22 @@ TOOLING CHANGES (MCP configuration):
 
 **Servers with no signals** (context7, figma, linear, slack) are never proposed by TOOLING-CHECK — they are user-intent tools only available through explicit `/find-tools` runs.
 
+**Capability manifest staleness**: Also check `~/.claude/capability-manifest.yaml`:
+
+- If the file exists but `last_refreshed` is older than 30 days, add a TOOLING proposal:
+  ```
+  REFRESH: Capability manifest is [N] days old.
+           Run /refresh-capabilities to update available tool recommendations.
+           Stale manifests mean RESEARCH/PLAN stages may miss new capabilities.
+  ```
+- If the file does not exist, add a TOOLING proposal:
+  ```
+  SETUP: No capability manifest found.
+         Run /refresh-capabilities to index available tools, plugins, and MCP servers.
+         This enables capability-aware planning in RESEARCH and PLAN stages.
+  ```
+- If the file exists and is fresh (< 30 days): no proposal needed.
+
 ---
 
 ### Stage 1: COLLECT

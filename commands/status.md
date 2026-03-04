@@ -68,3 +68,18 @@ Keep it brief — this is a status check, not a planning session.
 
 If no TASKS.md exists, offer to create one.
 
+### Capability Context (optional)
+
+If `.claude/stats.json` exists and contains `capability_runs` or `tool_searches`, append a brief capability section:
+
+```
+Capability Context:
+  Orchestrator: [N] deferred tools, [N] plugins, [N] MCP servers
+  Last pipeline ([slug]):
+    [N] agent launches, [N] with MCP routing ([server names])
+    Highest context: [agent] ([tier] — [reason])
+  ToolSearch hits (last 30 days): [server] [N]x, [server] [N]x
+```
+
+Only show this section if capability data exists. Skip entirely for projects with no pipeline runs or no MCP configuration.
+
