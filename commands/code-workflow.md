@@ -68,35 +68,34 @@ This command orchestrates the **full development pipeline** for a single task.
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                                                             │
-│   PICKUP → RESEARCH → PLAN → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK       │
-│                                                                             │
-│                                         → SIMPLIFY                          │
-│                                              ↓                              │
-│                                         VERIFY-APP                          │
-│                                        ↙         ↘                         │
-│                                   [FAIL]         [PASS]                     │
-│                                     ↓               ↓                       │
-│                              Back to PLAN       REVIEW                      │
-│                                                ↙      ↘                    │
-│                                           [FAIL]      [PASS]                │
-│                                             ↓            ↓                  │
-│                                      Back to PLAN   SECURITY-REVIEW         │
-│                                                    ↙          ↘            │
-│                                               [FAIL]          [PASS]        │
-│                                                 ↓                ↓          │
-│                                          Back to PLAN      SYNC-DOCS        │
-│                                                                 ↓           │
-│                                                           UPDATE-CLAUDE     │
-│                                                                 ↓           │
-│                                                        REVIEW-WITH-USER     │
-│                                                        ↙            ↘      │
-│                                                  [NEEDS WORK]    [APPROVED] │
-│                                                       ↓               ↓     │
-│                                                Back to IMPLEMENT    COMMIT  │
-│                                                                       ↓     │
-│                                                                 ✓ COMPLETE  │
-│                                                                       ↓     │
-│                                                               PICKUP (next) │
+│   PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY              │
+│                                                          ↓                  │
+│                                                     VERIFY-APP              │
+│                                                    ↙         ↘             │
+│                                               [FAIL]         [PASS]        │
+│                                                 ↓               ↓          │
+│                                          Back to IMPLEMENT   REVIEW         │
+│                                                            ↙      ↘        │
+│                                                       [FAIL]      [PASS]   │
+│                                                         ↓            ↓     │
+│                                                  Back to IMPLEMENT        │
+│                                                              SECURITY-REVIEW│
+│                                                            ↙          ↘   │
+│                                                       [FAIL]          [PASS]│
+│                                                         ↓                ↓  │
+│                                                  Back to IMPLEMENT  SYNC-DOCS│
+│                                                                        ↓   │
+│                                                                  UPDATE-CLAUDE│
+│                                                                        ↓   │
+│                                                               REVIEW-WITH-USER│
+│                                                               ↙            ↘│
+│                                                         [NEEDS WORK]  [APPROVED]│
+│                                                              ↓             ↓│
+│                                                       Back to IMPLEMENT  COMMIT│
+│                                                                            ↓│
+│                                                                    ✓ COMPLETE│
+│                                                                            ↓│
+│                                                                  PICKUP (next)│
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -115,8 +114,13 @@ Execute each stage, waiting for completion and confirmation before proceeding. A
 
 **Auto-pickup** (when `/code-workflow` is run with no arguments and no task context):
 1. Look at TASKS.md: list active tasks (these belong to other sessions) and backlog
-2. If backlog has items, auto-pick the first `- [ ]` item (reads top-to-bottom, skipping `###` section headings and skipping all items under `### Ungroomed`)
-3. Print: "Picking up: [task name]. Starting PLAN stage."
+2. If backlog has items, auto-pick using priority + dependency logic:
+   - Scan all `- [ ]` items across all sections EXCEPT `### Ungroomed`
+   - Filter out tasks with unmet dependencies (`[depends: slug]` where slug is still in backlog or active)
+   - From remaining, pick highest priority: P1 > P2 > P3 (tasks without tags = P2)
+   - Within same priority, pick first in document order (top-to-bottom)
+   - If ALL tasks are blocked by dependencies, warn user and ask what to do
+3. Print: "Picking up: [task name] [P#]. Starting IMPLEMENT stage."
 4. Print active tasks as FYI: "Other active tasks: [list slugs + stages]"
 5. Record base branch: `git branch --show-current`
 6. Create worktree:
@@ -133,12 +137,27 @@ Execute each stage, waiting for completion and confirmation before proceeding. A
    done
    ```
 8. If project uses `node_modules/`, run install command in `.worktree/[slug]/`
-9. Create `.pipeline/[slug]/` with `CONTEXT.md` (in main repo). **Context Seeding**: If the backlog entry has `>` context blocks, extract them and write to `CONTEXT.md` under a `## Pre-existing Context` section. If no context blocks, create empty `CONTEXT.md`.
+9. **Context Seeding from task.md**: Create `.pipeline/[slug]/` if it doesn't exist. Seed `CONTEXT.md`:
+   - **If `.pipeline/[slug]/task.md` exists** (from `/init-tasks`): Read the task.md file and write its contents into `CONTEXT.md` under `## Pre-existing Context`. The task.md contains Problem, Vision, Context, Affected Areas, Acceptance Criteria, and Implementation Plan — all preserved verbatim.
+   - **If no task.md**: The task has not been planned. Print redirect message and stop:
+     ```
+     This task needs planning before it can enter the pipeline. Run:
+       /init-tasks [task description]
+     to research it against the codebase, create an implementation plan,
+     then run /code-workflow to pick it up.
+     ```
+     Move the task back to `## Backlog` in TASKS.md and remove it from `## Active Tasks`. Clean up the worktree. Stop the pipeline for this task.
 10. Ensure `.pipeline/` and `.worktree/` are in `.gitignore`
 11. Add to Active Tasks in TASKS.md (include **Branch**, **Worktree**, **Base** fields)
-12. Remove the picked-up task's `- [ ] slug: ...` entry from `## Backlog` in TASKS.md. Delete the entire entry including any indented `>` context lines below it.
+12. Remove the picked-up task's `- [ ] slug: ...` entry from `## Backlog` in TASKS.md. Delete the entire entry including any indented `files:` or `>` context lines below it.
 13. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: pickup [slug]" --no-gpg-sign 2>/dev/null`
-14. **Skip List**: Evaluate if any stages are categorically inapplicable (see pipeline-manager.md → Skip List). Write `.pipeline/[slug]/SKIP` with stage names and reasons. If no stages should be skipped, skip this step.
+14. **Staleness Validation**: If task.md has `## Implementation Plan` with a `### Files` section, validate that referenced files still exist in the codebase:
+    - For `MOD:` files: check they exist. If missing, warn: "File [path] from plan no longer exists."
+    - For `NEW:` files: check they DON'T exist yet (if they do, the plan may be stale). If found, warn: "File [path] already exists — plan may be stale."
+    - If any warnings: ask user to proceed (accept risk), re-plan via `/init-tasks`, or skip task.
+    - If no warnings: proceed normally.
+15. **Conflict Detection**: Parse the file list from the task.md `### Files` section. Compare against all other active tasks' `**Files**` lists in TASKS.md. If overlap exists, show conflict warning and ask user to choose: Proceed / Wait / Rethink / Abort. If no overlap, proceed.
+16. **Skip List**: Evaluate which stages are categorically inapplicable (see pipeline-manager.md → Skip List). Write `.pipeline/[slug]/SKIP` with stage names and reasons. If no stages should be skipped, skip this step.
 
 **If no backlog items remain:**
 ```
@@ -184,59 +203,7 @@ Before launching any stage agent, check `.pipeline/[slug]/SKIP`. If the current 
 
 ---
 
-## Stage 2: RESEARCH
-
-**You (the orchestrator) handle codebase research directly.** Do NOT launch researcher for codebase exploration.
-
-1. Read `.pipeline/[slug]/CONTEXT.md` for pre-existing context
-2. Assess complexity: simple (existing pattern, small change) / moderate (new feature, some unknowns) / complex (new architecture, unfamiliar domain)
-3. Read foundational docs if they exist (`docs/soul.md`, `docs/architecture.md`, `docs/patterns.md`, `docs/data-models.md`)
-4. Search the codebase with Glob/Grep/Read: existing patterns, related modules, conventions, dependencies
-5. Write findings to `.pipeline/[slug]/CONTEXT.md` under `## Research Findings`
-6. **If web research is needed** (unfamiliar API, external best practices, library comparison): launch **researcher** agent with a web-research-only prompt. Include your codebase findings so the researcher skips codebase exploration.
-7. Launch **judge** to evaluate research quality (9.0/10 threshold, standard escalation)
-
-After research completes:
-```
-Research complete. Key findings:
-- [Finding 1]
-- [Finding 2]
-- [Finding 3]
-
-Ready to plan? (y/n)
-```
-
-See `~/.claude/agents/pipeline-manager.md` → "RESEARCH (Orchestrator-Direct Mode)" for full process details.
-
----
-
-## Stage 3: PLAN
-
-**You (the orchestrator) handle this stage directly.** Do NOT launch code-architect as a subagent.
-
-1. Read foundational docs (`docs/soul.md`, `docs/architecture.md`, `docs/patterns.md`, `docs/data-models.md`) if they exist
-2. Explore the codebase: use Glob/Grep/Read to understand existing architecture, conventions, and code the task will touch
-3. Write the plan following the format in `~/.claude/agents/code-architect.md` → Output Format:
-   - Overview, Files (NEW/MOD), Approach (numbered steps), Key Decisions, Gotchas, Risks, Verification
-4. Append the plan to `.pipeline/[slug]/CONTEXT.md` under `## Architecture Plan`
-5. Launch **judge** to evaluate (9.0/10 threshold, standard escalation)
-6. After judge passes: present plan to user for approval (auto-approve if `--yes`)
-
-See `~/.claude/agents/pipeline-manager.md` → "PLAN (Orchestrator-Direct Mode)" for full process details.
-
-### Post-PLAN: Conflict Detection
-
-After PLAN passes its quality gate, before advancing to IMPLEMENT:
-1. Parse the file list from the plan output (look for `### Files` section)
-2. Write the file list to this task's `**Files**` field in TASKS.md (format: `NEW: path` or `MOD: path`)
-3. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: files [slug]" --no-gpg-sign 2>/dev/null`
-4. Compare against all other active tasks' `**Files**` lists in TASKS.md
-5. If overlap exists, show conflict warning and ask user to choose: Proceed / Wait / Rethink / Abort
-6. If no overlap, proceed to IMPLEMENT
-
----
-
-## Stage 4: IMPLEMENT
+## Stage 2: IMPLEMENT
 
 ```
 ## Implementation Phase
@@ -259,7 +226,7 @@ Ready to write tests? (y/n)
 
 ---
 
-## Stage 5: WRITE-TESTS
+## Stage 3: WRITE-TESTS
 
 ```
 ## Testing Phase
@@ -280,7 +247,7 @@ Ready for quality check? (y/n)
 
 ---
 
-## Stage 6: QUALITY-CHECK
+## Stage 4: QUALITY-CHECK
 
 ```
 ## Quality Check Phase
@@ -302,7 +269,7 @@ Ready to simplify? (y/n)
 
 ---
 
-## Stage 7: SIMPLIFY
+## Stage 5: SIMPLIFY
 
 ```
 ## Simplification Phase
@@ -322,7 +289,7 @@ Ready to verify? (y/n)
 
 ---
 
-## Stage 8: VERIFY-APP
+## Stage 6: VERIFY-APP
 
 ```
 ## Verification Phase
@@ -350,16 +317,15 @@ Issues found:
 - [Issue 2]
 
 This needs to go back. Where should we return?
-1. Back to PLAN (rethink approach)
-2. Back to IMPLEMENT (fix the code)
-3. Back to RESEARCH (need more info)
+1. Back to IMPLEMENT (fix the code)
+2. Re-plan via /init-tasks (rethink approach entirely)
 ```
 
 Loop back to selected stage.
 
 ---
 
-## Stage 9: REVIEW
+## Stage 7: REVIEW
 
 ```
 ## Code Review Phase
@@ -386,12 +352,12 @@ Proceeding to security review...
 ✗ Code Review found [N] blockers:
 - [file:line]: [issue]
 
-Going back to IMPLEMENT to fix blockers.
+Going back to IMPLEMENT to address blockers.
 ```
 
 ---
 
-## Stage 10: SECURITY-REVIEW
+## Stage 8: SECURITY-REVIEW
 
 ```
 ## Security Review Phase
@@ -423,7 +389,7 @@ Going back to IMPLEMENT to fix security issues.
 
 ---
 
-## Stage 11: SYNC-DOCS
+## Stage 9: SYNC-DOCS
 
 ```
 ## Documentation Sync Phase
@@ -446,7 +412,7 @@ Proceeding to update CLAUDE.md...
 
 ---
 
-## Stage 12: UPDATE-CLAUDE
+## Stage 10: UPDATE-CLAUDE
 
 ```
 ## Learning Capture Phase
@@ -462,7 +428,7 @@ Any learnings from this task to add to CLAUDE.md?
 
 ---
 
-## Stage 12.5: REVIEW-WITH-USER
+## Stage 10.5: REVIEW-WITH-USER
 
 Walk the user through what was built, mapped to each acceptance criterion from the task. This is a human gate — no judge scoring.
 
@@ -563,7 +529,7 @@ Record `APPROVED` or `CHANGES-[N]` in the Quality Scores table.
 
 ---
 
-## Stage 12.7: CAPTURE-LEARNINGS
+## Stage 10.7: CAPTURE-LEARNINGS
 
 Before committing, capture any agent-level learnings from this pipeline run. This feeds the self-improvement loop.
 
@@ -593,11 +559,11 @@ Before committing, capture any agent-level learnings from this pipeline run. Thi
    - If unsure, default to PROJECT
 
 **Focus areas for code-workflow**:
-- Did the orchestrator's codebase research provide enough context for planning?
-- Did the plan survive implementation, or did the developer deviate significantly?
+- Did the task.md plan from /init-tasks survive implementation, or did the developer deviate significantly?
 - Did tests catch real issues, or were they superficial?
 - Did the refactorer actually simplify, or just rearrange?
 - Did reviews (code + security) catch things that earlier stages should have prevented?
+- Was the task.md plan detailed enough, or did the implementer struggle with missing context?
 
 After capturing (or skipping), the AUTO-IMPROVE stage runs next.
 
@@ -632,7 +598,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
 
 ---
 
-## Stage 13: COMMIT
+## Stage 11: COMMIT
 
 **Server teardown**: Before committing, shut down any servers started during REVIEW-WITH-USER:
 ```bash
@@ -664,7 +630,7 @@ Ready to mark task complete? (y/n)
 
 ---
 
-## Stage 14: COMPLETE & NEXT
+## Stage 12: COMPLETE & NEXT
 
 **Actions to perform (not just display — actually do these):**
 
@@ -703,7 +669,7 @@ Ready to mark task complete? (y/n)
      while read pid; do kill "$pid" 2>/dev/null; done < .pipeline/[slug]/SERVERS
    fi
    ```
-8. **Run `rm -rf .pipeline/[slug]/`** to delete the task's pipeline directory (this also removes the SERVERS file)
+8. **Run `rm -rf .pipeline/[slug]/`** to delete the task's pipeline directory (this removes task.md, CONTEXT.md, SERVERS file, and all other pipeline artifacts for this task)
 9. Show remaining active tasks + backlog
 
 ```
@@ -713,17 +679,18 @@ Merge strategy: [local merge / PR / push only]
 Cleaned up:
   - Worktree .worktree/[slug]/ removed
   - Branch task/[slug] [merged+deleted / pushed / pushed]
-  - Pipeline directory .pipeline/[slug]/ deleted
+  - Pipeline directory .pipeline/[slug]/ deleted (including task.md)
 
 Active tasks: [list remaining active tasks, if any]
 Backlog ([X] tasks remaining):
 - [ ] [Task 1]
 - [ ] [Task 2]
-
-Pick up the next task? (y/n)
 ```
 
-If yes, loop back to Stage 1 with new task.
+**Next task behavior depends on mode:**
+
+- **Normal mode**: Ask "Pick up the next task? (y/n)". If yes, loop back to Stage 1 with new task.
+- **`--yes` mode (Ralph Wiggum)**: Auto-continue. Run `/compact Discard all details from the completed task. Preserve only: this is a --yes mode code-workflow pipeline run, and I need to loop back to PICKUP to pick up the next backlog task from TASKS.md.` Then immediately proceed to PICKUP for the next backlog task. If no tasks remain in the backlog, exit cleanly with "All tasks complete."
 
 ---
 
@@ -765,8 +732,6 @@ Track workflow state in TASKS.md under `## Active Tasks`:
 **Quality Scores**:
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
-| RESEARCH | 9.2 | 1 | PASS |
-| PLAN | 9.1 | 1 | PASS |
 | IMPLEMENT | 9.3 | 1 | PASS |
 | VERIFY | - | 0 | CURRENT |
 ```
@@ -799,7 +764,7 @@ If verification/review fails, increment attempts in the quality scores table.
 | `--opus` | Force `model: "opus"` on every agent launch. Disables Sonnet optimizations for the entire pipeline run. Use for critical tasks or when Sonnet quality has been insufficient. |
 | `--yes` | Skip all confirmation gates. Pipeline runs end-to-end without user input. Automated quality gates (9.0/10) still run. |
 
-**Note**: To add new tasks, use `/init-tasks` first to refine them with codebase context and acceptance criteria, then `/code-workflow` to pick them up from the backlog.
+**Note**: All tasks must go through `/init-tasks` first for codebase research, acceptance criteria, and implementation planning. Tasks without a `task.md` file will be rejected with a redirect to `/init-tasks`.
 
 ---
 
@@ -811,26 +776,12 @@ If verification/review fails, increment attempts in the quality scores table.
 Picking up from backlog: implement-streak-system [P1]
   "Build streak tracking for user retention"
   Acceptance criteria: 5 items
+  Implementation plan: yes (from /init-tasks)
 
 Other active tasks: fix-color-rendering (IMPLEMENT)
-Starting RESEARCH stage.
+Starting IMPLEMENT stage.
 
-┌──────────────────────────────────────────────────────────────────┐
-│ Stage: RESEARCH — PASS ✓                                         │
-│ Score: 9.2/10 (Attempt 1)                                        │
-│                                                                  │
-│ Summary:                                                         │
-│   Researched Duolingo, Wordle, and GitHub streak patterns.       │
-│   Identified UTC midnight reset as standard approach.            │
-│                                                                  │
-│ Key outputs:                                                     │
-│   - UTC midnight reset avoids timezone edge cases                │
-│   - Grace period pattern from Duolingo reduces churn             │
-│                                                                  │
-│ Next: PLAN (orchestrator-direct)                                  │
-└──────────────────────────────────────────────────────────────────┘
-
-... [PLAN, IMPLEMENT, WRITE-TESTS, etc. proceed normally] ...
+... [IMPLEMENT, WRITE-TESTS, etc. proceed normally] ...
 
 ┌──────────────────────────────────────────────────────────────────┐
 │ Stage: REVIEW-WITH-USER                                          │
@@ -856,22 +807,21 @@ Proceeding to commit...
 ┌──────────────────────────────────────────────────────────────────┐
 │ ✓ PIPELINE COMPLETE: Build streak tracking                       │
 │                                                                  │
-│  PICKUP → RESEARCH → PLAN → IMPLEMENT → WRITE-TESTS             │
-│    ✓         ✓        ✓        ✓            ✓                    │
+│  PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK               │
+│    ✓         ✓            ✓              ✓                       │
 │                                                                  │
-│  → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW               │
-│         ✓             ✓           ✓          ✓                   │
+│  → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW             │
+│       ✓           ✓          ✓           ✓                       │
 │                                                                  │
-│  → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE                  │
-│         ✓                ✓            ✓                          │
+│  → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER                 │
+│       ✓             ✓               ✓                            │
 │                                                                  │
-│  → REVIEW-WITH-USER → COMMIT → COMPLETE                         │
-│         ✓                ✓        ✓                              │
+│  → COMMIT → COMPLETE                                             │
+│      ✓         ✓                                                 │
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │ All scores:                                                      │
-│   RESEARCH: 9.2  PLAN: 9.1  IMPLEMENT: 9.3                      │
-│   WRITE-TESTS: 9.0  QUALITY-CHECK: 9.2                          │
+│   IMPLEMENT: 9.3  WRITE-TESTS: 9.0  QUALITY-CHECK: 9.2          │
 │   SIMPLIFY: 9.4  VERIFY-APP: 9.1                                │
 │   REVIEW: 9.0  SECURITY-REVIEW: 9.5                             │
 │   SYNC-DOCS: 9.2  REVIEW-WITH-USER: APPROVED                    │

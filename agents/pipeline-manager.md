@@ -34,6 +34,7 @@ When `--yes` is present in $ARGUMENTS (from `/code-workflow --yes` or `/design-w
 - Merge strategy selection → default to local merge
 - Conflict warnings → auto-proceed
 - Any other yes/no or multi-choice gate → treated as approved
+- Next task prompt → auto-continue: run `/compact` with aggressive purge, then loop back to PICKUP for next backlog task
 
 **Does NOT affect**:
 - Quality gates (9.0/10 judge scoring) — these still run and iterate
@@ -49,9 +50,9 @@ The pipeline supports multiple modes that share all infrastructure (worktrees, T
 
 | Mode | Stage Sequence |
 |------|---------------|
-| code | PICKUP → RESEARCH → PLAN → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER → COMMIT → COMPLETE |
+| code | PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER → COMMIT → COMPLETE |
 | design | PICKUP → RESEARCH → PLAN → IMPLEMENT → VERIFY-APP → REFINE → DESIGN-REVIEW → COMMIT → COMPLETE |
-| brainstorm | BRAINSTORM → RESEARCH → PLAN → ... (continues as code mode) |
+| brainstorm | BRAINSTORM → ... (creates task via /init-tasks, then continues as code mode) |
 
 **Mode affects:**
 1. **Stage sequence**: Which stages run and in what order
@@ -72,7 +73,8 @@ The pipeline supports multiple modes that share all infrastructure (worktrees, T
 ```
 BRAINSTORM → RESEARCH → PLAN → BUILD → REVIEW-GATE → COMPLETE
                           ↑
-             /code-workflow enters here (PICKUP → PLAN)
+             /code-workflow enters here (PICKUP → IMPLEMENT)
+             (RESEARCH+PLAN handled by /init-tasks)
 ```
 
 ### BUILD Module (expanded)
@@ -92,9 +94,9 @@ Every `→` is a quality gate (9.0/10 minimum). Every quality gate pass = git co
 | Stage | Code Mode Agent | Design Mode Agent | Purpose |
 |-------|----------------|-------------------|---------|
 | BRAINSTORM | thought-partner | thought-partner | Explore idea, define what to build |
-| RESEARCH | orchestrator (direct) | design-innovator + researcher | Investigate problem space (code mode: orchestrator explores codebase directly, launches researcher for web research if needed; design: trends + platform conventions) |
+| RESEARCH | *handled by /init-tasks* | design-innovator + researcher | Investigate problem space (code mode: handled by /init-tasks; design: trends + platform conventions) |
 | PICKUP | pipeline-manager | pipeline-manager | Select task from backlog |
-| PLAN | orchestrator (direct) | design-innovator + visual-architect | Design approach (code mode: orchestrator explores codebase, writes plan, judge evaluates; design: visual concept + component specs) |
+| PLAN | *handled by /init-tasks* | design-innovator + visual-architect | Design approach (code mode: handled by /init-tasks; design: visual concept + component specs) |
 | IMPLEMENT | ios/android/web/go/ts-developer | same dev agent (visual emphasis) | Write the code |
 | TEST | qa-engineer | *skip* | Create test coverage |
 | QUALITY-CHECK | qa-engineer | *skip* | Validate test quality |
@@ -142,7 +144,7 @@ Tournament is a quality escalation, not a separate pipeline. Two agents work the
 
 **Manual trigger**: User says "tournament" at any stage, or runs `/code-workflow --tournament`.
 
-**Tournamentable stages**: BRAINSTORM, RESEARCH, PLAN, IMPLEMENT, TEST, DRAFT
+**Tournamentable stages**: BRAINSTORM, IMPLEMENT, TEST, DRAFT (RESEARCH and PLAN handled by /init-tasks for code mode; design mode retains them)
 
 **Non-tournamentable**: PICKUP, COMMIT, PUSH (mechanical/single-source)
 
@@ -226,7 +228,7 @@ The `git diff --cached --quiet ||` guard ensures we only commit when there are a
 | `meta: pickup [slug]` | After adding to Active Tasks + removing from Backlog | PICKUP step 13 |
 | `meta: migrate-history` | After moving Completed section to HISTORY.md | TASKS.md migration |
 | `meta: stage [slug] [STAGE]` | After updating Quality Scores table | Advance Stage step 6 |
-| `meta: files [slug]` | After writing file list to TASKS.md | Post-PLAN Conflict Detection step 3 |
+| `meta: files [slug]` | After writing file list to TASKS.md | PICKUP Conflict Detection step 1 |
 | `meta: complete [slug]` | After removing from Active + appending to HISTORY.md | Complete Task step 5 |
 | `meta: discovered-issues [slug]` | After appending discovered issues to Backlog | Discovered Issues → Backlog |
 
@@ -300,6 +302,8 @@ All agent prompts for code-modifying stages (IMPLEMENT, TEST, SIMPLIFY, etc.) in
 
 > "You may only create or modify files listed in the plan's `### Files` section. If you discover issues in other files, list them under `## Discovered Issues` at the end of your output — do not edit those files. This is a hard constraint, not a suggestion."
 
+> "Before writing new utility functions, helpers, or data types, search the codebase for existing equivalents. If an existing function does 80% of what you need, extend or parameterize it rather than creating a parallel implementation. Duplicate code is a bug."
+
 Agents that only manage pipeline metadata (judge, pipeline-manager) operate from main repo root.
 
 ### Agent Memory
@@ -332,6 +336,51 @@ MCP tool schemas propagate to every subagent launched via Task — the `tools:` 
 
 2. **Build MCP routing map**: Read `.mcp.json` (project-level) to get configured servers. Cross-reference each server name against `~/.claude/mcp-registry.yaml` to get its `relevant_agents` list. Store a map of `agent-type → [server names]` for the pipeline run. Servers not in the registry are ignored (agents may still discover them independently via ToolSearch).
 
+3. **Build capability snapshot**: Read `~/.claude/capability-manifest.yaml` (if it exists). Match project signals (files, deps, dirs already discovered during PICKUP scanning) and the task description keywords against manifest entries. Write a compact snapshot to `.pipeline/[slug]/CONTEXT.md` under `## Available Capabilities`:
+
+   ```
+   ## Available Capabilities
+
+   **Installed** (ready to use):
+   - firebase (MCP) — Firestore, Functions, Auth operations
+   - chrome-devtools (plugin) — Browser inspection and debugging
+
+   **Recommended for this project** (matched signals, not installed):
+   - playwright (MCP, medium tokens) — matched: playwright.config.ts
+   - supabase-plugin — matched: @supabase/supabase-js dep
+
+   **Potentially relevant to this task** (keyword match):
+   - puppeteer-mcp (Smithery, verified) — browser automation
+
+   **Community skills** (supplementary — Reggie agents take priority):
+   - trail-of-bits-security (curated) — CodeQL/Semgrep static analysis [overlaps: security-reviewer]
+   - webapp-testing (official) — Playwright UI verification [overlaps: app-tester]
+
+   To install recommended tools: /find-tools
+   ```
+
+   - **Installed**: Cross-reference `.mcp.json`, `~/.claude/settings.json` enabledPlugins, and installed plugin directories against manifest entries
+   - **Recommended**: Entries whose `signals` match project files/deps but are not installed. Cap at 5.
+   - **Task-relevant**: Entries whose `keywords` overlap with the task description. Exclude duplicates from Installed/Recommended. Cap at 5.
+   - **Community skills**: Entries with `source: community-skill` whose `keywords` overlap with the task description or whose `signals` match project files/deps. Note `overlaps_with` if present. Cap at 3. Reggie agents always take priority — skills are supplementary options only.
+   - If no manifest exists, skip silently. This is an enhancement, not a requirement.
+   - **Staleness check**: If manifest `last_refreshed` is older than 14 days, print: `NOTE: Capability manifest is [N] days old. Run /refresh-capabilities to update.`
+
+4. **Log orchestrator context profile**: Write to `.pipeline/[slug]/CONTEXT.md` under `## Orchestrator Context Profile`:
+
+   ```
+   ## Orchestrator Context Profile
+   Built-in tools: all (orchestrator has full access)
+   Plugins enabled: [list from settings.json enabledPlugins]
+   Global MCP servers: [list from claude_mcp_settings.json]
+   Project MCP servers: [list from .mcp.json, or "none"]
+   Deferred tools: ~[count] ([breakdown by server if available])
+   ENABLE_TOOL_SEARCH: [true/false]
+   System docs loaded: REGGIE.md ([line count] lines)
+   ```
+
+   This captures the orchestrator's own capability footprint as a baseline for the pipeline.
+
 #### Before Each Subagent Launch
 
 Check the routing map for the agent type being launched:
@@ -344,10 +393,33 @@ Check the routing map for the agent type being launched:
 
 Keep the instruction to 1-2 lines. Do not list individual tool names — just server names. The agent uses ToolSearch to discover specific tools.
 
-#### During Orchestrator-Direct Stages (RESEARCH, PLAN)
+#### Capability Log Per Launch
+
+After assembling the subagent prompt (pre-loaded context, MCP routing, task instructions), append an entry to `.pipeline/[slug]/CONTEXT.md` under `## Capability Log`:
+
+```markdown
+### Launch [N]: [agent-type] ([model])
+Built-in tools: [tool list from agent frontmatter] ([count])
+MCP servers routed: [server names from routing map, or "none"]
+MCP deferred tools visible: ~[count of deferred tools in session]
+Pre-loaded context: ~[line count] lines ([file list])
+Agent memory: [line count] lines, or "none"
+Estimated context: [low/medium/high]
+```
+
+The orchestrator knows all of this at launch time:
+- **Built-in tools**: from the agent's frontmatter `tools:` field
+- **MCP servers routed**: from the routing map built at PICKUP
+- **MCP deferred tools visible**: count of deferred tools in the session (fixed per session)
+- **Pre-loaded context**: the orchestrator just assembled it — count the lines
+- **Agent memory**: check if `agent-memory/[agent-type]/MEMORY.md` exists; if so, count lines
+- **Estimated context tier**: low = no MCP routing + no agent memory; medium = MCP routing OR agent memory; high = MCP routing AND agent memory, or high-token-profile MCP server routed
+
+This log accumulates throughout the pipeline run and is used at COMPLETE for the capability usage summary.
+
+#### During Orchestrator-Direct Stages
 
 When the orchestrator handles a stage directly (not via subagent), it should use ToolSearch itself if the task involves technology matching a configured MCP server. For example:
-- Task involves Firebase + `firebase` server configured → use ToolSearch to find Firebase MCP tools for querying Firestore, checking function logs, etc.
 - Task involves a web app + `chrome-devtools` configured → use ToolSearch for browser debugging during VERIFY-APP orchestration
 
 The orchestrator follows the same routing logic: check `.mcp.json` against the registry, use ToolSearch only for servers relevant to the task's technology.
@@ -410,12 +482,10 @@ The pipeline-manager maintains a cumulative context document (`.pipeline/[slug]/
 [Seeded at PICKUP from backlog context blocks, audit findings, or discovered issue details.
 Only present if context was available. Downstream agents should read this before starting work.]
 
-## Research Findings
-[Key findings from RESEARCH stage — added verbatim by pipeline-manager]
-
-## Architecture Plan
-[Full plan from PLAN stage — added verbatim by pipeline-manager]
-[The file list in ### Files is a hard boundary — the implementer must
+## Implementation Plan
+[Seeded from task.md (created by /init-tasks) — contains Problem, Vision,
+Context, Affected Areas, Acceptance Criteria, and Implementation Plan.
+The file list in the plan is a hard boundary — the implementer must
 not modify files outside this list. Within those files, the implementer
 has autonomy over implementation decisions and can adjust the approach
 based on what they discover while coding.]
@@ -429,13 +499,12 @@ based on what they discover while coding.]
 ## Quality Scores
 | Stage | Score | Notes |
 |-------|-------|-------|
-| RESEARCH | 9.2 | [brief note] |
-| PLAN | 9.1 | [brief note] |
+| IMPLEMENT | 9.3 | [brief note] |
 
 ## Decisions Log
 | Decision | Stage | Rationale |
 |----------|-------|-----------|
-| Use UTC midnight reset | PLAN | Avoids timezone edge cases |
+| Use UTC midnight reset | IMPLEMENT | Avoids timezone edge cases |
 | Switch to lazy loading | IMPLEMENT | Discovered perf issue not in plan |
 ```
 
@@ -444,7 +513,7 @@ based on what they discover while coding.]
 Each agent is trusted within their domain:
 - The **architect** makes architectural decisions — the implementer should respect those unless they discover something that changes the calculus
 - The **implementer** makes implementation decisions — how to write the code, what patterns to use, whether to adjust the approach based on what they find
-- Autonomy applies to **how** code is written within planned files, NOT **which** files are modified. The file list from PLAN is a hard boundary. If unrelated files need changes, report them under Discovered Issues.
+- Autonomy applies to **how** code is written within planned files, NOT **which** files are modified. The file list from the implementation plan (in task.md) is a hard boundary. If unrelated files need changes, report them under Discovered Issues.
 - If an agent deviates significantly from a previous stage's output, they add a note to the Decisions Log explaining why
 
 ### Discovered Issues → Backlog
@@ -467,8 +536,6 @@ Agents working on a task will often discover unrelated problems in the codebase 
 
 | Stage | Adds to CONTEXT.md |
 |-------|-------------------|
-| RESEARCH | Key findings, sources, risks discovered |
-| PLAN | Full architecture plan, key decisions, gotchas |
 | IMPLEMENT | Files changed, implementation decisions, deviations from plan with rationale |
 | TEST | Test coverage summary, edge cases found, bugs caught |
 | QUALITY-CHECK | Quality assessment, gaps identified |
@@ -508,8 +575,6 @@ When context gets large:
 **Quality Scores**:
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
-| RESEARCH | 9.2 | 1 | PASS |
-| PLAN | 9.1 | 1 | PASS |
 | IMPLEMENT | - | 0 | CURRENT |
 | WRITE-TESTS | SKIP | 0 | task is writing tests |
 
@@ -517,65 +582,62 @@ When context gets large:
 
 ### fix-color-rendering
 **Task**: Fix Android color rendering
-**Stage**: PLAN
+**Stage**: IMPLEMENT
 **Pipeline**: code-workflow
 **Branch**: task/fix-color-rendering
 **Worktree**: .worktree/fix-color-rendering
 **Base**: main
 **Started**: 2026-02-05
 **Attempts**: 0
-**Files**: (pending PLAN)
+**Files**: (from task.md plan)
 **Quality Scores**:
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
-| PLAN | - | 0 | CURRENT |
+| IMPLEMENT | - | 0 | CURRENT |
 
 ---
 
 ## Backlog
 
 ### User Engagement
-- [ ] push-notification-support: Add push notification support
-- [ ] add-leaderboard: Add leaderboard feature
+- [ ] push-notification-support: Add push notification support [P2] [moderate] [code] [planned]
+- [ ] add-leaderboard: Add leaderboard feature [P3] [depends: push-notification-support] [complex] [code] [planned]
 
 ### Data Pipeline
-- [ ] migrate-csv-parser: Migrate CSV ingestion to streaming parser
+- [ ] migrate-csv-parser: Migrate CSV ingestion to streaming parser [P1] [complex] [code] [planned]
+  files: src/parsers/csv-stream.ts (NEW), src/parsers/csv-legacy.ts (MOD)
 ```
 
 Completed tasks are stored in `HISTORY.md` (same directory as TASKS.md), not in TASKS.md. This keeps TASKS.md lean for agent context windows.
 
 ### Grouped Backlog Format
 
-The backlog uses `### Section Name` headers to organize tasks into areas of focus. These groups are created by `/init-tasks` (using code-architect to analyze project structure) or manually by the user. Tasks can have priority tags, dependency tags, and optional context blocks.
+The backlog uses `### Section Name` headers to organize tasks into areas of focus. These groups are created by `/init-tasks` (using code-architect to analyze project structure) or manually by the user.
 
-**Task format (enriched — output of `/init-tasks` DEEPEN phase):**
+**Task format (slim — output of `/init-tasks` FORMALIZE phase):**
+
+Each task is a single metadata-rich line with an optional `files:` line. Full task descriptions and implementation plans live in `.pipeline/[slug]/task.md` files.
+
 ```
-- [ ] slug: Description [P1]
-  > ## Problem
-  > [What's wrong or what needs to be built]
-  >
-  > ## Vision
-  > [What "done" looks like]
-  >
-  > ## Context
-  > [Background info from user dialogue and codebase exploration]
-  >
-  > ## Affected Areas
-  > [File paths and modules this task touches]
-  >
-  > ## Sub-items
-  > - [Specific action item 1]
-  > - [Specific action item 2]
-  >
-  > ## Acceptance Criteria
-  > - [Testable criterion 1]
-  > - [Testable criterion 2]
-- [ ] slug: Description [P2] [depends: other-slug]
-  > ## Problem
-  > ...
+- [ ] slug: Description [P1] [complex] [code] [planned]
+  files: src/utils/jwt.ts (NEW), src/middleware/auth.ts (MOD)
+- [ ] slug: Description [P2] [depends: other-slug] [conflicts: jwt-auth] [moderate] [code] [planned]
+  files: src/middleware/rbac.ts (NEW), src/routes/*.ts (MOD)
+- [ ] slug: Description [P3] [simple] [code] [planned]
 ```
 
-**Legacy format (still supported):**
+**Metadata tags:**
+- **Priority**: `[P1]` (critical) / `[P2]` (important, default) / `[P3]` (nice-to-have)
+- **Dependencies**: `[depends: other-slug]` — blocked until other-slug completes
+- **Conflicts**: `[conflicts: other-slug]` — cannot run in parallel (touches same files)
+- **Complexity**: `[simple]` / `[moderate]` / `[complex]`
+- **Pipeline mode**: `[code]` / `[design]`
+- **Plan status**: `[planned]` (has task.md with implementation plan) — required for code-workflow pickup
+- **Files**: `files:` line lists NEW/MOD files from the plan (helps conflict detection)
+
+**task.md files**: Pre-planned tasks have a `.pipeline/[slug]/task.md` file containing the full enriched description (Problem, Vision, Context, Affected Areas, Acceptance Criteria) and an Implementation Plan — minimal for simple tasks (files + 1-2 steps) or full for complex tasks (Overview, Files, Approach, Key Decisions, Risks). These are created by `/init-tasks` FORMALIZE phase, read by PICKUP for context seeding, and deleted by COMPLETE.
+
+**Legacy format (still supported for backwards compatibility):**
 ```
 - [ ] slug: Description [P1]
   > Optional context line
@@ -592,7 +654,7 @@ The backlog uses `### Section Name` headers to organize tasks into areas of focu
 - `[depends: slug]` — this task requires another task to complete first
 - `[depends: slug-a, slug-b]` — multiple dependencies (all must be satisfied)
 - Mapped by `/init-tasks` ORGANIZE phase using code-architect analysis
-- PLAN stage validates dependencies; if unmet, defers the task
+- PICKUP validates dependencies; if unmet, defers the task
 
 **Context blocks:**
 - Indented `>` lines under a task provide richer detail
@@ -608,7 +670,7 @@ The backlog uses `### Section Name` headers to organize tasks into areas of focu
 
 Key fields:
 - **Task slug** as the `###` heading (derived from task name: lowercase, hyphens)
-- **`Files` field** populated after PLAN from the plan's `### Files` output. Format: `NEW: path` or `MOD: path`
+- **`Files` field** populated at PICKUP from the task.md implementation plan's file list. Format: `NEW: path` or `MOD: path`
 - Multiple tasks can be active simultaneously under `## Active Tasks`
 
 ## TASKS.md Migration
@@ -657,26 +719,33 @@ This runs once, automatically, whenever a pipeline first reads a TASKS.md with t
    done
    ```
 8. If project uses `node_modules/`, run install command in worktree
-9. Create `.pipeline/[slug]/` with seeded `CONTEXT.md` and `STAGE` file containing `PLAN` (in main repo). See **Context Seeding** below.
+9. Create `.pipeline/[slug]/` with seeded `CONTEXT.md` and `STAGE` file containing `IMPLEMENT` (in main repo). See **Context Seeding** below.
 10. Compute skip list. See **Skip List** below. Write to `.pipeline/[slug]/SKIP` if any stages should be skipped. If pipeline mode is `design`, merge design-mode default skips into the skip list.
 11. Ensure `.pipeline/` and `.worktree/` are in `.gitignore`
 12. Add `### [slug]` section to `## Active Tasks` in TASKS.md (include **Branch**, **Worktree**, **Base** fields)
-13. Remove the picked-up task's `- [ ] slug: ...` entry from `## Backlog` in TASKS.md. Delete the entire entry including any indented `>` context lines below it.
+13. Remove the picked-up task's `- [ ] slug: ...` entry from `## Backlog` in TASKS.md. Delete the entire entry including any indented lines below it (`files:` line for new format, or `>` context lines for legacy format).
 14. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: pickup [slug]" --no-gpg-sign 2>/dev/null`
 15. If > 3 active tasks: warn user ("You have [N] active tasks — consider completing some before starting more")
-16. Advance to PLAN (or BRAINSTORM if brainstorm-workflow)
+16. Advance to IMPLEMENT (or BRAINSTORM if brainstorm-workflow)
 
 ### Context Seeding (at PICKUP)
 
 When creating `.pipeline/[slug]/CONTEXT.md`, seed it with pre-existing context instead of leaving it empty:
 
-1. **Parse context blocks from TASKS.md**: Read the backlog entry being picked up. If it has indented `>` lines, extract them and write them into `## Pre-existing Context` in CONTEXT.md. Enriched format tasks (from `/init-tasks` DEEPEN phase) will contain markdown headers (`## Problem`, `## Vision`, `## Acceptance Criteria`, etc.) inside the `>` blocks — preserve these verbatim. The REVIEW-WITH-USER stage later reads the `## Acceptance Criteria` section from this context.
+1. **Read from task.md file** (preferred — new format from `/init-tasks`): Check if `.pipeline/[slug]/task.md` exists. If it does, read its full contents and write them into `## Pre-existing Context` in CONTEXT.md, preserving all sections verbatim (Problem, Vision, Context, Affected Areas, Acceptance Criteria, Implementation Plan). The REVIEW-WITH-USER stage later reads the `## Acceptance Criteria` section from this context.
 
-2. **Audit task findings**: If this task has audit-structured context blocks (with What/Where/Risk/Fix/Effort fields), preserve the structured format in `## Pre-existing Context`.
+2. **Staleness validation**: If task.md references files, validate them:
+   - MOD files: check they still exist. If any are missing, warn: "⚠ Stale plan: [file] no longer exists. Plan may need updating."
+   - NEW files: check they don't already exist. If any do, warn: "⚠ Stale plan: [file] already exists. Plan may need updating."
+   - Warnings are informational — don't block pickup, but do note them in CONTEXT.md under `## Staleness Warnings`
 
-3. **Discovered issues with origin**: If the task line contains `(discovered during [STAGE] of [task-slug])`, include any `>` context blocks on the backlog entry. If the origin task's `.pipeline/[origin-slug]/CONTEXT.md` still exists, extract relevant sections. If not, use whatever `>` blocks are available.
+3. **Fall back to `>` blocks** (legacy format): If no task.md exists, read the backlog entry being picked up. If it has indented `>` lines, extract them and write them into `## Pre-existing Context` in CONTEXT.md. Preserve any markdown headers (`## Problem`, `## Vision`, etc.) verbatim.
 
-4. **No context available**: If the backlog entry has no `>` lines, write CONTEXT.md with just `## Task` populated (same as current behavior).
+4. **Audit task findings**: If this task has audit-structured context blocks (with What/Where/Risk/Fix/Effort fields), preserve the structured format in `## Pre-existing Context`.
+
+5. **Discovered issues with origin**: If the task line contains `(discovered during [STAGE] of [task-slug])`, include any `>` context blocks on the backlog entry. If the origin task's `.pipeline/[origin-slug]/CONTEXT.md` still exists, extract relevant sections.
+
+6. **No context available**: If neither task.md nor `>` blocks exist, write CONTEXT.md with just `## Task` populated.
 
 The seeded CONTEXT.md should look like:
 
@@ -687,8 +756,12 @@ The seeded CONTEXT.md should look like:
 [Task description from backlog entry]
 
 ## Pre-existing Context
-[Content from > blocks, preserved verbatim]
+[Content from task.md file — Problem, Vision, Context, Affected Areas, Acceptance Criteria]
+[Or content from > blocks for legacy format]
 [For audit tasks, preserve the What/Where/Risk/Fix/Effort structure]
+
+## Staleness Warnings (if any)
+- ⚠ [file] no longer exists (listed as MOD in plan)
 ```
 
 ### Skip List (at PICKUP)
@@ -706,7 +779,7 @@ After seeding CONTEXT.md, assess which pipeline stages are categorically inappli
 | Task has no acceptance criteria (legacy format) | REVIEW-WITH-USER | No criteria to walk through |
 
 **Rules:**
-- RESEARCH and PLAN are NEVER skipped — always run, agents self-adjust depth
+- RESEARCH and PLAN are not part of the code-workflow pipeline — they are handled by `/init-tasks`. All tasks must have a `task.md` with an implementation plan before entering code-workflow. Tasks without one are rejected at PICKUP with a redirect to `/init-tasks`.
 - IMPLEMENT is only skipped for genuinely non-code tasks
 - REVIEW is never skipped — every change gets reviewed
 - COMMIT and COMPLETE are never skipped — mechanical/mandatory
@@ -736,7 +809,7 @@ When `/code-workflow` is run with no arguments and no task is specified:
    - From remaining, pick highest priority first: P1 > P2 > P3 (tasks without tags = P2)
    - Within same priority, pick first in document order (top-to-bottom)
    - If ALL tasks are blocked by dependencies, warn user and ask what to do
-3. Print: "Picking up: [task name] [P#]. Starting PLAN stage."
+3. Print: "Picking up: [task name] [P#]. Starting IMPLEMENT stage."
 4. Print: "Other active tasks: [list slugs]" and "Skipped [N] blocked tasks"
 5. Create worktree (branch `task/[slug]` from current branch), copy `.env` files, install deps if needed
 6. Create `.pipeline/[slug]/`, write initial `STAGE` file, add to Active Tasks (with Branch/Worktree/Base fields), and go
@@ -746,7 +819,7 @@ When `/code-workflow` is run with no arguments and no task is specified:
 1. Launch thought-partner for idea exploration
 2. When idea is clear, launch researcher
 3. When research is complete, create task in TASKS.md
-4. Continue to PLAN
+4. Continue to IMPLEMENT
 5. If multiple ideas emerge: create all as tasks, prioritize, start first
 
 ### Advance Stage
@@ -762,59 +835,28 @@ When `/code-workflow` is run with no arguments and no task is specified:
 6. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: stage [slug] [STAGE-NAME]" --no-gpg-sign 2>/dev/null`
 7. Write current stage to `.pipeline/[slug]/STAGE` file (plain text, e.g., `IMPLEMENT`). This file is read by `/status` to show progress without parsing TASKS.md.
 
-### RESEARCH (Orchestrator-Direct Mode)
+### RESEARCH and PLAN — Removed from Code Mode
 
-In code mode, the orchestrator handles codebase research directly instead of launching the researcher agent. The orchestrator already has Glob/Grep/Read access — launching a subagent for codebase exploration adds context transfer overhead with no benefit.
+**RESEARCH and PLAN are no longer part of the code-workflow pipeline.** They are handled by `/init-tasks` before tasks enter the pipeline. All tasks must have a `.pipeline/[slug]/task.md` with an implementation plan — tasks without one are rejected at PICKUP with a redirect to `/init-tasks`.
 
-**Process:**
-1. Read `.pipeline/[slug]/CONTEXT.md` for pre-existing context (audit findings, task context blocks)
-2. Assess complexity: simple (existing pattern, small change) / moderate (new feature, some unknowns) / complex (new architecture, unfamiliar domain)
-3. Read foundational docs: `docs/soul.md`, `docs/architecture.md`, `docs/patterns.md`, `docs/data-models.md` (if they exist)
-4. Search the codebase:
-   - Existing patterns: How does the codebase handle similar things?
-   - Related modules: What existing code will this task touch?
-   - Conventions: Naming, structure, architecture decisions
-   - Dependencies: Relevant libraries/frameworks already in use
-5. Write findings to `.pipeline/[slug]/CONTEXT.md` under `## Research Findings` using the researcher's Pipeline Context format (see `~/.claude/agents/researcher.md` → Output Format → Pipeline Context)
-6. **If web research is needed** (unfamiliar API, external best practices, library comparison): launch the **researcher** agent with a web-research-only prompt. Include your codebase findings in the prompt so the researcher does not re-explore the codebase.
-7. Launch **judge** to evaluate research quality (9.0/10 threshold, standard escalation)
+**Design mode retains RESEARCH and PLAN** (design-innovator + researcher for RESEARCH, design-innovator + visual-architect for PLAN). These stages serve a different purpose in design mode (trend research, visual concept development) and are not covered by `/init-tasks`.
 
-**The researcher agent is NOT deleted or renamed.** It remains available for:
-- Web research when launched from pipelines (orchestrator provides codebase context, researcher adds external findings)
-- Standalone `/research` command (full codebase + web research, unchanged)
-- Design mode RESEARCH stage (design-innovator + researcher, unchanged)
-- Quality gate escalation attempt 2 (researcher provides new context — focus on web sources since the orchestrator already covered the codebase)
-- Onboard pipeline DISCOVER/ANALYZE/DOC-AUDIT stages (unchanged)
-
-### PLAN (Orchestrator-Direct Mode)
-
-In code mode, the orchestrator handles the PLAN stage directly instead of launching code-architect as a subagent. This eliminates context transfer overhead — the orchestrator already has full codebase access, research findings, and pipeline context.
-
-**Process:**
-1. Read foundational docs: `docs/soul.md`, `docs/architecture.md`, `docs/patterns.md`, `docs/data-models.md` (if they exist)
-2. Explore the codebase using Glob, Grep, Read — understand the existing architecture, conventions, and related code the task will touch
-3. Write the plan following code-architect's output format (see `~/.claude/agents/code-architect.md` → Output Format):
-   - Overview, Files (NEW/MOD), Approach (numbered steps), Key Decisions table, Gotchas, Risks, Verification
-4. Append the plan to `.pipeline/[slug]/CONTEXT.md` under `## Architecture Plan`
-5. Launch **judge** agent to evaluate the plan against code-architect quality standards (9.0/10 threshold)
-6. If judge fails it: iterate on the plan yourself using judge feedback, re-submit to judge
-7. Escalation follows the standard Quality Gate System (but Sonnet-to-Opus retry is N/A since the orchestrator is already Opus)
-8. After plan passes: present to user for approval. If `--yes` flag is active, auto-approve.
-
-**The code-architect agent is NOT deleted.** It remains available for:
-- Standalone `/plan` command (user explicitly wants a subagent to plan)
-- Design mode PLAN stage (design-innovator + visual-architect handle this, not the orchestrator)
-- `/init-tasks` ORGANIZE phase (code-architect groups and prioritizes tasks)
+**The researcher and code-architect agents are NOT deleted.** They remain available for:
+- `/init-tasks` RESEARCH+PLAN phase (orchestrator researches codebase, plans tasks sequentially)
+- Design mode RESEARCH and PLAN stages
+- Standalone `/research` and `/plan` commands
+- Quality gate escalation attempt 2 (researcher provides new context)
 - `/new-repo` task breakdown (code-architect analyzes project structure)
-- Tournament mode (if PLAN stage escalates to tournament, code-architect is launched as one of the two competitors)
+- Onboard pipeline stages (researcher)
 
-### Pre-PLAN Dependency Validation
-Before starting the PLAN stage, check if the picked task has `[depends: slug]` tags:
+### Pre-IMPLEMENT Dependency Validation
+
+Before starting the IMPLEMENT stage, check if the picked task has `[depends: slug]` tags:
 1. Parse the dependency slugs from the task line
 2. Check if each dependency is satisfied:
    - Satisfied = slug appears in HISTORY.md (completed) or is not in TASKS.md at all
    - Unsatisfied = slug is still `- [ ]` in backlog or active under `## Active Tasks`
-3. If all dependencies satisfied: proceed to PLAN normally
+3. If all dependencies satisfied: proceed to IMPLEMENT normally
 4. If any dependency is unsatisfied:
    ```
    Task "[slug]" has unmet dependencies:
@@ -827,13 +869,13 @@ Before starting the PLAN stage, check if the picked task has `[depends: slug]` t
    ```
 5. If user chooses "Wait": move task back to backlog, re-run auto-pickup to get next available task
 
-### Post-PLAN Conflict Detection
-After PLAN passes its quality gate, before advancing to IMPLEMENT:
-1. Parse the file list from the plan output (look for `### Files` section)
-2. Write the file list to this task's `**Files**` field in TASKS.md (format: `NEW: path` or `MOD: path`)
-3. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: files [slug]" --no-gpg-sign 2>/dev/null`
-4. Compare against all other active tasks' `**Files**` lists
-5. If overlap exists, show conflict warning (note: worktrees isolate work so there's no immediate breakage, but overlapping files will cause merge conflicts at completion):
+### Conflict Detection (at PICKUP)
+
+After seeding context and writing the file list from task.md to the `**Files**` field in TASKS.md:
+
+1. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: files [slug]" --no-gpg-sign 2>/dev/null`
+2. Compare against all other active tasks' `**Files**` lists
+3. If overlap exists, show conflict warning (note: worktrees isolate work so there's no immediate breakage, but overlapping files will cause merge conflicts at completion):
 
 ```
 CONFLICT DETECTED
@@ -846,13 +888,11 @@ claimed by active task "[other-task]":
 Options:
   1. Proceed -- accept merge risk
   2. Wait -- pause until the other task completes
-  3. Rethink -- go back to PLAN and redesign around the overlap
+  3. Re-plan via /init-tasks -- redesign around the overlap
   4. Abort -- cancel this task
 ```
 
-5. If no overlap, safe to proceed to IMPLEMENT
-
-Logic: tasks still in PLAN or earlier have no file list yet (shown as `(pending PLAN)`), so they're skipped. Only tasks that have passed PLAN (with a populated `**Files**` field) are checked.
+4. If no overlap, safe to proceed to IMPLEMENT
 
 ### Post-IMPLEMENT Scope Validation
 
@@ -868,7 +908,7 @@ After IMPLEMENT passes its quality gate but before advancing to the next stage, 
    - `dist/**`, `build/**`, `out/**`
    - `*.lock`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
    - `.DS_Store`
-3. Read the planned file list from this task's `**Files**` field in TASKS.md (the `NEW:` and `MOD:` entries written at Post-PLAN)
+3. Read the planned file list from this task's `**Files**` field in TASKS.md (the `NEW:` and `MOD:` entries written at PICKUP)
 4. Compare: any file in the actual diff that is NOT in the planned file list is an **unplanned modification**
 5. If no unplanned files: proceed silently to the next stage
 6. If unplanned files exist, warn the user:
@@ -906,9 +946,44 @@ Options:
    - **Local merge**: `git merge task/[slug]` then `git worktree remove .worktree/[slug]` then `git worktree prune` then `git branch -d task/[slug]`
    - **PR**: `git -C .worktree/[slug] push -u origin task/[slug]` then `gh pr create --title "[task name]" --body "..."` then `git worktree remove .worktree/[slug]` then `git worktree prune`
    - **Push only**: `git -C .worktree/[slug] push -u origin task/[slug]` then `git worktree remove .worktree/[slug]` then `git worktree prune`
-8. Delete `.pipeline/[slug]/` directory
-9. Show remaining active tasks + backlog
-10. Prompt for next task
+8. **Write capability usage summary**: Read `## Capability Log` from `.pipeline/[slug]/CONTEXT.md`. Write a `capability_runs` entry to `.claude/stats.json`:
+
+   ```json
+   {
+     "capability_runs": [
+       {
+         "date": "YYYY-MM-DD",
+         "pipeline": "code-workflow",
+         "slug": "[slug]",
+         "launches": [
+           {"agent": "researcher", "model": "opus", "mcp_routed": [], "context_tier": "low"},
+           {"agent": "web-developer", "model": "sonnet", "mcp_routed": ["firebase"], "context_tier": "medium"},
+           {"agent": "judge", "model": "opus", "mcp_routed": [], "memory_lines": 482, "context_tier": "medium"}
+         ],
+         "mcp_servers_configured": ["firebase", "chrome-devtools"],
+         "capabilities_recommended": ["playwright"],
+         "skills_recommended": ["trail-of-bits-security"],
+         "capabilities_used_in_plan": ["firebase"],
+         "deferred_tools_count": 60,
+         "enable_tool_search": true
+       }
+     ]
+   }
+   ```
+
+   Append to the `capability_runs` array (create it if it doesn't exist). This summary is sourced from:
+   - **launches**: the Capability Log entries accumulated during the pipeline run
+   - **mcp_servers_configured**: from the PICKUP routing map
+   - **capabilities_recommended/used_in_plan**: from `## Available Capabilities` and `## Architecture Plan`
+   - **skills_recommended**: community skills surfaced in `## Available Capabilities` (may be empty)
+   - **deferred_tools_count**: from the Orchestrator Context Profile
+   - **enable_tool_search**: from the PICKUP check
+
+9. Delete `.pipeline/[slug]/` directory (this includes task.md if it exists — created by `/init-tasks`, consumed by PICKUP)
+10. Show remaining active tasks + backlog
+11. **Next task behavior**:
+    - **Normal mode**: Prompt "Pick up next task? (y/n)"
+    - **`--yes` mode**: Auto-continue. Run `/compact Discard all details from the completed task. Preserve only: this is a --yes mode code-workflow pipeline run, and I need to loop back to PICKUP to pick up the next backlog task from TASKS.md.` Then immediately proceed to PICKUP for the next backlog task. If no tasks remain in the backlog, exit cleanly with "All tasks complete."
 
 ### DESIGN-REVIEW Stage (Design Mode Only)
 
@@ -998,17 +1073,17 @@ PICKUP → RESEARCH → PLAN → IMPLEMENT → VERIFY-APP → REFINE
 │ Task: [task name]                                                │
 │ Pipeline: feature-dev                                            │
 │                                                                  │
-│  PICKUP → RESEARCH → PLAN → IMPLEMENT → WRITE-TESTS             │
-│    ✓         ✓        ✓        ●            ○                    │
+│  PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK               │
+│    ✓         ●           ○              ○                        │
 │                                                                  │
-│  → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW               │
-│         ○             ○           ○          ○                   │
+│  → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW             │
+│       ○           ○          ○            ○                      │
 │                                                                  │
-│  → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE                  │
-│         ○                ○            ○                          │
+│  → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER                 │
+│       ○             ○                ○                           │
 │                                                                  │
-│  → REVIEW-WITH-USER → COMMIT → COMPLETE                         │
-│         ○                ○        ○                              │
+│  → COMMIT → COMPLETE                                             │
+│       ○        ○                                                 │
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │ Stage: [STAGE NAME] — PASS ✓                                     │
@@ -1033,17 +1108,17 @@ PICKUP → RESEARCH → PLAN → IMPLEMENT → VERIFY-APP → REFINE
 │ Task: [task name]                                                │
 │ Pipeline: feature-dev                                            │
 │                                                                  │
-│  PICKUP → RESEARCH → PLAN → IMPLEMENT → WRITE-TESTS             │
-│    ✓         ✓        ✓        ●            ○                    │
+│  PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK               │
+│    ✓         ●           ○              ○                        │
 │                                                                  │
-│  → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW               │
-│         ○             ○           ○          ○                   │
+│  → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW             │
+│       ○           ○          ○            ○                      │
 │                                                                  │
-│  → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE                  │
-│         ○                ○            ○                          │
+│  → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER                 │
+│       ○             ○                ○                           │
 │                                                                  │
-│  → REVIEW-WITH-USER → COMMIT → COMPLETE                         │
-│         ○                ○        ○                              │
+│  → COMMIT → COMPLETE                                             │
+│       ○        ○                                                 │
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │ Stage: [STAGE NAME] — BELOW THRESHOLD ✗                          │
@@ -1078,28 +1153,30 @@ After iteration completes, show the re-judge result (compact — no progress tra
 │ ✓ PIPELINE COMPLETE: [task name]                                 │
 │ Pipeline: feature-dev                                            │
 │                                                                  │
-│  PICKUP → RESEARCH → PLAN → IMPLEMENT → WRITE-TESTS             │
-│    ✓         ✓        ✓        ✓            ✓                    │
+│  PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK               │
+│    ✓         ✓           ✓              ✓                        │
 │                                                                  │
-│  → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW               │
-│         ✓             ✓           ✓          ✓                   │
+│  → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW             │
+│       ✓           ✓          ✓            ✓                      │
 │                                                                  │
-│  → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE                  │
-│         ✓                ✓            ✓                          │
+│  → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER                 │
+│       ✓             ✓                ✓                           │
 │                                                                  │
-│  → REVIEW-WITH-USER → COMMIT → COMPLETE                         │
-│         ✓                ✓        ✓                              │
+│  → COMMIT → COMPLETE                                             │
+│       ✓        ✓                                                 │
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │ All scores:                                                      │
-│   RESEARCH: 9.2  PLAN: 9.1  IMPLEMENT: 9.3                      │
-│   WRITE-TESTS: 9.0  QUALITY-CHECK: 9.2                          │
+│   IMPLEMENT: 9.3  WRITE-TESTS: 9.0  QUALITY-CHECK: 9.2          │
 │   SIMPLIFY: 9.4  VERIFY-APP: 9.1                                │
 │   REVIEW: 9.0  SECURITY-REVIEW: 9.5                             │
 │   SYNC-DOCS: 9.2  REVIEW-WITH-USER: APPROVED                    │
 │                                                                  │
 │ Commits: [N] checkpoints                                         │
 │ Status: Push-ready                                               │
+│                                                                  │
+│ [--yes mode]: Compacting (aggressive purge) → next PICKUP...    │
+│ [normal mode]: Context is heavy — run /clear or /compact.        │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1109,7 +1186,7 @@ After iteration completes, show the re-judge result (compact — no progress tra
 - Launching this file as a subagent — it is a reference document for the main Claude orchestrator
 - Skipping the skip-list check before launching a stage agent
 - Forgetting to print the stage summary box after every stage (pass or fail)
-- Not running conflict detection after PLAN passes — file overlaps cause merge conflicts at completion
+- Not running conflict detection at PICKUP — file overlaps cause merge conflicts at completion
 - Not running Post-IMPLEMENT Scope Validation — unplanned file modifications cause breakage when merged
 - Advancing after a quality gate failure without the judge re-scoring the updated output
 - Creating a worktree without checking for slug collisions first
