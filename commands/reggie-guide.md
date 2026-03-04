@@ -1,6 +1,6 @@
 # Reggie Guide
 
-Get answers about how Reggie's agent and pipeline system works.
+Get answers about how Reggie works. Reggie turns your backlog into a parallel build queue -- it organizes your to-dos into structured tasks, then executes them in parallel across specialized agents.
 
 ## Context
 
@@ -40,16 +40,20 @@ Use `$ARGUMENTS` to determine what they're asking about. Match their question to
 ```
 Welcome to /reggie-guide — ask me anything about this system.
 
-THE PRIMARY WORKFLOW — how most work gets done
+Reggie turns your backlog into a parallel build queue.
+Dump your to-dos, Reggie organizes and executes them.
+
+THE PRIMARY WORKFLOW
 
   Step 1: Brain dump your tasks into TASKS.md (any format —
           bullet points, notes, half-formed ideas)
-  Step 2: /init-tasks — Reggie reads TASKS.md, researches your
-          codebase, asks questions, builds implementation plans
-  Step 3: /code-workflow — picks up a planned task and runs the
-          full pipeline (implement → test → review → commit)
-  Step 4: Open more terminals, run /code-workflow in each —
-          tasks execute in parallel via git worktrees
+  Step 2: /init-tasks — turns raw notes into implementation-
+          ready tasks (researches codebase, asks questions,
+          builds plans)
+  Step 3: /code-workflow (×N in parallel) — open as many
+          terminals as you want, each picks a different task
+          and works in its own git worktree (implement → test
+          → review → commit). Quality gates handle retries.
 
   That's it. /init-tasks plans, /code-workflow executes.
 

@@ -20,7 +20,7 @@ tags: [Reggie, How-To, Agentic Engineering]
 - **mcp-registry.yaml** -- Curated mapping of project signals to MCP servers
 - **capability-manifest.yaml** -- Pre-computed index of ~200 plugins, skills, and servers
 - **skills-registry.yaml** -- Curated index of community Claude Code skills
-- **REGGIE.md** -- System architecture and philosophy overview
+- **REGGIE.md** -- System identity and how the task-to-parallel-execution loop works
 - **install.sh** / **uninstall.sh** -- Install and uninstall scripts (macOS/Linux)
 - **install.ps1** / **uninstall.ps1** -- Install and uninstall scripts (Windows)
 
