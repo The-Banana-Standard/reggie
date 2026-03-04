@@ -152,5 +152,34 @@ else
   echo '    "hooks": { "PostToolUse": [ { "matcher": "Task", "hooks": [{"type":"command","command":"$HOME/.claude/hooks/track-stats.sh","timeout":10}] }, { "matcher": "Skill", "hooks": [{"type":"command","command":"$HOME/.claude/hooks/track-stats.sh","timeout":10}] } ] }'
 fi
 
+# 7. Configure ENABLE_TOOL_SEARCH in shell profile
+SHELL_PROFILE=""
+if [ -f "$HOME/.zshrc" ]; then
+  SHELL_PROFILE="$HOME/.zshrc"
+elif [ -f "$HOME/.bashrc" ]; then
+  SHELL_PROFILE="$HOME/.bashrc"
+elif [ -f "$HOME/.bash_profile" ]; then
+  SHELL_PROFILE="$HOME/.bash_profile"
+fi
+
+if [ -n "$SHELL_PROFILE" ]; then
+  if ! grep -q 'ENABLE_TOOL_SEARCH' "$SHELL_PROFILE" 2>/dev/null; then
+    echo '' >> "$SHELL_PROFILE"
+    echo '# Reggie: defer MCP tool schemas for efficiency' >> "$SHELL_PROFILE"
+    echo 'export ENABLE_TOOL_SEARCH=auto:5' >> "$SHELL_PROFILE"
+    echo "  Added ENABLE_TOOL_SEARCH=auto:5 to $SHELL_PROFILE"
+  else
+    echo "  ENABLE_TOOL_SEARCH already configured in $SHELL_PROFILE"
+  fi
+else
+  echo ""
+  echo "  Could not find shell profile (~/.zshrc, ~/.bashrc, or ~/.bash_profile)."
+  echo "  Manually add to your shell profile:"
+  echo '    export ENABLE_TOOL_SEARCH=auto:5'
+fi
+
 echo ""
-echo "Restart Claude Code to pick up the new commands."
+echo "Reggie installed successfully. Restart Claude Code, then run:"
+echo ""
+echo "  /reggie-guide I just ran install.sh what do I do now?"
+echo ""

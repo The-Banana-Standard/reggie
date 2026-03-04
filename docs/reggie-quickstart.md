@@ -64,14 +64,14 @@ If you need help with either, check out the [Claude Code CLI](https://code.claud
 
    > **Windows note:** Creating symlinks requires running PowerShell as Administrator, or having Developer Mode enabled in Windows Settings.
 
-3. Restart Claude Code, then verify the installation:
+3. Restart Claude Code, then get started:
 
    ```bash
    claude
-   /reggie-guide
+   /reggie-guide I just ran install.sh what do I do now?
    ```
 
-   If the command loads the guide, your installation succeeded.
+   This walks you through your next steps. The install script also configures `ENABLE_TOOL_SEARCH=auto:5` in your shell profile for efficient MCP tool loading.
 
 ---
 
@@ -97,7 +97,9 @@ Changes take effect immediately -- no reinstall needed.
    - `TASKS.md` -- prioritized backlog
    - `CLAUDE.md` -- project context for agents
    - `docs/` -- documentation structure
-5. Run `/code-workflow` to start building (it picks up the next task from TASKS.md and works through it)
+5. Brain dump your tasks into `TASKS.md` -- any format works (bullet points, notes, half-formed ideas)
+6. Run `/init-tasks` to refine them into implementation-ready plans
+7. Run `/code-workflow` to start building (it picks up the next planned task and works through it)
 
 ---
 
@@ -109,7 +111,9 @@ Already have a project? Use `/onboard` to analyze your codebase and generate TAS
 2. Run `claude` to start Claude Code
 3. Run `/onboard` to start the onboarding pipeline
 4. The system will analyze your codebase, check for compatibility, and generate your project infrastructure. You'll confirm at two checkpoints: after codebase analysis (findings, tech stack, compatibility), then after infrastructure generation (TASKS.md, CLAUDE.md, docs).
-5. Once complete, run `/code-workflow` to start building
+5. Brain dump your tasks into `TASKS.md` -- any format works (bullet points, notes, half-formed ideas)
+6. Run `/init-tasks` to refine them into implementation-ready plans
+7. Run `/code-workflow` to start building
 
 ---
 

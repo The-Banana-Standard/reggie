@@ -79,12 +79,12 @@ This command takes a loose task list and — through collaborative dialogue with
 **Organize mode** — `$ARGUMENTS` contains task descriptions:
 Skip brain dump, go straight to INTAKE with the provided input.
 
-**Brain dump mode** — `$ARGUMENTS` is empty and no TASKS.md exists:
-Start with conversational exploration, then flow into INTAKE.
+**Brain dump mode** — `$ARGUMENTS` is empty:
+The standard workflow is for users to brain dump directly into TASKS.md before running `/init-tasks` (any format — bullet points, notes, half-formed ideas). If TASKS.md exists with raw unstructured content (no `## Backlog` header or metadata tags), treat it as a brain dump and flow into INTAKE with that as the raw input. If no TASKS.md exists at all, start with conversational exploration, then flow into INTAKE.
 
-### If TASKS.md Already Exists
+### If TASKS.md Already Exists (structured)
 
-First, count items under `### Ungroomed` in TASKS.md (if the section exists). Then ask:
+If TASKS.md has structured content (has `## Backlog` header, metadata tags like `[P1]`, `[planned]`, etc.), first count items under `### Ungroomed` in TASKS.md (if the section exists). Then ask:
 
 ```
 You already have a TASKS.md. Want to:
@@ -108,7 +108,7 @@ If TASKS.md contains old-format tasks with inline `>` context blocks, those are 
 
 ---
 
-## Brain Dump (when no input and no TASKS.md)
+## Brain Dump (when no input and no TASKS.md exists)
 
 Start conversationally:
 

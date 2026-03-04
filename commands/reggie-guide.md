@@ -40,12 +40,24 @@ Use `$ARGUMENTS` to determine what they're asking about. Match their question to
 ```
 Welcome to /reggie-guide — ask me anything about this system.
 
-WORKFLOWS — start a pipeline
-  /code-workflow                Full feature dev (13 stages, tasks predefined)
+THE PRIMARY WORKFLOW — how most work gets done
+
+  Step 1: Brain dump your tasks into TASKS.md (any format —
+          bullet points, notes, half-formed ideas)
+  Step 2: /init-tasks — Reggie reads TASKS.md, researches your
+          codebase, asks questions, builds implementation plans
+  Step 3: /code-workflow — picks up a planned task and runs the
+          full pipeline (implement → test → review → commit)
+  Step 4: Open more terminals, run /code-workflow in each —
+          tasks execute in parallel via git worktrees
+
+  That's it. /init-tasks plans, /code-workflow executes.
+
+OTHER WORKFLOWS
+  /design-workflow         Design mode pipeline (visual quality focus, human review)
   /article-workflow        Write an article (brainstorm → publish)
   /article-workflow edit   Polish an existing draft
   /social-workflow         Turn content into social posts
-  /design-workflow         Design mode pipeline (visual quality focus, human review)
   /audit-workflow          Audit and fix a codebase
   /debug-workflow          Conversational debugging (diagnose → fix)
   /onboard                 Prepare existing repo for agent system
@@ -115,11 +127,19 @@ Force `model: "opus"` on every agent launch for the entire pipeline run. Availab
 **What is a pipeline?**
 A pipeline is a sequence of stages that takes work from start to finish. Each stage uses a specialized agent. Each stage's output goes through a quality gate (9.0/10 to advance). Quality gate pass = automatic git commit on the task's branch.
 
-**Available pipelines:**
+**The primary pipeline (init-tasks → code-workflow):**
+
+| Phase | Command | What it does |
+|-------|---------|--------------|
+| Brain dump | TASKS.md | Write tasks in any format (bullet points, notes, ideas) |
+| Planning | `/init-tasks` | Reads TASKS.md → codebase research → collaborative Q&A → task grouping → implementation plans |
+| Execution | `/code-workflow` | PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER → COMMIT → COMPLETE |
+| Parallel | `/code-workflow` (×N) | Each terminal auto-picks a different task, works in its own git worktree |
+
+**Other pipelines:**
 
 | Pipeline | Command | Stages |
 |----------|---------|--------|
-| Feature (tasks ready) | `/code-workflow` | 13 stages: PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER → COMMIT → COMPLETE (requires `/init-tasks` first) |
 | Article | `/article-workflow` | BRAINSTORM → RESEARCH → OUTLINE → DRAFT → EDIT → HUMAN-EDIT → [loop until satisfied] → REVIEW → PUBLISH |
 | Article (edit) | `/article-workflow edit` | HUMAN-EDIT → [satisfied?] → RESEARCH PLAN → RESEARCH → DRAFT → EDIT → HUMAN-EDIT (loop until satisfied) → REVIEW → PUBLISH |
 | Social | `/social-workflow` | EXTRACT-SNIPPETS → ADAPT-PER-PLATFORM → REVIEW |
@@ -448,6 +468,17 @@ Run `/refresh-capabilities` to populate the capability manifest with plugins, Sm
 
 ### Topic: Task Management
 
+**How do init-tasks and code-workflow work together?**
+
+`/init-tasks` is the planning phase. `/code-workflow` is the execution phase. They share TASKS.md and `.pipeline/[slug]/task.md` files:
+
+1. **Brain dump into TASKS.md** — write your tasks in any format (bullet points, notes, half-formed ideas). This is the standard starting point.
+2. **`/init-tasks`** reads TASKS.md → researches the codebase → asks you targeted questions → builds implementation plans → rewrites TASKS.md (slim metadata) + `.pipeline/[slug]/task.md` (full plans)
+3. **`/code-workflow`** reads TASKS.md → auto-picks the highest-priority task with a `[planned]` tag → reads its task.md for context → runs the full pipeline (implement → test → review → commit) → picks up the next task
+4. **Multiple `/code-workflow` sessions** can run in parallel — each auto-picks a different task and works in its own git worktree
+
+Tasks without a `task.md` file (unplanned) are rejected by `/code-workflow` with a redirect back to `/init-tasks`.
+
 **What is the task format?**
 Tasks in TASKS.md use a slim metadata-rich format. Full task details live in separate `.pipeline/[slug]/task.md` files:
 
@@ -497,7 +528,7 @@ Yes. Section headers are optional. A backlog with no `### ` headers works exactl
 ### Topic: Installation & File Structure
 
 **How is Reggie installed?**
-Reggie is a git repo that symlinks into `~/.claude/`. The install script (`install.sh` on macOS/Linux, `install.ps1` on Windows) creates symlinks so that `~/.claude/` points to the repo, configures the stats tracking hook in `settings.json`, and backs up any existing files. Edits in either location are the same file. The uninstall script (`uninstall.sh` / `uninstall.ps1`) removes the symlinks, removes the stats hooks from `settings.json`, and restores from backup if available. On Windows, creating symlinks requires running PowerShell as Administrator or having Developer Mode enabled.
+Reggie is a git repo that symlinks into `~/.claude/`. The install script (`install.sh` on macOS/Linux, `install.ps1` on Windows) creates symlinks so that `~/.claude/` points to the repo, configures the stats tracking hook in `settings.json`, adds `ENABLE_TOOL_SEARCH=auto:5` to your shell profile, and backs up any existing files. Edits in either location are the same file. The uninstall script (`uninstall.sh` / `uninstall.ps1`) removes the symlinks, removes the stats hooks from `settings.json`, and restores from backup if available. On Windows, creating symlinks requires running PowerShell as Administrator or having Developer Mode enabled.
 
 **What gets symlinked?**
 
@@ -515,7 +546,7 @@ Reggie is a git repo that symlinks into `~/.claude/`. The install script (`insta
 | `capability-manifest.yaml` | `capability-manifest.yaml` | File symlink |
 
 **What gets configured automatically?**
-The install script adds stats tracking hooks to `~/.claude/settings.json` (idempotent — safe to run multiple times). These hooks track Task, Skill, and ToolSearch usage for pipeline stats. The uninstall script removes them.
+The install script adds stats tracking hooks to `~/.claude/settings.json` (idempotent — safe to run multiple times). These hooks track Task, Skill, and ToolSearch usage for pipeline stats. It also adds `export ENABLE_TOOL_SEARCH=auto:5` to your shell profile (~/.zshrc, ~/.bashrc, or PowerShell $PROFILE) — this defers MCP tool schemas so agents only load tools they need. The uninstall script removes the stats hooks from settings.json.
 
 **What stays local (NOT symlinked)?**
 These files are user-specific and not part of the open-source repo:
@@ -550,6 +581,9 @@ git clone https://github.com/The-Banana-Standard/reggie.git
 cd reggie
 .\install.ps1
 ```
+
+**What do I do after installing?**
+Restart Claude Code and run: `/reggie-guide I just ran install.sh what do I do now?`
 
 **How do I update?**
 
@@ -690,22 +724,28 @@ The researcher caches **web research findings only** (external best practices, l
 
 ### Topic: Which Command Should I Use?
 
-**I want to...**
+**The primary workflow (most work goes through here):**
+
+| Step | Command | What happens |
+|------|---------|--------------|
+| 1 | Brain dump into TASKS.md | Write your tasks in any format (bullet points, notes, half-formed ideas) |
+| 2 | `/init-tasks` | Reads TASKS.md → researches the codebase, asks questions, groups related tasks, builds implementation plans → produces task.md files |
+| 3 | `/code-workflow` | Auto-picks the next planned task → implements, tests, reviews, commits → repeat |
+| 4 | `/code-workflow` (more terminals) | Run in parallel — each session gets its own task and git worktree |
+
+**Everything else:**
 
 | Goal | Command | Notes |
 |------|---------|-------|
-| Build a new feature (tasks already defined) | `/code-workflow` | Full 13-stage pipeline (requires /init-tasks first) |
-| Explore a feature idea first, then build | `/init-tasks` + `/code-workflow` | Brain dump → research+plan → task breakdown → code-workflow picks up pre-planned tasks |
-| Fix a bug (I know the cause) | `/code-workflow` | Create a task, use the pipeline |
 | Fix a bug (unclear root cause) | `/debug-workflow` | Socratic diagnosis → handoff to code-workflow |
 | Quickly investigate a bug | `/debug` | Lightweight, no pipeline |
 | Audit codebase health | `/audit-workflow` | Full pipeline: audit → prioritize → fix loop |
 | Quick codebase assessment | `/audit` | One-shot audit, no fixes |
+| Design a UI feature | `/design-workflow` | Design mode pipeline with visual quality focus and human review |
 | Set up a new project | `/new-repo` | Scaffold → git → docs → push |
 | Prepare an existing repo for agents | `/onboard` | Discovery → CLAUDE.md → agent memory |
 | Write a technical article | `/article-workflow` | Brainstorm → draft → edit → publish |
 | Create social media posts | `/social-workflow` | Extract → adapt per platform → review |
-| Design a UI feature | `/design-workflow` | Design mode pipeline with visual quality focus and human review |
 | Port a feature from another codebase | `/port` | Analyze → plan → implement → verify |
 | Plan an implementation (no coding) | `/plan` | Produces an architect plan only |
 | Review code I just wrote | `/code-review` | Structured code review of current diff |
@@ -715,7 +755,6 @@ The researcher caches **web research findings only** (external best practices, l
 | Create new agents or workflows | `/reggie-system-change` | Intake → brainstorm → plan → implement → verify |
 | Process agent learnings | `/improve` | Two-level improve pipeline |
 | Evaluate the agent system itself | `/evaluate-reggie` | Architecture review, not per-agent learnings |
-| Formalize a known system change | `/reggie-system-change` | Change request already known, structured implementation |
 | Check if this repo is ready for agents | `/repo-advisor` | Per-project readiness, prescriptions, drift |
 | Scan project for relevant MCP tools | `/find-tools` | Detect project signals, configure MCP servers |
 | Update capability manifest from sources | `/refresh-capabilities` | Refresh plugins, skills, Smithery servers |

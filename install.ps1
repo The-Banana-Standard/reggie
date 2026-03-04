@@ -157,5 +157,30 @@ if (-not (Test-Path $SettingsFile)) {
     Write-Host "  Added stats hooks to settings.json"
 }
 
+# 7. Configure ENABLE_TOOL_SEARCH in PowerShell profile
+$PsProfile = $PROFILE
+if ($PsProfile -and (Test-Path (Split-Path $PsProfile -Parent))) {
+    if (-not (Test-Path $PsProfile)) {
+        New-Item -ItemType File -Path $PsProfile -Force | Out-Null
+    }
+    $profileContent = Get-Content -Raw $PsProfile -ErrorAction SilentlyContinue
+    if ($profileContent -notmatch 'ENABLE_TOOL_SEARCH') {
+        Add-Content -Path $PsProfile -Value ""
+        Add-Content -Path $PsProfile -Value "# Reggie: defer MCP tool schemas for efficiency"
+        Add-Content -Path $PsProfile -Value '$env:ENABLE_TOOL_SEARCH = "auto:5"'
+        Write-Host "  Added ENABLE_TOOL_SEARCH=auto:5 to $PsProfile"
+    } else {
+        Write-Host "  ENABLE_TOOL_SEARCH already configured in $PsProfile"
+    }
+} else {
+    Write-Host ""
+    Write-Host "  Could not find PowerShell profile path."
+    Write-Host "  Manually add to your profile:"
+    Write-Host '    $env:ENABLE_TOOL_SEARCH = "auto:5"'
+}
+
 Write-Host ""
-Write-Host "Restart Claude Code to pick up the new commands."
+Write-Host "Reggie installed successfully. Restart Claude Code, then run:"
+Write-Host ""
+Write-Host "  /reggie-guide I just ran install.sh what do I do now?"
+Write-Host ""
