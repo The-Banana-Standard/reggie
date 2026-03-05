@@ -243,9 +243,9 @@ After all stages complete:
 │   - MEMORY.md (project memory)                                   │
 │                                                                  │
 │ Ready for:                                                       │
+│   /init-tasks      Brainstorm and plan development tasks         │
 │   /audit           Run a full codebase audit                     │
-│   /code-workflow   Start building features                       │
-│   /plan            Plan a specific change                        │
+│   /code-workflow   Execute planned tasks                         │
 │                                                                  │
 │ Commit the new files? (y/n)                                      │
 └──────────────────────────────────────────────────────────────────┘

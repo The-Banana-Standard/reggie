@@ -232,8 +232,8 @@ Push to personal GitHub as private repo? (y/n)
 → https://github.com/your-username/daily-habits
 
 Pipeline COMPLETE.
-TASKS.md has 6 tasks ready in backlog.
-Run /code-workflow to pick up your first task.
+TASKS.md has 6 raw tasks in backlog.
+Run /init-tasks to research and plan them, then /code-workflow to execute.
 ```
 
 ### Refining the Summary

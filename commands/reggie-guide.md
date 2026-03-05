@@ -149,9 +149,9 @@ A pipeline is a sequence of stages that takes work from start to finish. Each st
 | Social | `/social-workflow` | EXTRACT-SNIPPETS → ADAPT-PER-PLATFORM → REVIEW |
 | Design | `/design-workflow` | PICKUP → RESEARCH → PLAN → IMPLEMENT → VERIFY-APP → REFINE → DESIGN-REVIEW → COMMIT → COMPLETE (design mode of code-workflow) |
 | Audit | `/audit-workflow` | AUDIT → PRIORITIZE → [loop: RESEARCH → PLAN → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → COMMIT per task] |
-| Repo Setup | `/new-repo` | PROJECT-VISION (loop with 4 agents until satisfied) → SCAFFOLD → SEED-MEMORY → CONFIGURE-TOOLS → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH |
+| Repo Setup | `/new-repo` | PROJECT-VISION (loop with 4 agents until satisfied) → SCAFFOLD → SEED-MEMORY → CONFIGURE-TOOLS → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH → handoff to `/init-tasks` |
 | Port Feature | `/port` | ANALYZE → PLAN → IMPLEMENT → VERIFY |
-| Onboard | `/onboard` | DISCOVER → VALIDATE → ANALYZE → DOC-AUDIT → GENERATE → SEED-MEMORY → CONFIGURE-TOOLS → REFINE |
+| Onboard | `/onboard` | DISCOVER → VALIDATE → ANALYZE → DOC-AUDIT → GENERATE → SEED-MEMORY → CONFIGURE-TOOLS → REFINE → handoff to `/init-tasks` |
 | Improve | `/improve` | TOOLING-CHECK → COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE |
 
 **How stages connect:**
@@ -698,8 +698,8 @@ An 8-stage workflow that prepares any existing repository for the Claude Code ag
 
 **How is this different from /new-repo?**
 
-- `/new-repo` creates a NEW project from scratch (scaffolding, initial files)
-- `/onboard` prepares an EXISTING project for the agent system (discovery, doc audit)
+- `/new-repo` creates a NEW project from scratch (scaffolding, initial files). Produces raw tasks in TASKS.md — run `/init-tasks` to refine them.
+- `/onboard` prepares an EXISTING project for the agent system (discovery, doc audit). Creates empty TASKS.md — run `/init-tasks` to brainstorm and plan tasks.
 
 ---
 
@@ -759,8 +759,8 @@ The researcher caches **web research findings only** (external best practices, l
 | Audit codebase health | `/audit-workflow` | Full pipeline: audit → prioritize → fix loop |
 | Quick codebase assessment | `/audit` | One-shot audit, no fixes |
 | Design a UI feature | `/design-workflow` | Design mode pipeline with visual quality focus and human review |
-| Set up a new project | `/new-repo` | Scaffold → git → docs → push |
-| Prepare an existing repo for agents | `/onboard` | Discovery → CLAUDE.md → agent memory |
+| Set up a new project | `/new-repo` | Scaffold → git → docs → push → `/init-tasks` to plan tasks |
+| Prepare an existing repo for agents | `/onboard` | Discovery → CLAUDE.md → agent memory → `/init-tasks` to plan tasks |
 | Write a technical article | `/article-workflow` | Brainstorm → draft → edit → publish |
 | Create social media posts | `/social-workflow` | Extract → adapt per platform → review |
 | Port a feature from another codebase | `/port` | Analyze → plan → implement → verify |

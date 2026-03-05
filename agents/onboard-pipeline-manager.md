@@ -803,7 +803,7 @@ Types: feat, fix, refactor, docs, style, test, chore, perf
 
 ## Backlog
 
-[No tasks yet. Use /init-tasks to brainstorm, or add tasks manually.]
+[No tasks yet. Run /init-tasks to brainstorm and plan your development tasks.]
 
 ```
 
@@ -945,9 +945,9 @@ After all stages complete:
 │   - [N] files updated                                            │
 │                                                                  │
 │ Ready for:                                                       │
+│   /init-tasks      Brainstorm and plan development tasks         │
 │   /audit           Run a full codebase audit                     │
-│   /code-workflow   Start building features                       │
-│   /plan            Plan a specific change                        │
+│   /code-workflow   Execute planned tasks                         │
 │                                                                  │
 │ Commit the new files? (y/n)                                      │
 └──────────────────────────────────────────────────────────────────┘
