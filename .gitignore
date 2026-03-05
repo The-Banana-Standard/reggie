@@ -4,5 +4,21 @@
 *~
 articles/
 
+.claude/
+capability-manifest.yaml
+mcp-registry.local.yaml
+skills-registry.local.yaml
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+*.log
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
+*.rej
 .pipeline/
 .worktree/
