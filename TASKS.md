@@ -26,8 +26,8 @@
 | SIMPLIFY | 9.4 | 1 | PASS |
 | VERIFY-APP | SKIP | 0 | SKIP |
 | REVIEW | 9.2 | 1 | PASS |
-| SECURITY-REVIEW | - | 0 | CURRENT |
-| SYNC-DOCS | - | 0 | - |
+| SECURITY-REVIEW | 9.5 | 1 | PASS |
+| SYNC-DOCS | - | 0 | CURRENT |
 | UPDATE-CLAUDE | - | 0 | - |
 | REVIEW-WITH-USER | - | 0 | - |
 
