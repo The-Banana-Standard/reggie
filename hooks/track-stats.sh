@@ -30,6 +30,8 @@ if [ ! -f "$STATS_FILE" ]; then
 fi
 
 TODAY=$(date +%Y-%m-%d)
+TMPFILE=""
+trap 'rm -f "$TMPFILE"' EXIT
 
 if [ "$TOOL_NAME" = "Task" ]; then
   AGENT=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty')
@@ -42,6 +44,7 @@ if [ "$TOOL_NAME" = "Task" ]; then
 
   [ -z "$AGENT" ] && exit 0
 
+  TMPFILE=$(mktemp "${STATS_FILE}.XXXXXX")
   jq --arg agent "$AGENT" \
      --arg model "$MODEL" \
      --arg date "$TODAY" \
@@ -50,20 +53,21 @@ if [ "$TOOL_NAME" = "Task" ]; then
      .agents[$agent].calls += 1 |
      .agents[$agent].last = $date |
      .agents[$agent].models[$model] = ((.agents[$agent].models[$model] // 0) + 1)
-     ' "$STATS_FILE" > "${STATS_FILE}.tmp" && mv "${STATS_FILE}.tmp" "$STATS_FILE"
+     ' "$STATS_FILE" > "$TMPFILE" && mv "$TMPFILE" "$STATS_FILE"
 
 elif [ "$TOOL_NAME" = "Skill" ]; then
   CMD=$(echo "$INPUT" | jq -r '.tool_input.skill // empty')
 
   [ -z "$CMD" ] && exit 0
 
+  TMPFILE=$(mktemp "${STATS_FILE}.XXXXXX")
   jq --arg cmd "$CMD" \
      --arg date "$TODAY" \
      '
      .commands[$cmd] //= {"runs": 0, "last": null} |
      .commands[$cmd].runs += 1 |
      .commands[$cmd].last = $date
-     ' "$STATS_FILE" > "${STATS_FILE}.tmp" && mv "${STATS_FILE}.tmp" "$STATS_FILE"
+     ' "$STATS_FILE" > "$TMPFILE" && mv "$TMPFILE" "$STATS_FILE"
 
 elif [ "$TOOL_NAME" = "ToolSearch" ]; then
   QUERY=$(echo "$INPUT" | jq -r '.tool_input.query // empty')
@@ -79,6 +83,7 @@ elif [ "$TOOL_NAME" = "ToolSearch" ]; then
 
   [ -z "$SERVER" ] && exit 0
 
+  TMPFILE=$(mktemp "${STATS_FILE}.XXXXXX")
   jq --arg server "$SERVER" \
      --arg date "$TODAY" \
      '
@@ -86,7 +91,7 @@ elif [ "$TOOL_NAME" = "ToolSearch" ]; then
      .tool_searches[$server] //= {"searches": 0, "last": null} |
      .tool_searches[$server].searches += 1 |
      .tool_searches[$server].last = $date
-     ' "$STATS_FILE" > "${STATS_FILE}.tmp" && mv "${STATS_FILE}.tmp" "$STATS_FILE"
+     ' "$STATS_FILE" > "$TMPFILE" && mv "$TMPFILE" "$STATS_FILE"
 fi
 
 exit 0

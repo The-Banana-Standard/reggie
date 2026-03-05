@@ -210,5 +210,5 @@ if ($PsProfile -and (Test-Path (Split-Path $PsProfile -Parent))) {
 Write-Host ""
 Write-Host "Reggie installed successfully. Restart Claude Code, then run:"
 Write-Host ""
-Write-Host "  /reggie-guide I just ran install.sh what do I do now?"
+Write-Host "  /reggie-guide I just ran install.ps1 what do I do now?"
 Write-Host ""

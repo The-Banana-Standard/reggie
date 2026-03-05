@@ -76,5 +76,15 @@ PYEOF
   echo "Removed stats hooks from settings.json"
 fi
 
+# 5. Remove ENABLE_TOOL_SEARCH from shell profile
+for PROFILE in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile"; do
+  if [ -f "$PROFILE" ] && grep -q 'ENABLE_TOOL_SEARCH' "$PROFILE" 2>/dev/null; then
+    # Remove the export line and its preceding comment (written by installer)
+    sed -i.bak -e '/# Reggie: defer MCP tool schemas/d' -e '/export ENABLE_TOOL_SEARCH/d' "$PROFILE"
+    rm -f "${PROFILE}.bak"
+    echo "Removed ENABLE_TOOL_SEARCH from $PROFILE"
+  fi
+done
+
 echo ""
 echo "Reggie uninstalled."
