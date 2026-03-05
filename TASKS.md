@@ -27,9 +27,9 @@
 | VERIFY-APP | SKIP | 0 | SKIP |
 | REVIEW | 9.2 | 1 | PASS |
 | SECURITY-REVIEW | 9.5 | 1 | PASS |
-| SYNC-DOCS | - | 0 | CURRENT |
-| UPDATE-CLAUDE | - | 0 | - |
-| REVIEW-WITH-USER | - | 0 | - |
+| SYNC-DOCS | 9.0 | 1 | PASS |
+| UPDATE-CLAUDE | SKIP | 0 | SKIP |
+| REVIEW-WITH-USER | - | 0 | CURRENT |
 
 ### sync-capability-manifest
 **Task**: Sync capability-manifest.yaml community_skills count with skills-registry.yaml
