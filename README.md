@@ -38,7 +38,7 @@ Install from a tagged release:
 git clone https://github.com/The-Banana-Standard/reggie.git
 cd reggie
 git fetch --tags
-git checkout <stable-tag>
+git checkout v1.1.0
 ./install.sh
 ```
 
@@ -48,7 +48,7 @@ Windows (PowerShell as Administrator):
 git clone https://github.com/The-Banana-Standard/reggie.git
 cd reggie
 git fetch --tags
-git checkout <stable-tag>
+git checkout v1.1.0
 .\install.ps1
 ```
 
