@@ -21,8 +21,8 @@
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
 | IMPLEMENT | 9.1 | 1 | PASS |
-| WRITE-TESTS | - | 0 | CURRENT |
-| QUALITY-CHECK | - | 0 | - |
+| WRITE-TESTS | 9.1 | 2 | PASS |
+| QUALITY-CHECK | - | 0 | CURRENT |
 | SIMPLIFY | - | 0 | - |
 | VERIFY-APP | - | 0 | - |
 | REVIEW | - | 0 | - |
@@ -33,7 +33,7 @@
 
 ### fix-portable-package-docs
 **Task**: Fix documentation accuracy in PORTABLE-PACKAGE.md (tool tables, haiku removal, dead command refs)
-**Stage**: SIMPLIFY
+**Stage**: REVIEW
 **Pipeline**: code-workflow
 **Branch**: task/fix-portable-package-docs
 **Worktree**: .worktree/fix-portable-package-docs
@@ -48,9 +48,9 @@
 | IMPLEMENT | 9.3 | 1 | PASS |
 | WRITE-TESTS | - | 0 | SKIP |
 | QUALITY-CHECK | - | 0 | SKIP |
-| SIMPLIFY | - | 0 | CURRENT |
+| SIMPLIFY | - | 0 | SKIP |
 | VERIFY-APP | - | 0 | SKIP |
-| REVIEW | - | 0 | - |
+| REVIEW | - | 0 | CURRENT |
 | SECURITY-REVIEW | - | 0 | - |
 | SYNC-DOCS | - | 0 | - |
 | UPDATE-CLAUDE | - | 0 | - |
