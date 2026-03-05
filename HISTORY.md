@@ -2,3 +2,5 @@
 
 - [x] fix-doc-counts Fix documentation counts across README.md, REGGIE.md, agents-is-all-you-need.md, PORTABLE-PACKAGE.md -- 2026-03-04
 - [x] gitignore-sensitive-files Add .env* to .gitignore -- 2026-03-04
+- [~] fix-readme-pipeline: Update README.md pipeline description -- pruned 2026-03-05 (already correct)
+- [x] fix-portable-package-docs: Fix documentation accuracy in PORTABLE-PACKAGE.md (tool tables, haiku removal, dead command refs) -- 2026-03-05
