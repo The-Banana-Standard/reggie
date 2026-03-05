@@ -13,7 +13,7 @@
 - [ ] fix-broken-refs — Remove/fix references to non-existent /done, /next commands in PORTABLE-PACKAGE.md and add missing "RESEARCH/PLAN (Orchestrator-Direct Mode)" headings to pipeline-manager.md. Impact 7 but Effort M due to content that must be written for the missing headings — not just deletions.
 
 ### Security & Config
-- [ ] gitignore-sensitive-files — Add .pipeline/, .worktree/, .env* to .gitignore
+- [x] ~~gitignore-sensitive-files~~ — DONE
 - [ ] fix-install-fallback — Fix install.sh fallback missing ToolSearch hook + install.ps1 "install.sh" message typo
 
 ### Code Quality
