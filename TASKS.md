@@ -31,31 +31,6 @@
 | UPDATE-CLAUDE | SKIP | 0 | SKIP |
 | REVIEW-WITH-USER | APPROVED | 1 | PASS |
 
-### sync-capability-manifest
-**Task**: Sync capability-manifest.yaml community_skills count with skills-registry.yaml
-**Stage**: IMPLEMENT
-**Pipeline**: code-workflow
-**Branch**: task/sync-capability-manifest
-**Worktree**: .worktree/sync-capability-manifest
-**Base**: main
-**Started**: 2026-03-05
-**Attempts**: 1
-**Files**:
-- MOD: capability-manifest.yaml
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
-| WRITE-TESTS | - | 0 | - |
-| QUALITY-CHECK | - | 0 | - |
-| SIMPLIFY | - | 0 | - |
-| VERIFY-APP | - | 0 | - |
-| REVIEW | - | 0 | - |
-| SECURITY-REVIEW | - | 0 | - |
-| SYNC-DOCS | - | 0 | - |
-| UPDATE-CLAUDE | - | 0 | - |
-| REVIEW-WITH-USER | - | 0 | - |
-
 ---
 
 ## Backlog
