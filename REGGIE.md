@@ -4,7 +4,7 @@
 
 Dump everything you want built -- features, bugs, half-formed ideas. Reggie organizes them into structured tasks, then executes them in parallel across specialized agents. Each task flows through its own pipeline with quality gates. You review the results.
 
-37 agents. 34 commands. A pipeline architecture with quality gates. All living in `~/.claude/`, all portable across projects.
+37 agents. 36 commands. A pipeline architecture with quality gates. All living in `~/.claude/`, all portable across projects.
 
 Built on Claude Code. Extends it from a single-agent tool into a coordinated multi-agent system with memory, self-improvement, and enforced quality standards.
 

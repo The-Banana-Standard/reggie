@@ -63,7 +63,7 @@ The result is a system that gets measurably better at the things it does repeate
 
 ## Pipelines
 
-The full Reggie system has 42 agents and 44 commands, but the core experience is built around 11 pipelines — each invokable as a slash command. These are the workflows we actually use day to day, organized by what they're for.
+The full Reggie system has 37 agents and 36 commands, but the core experience is built around 12 pipelines — each invokable as a slash command. These are the workflows we actually use day to day, organized by what they're for.
 
 ### Set Up
 

@@ -448,6 +448,6 @@ Package version: 3.0.0
 Last updated: 2026-03-04
 Agents: 37
 Commands: 36
-Pipelines: 11 (code, audit, design, article, social, repo-setup, port-feature, onboard, debug, improve, evaluate-reggie, reggie-system-change)
+Pipelines: 12 (code, audit, design, article, social, repo-setup, port-feature, onboard, debug, improve, evaluate-reggie, reggie-system-change)
 Features: Git worktree isolation for parallel tasks, branch-per-task with merge strategies, cross-pipeline task sharing, conflict detection, discovered issues → backlog, researcher as context builder, always-loaded language patterns in developer agents, onboard workflow for existing repos, conversational debug workflow with Socratic diagnosis, MCP tool management with three-layer routing, capability manifest for plugin/skill awareness, self-improvement loop with agent learnings
 ```
