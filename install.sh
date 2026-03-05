@@ -29,7 +29,7 @@ if [ "$NEEDS_BACKUP" = true ]; then
   for item in agents commands hooks; do
     [ -d "$CLAUDE_DIR/$item" ] && [ ! -L "$CLAUDE_DIR/$item" ] && cp -r "$CLAUDE_DIR/$item" "$BACKUP_DIR/$item" 2>/dev/null || true
   done
-  for item in REGGIE.md PORTABLE-PACKAGE.md agents-is-all-you-need.md reggie-quickstart.md mcp-registry.yaml capability-manifest.yaml skills-registry.yaml; do
+  for item in REGGIE.md PORTABLE-PACKAGE.md agents-is-all-you-need.md reggie-quickstart.md mcp-registry.yaml skills-registry.yaml; do
     [ -f "$CLAUDE_DIR/$item" ] && [ ! -L "$CLAUDE_DIR/$item" ] && cp "$CLAUDE_DIR/$item" "$BACKUP_DIR/$item" 2>/dev/null || true
   done
 fi
@@ -43,8 +43,9 @@ rm -f "$CLAUDE_DIR/PORTABLE-PACKAGE.md"
 rm -f "$CLAUDE_DIR/agents-is-all-you-need.md"
 rm -f "$CLAUDE_DIR/reggie-quickstart.md"
 rm -f "$CLAUDE_DIR/mcp-registry.yaml"
-rm -f "$CLAUDE_DIR/capability-manifest.yaml"
 rm -f "$CLAUDE_DIR/skills-registry.yaml"
+# Legacy cleanup: old installs symlinked this file. Keep regular files untouched.
+[ -L "$CLAUDE_DIR/capability-manifest.yaml" ] && rm -f "$CLAUDE_DIR/capability-manifest.yaml"
 
 # 4. Create symlinks — directories
 ln -s "$REPO_DIR/agents" "$CLAUDE_DIR/agents"
@@ -57,7 +58,6 @@ ln -s "$REPO_DIR/docs/PORTABLE-PACKAGE.md" "$CLAUDE_DIR/PORTABLE-PACKAGE.md"
 ln -s "$REPO_DIR/docs/agents-is-all-you-need.md" "$CLAUDE_DIR/agents-is-all-you-need.md"
 ln -s "$REPO_DIR/docs/reggie-quickstart.md" "$CLAUDE_DIR/reggie-quickstart.md"
 ln -s "$REPO_DIR/mcp-registry.yaml" "$CLAUDE_DIR/mcp-registry.yaml"
-ln -s "$REPO_DIR/capability-manifest.yaml" "$CLAUDE_DIR/capability-manifest.yaml"
 ln -s "$REPO_DIR/skills-registry.yaml" "$CLAUDE_DIR/skills-registry.yaml"
 
 echo ""
@@ -74,11 +74,33 @@ echo "    PORTABLE-PACKAGE.md    -> $REPO_DIR/docs/PORTABLE-PACKAGE.md"
 echo "    agents-is-all-you-need.md -> $REPO_DIR/docs/agents-is-all-you-need.md"
 echo "    reggie-quickstart.md   -> $REPO_DIR/docs/reggie-quickstart.md"
 echo "    mcp-registry.yaml      -> $REPO_DIR/mcp-registry.yaml"
-echo "    capability-manifest.yaml -> $REPO_DIR/capability-manifest.yaml"
 echo "    skills-registry.yaml   -> $REPO_DIR/skills-registry.yaml"
 echo ""
+echo "  Local generated file:"
+echo "    capability-manifest.yaml (created/updated by /refresh-capabilities)"
+echo ""
 
-# 6. Add stats hooks to settings.json
+# 6. Optional local overlay files for user-specific additions
+if [ ! -f "$CLAUDE_DIR/mcp-registry.local.yaml" ]; then
+  cat > "$CLAUDE_DIR/mcp-registry.local.yaml" << 'OVERLAY_MCP_EOF'
+# Optional local MCP server overrides.
+# This file is local-only and should not be committed.
+servers: {}
+OVERLAY_MCP_EOF
+  echo "  Created $CLAUDE_DIR/mcp-registry.local.yaml"
+fi
+
+if [ ! -f "$CLAUDE_DIR/skills-registry.local.yaml" ]; then
+  cat > "$CLAUDE_DIR/skills-registry.local.yaml" << 'OVERLAY_SKILLS_EOF'
+# Optional local community skill overrides.
+# This file is local-only and should not be committed.
+skills: {}
+OVERLAY_SKILLS_EOF
+  echo "  Created $CLAUDE_DIR/skills-registry.local.yaml"
+fi
+echo ""
+
+# 7. Add stats hooks to settings.json
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 
 if [ ! -f "$SETTINGS_FILE" ]; then
@@ -152,7 +174,7 @@ else
   echo '    "hooks": { "PostToolUse": [ { "matcher": "Task", "hooks": [{"type":"command","command":"$HOME/.claude/hooks/track-stats.sh","timeout":10}] }, { "matcher": "Skill", "hooks": [{"type":"command","command":"$HOME/.claude/hooks/track-stats.sh","timeout":10}] } ] }'
 fi
 
-# 7. Configure ENABLE_TOOL_SEARCH in shell profile
+# 8. Configure ENABLE_TOOL_SEARCH in shell profile
 SHELL_PROFILE=""
 if [ -f "$HOME/.zshrc" ]; then
   SHELL_PROFILE="$HOME/.zshrc"

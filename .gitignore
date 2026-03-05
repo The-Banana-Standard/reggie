@@ -22,4 +22,3 @@ temp/
 *.rej
 .pipeline/
 .worktree/
-.env*

@@ -27,7 +27,11 @@ echo ""
 echo "=== Local MCP Registry ==="
 if [ -f ~/.claude/mcp-registry.yaml ]; then
   SERVER_COUNT=$(grep -c "^  [a-z]" ~/.claude/mcp-registry.yaml 2>/dev/null)
-  echo "Registry found: $SERVER_COUNT servers"
+  echo "Base registry found: $SERVER_COUNT servers"
+  if [ -f ~/.claude/mcp-registry.local.yaml ]; then
+    LOCAL_SERVER_COUNT=$(grep -c "^  [a-z]" ~/.claude/mcp-registry.local.yaml 2>/dev/null)
+    echo "Local overlay found: $LOCAL_SERVER_COUNT servers"
+  fi
 else
   echo "Registry not found"
 fi
@@ -47,7 +51,11 @@ echo ""
 echo "=== Skills Registry ==="
 if [ -f ~/.claude/skills-registry.yaml ]; then
   SKILL_COUNT=$(grep -c "^  [a-z]" ~/.claude/skills-registry.yaml 2>/dev/null)
-  echo "Registry found: $SKILL_COUNT skills"
+  echo "Base registry found: $SKILL_COUNT skills"
+  if [ -f ~/.claude/skills-registry.local.yaml ]; then
+    LOCAL_SKILL_COUNT=$(grep -c "^  [a-z]" ~/.claude/skills-registry.local.yaml 2>/dev/null)
+    echo "Local overlay found: $LOCAL_SKILL_COUNT skills"
+  fi
 else
   echo "Skills registry not found"
 fi
@@ -139,13 +147,13 @@ Check for community marketplaces installed at `~/.claude/plugins/marketplaces/`:
 
 ## Step 3.5: SCAN SKILLS REGISTRY
 
-Read `~/.claude/skills-registry.yaml` if it exists. This is a curated index of community Claude Code skills (SKILL.md-based playbooks) from known sources.
+Read `~/.claude/skills-registry.yaml` if it exists. This is a curated index of community Claude Code skills (SKILL.md-based playbooks) from known sources. If `~/.claude/skills-registry.local.yaml` exists, merge it on top of the base registry and use the merged result.
 
 **Skip if**: `--smithery` flag is set (only refreshing Smithery). Also skip if the registry file does not exist.
 
 **Process**:
 
-1. Read each entry from `skills-registry.yaml`
+1. Read each entry from the merged skills registry (base + optional local overlay)
 2. Generate a manifest entry for the `COMMUNITY SKILLS` section with:
    - `source: community-skill`
    - `type: skill` or `type: skill-collection` (collections bundle multiple skills)
@@ -189,7 +197,7 @@ Read `~/.claude/skills-registry.yaml` if it exists. This is a curated index of c
 
 3. Filter results:
    - Only `verified: true` in the response object
-   - Remove servers that match any entry in `mcp-registry.yaml` (deduplicate against local MCP)
+   - Remove servers that match any entry in the merged MCP registry (base + optional local overlay)
    - Remove servers already represented by official plugin marketplace entries
    - Deduplicate across keywords (same server from multiple queries = keep one, note all keywords)
 
@@ -217,7 +225,7 @@ Read `~/.claude/skills-registry.yaml` if it exists. This is a curated index of c
        community_plugins: [count]
        community_skills: [count]
        smithery_servers: [count]
-       local_mcp: [count from mcp-registry.yaml]
+       local_mcp: [count from merged MCP registry]
    ```
 
 3. Write the updated manifest to the YAML file using the Write tool.
@@ -229,9 +237,9 @@ Read `~/.claude/skills-registry.yaml` if it exists. This is a curated index of c
    │                                                                  │
    │ Official plugins: [N] ([+X new, -Y removed, ~Z updated])        │
    │ Community plugins: [N] ([+X new])                                │
-   │ Community skills: [N] ([+X new]) (from skills-registry.yaml)    │
+   │ Community skills: [N] ([+X new]) (from merged skills registry)  │
    │ Smithery servers: [N] ([+X new, -Y removed])                    │
-   │ Local MCP: [N] (cross-ref to mcp-registry.yaml)                 │
+   │ Local MCP: [N] (cross-ref to merged MCP registry)               │
    │                                                                  │
    │ Total: [N] capabilities indexed                                  │
    │ Manifest written to ~/.claude/capability-manifest.yaml           │
@@ -247,7 +255,7 @@ Read `~/.claude/skills-registry.yaml` if it exists. This is a curated index of c
 
 ## Notes
 
-- This command writes to a file in the Reggie repo (symlinked to `~/.claude/`). Changes should be committed.
+- This command writes local generated state to `~/.claude/capability-manifest.yaml`. It is not a source file to commit.
 - The manifest is designed to be human-readable and hand-editable. `/refresh-capabilities` augments but does not overwrite manual edits to existing entries.
 - Smithery queries are rate-limited. The command makes ~8 API calls (one per category). If rate-limited, report what succeeded and what was skipped.
 - Community plugin entries from `wshobson/agents` are curated — the refresh process updates descriptions but does not auto-add new community plugins without verification. New community plugins are noted in the output for manual review.

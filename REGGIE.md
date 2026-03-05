@@ -103,4 +103,4 @@ See `PORTABLE-PACKAGE.md` for the full transfer reference.
 
 ---
 
-*Reggie v1.1 -- March 2026*
+*Release tags define stable versions.*

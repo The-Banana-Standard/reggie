@@ -249,9 +249,11 @@ Agents report unrelated issues they find during work under a `## Discovered Issu
 
 MCP (Model Context Protocol) servers extend agent capabilities with external tools (Firebase, browser automation, databases, etc.). The system manages MCP tools through:
 
-- **`mcp-registry.yaml`** — Curated mapping of project signals to MCP servers with `relevant_agents` field for pipeline routing
-- **`skills-registry.yaml`** — Curated index of community Claude Code skills (SKILL.md-based playbooks) from Anthropic, awesome-claude-skills, and notable standalone repos. Includes source trust levels, install instructions, and overlap annotations with Reggie agents
-- **`capability-manifest.yaml`** — Pre-computed index of ~200 capabilities (official plugins, community plugins, community skills, Smithery servers, local MCP cross-reference). Pipeline PICKUP builds a capability snapshot; `/init-tasks` RESEARCH+PLAN phase consults it to recommend tools and skills
+- **`mcp-registry.yaml`** — Curated mapping of project signals to MCP servers with `relevant_agents` field for pipeline routing (versioned)
+- **`skills-registry.yaml`** — Curated index of community Claude Code skills (SKILL.md-based playbooks) from Anthropic, awesome-claude-skills, and notable standalone repos (versioned)
+- **`~/.claude/mcp-registry.local.yaml`** — Optional local overlay for user-specific MCP entries
+- **`~/.claude/skills-registry.local.yaml`** — Optional local overlay for user-specific skill entries
+- **`~/.claude/capability-manifest.yaml`** — Local generated index of ~200 capabilities (official plugins, community plugins, community skills, Smithery servers, local MCP cross-reference). Pipeline PICKUP builds a capability snapshot; `/init-tasks` RESEARCH+PLAN phase consults it to recommend tools and skills
 - **`/find-tools`** — Scan a project and configure relevant MCP servers on demand
 - **`/refresh-capabilities`** — Update the capability manifest from all sources (plugin marketplaces, skills registry, Smithery API, community repos)
 - **CONFIGURE-TOOLS stage** — Automatically scan and configure during `/onboard` and `/new-repo`

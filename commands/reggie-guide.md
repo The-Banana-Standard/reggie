@@ -439,9 +439,9 @@ Four layers:
    - `/new-repo` CONFIGURE-TOOLS stage — Configure for new projects based on chosen stack
    - `/improve` TOOLING-CHECK stage — Periodic drift check (new signals, unused servers)
 
-2. **Capability awareness** — The pipeline-manager reads `capability-manifest.yaml` at PICKUP and matches project signals (files, deps, directories) against the manifest. It writes a capability snapshot to CONTEXT.md listing installed tools, recommended tools (matched signals but not installed), task-relevant tools (keyword matches), and community skills (supplementary SKILL.md-based playbooks). `/init-tasks` RESEARCH+PLAN phase and IMPLEMENT stage consult this snapshot to factor available tools and skills into plans.
+2. **Capability awareness** — The pipeline-manager reads `~/.claude/capability-manifest.yaml` at PICKUP and matches project signals (files, deps, directories) against the manifest. It writes a capability snapshot to CONTEXT.md listing installed tools, recommended tools (matched signals but not installed), task-relevant tools (keyword matches), and community skills (supplementary SKILL.md-based playbooks). `/init-tasks` RESEARCH+PLAN phase and IMPLEMENT stage consult this snapshot to factor available tools and skills into plans.
 
-3. **Orchestrator awareness** — The pipeline-manager reads `.mcp.json` at pipeline start and cross-references with `mcp-registry.yaml` to build a map of which MCP servers are relevant to which agent types.
+3. **Orchestrator awareness** — The pipeline-manager reads `.mcp.json` at pipeline start and cross-references with the merged MCP registry (`~/.claude/mcp-registry.yaml` + optional `~/.claude/mcp-registry.local.yaml`) to build a map of which MCP servers are relevant to which agent types.
 
 4. **Subagent routing** — Before each subagent launch, the orchestrator checks the routing map. Agents that match a configured server's `relevant_agents` list get a prompt hint: "MCP tools available: [server]. Use ToolSearch to find these tools if needed." Agents not listed get no mention of MCP — they won't search for tools they don't know about, keeping context cost at zero. Each launch is logged with its full capability profile (built-in tools, MCP routing, deferred tools, pre-loaded context, agent memory, estimated context tier).
 
@@ -457,7 +457,7 @@ export ENABLE_TOOL_SEARCH=auto:5
 A curated mapping of project signals (files, dependencies, directories) to MCP servers. Used by `/find-tools`, `/onboard`, `/new-repo`, and `/improve` to automatically detect which servers are relevant for a project. Each entry includes `relevant_agents` — which agent types actually use that server's tools during pipelines.
 
 **What is `capability-manifest.yaml`?**
-A pre-computed index of ~200 capabilities from five sources: official Claude plugins (42), community plugins from marketplaces like wshobson/agents (35+), community skills from skills-registry.yaml (15 curated SKILL.md-based playbooks), top Smithery servers by category (verified only), and a cross-reference to the local MCP registry (13 servers). Pipeline stages read this at PICKUP — no live API calls during planning. Run `/refresh-capabilities` to update it from external sources.
+A local generated index of ~200 capabilities from five sources: official Claude plugins (42), community plugins from marketplaces like wshobson/agents (35+), community skills from skills-registry.yaml (15 curated SKILL.md-based playbooks), top Smithery servers by category (verified only), and a cross-reference to the local MCP registry (13 servers). Pipeline stages read this at PICKUP — no live API calls during planning. Run `/refresh-capabilities` to update `~/.claude/capability-manifest.yaml`.
 
 **What is `skills-registry.yaml`?**
 A curated index of community Claude Code skills (SKILL.md-based playbooks) from known sources: Anthropic's official skills repo, awesome-claude-skills, and notable standalone repos (Trail of Bits, obra/superpowers, Expo). Each entry includes source trust level (official/curated/community), install instructions, keywords for task matching, and `overlaps_with` to note which Reggie agents cover similar functionality. Skills are supplementary — Reggie agents always take priority for overlapping capabilities.
@@ -532,7 +532,7 @@ Yes. Section headers are optional. A backlog with no `### ` headers works exactl
 ### Topic: Installation & File Structure
 
 **How is Reggie installed?**
-Reggie is a git repo that symlinks into `~/.claude/`. The install script (`install.sh` on macOS/Linux, `install.ps1` on Windows) creates symlinks so that `~/.claude/` points to the repo, configures the stats tracking hook in `settings.json`, adds `ENABLE_TOOL_SEARCH=auto:5` to your shell profile, and backs up any existing files. Edits in either location are the same file. The uninstall script (`uninstall.sh` / `uninstall.ps1`) removes the symlinks, removes the stats hooks from `settings.json`, and restores from backup if available. On Windows, creating symlinks requires running PowerShell as Administrator or having Developer Mode enabled.
+Reggie is a git repo that symlinks into `~/.claude/`. The install script (`install.sh` on macOS/Linux, `install.ps1` on Windows) symlinks core directories/files, configures the stats tracking hook in `settings.json`, adds `ENABLE_TOOL_SEARCH=auto:5` to your shell profile, and backs up existing managed files. It also creates optional local overlay files (`mcp-registry.local.yaml`, `skills-registry.local.yaml`) when missing. Edits in either location are the same file for symlinked content. The uninstall script (`uninstall.sh` / `uninstall.ps1`) removes managed symlinks, removes stats hooks from `settings.json`, and restores from backup if available. On Windows, creating symlinks requires Administrator PowerShell or Developer Mode.
 
 **What gets symlinked?**
 
@@ -547,7 +547,6 @@ Reggie is a git repo that symlinks into `~/.claude/`. The install script (`insta
 | `reggie-quickstart.md` | `docs/reggie-quickstart.md` | File symlink |
 | `mcp-registry.yaml` | `mcp-registry.yaml` | File symlink |
 | `skills-registry.yaml` | `skills-registry.yaml` | File symlink |
-| `capability-manifest.yaml` | `capability-manifest.yaml` | File symlink |
 
 **What gets configured automatically?**
 The install script adds stats tracking hooks to `~/.claude/settings.json` (idempotent — safe to run multiple times). These hooks track Task, Skill, and ToolSearch usage for pipeline stats. It also adds `export ENABLE_TOOL_SEARCH=auto:5` to your shell profile (~/.zshrc, ~/.bashrc, or PowerShell $PROFILE) — this defers MCP tool schemas so agents only load tools they need. The uninstall script removes the stats hooks from settings.json.
@@ -558,6 +557,9 @@ These files are user-specific and not part of the open-source repo:
 | File | Purpose |
 |------|---------|
 | `settings.json` | Permissions, hooks config, plugins, effort level |
+| `capability-manifest.yaml` | Local generated capability index refreshed by `/refresh-capabilities` |
+| `mcp-registry.local.yaml` | Optional local MCP registry overrides |
+| `skills-registry.local.yaml` | Optional local skills registry overrides |
 | `AGENT-IMPROVE.md` | Accumulated agent learnings (processed by `/improve`) |
 | `IMPROVE-CHANGELOG.md` | Record of improvement changes applied |
 | `voice-profile.md` | Personal writing style profile |
@@ -590,6 +592,17 @@ cd reggie
 Restart Claude Code and run: `/reggie-guide I just ran install.sh what do I do now?`
 
 **How do I update?**
+
+Stable channel:
+
+```bash
+cd /path/to/reggie
+git fetch --tags
+git checkout <newer-tag>
+./install.sh   # run if needed
+```
+
+Edge channel:
 
 ```bash
 cd /path/to/reggie
@@ -833,4 +846,3 @@ The unified pipeline for formalizing changes to the ~/.claude/ agent system — 
 - `/evaluate-reggie` — Discovers issues (you do NOT know what to change yet)
 - `/improve` — Processes accumulated per-agent learnings
 - `/reggie-system-change` — Formalizes a known change, creates new components, modifies existing ones
-

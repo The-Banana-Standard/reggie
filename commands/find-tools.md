@@ -66,6 +66,7 @@ fi
 echo ""
 echo "=== MCP Registry ==="
 cat ~/.claude/mcp-registry.yaml 2>/dev/null | head -5 || echo "Registry not found"
+[ -f ~/.claude/mcp-registry.local.yaml ] && echo "--- local overlay found: ~/.claude/mcp-registry.local.yaml ---" && head -5 ~/.claude/mcp-registry.local.yaml
 ```
 
 ## Instructions
@@ -94,7 +95,7 @@ No quality gates. Interactive — user selects which tools to enable.
 
 ## Step 1: SCAN
 
-Read `~/.claude/mcp-registry.yaml` to load the full registry. Then scan the project for signals:
+Read `~/.claude/mcp-registry.yaml` to load the base registry. If `~/.claude/mcp-registry.local.yaml` exists, merge it on top of the base registry (local entries override by key). Use the merged registry for all matching and recommendations. Then scan the project for signals:
 
 1. **Files**: Check for each registry entry's `signals.files` — do these files exist in the project?
 2. **Dependencies**: Parse `package.json` (dependencies + devDependencies), `go.mod`, `requirements.txt`, `pyproject.toml`, `Cargo.toml`, `Podfile`, `build.gradle` — do any deps match `signals.deps`?
@@ -157,7 +158,7 @@ Get your key: https://smithery.ai/account/api-keys
 
 3. **Filter results** — defense-in-depth beyond the query param:
    - Only include results where `verified: true` in the response object
-   - Remove results that match any server already in `mcp-registry.yaml` (compare `qualifiedName` and `slug` against registry server names)
+   - Remove results that match any server already in the merged MCP registry (base + local overlay; compare `qualifiedName` and `slug` against registry server names)
    - Remove results already configured in `.mcp.json` or global MCP settings
 
 4. **Deduplicate across keywords** — if the same server appears for multiple keywords, keep only one entry and list all matched keywords.

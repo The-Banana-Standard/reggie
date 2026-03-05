@@ -4,17 +4,57 @@
   <img src="reggie-logo.png" alt="Reggie" width="200">
 </p>
 
-A structured collaboration system between a human and Claude. 37 agents, 36 commands, and a pipeline architecture with quality gates — all running on [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+**Reggie turns your backlog into a parallel build queue.**
+
+A structured collaboration system between a human and Claude: 37 agents, 36 commands, and a pipeline architecture with quality gates on [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 Reggie extends Claude Code from a single-agent tool into a coordinated multi-agent system with memory, self-improvement, and enforced quality standards.
 
-See [REGGIE.md](REGGIE.md) for the full philosophy and principles.
+See [REGGIE.md](REGGIE.md) for philosophy and principles.
 
 ---
 
-## Install
+## Daily Driver Loop
 
-**macOS / Linux:**
+```text
+Brain dump -> /init-tasks -> /code-workflow (xN in parallel)
+```
+
+1. Brain dump features/bugs/ideas into `TASKS.md`.
+2. Run `/init-tasks` to turn rough notes into implementation-ready plans.
+3. Run `/code-workflow` in one or many terminals; each session auto-picks a different eligible task and runs it in its own worktree.
+
+For a new project, run `/new-repo` first. For an existing project, run `/onboard` first. Both paths feed the same loop above.
+
+---
+
+## Install Channels
+
+### Stable (Recommended)
+
+Install from a tagged release:
+
+```bash
+git clone https://github.com/The-Banana-Standard/reggie.git
+cd reggie
+git fetch --tags
+git checkout <stable-tag>
+./install.sh
+```
+
+Windows (PowerShell as Administrator):
+
+```powershell
+git clone https://github.com/The-Banana-Standard/reggie.git
+cd reggie
+git fetch --tags
+git checkout <stable-tag>
+.\install.ps1
+```
+
+### Edge
+
+Install from `main` for newest changes:
 
 ```bash
 git clone https://github.com/The-Banana-Standard/reggie.git
@@ -22,7 +62,7 @@ cd reggie
 ./install.sh
 ```
 
-**Windows (PowerShell as Administrator):**
+Windows:
 
 ```powershell
 git clone https://github.com/The-Banana-Standard/reggie.git
@@ -30,106 +70,101 @@ cd reggie
 .\install.ps1
 ```
 
-This symlinks `agents/` and `commands/` into `~/.claude/`, configures the stats hook, and backs up any existing files. Restart Claude Code after installing.
+The installer symlinks Reggie content into `~/.claude/`, configures stats hooks, and backs up existing files.
 
-> **Windows note:** Creating symlinks requires running PowerShell as Administrator, or having Developer Mode enabled in Windows Settings.
+> Windows note: creating symlinks requires Administrator PowerShell or Developer Mode.
 
-## What You Get
+---
 
-### 37 Agents
+## Updates
 
-Specialized AI agents launched as subprocesses during pipeline execution:
+### Stable
 
-- **Developers** (8): ios, android, web, typescript, go, python, cloud, firebase
-- **Quality** (7): code-architect, judge, qa-engineer, app-tester, refactorer, code-reviewer, security-reviewer
-- **Research** (5): researcher, thought-partner, claude-architect, feature-analyzer, codebase-debugger
-- **Design** (2): design-innovator, visual-architect
-- **Content** (4): content-producer, social-media-strategist, editor, technical-writer
-- **Pipeline Managers** (10): orchestration reference docs for each workflow
-- **Utilities** (1): repo-advisor
-
-### 34 Commands
-
-Slash commands that invoke pipelines or individual stages:
-
-- **Workflows**: `/code-workflow`, `/audit-workflow`, `/design-workflow`, `/article-workflow`, `/new-repo`, `/onboard`, `/port`, `/debug-workflow`
-- **Stages**: `/plan`, `/implement`, `/write-tests`, `/code-review`, `/review-security`, `/commit`
-- **Utilities**: `/brainstorm`, `/research`, `/debug`, `/audit`, `/diagram`, `/status`, `/reggie-guide`
-- **System**: `/improve`, `/evaluate-reggie`, `/reggie-system-change`
-
-## Key Commands
-
-| Command | What it does |
-|---------|-------------|
-| `/reggie-guide` | Help — shows all commands and topics |
-| `/code-workflow` | Full feature dev pipeline (12 stages with quality gates) |
-| `/brainstorm` | Think through an idea with a thought partner |
-| `/init-tasks` | Turn a brain dump into structured tasks with acceptance criteria |
-| `/status` | See current task and stage |
-
-## How It Works
-
-Every pipeline follows the same pattern:
-
-1. A **slash command** starts a workflow (e.g., `/code-workflow`)
-2. The main Claude reads the **pipeline manager** for stage guidance
-3. At each stage, a **specialized agent** is launched via the Task tool
-4. The **judge agent** scores the output (9.0/10 threshold to advance)
-5. Quality gate pass = git commit checkpoint
-6. If a stage fails: iterate with feedback → research → tournament → ask user
-
-```
-Your intent
-  → RESEARCH (understand the problem)
-  → PLAN (design the approach)
-  → IMPLEMENT (build it)
-  → TEST (verify it works)
-  → REVIEW (code review + security)
-  → COMMIT (checkpoint)
-Your output
+```bash
+cd ~/path/to/reggie
+git fetch --tags
+git checkout <newer-tag>
+# reinstall if your local symlinks were changed or missing
+./install.sh
 ```
 
-## Self-Improvement
-
-Reggie improves itself. Every pipeline run can capture learnings. Run `/improve` to process them:
-
-- Minor changes (common pitfalls, quality standards) auto-apply
-- Major changes (process, role, tools) require approval
-- All changes show as git diffs in the repo since agents/commands are symlinked
-
-## Pulling Updates
+### Edge
 
 ```bash
 cd ~/path/to/reggie
 git pull
 ```
 
-Since `~/.claude/agents/` and `~/.claude/commands/` are symlinks to the repo, updates take effect immediately.
+Since `~/.claude/agents/` and `~/.claude/commands/` are symlinked, edge updates apply immediately.
+
+---
+
+## Capabilities Model
+
+Versioned in git:
+- `mcp-registry.yaml` (curated MCP registry)
+- `skills-registry.yaml` (curated community skills registry)
+
+Local/generated in `~/.claude/`:
+- `capability-manifest.yaml` (generated by `/refresh-capabilities`)
+- `mcp-registry.local.yaml` (optional local MCP overlay)
+- `skills-registry.local.yaml` (optional local skills overlay)
+
+`/find-tools` remains explicit and interactive. `/refresh-capabilities` is optional and refreshes local generated state.
+
+---
+
+## What You Get
+
+### 37 Agents
+
+- Developers: ios, android, web, typescript, go, python, cloud, firebase
+- Quality: code-architect, judge, qa-engineer, app-tester, refactorer, code-reviewer, security-reviewer
+- Research: researcher, thought-partner, claude-architect, feature-analyzer, codebase-debugger
+- Design: design-innovator, visual-architect
+- Content: content-producer, social-media-strategist, editor, technical-writer
+- Pipeline managers: orchestration docs for each workflow
+- Utilities: repo-advisor
+
+### 36 Commands
+
+- Workflows: `/code-workflow`, `/audit-workflow`, `/design-workflow`, `/article-workflow`, `/new-repo`, `/onboard`, `/port`, `/debug-workflow`, plus supporting workflow commands
+- Stages: `/plan`, `/implement`, `/write-tests`, `/code-review`, `/review-security`, `/commit`
+- Utilities/System: `/brainstorm`, `/research`, `/debug`, `/audit`, `/diagram`, `/status`, `/reggie-guide`, `/improve`, `/evaluate-reggie`, `/reggie-system-change`
+
+## Key Commands
+
+| Command | What it does |
+|---------|-------------|
+| `/reggie-guide` | Help and command map |
+| `/init-tasks` | Turn raw backlog notes into implementation-ready tasks |
+| `/code-workflow` | Run full implementation pipeline with quality gates |
+| `/find-tools` | Scan project and optionally configure MCP servers |
+| `/status` | Show current task and pipeline stage |
 
 ## Uninstall
 
-**macOS / Linux:**
+macOS/Linux:
 
 ```bash
 cd ~/path/to/reggie
 ./uninstall.sh
 ```
 
-**Windows (PowerShell):**
+Windows:
 
 ```powershell
 cd ~\path\to\reggie
 .\uninstall.ps1
 ```
 
-Restores your original agents/commands from the backup created during install.
-
 ## Documentation
 
-- [REGGIE.md](REGGIE.md) — Philosophy and principles
-- [docs/PORTABLE-PACKAGE.md](docs/PORTABLE-PACKAGE.md) — Full system reference
-- [docs/reggie-quickstart.md](docs/reggie-quickstart.md) — Quick start guide
-- [docs/agents-is-all-you-need.md](docs/agents-is-all-you-need.md) — Why agents over tools
+- [REGGIE.md](REGGIE.md) - Philosophy and principles
+- [docs/PORTABLE-PACKAGE.md](docs/PORTABLE-PACKAGE.md) - Full system reference
+- [docs/reggie-quickstart.md](docs/reggie-quickstart.md) - Quickstart and install/update paths
+- [docs/open-source-release-checklist.md](docs/open-source-release-checklist.md) - Release and history-purge operations
+- [docs/agents-is-all-you-need.md](docs/agents-is-all-you-need.md) - Why agents over tools
 
 ## Contributing
 
@@ -137,4 +172,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).

@@ -16,12 +16,18 @@ foreach ($item in @("agents", "commands", "hooks")) {
 }
 
 # 2. Remove symlinks — files
-foreach ($item in @("REGGIE.md", "PORTABLE-PACKAGE.md", "agents-is-all-you-need.md", "reggie-quickstart.md", "mcp-registry.yaml", "capability-manifest.yaml", "skills-registry.yaml")) {
+foreach ($item in @("REGGIE.md", "PORTABLE-PACKAGE.md", "agents-is-all-you-need.md", "reggie-quickstart.md", "mcp-registry.yaml", "skills-registry.yaml")) {
     $target = Join-Path $ClaudeDir $item
     if ((Test-Path $target) -and ((Get-Item $target).Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
         Remove-Item -Force $target
         Write-Host "Removed $item symlink"
     }
+}
+# Legacy cleanup: old installs symlinked this file. Keep regular files untouched.
+$LegacyManifest = Join-Path $ClaudeDir "capability-manifest.yaml"
+if ((Test-Path $LegacyManifest) -and ((Get-Item $LegacyManifest).Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+    Remove-Item -Force $LegacyManifest
+    Write-Host "Removed legacy capability-manifest.yaml symlink"
 }
 
 # 3. Restore from backup if available
@@ -38,7 +44,7 @@ if ($LatestBackup) {
             Copy-Item -Recurse -Path $src -Destination (Join-Path $ClaudeDir $item) -ErrorAction SilentlyContinue
         }
     }
-    foreach ($item in @("REGGIE.md", "PORTABLE-PACKAGE.md", "agents-is-all-you-need.md", "reggie-quickstart.md", "mcp-registry.yaml", "capability-manifest.yaml", "skills-registry.yaml")) {
+    foreach ($item in @("REGGIE.md", "PORTABLE-PACKAGE.md", "agents-is-all-you-need.md", "reggie-quickstart.md", "mcp-registry.yaml", "skills-registry.yaml")) {
         $src = Join-Path $LatestBackup.FullName $item
         if (Test-Path $src) {
             Copy-Item -Path $src -Destination (Join-Path $ClaudeDir $item) -ErrorAction SilentlyContinue

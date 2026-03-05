@@ -33,7 +33,7 @@ if ($NeedsBackup) {
             Copy-Item -Recurse -Path $src -Destination (Join-Path $BackupDir $item) -ErrorAction SilentlyContinue
         }
     }
-    foreach ($item in @("REGGIE.md", "PORTABLE-PACKAGE.md", "agents-is-all-you-need.md", "reggie-quickstart.md", "mcp-registry.yaml", "capability-manifest.yaml", "skills-registry.yaml")) {
+    foreach ($item in @("REGGIE.md", "PORTABLE-PACKAGE.md", "agents-is-all-you-need.md", "reggie-quickstart.md", "mcp-registry.yaml", "skills-registry.yaml")) {
         $src = Join-Path $ClaudeDir $item
         if ((Test-Path $src) -and -not ((Get-Item $src).Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
             Copy-Item -Path $src -Destination (Join-Path $BackupDir $item) -ErrorAction SilentlyContinue
@@ -46,9 +46,14 @@ foreach ($item in @("agents", "commands", "hooks")) {
     $target = Join-Path $ClaudeDir $item
     if (Test-Path $target) { Remove-Item -Recurse -Force $target }
 }
-foreach ($item in @("REGGIE.md", "PORTABLE-PACKAGE.md", "agents-is-all-you-need.md", "reggie-quickstart.md", "mcp-registry.yaml", "capability-manifest.yaml", "skills-registry.yaml")) {
+foreach ($item in @("REGGIE.md", "PORTABLE-PACKAGE.md", "agents-is-all-you-need.md", "reggie-quickstart.md", "mcp-registry.yaml", "skills-registry.yaml")) {
     $target = Join-Path $ClaudeDir $item
     if (Test-Path $target) { Remove-Item -Force $target }
+}
+# Legacy cleanup: old installs symlinked this file. Keep regular files untouched.
+$LegacyManifest = Join-Path $ClaudeDir "capability-manifest.yaml"
+if ((Test-Path $LegacyManifest) -and ((Get-Item $LegacyManifest).Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+    Remove-Item -Force $LegacyManifest
 }
 
 # 4. Create symlinks — directories
@@ -62,7 +67,6 @@ New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "PORTABLE-PACKAGE.md
 New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "agents-is-all-you-need.md") -Target (Join-Path $RepoDir "docs\agents-is-all-you-need.md") | Out-Null
 New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "reggie-quickstart.md") -Target (Join-Path $RepoDir "docs\reggie-quickstart.md") | Out-Null
 New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "mcp-registry.yaml") -Target (Join-Path $RepoDir "mcp-registry.yaml") | Out-Null
-New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "capability-manifest.yaml") -Target (Join-Path $RepoDir "capability-manifest.yaml") | Out-Null
 New-Item -ItemType SymbolicLink -Path (Join-Path $ClaudeDir "skills-registry.yaml") -Target (Join-Path $RepoDir "skills-registry.yaml") | Out-Null
 
 Write-Host ""
@@ -79,11 +83,35 @@ Write-Host "    PORTABLE-PACKAGE.md    -> $RepoDir\docs\PORTABLE-PACKAGE.md"
 Write-Host "    agents-is-all-you-need.md -> $RepoDir\docs\agents-is-all-you-need.md"
 Write-Host "    reggie-quickstart.md   -> $RepoDir\docs\reggie-quickstart.md"
 Write-Host "    mcp-registry.yaml      -> $RepoDir\mcp-registry.yaml"
-Write-Host "    capability-manifest.yaml -> $RepoDir\capability-manifest.yaml"
 Write-Host "    skills-registry.yaml   -> $RepoDir\skills-registry.yaml"
 Write-Host ""
+Write-Host "  Local generated file:"
+Write-Host "    capability-manifest.yaml (created/updated by /refresh-capabilities)"
+Write-Host ""
 
-# 6. Add stats hooks to settings.json
+# 6. Optional local overlay files for user-specific additions
+$McpOverlay = Join-Path $ClaudeDir "mcp-registry.local.yaml"
+if (-not (Test-Path $McpOverlay)) {
+    @'
+# Optional local MCP server overrides.
+# This file is local-only and should not be committed.
+servers: {}
+'@ | Set-Content -Path $McpOverlay -Encoding UTF8
+    Write-Host "  Created $McpOverlay"
+}
+
+$SkillsOverlay = Join-Path $ClaudeDir "skills-registry.local.yaml"
+if (-not (Test-Path $SkillsOverlay)) {
+    @'
+# Optional local community skill overrides.
+# This file is local-only and should not be committed.
+skills: {}
+'@ | Set-Content -Path $SkillsOverlay -Encoding UTF8
+    Write-Host "  Created $SkillsOverlay"
+}
+Write-Host ""
+
+# 7. Add stats hooks to settings.json
 $SettingsFile = Join-Path $ClaudeDir "settings.json"
 $HookCmd = "`$HOME/.claude/hooks/track-stats.sh"
 
@@ -157,7 +185,7 @@ if (-not (Test-Path $SettingsFile)) {
     Write-Host "  Added stats hooks to settings.json"
 }
 
-# 7. Configure ENABLE_TOOL_SEARCH in PowerShell profile
+# 8. Configure ENABLE_TOOL_SEARCH in PowerShell profile
 $PsProfile = $PROFILE
 if ($PsProfile -and (Test-Path (Split-Path $PsProfile -Parent))) {
     if (-not (Test-Path $PsProfile)) {

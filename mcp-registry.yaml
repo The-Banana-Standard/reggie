@@ -31,7 +31,7 @@ servers:
       dirs: ["functions/"]
     config:
       command: "npx"
-      args: ["-y", "firebase-tools@latest", "mcp"]
+      args: ["-y", "firebase-tools@15.8.0", "mcp"]
     transport: stdio
     scope: project
     env_vars: []
@@ -63,7 +63,7 @@ servers:
       dirs: []
     config:
       command: "npx"
-      args: ["@playwright/mcp@latest"]
+      args: ["-y", "@playwright/mcp@0.0.68"]
     transport: stdio
     scope: project
     env_vars: []
@@ -140,7 +140,7 @@ servers:
       dirs: []
     config:
       command: "npx"
-      args: ["-y", "@upstash/context7-mcp"]
+      args: ["-y", "@upstash/context7-mcp@2.1.3"]
     transport: stdio
     scope: either
     env_vars: []
@@ -171,7 +171,7 @@ servers:
       dirs: []
     config:
       command: "npx"
-      args: ["-y", "@sentry/mcp-server"]
+      args: ["-y", "@sentry/mcp-server@0.29.0"]
     transport: stdio
     scope: project
     env_vars: ["SENTRY_AUTH_TOKEN"]
@@ -186,7 +186,7 @@ servers:
       dirs: []
     config:
       command: "npx"
-      args: ["-y", "@anthropic/figma-mcp"]
+      args: ["-y", "figma-developer-mcp@0.6.6"]
     transport: stdio
     scope: global
     env_vars: ["FIGMA_ACCESS_TOKEN"]
@@ -217,7 +217,7 @@ servers:
       dirs: ["prisma/", "drizzle/"]
     config:
       command: "npx"
-      args: ["-y", "@anthropic/postgres-mcp"]
+      args: ["-y", "@modelcontextprotocol/server-postgres@0.6.2"]
     transport: stdio
     scope: project
     env_vars: ["DATABASE_URL"]
