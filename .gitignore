@@ -3,3 +3,6 @@
 *.swo
 *~
 articles/
+
+.pipeline/
+.worktree/
