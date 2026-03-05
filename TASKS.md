@@ -4,12 +4,6 @@
 
 ## Active Tasks
 
-### fix-doc-counts
-- **Branch**: task/fix-doc-counts
-- **Worktree**: .worktree/fix-doc-counts
-- **Base**: main
-- Fix documentation counts across README.md, REGGIE.md, agents-is-all-you-need.md, PORTABLE-PACKAGE.md
-
 ## Backlog
 
 ### Documentation Accuracy
