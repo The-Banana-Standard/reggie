@@ -4,7 +4,7 @@
   <img src="reggie-logo.png" alt="Reggie" width="200">
 </p>
 
-A structured collaboration system between a human and Claude. 37 agents, 34 commands, and a pipeline architecture with quality gates — all running on [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+A structured collaboration system between a human and Claude. 37 agents, 36 commands, and a pipeline architecture with quality gates — all running on [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 Reggie extends Claude Code from a single-agent tool into a coordinated multi-agent system with memory, self-improvement, and enforced quality standards.
 
