@@ -40,26 +40,28 @@ Specialized AI agents that Claude Code invokes as subprocesses. Each has a defin
 
 | Agent | Specialty | Tools |
 |-------|-----------|-------|
-| `ios-developer` | SwiftUI, UIKit, StoreKit, HealthKit, XCTest, Swift patterns | Read, Write, Bash |
-| `android-developer` | Jetpack Compose, Material 3, Capacitor, Gradle, Kotlin patterns | Read, Write, Bash |
-| `web-developer` | React, Next.js App Router, TypeScript, Tailwind, Vercel, React patterns | Read, Write, Bash |
-| `typescript-developer` | Node.js backends, type-safe APIs, Zod, testing | Read, Write, Bash |
-| `go-developer` | Go servers, stdlib routing, concurrency, Docker | Read, Write, Bash |
-| `python-developer` | pandas, FastAPI, pytest, CLI tools, data processing | Read, Write, Bash |
-| `cloud-engineer` | Firebase, GCP, Docker, Vercel, GitHub Actions, CI/CD | Read, Write, Bash |
-| `firebase-debugger` | Debug Cloud Functions, Firestore, Auth, Analytics | Read, Bash |
+| `ios-developer` | SwiftUI, UIKit, StoreKit, HealthKit, XCTest, Swift patterns | Read, Web, Write, Bash |
+| `android-developer` | Jetpack Compose, Material 3, Capacitor, Gradle, Kotlin patterns | Read, Web, Write, Bash |
+| `web-developer` | React, Next.js App Router, TypeScript, Tailwind, Vercel, React patterns | Read, Web, Write, Bash |
+| `typescript-developer` | Node.js backends, type-safe APIs, Zod, testing | Read, Web, Write, Bash |
+| `go-developer` | Go servers, stdlib routing, concurrency, Docker | Read, Web, Write, Bash |
+| `python-developer` | pandas, FastAPI, pytest, CLI tools, data processing | Read, Web, Write, Bash |
+| `cloud-engineer` | Firebase, GCP, Docker, Vercel, GitHub Actions, CI/CD | Read, Web, Write, Bash |
+| `firebase-debugger` | Debug Cloud Functions, Firestore, Auth, Analytics | Read, Web, Bash |
+
+*Tool categories are simplified: **Read** = Glob + Grep + Read; **Web** = WebFetch + WebSearch; **Write** = Edit + Write (+ NotebookEdit where applicable); **Bash** = Bash.*
 
 #### Quality & Architecture (7)
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| `code-architect` | Design implementation plans (PLAN stage) | Read only |
-| `judge` | Evaluate quality gates and tournament rounds (9.0/10 threshold) | Read only |
-| `qa-engineer` | Write tests and check quality (WRITE-TESTS / QUALITY-CHECK) | Read, Write, Bash |
-| `app-tester` | End-to-end verification (VERIFY stage) | Read, Bash |
-| `refactorer` | Simplify code without behavior changes (SIMPLIFY stage) | Read, Write |
-| `code-reviewer` | Structured code review of task diff (REVIEW stage) | Read, Bash |
-| `security-reviewer` | Security audit for secrets, injection, auth/authz (SECURITY-REVIEW stage) | Read, Bash |
+| `code-architect` | Design implementation plans (PLAN stage) | Read, Web |
+| `judge` | Evaluate quality gates and tournament rounds (9.0/10 threshold) | Read, Web |
+| `qa-engineer` | Write tests and check quality (WRITE-TESTS / QUALITY-CHECK) | Read, Web, Write, Bash |
+| `app-tester` | End-to-end verification (VERIFY stage) | Read, Web, Bash |
+| `refactorer` | Simplify code without behavior changes (SIMPLIFY stage) | Read, Write, Bash |
+| `code-reviewer` | Structured code review of task diff (REVIEW stage) | Read, Web, Bash |
+| `security-reviewer` | Security audit for secrets, injection, auth/authz (SECURITY-REVIEW stage) | Read, Web, Bash |
 
 #### Research & Thinking (5)
 
@@ -76,28 +78,28 @@ Specialized AI agents that Claude Code invokes as subprocesses. Each has a defin
 | Agent | Role | Tools |
 |-------|------|-------|
 | `design-innovator` | UI/UX trend research, cutting-edge design concepts | Read, Web |
-| `visual-architect` | Architecture diagrams, data flows, system visualizations | Read, Write, Bash |
+| `visual-architect` | Architecture diagrams, data flows, system visualizations | Read, Web, Write, Bash |
 
 #### Content & Communication (4)
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| `content-producer` | Write Substack-length technical articles (1500-3000 words) | Read, Write |
-| `social-media-strategist` | Adapt content for Twitter/X, LinkedIn, Instagram | Read, Write |
-| `editor` | Review and improve written content (quality gate) | Read, Write |
-| `technical-writer` | Documentation, changelogs, commit messages | Read, Write, Bash |
+| `content-producer` | Write Substack-length technical articles (1500-3000 words) | Read, Web, Write |
+| `social-media-strategist` | Adapt content for Twitter/X, LinkedIn, Instagram | Read, Web, Write |
+| `editor` | Review and improve written content (quality gate) | Read, Web, Write |
+| `technical-writer` | Documentation, changelogs, commit messages | Read, Web, Write, Bash |
 
 #### Pipeline Managers (10)
 
 | Agent | Role | Tools |
 |-------|------|-------|
 | `pipeline-manager` | Core orchestrator for feature dev, brainstorm, and tournament flows | Read, Write |
-| `audit-pipeline-manager` | Audit → prioritize → fix loop | Read, Write, Bash |
-| `content-pipeline-manager` | Article and social media production | Read, Write, Bash |
+| `audit-pipeline-manager` | Audit → prioritize → fix loop | Read, Write |
+| `content-pipeline-manager` | Article and social media production | Read, Write |
 | `port-pipeline-manager` | Port features from source to target codebase | Read, Write, Bash |
 | `repo-bootstrapper` | New project setup (scaffold → git → docs → push) | Read, Write, Bash |
 | `onboard-pipeline-manager` | Onboard existing repos (discover → CLAUDE.md → doc cleanup) | Read, Write |
-| `debug-pipeline-manager` | Conversational debugging: diagnose before fixing | Read, Write |
+| `debug-pipeline-manager` | Conversational debugging: diagnose before fixing | Read, Bash |
 | `improve-pipeline-manager` | Two-level agent improvement loop | Read, Write |
 | `evaluate-reggie-manager` | Periodic architectural review of agent system | Read, Write |
 | `reggie-system-change-manager` | Formalize changes to agent system components | Read, Write |
@@ -219,7 +221,7 @@ Multiple Claude sessions can work on different tasks in the same repo simultaneo
 4. **Auto-pickup**: Running `/code-workflow` with no arguments auto-picks the next task from backlog and creates a worktree
 5. **Conflict detection**: After PLAN passes, file lists are compared across active tasks. Overlapping files trigger a warning (worktrees prevent immediate breakage but warn about merge conflicts at completion)
 6. **Merge strategies at completion**: Local merge (merge branch + delete), PR (push + create PR), or push only
-7. **Clean completion**: `/done` merges or pushes the branch, removes the worktree, removes the task's `### [slug]` section, and deletes `.pipeline/[slug]/`
+7. **Clean completion**: The COMPLETE stage merges or pushes the branch, removes the worktree, removes the task's `### [slug]` section, and deletes `.pipeline/[slug]/`
 
 Works across pipeline types — a `/code-workflow` session and an `/audit-workflow` session can run simultaneously with cross-pipeline conflict detection.
 
@@ -309,8 +311,7 @@ Agents can only use the tools listed in their frontmatter. This is enforced by C
 
 All agents default to `model: opus` for maximum capability. You can change this in agent files:
 - `opus` — Most capable, best for complex reasoning
-- `sonnet` — Faster, good for straightforward tasks
-- `haiku` — Fastest, good for simple operations
+- `sonnet` — Faster, good for straightforward tasks (system floor — all pipelines require at minimum sonnet)
 
 ---
 
@@ -439,7 +440,7 @@ Add a `CLAUDE.md` to any project root. Agents read this file to understand proje
 
 **Commands not appearing** — Restart Claude Code. Commands load at startup.
 
-**Pipeline stuck** — Run `/status` to see where you are. Run `/next` to advance manually, or describe what's wrong.
+**Pipeline stuck** — Run `/status` to see where you are, or describe what's wrong to the orchestrator.
 
 ---
 
