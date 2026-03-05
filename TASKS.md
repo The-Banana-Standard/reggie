@@ -23,9 +23,9 @@
 | IMPLEMENT | 9.1 | 1 | PASS |
 | WRITE-TESTS | 9.1 | 2 | PASS |
 | QUALITY-CHECK | 9.2 | 1 | PASS |
-| SIMPLIFY | - | 0 | CURRENT |
-| VERIFY-APP | - | 0 | - |
-| REVIEW | - | 0 | - |
+| SIMPLIFY | 9.4 | 1 | PASS |
+| VERIFY-APP | SKIP | 0 | SKIP |
+| REVIEW | - | 0 | CURRENT |
 | SECURITY-REVIEW | - | 0 | - |
 | SYNC-DOCS | - | 0 | - |
 | UPDATE-CLAUDE | - | 0 | - |
