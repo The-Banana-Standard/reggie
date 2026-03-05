@@ -89,5 +89,18 @@ if (Test-Path $SettingsFile) {
     }
 }
 
+# 5. Remove ENABLE_TOOL_SEARCH from PowerShell profile
+$PsProfile = $PROFILE
+if ($PsProfile -and (Test-Path $PsProfile)) {
+    $content = Get-Content $PsProfile
+    $filtered = $content | Where-Object {
+        $_ -notmatch 'ENABLE_TOOL_SEARCH' -and $_ -notmatch '# Reggie: defer MCP tool schemas'
+    }
+    if ($filtered.Count -ne $content.Count) {
+        $filtered | Set-Content -Path $PsProfile -Encoding UTF8
+        Write-Host "Removed ENABLE_TOOL_SEARCH from PowerShell profile"
+    }
+}
+
 Write-Host ""
 Write-Host "Reggie uninstalled."
