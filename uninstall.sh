@@ -29,15 +29,19 @@ if [ -L "$CLAUDE_DIR/capability-manifest.yaml" ]; then
 fi
 
 # 3. Restore from backup if available
-LATEST_BACKUP=$(ls -dt "$CLAUDE_DIR/backups/pre-reggie-"* 2>/dev/null | head -1)
+LATEST_BACKUP=$(find "$CLAUDE_DIR/backups" -maxdepth 1 -name "pre-reggie-*" -type d 2>/dev/null | sort -r | head -1)
 if [ -n "$LATEST_BACKUP" ]; then
   echo ""
   echo "Restoring from backup: $LATEST_BACKUP"
   for item in agents commands hooks; do
-    [ -d "$LATEST_BACKUP/$item" ] && cp -r "$LATEST_BACKUP/$item" "$CLAUDE_DIR/$item" 2>/dev/null || true
+    if [ -d "$LATEST_BACKUP/$item" ]; then
+      cp -r "$LATEST_BACKUP/$item" "$CLAUDE_DIR/$item" 2>/dev/null || true
+    fi
   done
   for item in REGGIE.md PORTABLE-PACKAGE.md agents-is-all-you-need.md reggie-quickstart.md mcp-registry.yaml skills-registry.yaml; do
-    [ -f "$LATEST_BACKUP/$item" ] && cp "$LATEST_BACKUP/$item" "$CLAUDE_DIR/$item" 2>/dev/null || true
+    if [ -f "$LATEST_BACKUP/$item" ]; then
+      cp "$LATEST_BACKUP/$item" "$CLAUDE_DIR/$item" 2>/dev/null || true
+    fi
   done
 else
   echo ""

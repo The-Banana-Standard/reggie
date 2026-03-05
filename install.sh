@@ -27,10 +27,14 @@ if [ "$NEEDS_BACKUP" = true ]; then
   echo "Backing up existing files to $BACKUP_DIR"
   mkdir -p "$BACKUP_DIR"
   for item in agents commands hooks; do
-    [ -d "$CLAUDE_DIR/$item" ] && [ ! -L "$CLAUDE_DIR/$item" ] && cp -r "$CLAUDE_DIR/$item" "$BACKUP_DIR/$item" 2>/dev/null || true
+    if [ -d "$CLAUDE_DIR/$item" ] && [ ! -L "$CLAUDE_DIR/$item" ]; then
+      cp -r "$CLAUDE_DIR/$item" "$BACKUP_DIR/$item" 2>/dev/null || true
+    fi
   done
   for item in REGGIE.md PORTABLE-PACKAGE.md agents-is-all-you-need.md reggie-quickstart.md mcp-registry.yaml skills-registry.yaml; do
-    [ -f "$CLAUDE_DIR/$item" ] && [ ! -L "$CLAUDE_DIR/$item" ] && cp "$CLAUDE_DIR/$item" "$BACKUP_DIR/$item" 2>/dev/null || true
+    if [ -f "$CLAUDE_DIR/$item" ] && [ ! -L "$CLAUDE_DIR/$item" ]; then
+      cp "$CLAUDE_DIR/$item" "$BACKUP_DIR/$item" 2>/dev/null || true
+    fi
   done
 fi
 
@@ -171,7 +175,7 @@ else
   echo ""
   echo "  Could not auto-configure hooks (python3 not found)."
   echo "  Manually add to $SETTINGS_FILE:"
-  echo '    "hooks": { "PostToolUse": [ { "matcher": "Task", "hooks": [{"type":"command","command":"$HOME/.claude/hooks/track-stats.sh","timeout":10}] }, { "matcher": "Skill", "hooks": [{"type":"command","command":"$HOME/.claude/hooks/track-stats.sh","timeout":10}] }, { "matcher": "ToolSearch", "hooks": [{"type":"command","command":"$HOME/.claude/hooks/track-stats.sh","timeout":10}] } ] }'
+  echo "  Manually add hooks to $SETTINGS_FILE. See README for details."
 fi
 
 # 8. Configure ENABLE_TOOL_SEARCH in shell profile
@@ -186,9 +190,11 @@ fi
 
 if [ -n "$SHELL_PROFILE" ]; then
   if ! grep -q 'ENABLE_TOOL_SEARCH' "$SHELL_PROFILE" 2>/dev/null; then
-    echo '' >> "$SHELL_PROFILE"
-    echo '# Reggie: defer MCP tool schemas for efficiency' >> "$SHELL_PROFILE"
-    echo 'export ENABLE_TOOL_SEARCH=auto:5' >> "$SHELL_PROFILE"
+    {
+      echo ''
+      echo '# Reggie: defer MCP tool schemas for efficiency'
+      echo 'export ENABLE_TOOL_SEARCH=auto:5'
+    } >> "$SHELL_PROFILE"
     echo "  Added ENABLE_TOOL_SEARCH=auto:5 to $SHELL_PROFILE"
   else
     echo "  ENABLE_TOOL_SEARCH already configured in $SHELL_PROFILE"
