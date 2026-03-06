@@ -68,7 +68,7 @@ Two stages require human confirmation before proceeding:
 | VALIDATE | (direct bash) | Run build and test commands |
 | ANALYZE | researcher | Identify patterns, conventions, architecture |
 | DOC-AUDIT | researcher | Assess existing docs for signal vs noise |
-| GENERATE | technical-writer | Create CLAUDE.md, foundational docs, TASKS.md, .pipeline/, MEMORY.md |
+| GENERATE | technical-writer | Create CLAUDE.md, foundational docs, TASKS.md, HISTORY.md, .pipeline/, MEMORY.md |
 | SEED-MEMORY | (main Claude) | Create agent memory directories with initial context |
 | CONFIGURE-TOOLS | (main Claude) | Scan project, recommend and configure MCP servers |
 | REFINE | technical-writer | Prune/enhance docs per audit recommendations |
@@ -180,7 +180,8 @@ recommended action, plus explanation for any PRUNE or UPDATE recommendations.
 2. Use discovery data + analysis to create:
    - CLAUDE.md (see template below)
    - Foundational docs in `docs/` (see templates below)
-   - TASKS.md (empty structure)
+   - TASKS.md (empty structure — NO Completed section)
+   - HISTORY.md (empty completed-tasks log)
    - .pipeline/.gitkeep
    - MEMORY.md at appropriate location
 3. **Human checkpoint**: User reviews CLAUDE.md and foundational docs, approves or requests edits
@@ -207,9 +208,10 @@ Create:
    - `docs/data-models.md` — only if project has a database, API layer, or typed models
    - `docs/getting-started.md` — always
    - `docs/contributing.md` — always
-3. **TASKS.md** — Empty task tracker with standard structure
-4. **.pipeline/.gitkeep** — Create the directory with empty keepfile
-5. **MEMORY.md** — Project memory with build/test gotchas and key decisions
+3. **TASKS.md** — Empty task tracker with standard structure (Active Tasks and Backlog sections ONLY — do NOT add a Completed section)
+4. **HISTORY.md** — Empty completed-tasks log (this is where completed tasks go — NOT in TASKS.md)
+5. **.pipeline/.gitkeep** — Create the directory with empty keepfile
+6. **MEMORY.md** — Project memory with build/test gotchas and key decisions
 
 Make all docs specific to THIS project. Pull actual patterns and examples
 from the codebase analysis. Don't use generic placeholders.
@@ -811,6 +813,17 @@ Completed tasks are stored in `HISTORY.md` (same directory), not in TASKS.md.
 
 ---
 
+## HISTORY.md Template
+
+```markdown
+# Completed Tasks
+
+```
+
+HISTORY.md starts empty. As tasks are completed via `/code-workflow` or `/audit-workflow`, they are appended here in the format: `- [x] [slug] [task name] -- [date]`.
+
+---
+
 ## MEMORY.md Placement
 
 MEMORY.md goes in the user's Claude project memory directory:
@@ -935,6 +948,7 @@ After all stages complete:
 │   - docs/getting-started.md (setup guide)                        │
 │   - docs/contributing.md (contribution guide)                    │
 │   - TASKS.md (task tracker)                                      │
+│   - HISTORY.md (completed task history)                          │
 │   - .pipeline/.gitkeep (pipeline directory)                      │
 │   - MEMORY.md (project memory)                                   │
 │   - .claude/agent-memory/ ([N] agents seeded)                    │

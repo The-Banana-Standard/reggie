@@ -86,7 +86,7 @@ $ARGUMENTS
 | VALIDATE | (direct bash) | Run build/test to verify they work | `--skip-tests` |
 | ANALYZE | researcher | Identify patterns, conventions, architecture | No |
 | DOC-AUDIT | researcher | Assess existing docs for signal vs noise | No |
-| GENERATE | technical-writer | Create CLAUDE.md, TASKS.md, .pipeline/, MEMORY.md | No |
+| GENERATE | technical-writer | Create CLAUDE.md, TASKS.md, HISTORY.md, .pipeline/, MEMORY.md | No |
 | REFINE | technical-writer | Prune/update docs per audit recommendations | `--no-prune` |
 
 ---
@@ -194,11 +194,13 @@ Create:
    - Rules section (conventions, gotchas)
    - Patterns section (actual code examples from this codebase)
 
-2. **TASKS.md** — Empty task tracker
+2. **TASKS.md** — Empty task tracker (Active Tasks and Backlog sections ONLY — do NOT add a Completed section)
 
-3. **.pipeline/.gitkeep** — Pipeline metadata directory
+3. **HISTORY.md** — Empty completed-tasks log (completed tasks go here, NOT in TASKS.md)
 
-4. **MEMORY.md** — Initial project memory with build/test gotchas
+4. **.pipeline/.gitkeep** — Pipeline metadata directory
+
+5. **MEMORY.md** — Initial project memory with build/test gotchas
 
 Make it specific to THIS project, not generic. Pull actual patterns from
 the codebase analysis.
@@ -239,6 +241,7 @@ After all stages complete:
 │ Files created:                                                   │
 │   - CLAUDE.md (project context)                                  │
 │   - TASKS.md (task tracker)                                      │
+│   - HISTORY.md (completed task history)                          │
 │   - .pipeline/.gitkeep (pipeline directory)                      │
 │   - MEMORY.md (project memory)                                   │
 │                                                                  │
