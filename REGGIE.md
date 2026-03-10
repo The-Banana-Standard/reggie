@@ -80,6 +80,25 @@ These terms have specific meanings inside Reggie:
 
 ---
 
+## Completion Markers
+
+Every pipeline command emits a machine-readable marker as its very last output line. External tools (like Forge) pattern-match on this to detect when a pipeline finishes.
+
+**Format**: `~~REGGIE:DONE:command-name:status~~`
+
+| Field | Values |
+|-------|--------|
+| `command-name` | The slash command name without `/` (e.g., `code-workflow`, `init-tasks`) |
+| `status` | `success` or `failed` |
+
+**Rules**:
+- Marker is visible plain text — no ANSI escapes, no code blocks
+- Emitted after the final completion box or summary, as the absolute last line
+- `failed` marker emitted on early exit due to quality gate failure, user abort, or error
+- `/brainstorm` is excluded (conversational, no defined endpoint)
+
+---
+
 ## What Reggie Is Not
 
 - **Not a product.** It is a personal system shared between friends.

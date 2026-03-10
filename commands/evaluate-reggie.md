@@ -134,9 +134,20 @@ The claude-architect produces a concrete proposal for each prioritized item with
 
 Present the proposals to the user.
 
-**If `--implement` NOT in $ARGUMENTS**: Print the PROPOSE completion box with a note to run `/evaluate-reggie --implement` to execute. Pipeline complete.
+**If `--implement` NOT in $ARGUMENTS**: Print the PROPOSE completion box with a note to run `/evaluate-reggie --implement` to execute. Pipeline complete. Then emit:
+```
+~~REGGIE:DONE:evaluate-reggie:success~~
+```
 
-**If `--implement` in $ARGUMENTS**: Present proposals for approval, then advance to IMPLEMENT.
+**If `--implement` in $ARGUMENTS**: Present proposals for approval, then advance to IMPLEMENT. After VERIFY completes, emit:
+```
+~~REGGIE:DONE:evaluate-reggie:success~~
+```
+
+If the user says `abort` at any stage, emit:
+```
+~~REGGIE:DONE:evaluate-reggie:failed~~
+```
 
 ---
 

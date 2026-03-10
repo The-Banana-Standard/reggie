@@ -518,6 +518,18 @@ Create fork? (y/n)
 +------------------------------------------------------------------+
 ```
 
+After the CURATE summary, emit:
+
+```
+~~REGGIE:DONE:improve:success~~
+```
+
+If the pipeline exits early (zero valid entries in COLLECT), emit:
+
+```
+~~REGGIE:DONE:improve:success~~
+```
+
 ---
 
 ## AGENT-IMPROVE.md Entry Format

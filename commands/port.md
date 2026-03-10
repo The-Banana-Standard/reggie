@@ -219,6 +219,18 @@ STAGE COMPLETE: ANALYZE
 | `show plan` | Display plan.md |
 | `abort` | Cancel pipeline |
 
+After the VERIFY stage completes successfully, emit:
+
+```
+~~REGGIE:DONE:port:success~~
+```
+
+If the user says `abort` or a stage fails without recovery, emit:
+
+```
+~~REGGIE:DONE:port:failed~~
+```
+
 ### Post-Completion: CAPTURE-LEARNINGS
 
 After the port is complete, capture agent-level learnings. This feeds the self-improvement loop.

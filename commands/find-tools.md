@@ -336,6 +336,12 @@ MCP tool schemas load into every subagent launched via the Task tool during pipe
 └──────────────────────────────────────────────────────────────────┘
 ```
 
+After the completion box, emit:
+
+```
+~~REGGIE:DONE:find-tools:success~~
+```
+
 ---
 
 ## For Integration: CONFIGURE-TOOLS Stage

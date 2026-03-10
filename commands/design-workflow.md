@@ -125,8 +125,14 @@ After REFINE passes, enter the DESIGN-REVIEW human gate. See `~/.claude/agents/p
 3. Present options: **approve** / **changes** / **abort**
 
 If `changes`: collect user feedback, loop back: IMPLEMENT → VERIFY-APP → REFINE → DESIGN-REVIEW.
-If `approve`: proceed to COMMIT → COMPLETE (same merge strategies as code-workflow).
-If `abort`: cleanup worktree, branch, pipeline directory, remove from Active Tasks.
+If `approve`: proceed to COMMIT → COMPLETE (same merge strategies as code-workflow). After COMPLETE, emit:
+```
+~~REGGIE:DONE:design-workflow:success~~
+```
+If `abort`: cleanup worktree, branch, pipeline directory, remove from Active Tasks. Then emit:
+```
+~~REGGIE:DONE:design-workflow:failed~~
+```
 
 ---
 

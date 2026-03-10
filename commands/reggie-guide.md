@@ -101,6 +101,8 @@ UTILITIES
   /repo-advisor            Evaluate repo's agent-readiness
   /find-tools              Scan project, configure MCP servers
   /refresh-capabilities    Update capability manifest from all sources
+  /setup-workspace-docs    Generate workspace CLAUDE.md + architecture doc
+  /distribute-tasks        Parse notes into tasks, route to correct repos
 
 HELP
   /reggie-guide            This help (you're here)
@@ -268,6 +270,9 @@ Every work agent (developers, reviewers, testers, architect, refactorer) reads t
 **How are they different from CLAUDE.md?**
 `CLAUDE.md` is the top-level project context: rules, key commands, entry points, what matters most. Foundational docs go deeper on specific domains (architecture, patterns, data models). If information conflicts, `CLAUDE.md` wins.
 
+**What about workspace-level docs?**
+Per-repo foundational docs cover a single repo's internals. For multi-repo workspaces, `/setup-workspace-docs` recursively generates a CLAUDE.md + `docs/architecture.md` at every workspace level from the current directory downward. The architecture doc describes how repos relate — communication patterns, data flow, deployment topology, shared dependencies, and folder structure. Individual repos are never modified. This cross-repo context complements the per-repo docs and helps `/distribute-tasks` route work accurately.
+
 **How are they different from CONTEXT.md?**
 `CONTEXT.md` is per-task and ephemeral — it records pipeline state for a single task run. Foundational docs are project-level, persistent, and version-controlled. They survive across tasks, pipelines, and sessions.
 
@@ -294,7 +299,7 @@ Worktrees isolate work so there's no immediate breakage. But overlapping files w
 
 **What happens at completion?**
 You choose a merge strategy:
-- **Local merge**: Removes worktree, merges branch into base, deletes branch
+- **Local merge**: Squash merges all stage commits into a single well-written commit on base, removes worktree, deletes branch
 - **PR**: Pushes branch, creates a pull request, removes worktree
 - **Push only**: Pushes branch, removes worktree (you merge later)
 
@@ -775,6 +780,8 @@ The researcher caches **web research findings only** (external best practices, l
 | Check if this repo is ready for agents | `/repo-advisor` | Per-project readiness, prescriptions, drift |
 | Scan project for relevant MCP tools | `/find-tools` | Detect project signals, configure MCP servers |
 | Update capability manifest from sources | `/refresh-capabilities` | Refresh plugins, skills, Smithery servers |
+| Map repos in a workspace | `/setup-workspace-docs` | CLAUDE.md + `docs/architecture.md` at workspace level (recursive) |
+| Distribute tasks across repos | `/distribute-tasks` | Parse freeform notes → route tasks to correct repo TASKS.md files |
 | Write or update documentation | `/docs` | Produce documentation for code or features |
 | Update changelog | `/changelog` | Append to CHANGELOG.md |
 | Create an architecture diagram | `/diagram` | Mermaid or ASCII visualization |

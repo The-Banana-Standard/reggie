@@ -110,7 +110,7 @@ Specialized AI agents that Claude Code invokes as subprocesses. Each has a defin
 |-------|------|-------|
 | `repo-advisor` | Evaluate repo readiness for agent system | Read, Write, Bash |
 
-### 36 Slash Commands
+### 38 Slash Commands
 
 Commands invoke pipelines or individual stages.
 
@@ -164,6 +164,8 @@ Commands invoke pipelines or individual stages.
 | `/refresh-capabilities` | Update capability manifest from all sources |
 | `/repo-advisor` | Evaluate repo readiness for agent system |
 | `/reggie-guide` | Topic-based help for the agent system |
+| `/setup-workspace-docs` | Generate workspace CLAUDE.md + architecture docs for multi-repo workspaces |
+| `/distribute-tasks` | Parse freeform notes into tasks and route them to correct repo TASKS.md files |
 
 ---
 
@@ -448,9 +450,9 @@ Add a `CLAUDE.md` to any project root. Agents read this file to understand proje
 
 ```
 Package version: 3.0.0
-Last updated: 2026-03-04
+Last updated: 2026-03-09
 Agents: 37
-Commands: 36
+Commands: 38
 Pipelines: 12 (code, audit, design, article, social, repo-setup, port-feature, onboard, debug, improve, evaluate-reggie, reggie-system-change)
-Features: Git worktree isolation for parallel tasks, branch-per-task with merge strategies, cross-pipeline task sharing, conflict detection, discovered issues → backlog, researcher as context builder, always-loaded language patterns in developer agents, onboard workflow for existing repos, conversational debug workflow with Socratic diagnosis, MCP tool management with three-layer routing, capability manifest for plugin/skill awareness, self-improvement loop with agent learnings
+Features: Git worktree isolation for parallel tasks, branch-per-task with merge strategies, cross-pipeline task sharing, conflict detection, discovered issues → backlog, researcher as context builder, always-loaded language patterns in developer agents, onboard workflow for existing repos, conversational debug workflow with Socratic diagnosis, MCP tool management with three-layer routing, capability manifest for plugin/skill awareness, self-improvement loop with agent learnings, workspace-level task distribution across repos
 ```

@@ -437,9 +437,30 @@ After the final commit, the user chooses how to integrate the branch. **All stra
 
 | Strategy | Commands (in order) |
 |----------|---------------------|
-| **Local merge** | `cd [repo-root]` then `git merge task/[slug]` then `git worktree remove .worktree/[slug]` then `git worktree prune` then `git branch -d task/[slug]` |
+| **Local merge** | `cd [repo-root]` then `git merge --squash task/[slug]` then compose commit message (see below) then `git commit` then `git worktree remove .worktree/[slug]` then `git worktree prune` then `git branch -D task/[slug]` |
 | **PR** | `cd [repo-root]` then `git -C .worktree/[slug] push -u origin task/[slug]` then `gh pr create ...` then `git worktree remove .worktree/[slug]` then `git worktree prune` |
 | **Push only** | `cd [repo-root]` then `git -C .worktree/[slug] push -u origin task/[slug]` then `git worktree remove .worktree/[slug]` then `git worktree prune` |
+
+#### Composing the Squash Commit Message
+
+After `git merge --squash`, the staged changes need a single well-written commit. Do NOT just concatenate stage commit messages. Instead:
+
+1. Read the branch log: `git log [base-branch]..task/[slug] --pretty=format:"%s%n%b" --reverse`
+2. From those commits, synthesize a **single commit message** with:
+   - **Summary line**: conventional commit format — `feat:`, `fix:`, `refactor:`, etc. + concise description of what the task accomplished (under 72 chars)
+   - **Body** (after blank line): 2-5 bullet points covering the key changes, drawn from the stage commits. Focus on *what* was done, not which pipeline stage did it. Strip stage prefixes (e.g., `implement:`, `test:`, `simplify:`) — describe the actual change.
+3. Commit using HEREDOC:
+   ```bash
+   git commit -m "$(cat <<'EOF'
+   feat: add streak tracking with daily reset logic
+
+   - Track consecutive daily completions with timezone-aware reset
+   - Add streak display to stats dashboard
+   - Handle edge cases for skipped days and timezone changes
+   - Add comprehensive test coverage for streak calculations
+   EOF
+   )"
+   ```
 
 ### Resuming After Compaction
 
@@ -943,7 +964,7 @@ Options:
 5. Commit metadata: `git add TASKS.md HISTORY.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: complete [slug]" --no-gpg-sign 2>/dev/null`
 6. `cd` to the repo root — the shell may be in the worktree directory that is about to be removed. Use the known project root path or `git rev-parse --show-toplevel`.
 7. Ask user for merge strategy and execute (merge/push *before* worktree removal):
-   - **Local merge**: `git merge task/[slug]` then `git worktree remove .worktree/[slug]` then `git worktree prune` then `git branch -d task/[slug]`
+   - **Local merge**: `git merge --squash task/[slug]` then compose commit message from branch log (see "Composing the Squash Commit Message" above) then `git commit` then `git worktree remove .worktree/[slug]` then `git worktree prune` then `git branch -D task/[slug]`
    - **PR**: `git -C .worktree/[slug] push -u origin task/[slug]` then `gh pr create --title "[task name]" --body "..."` then `git worktree remove .worktree/[slug]` then `git worktree prune`
    - **Push only**: `git -C .worktree/[slug] push -u origin task/[slug]` then `git worktree remove .worktree/[slug]` then `git worktree prune`
 8. **Write capability usage summary**: Read `## Capability Log` from `.pipeline/[slug]/CONTEXT.md`. Write a `capability_runs` entry to `.claude/stats.json`:

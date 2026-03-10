@@ -257,6 +257,18 @@ Updated summary presented...
 → satisfied
 ```
 
+After the PUSH stage completes (or if no push), emit:
+
+```
+~~REGGIE:DONE:new-repo:success~~
+```
+
+If the user says `abort` at any stage, emit:
+
+```
+~~REGGIE:DONE:new-repo:failed~~
+```
+
 ---
 
 ### Post-Completion: CAPTURE-LEARNINGS

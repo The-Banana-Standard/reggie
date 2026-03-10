@@ -419,7 +419,7 @@ Remove from Active Tasks in TASKS.md. Append to HISTORY.md (same directory): `- 
 Commit metadata: git add TASKS.md HISTORY.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: complete [slug]" --no-gpg-sign 2>/dev/null
 
 Then `cd [repo-root]` (shell may be in the worktree that is about to be removed) and ask user for merge strategy. **Always merge/push BEFORE removing the worktree.**
-  - Local merge: cd [repo-root] && git merge task/[slug] && git worktree remove --force .worktree/[slug] && git worktree prune && git branch -d task/[slug]
+  - Local merge: cd [repo-root] && git merge --squash task/[slug] && compose commit message from branch log (see pipeline-manager.md "Composing the Squash Commit Message") && git commit && git worktree remove --force .worktree/[slug] && git worktree prune && git branch -D task/[slug]
   - PR: cd [repo-root] && git -C .worktree/[slug] push -u origin task/[slug] && gh pr create ... && git worktree remove --force .worktree/[slug] && git worktree prune
   - Push only: cd [repo-root] && git -C .worktree/[slug] push -u origin task/[slug] && git worktree remove --force .worktree/[slug] && git worktree prune
 Run: rm -rf .pipeline/[slug]/
@@ -545,6 +545,18 @@ After all tasks are done:
 │                                                                  │
 │ Status: Push-ready                                               │
 └──────────────────────────────────────────────────────────────────┘
+```
+
+After the completion box, emit:
+
+```
+~~REGGIE:DONE:audit-workflow:success~~
+```
+
+If the user says `abort` at any point, emit:
+
+```
+~~REGGIE:DONE:audit-workflow:failed~~
 ```
 
 ---

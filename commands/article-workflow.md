@@ -312,6 +312,18 @@ The final article includes:
 - Target audience
 - Suggested tags
 
+After the PUBLISH output, emit:
+
+```
+~~REGGIE:DONE:article-workflow:success~~
+```
+
+If the user says `abort` at any stage, emit:
+
+```
+~~REGGIE:DONE:article-workflow:failed~~
+```
+
 ### Example Session
 
 ```

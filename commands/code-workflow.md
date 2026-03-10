@@ -55,6 +55,8 @@ This command orchestrates the **full development pipeline** for a single task.
 
 **`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. Stage advancement, REVIEW-WITH-USER acceptance, DESIGN-REVIEW approval, merge strategy selection, and any other human confirmation prompts are auto-approved. Automated quality gates (9.0/10 judge scoring) still run normally. When active, print `⚙ Mode: --yes (Ralph Wiggum)` during PICKUP.
 
+**`--tier` flag**: If `$ARGUMENTS` contains `--tier <model:effort>` (e.g., `--tier opus:high`), strip it from arguments and enable tier-filtered pickup. During PICKUP, only pick up backlog tasks whose `[tier: X]` tag matches the specified tier. Tasks without a tier tag are treated as `opus:high` (default to highest). When active, print `⚙ Tier: [model:effort]` during PICKUP. Valid tiers: `opus:high`, `opus:medium`, `sonnet:medium`. This enables parallel execution — Forge launches terminals at different tiers and each filters to matching tasks.
+
 **DISCOVERED ISSUES**: When prompting any agent, always include: "If you discover unrelated issues in the codebase (bugs, tech debt, security problems, missing tests), list them under a `## Discovered Issues` heading at the end of your output. Do not fix them." After each stage returns, check for discovered issues and add them to `### Ungroomed` at the bottom of `## Backlog` in TASKS.md (create the section if it doesn't exist).
 
 **PRE-LAUNCH CONTEXT**: Before launching any subagent, pre-read relevant files (~200 line budget) and include their contents in the Task prompt. See `~/.claude/agents/pipeline-manager.md` → "Pre-Launch Context Loading" for what to include and the format template.
@@ -114,9 +116,10 @@ Execute each stage, waiting for completion and confirmation before proceeding. A
 
 **Auto-pickup** (when `/code-workflow` is run with no arguments and no task context):
 1. Look at TASKS.md: list active tasks (these belong to other sessions) and backlog
-2. If backlog has items, auto-pick using priority + dependency logic:
+2. If backlog has items, auto-pick using priority + dependency + tier logic:
    - Scan all `- [ ]` items across all sections EXCEPT `### Ungroomed`
    - Filter out tasks with unmet dependencies (`[depends: slug]` where slug is still in backlog or active)
+   - **If `--tier` is active**: Filter to tasks whose `[tier: X]` tag matches the specified tier. Tasks without a `[tier:]` tag are treated as `opus:high`. If no tasks match the tier, print "No [tier] tasks in backlog. Waiting." and exit cleanly with `~~REGGIE:DONE:code-workflow:success~~`.
    - From remaining, pick highest priority: P1 > P2 > P3 (tasks without tags = P2)
    - Within same priority, pick first in document order (top-to-bottom)
    - If ALL tasks are blocked by dependencies, warn user and ask what to do
@@ -170,8 +173,12 @@ Backlog is empty. Options:
   2. Wait for an active task to complete
 ```
 
-**If task specified in arguments** (`/code-workflow add streak tracking`):
-Tasks need refinement before entering the pipeline. Redirect the user:
+**If task specified in arguments** (`/code-workflow fix-toggle-alignment` or `/code-workflow --yes fix-toggle-alignment`):
+First, check if the argument matches a slug in TASKS.md `## Backlog` (look for `- [ ] [argument]:` pattern).
+
+- **If slug matches a backlog task**: Pick up that specific task. This is a "start here" directive — useful for guaranteeing which task this session grabs when multiple code-workflows run in parallel. After completing this task, normal behavior resumes: in `--yes` mode, continue the loop picking up remaining tasks; in normal mode, ask "Pick up the next task?". The slug only controls which task is picked up FIRST — it does not limit the session to a single task.
+
+- **If slug does NOT match any backlog task**: Treat as a new task description. Redirect the user:
 ```
 This task needs refinement before entering the pipeline. Run:
   /init-tasks [task description]
@@ -640,13 +647,26 @@ Ready to mark task complete? (y/n)
 4. Commit metadata: `git add TASKS.md HISTORY.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: complete [slug]" --no-gpg-sign 2>/dev/null`
 5. **CRITICAL: `cd` to the repo root first** — the shell may be sitting in the worktree directory that is about to be removed. Run `cd [repo-root]` (use the known project root path) before any worktree removal. If `cd` fails, the shell CWD is already invalid — start a fresh shell.
 6. Ask user for merge strategy. **Always merge/push BEFORE removing the worktree, never after.**
-   - **Local merge** (recommended for solo work): Merge branch, then remove worktree
+   - **Local merge** (recommended for solo work): Squash merge into a single well-written commit, then remove worktree
      ```bash
      cd [repo-root]
-     git merge task/[slug]
+     git merge --squash task/[slug]
+     # Read branch commits to compose message:
+     git log [base-branch]..task/[slug] --pretty=format:"%s%n%b" --reverse
+     # Synthesize a single conventional commit (feat:/fix:/refactor: + concise summary)
+     # with 2-5 body bullets covering key changes (strip stage prefixes like implement:/test:)
+     # See pipeline-manager.md "Composing the Squash Commit Message" for full details
+     git commit -m "$(cat <<'EOF'
+     [summary line, e.g. feat: add streak tracking with daily reset logic]
+
+     - [key change 1]
+     - [key change 2]
+     - [key change 3]
+     EOF
+     )"
      git worktree remove --force .worktree/[slug]
      git worktree prune
-     git branch -d task/[slug]
+     git branch -D task/[slug]
      ```
    - **PR** (recommended for team projects): Push branch, create PR, then remove worktree
      ```bash
@@ -689,8 +709,20 @@ Backlog ([X] tasks remaining):
 
 **Next task behavior depends on mode:**
 
-- **Normal mode**: Ask "Pick up the next task? (y/n)". If yes, loop back to Stage 1 with new task.
-- **`--yes` mode (Ralph Wiggum)**: Auto-continue. Run `/compact Discard all details from the completed task. Preserve only: this is a --yes mode code-workflow pipeline run, and I need to loop back to PICKUP to pick up the next backlog task from TASKS.md.` Then immediately proceed to PICKUP for the next backlog task. If no tasks remain in the backlog, exit cleanly with "All tasks complete."
+- **Normal mode**: Ask "Pick up the next task? (y/n)". If yes, loop back to Stage 1 with new task. If no (or no tasks remain), emit:
+  ```
+  ~~REGGIE:DONE:code-workflow:success~~
+  ```
+- **`--yes` mode (Ralph Wiggum)**: Auto-continue — **always** loop back to PICKUP for the next task, regardless of whether the just-completed task was specified by slug or auto-picked. A slug argument only controls which task is picked up first; it does not limit the session to one task. Run `/compact Discard all details from the completed task. Preserve only: this is a --yes mode code-workflow pipeline run, and I need to loop back to PICKUP to pick up the next backlog task from TASKS.md. Flags still active: --yes [and --tier X if set].` Then immediately proceed to PICKUP for the next backlog task (respecting `--tier` filter if active). If no matching tasks remain in the backlog, exit cleanly with "All tasks complete." and emit:
+  ```
+  ~~REGGIE:DONE:code-workflow:success~~
+  ```
+
+If the user says `abort` at any stage, emit:
+
+```
+~~REGGIE:DONE:code-workflow:failed~~
+```
 
 ---
 
@@ -755,6 +787,10 @@ If verification/review fails, increment attempts in the quality scores table.
 /code-workflow pause              # Pause and save progress
 /code-workflow resume [slug]      # Resume paused workflow
 /code-workflow --opus resume [slug]  # Resume with all-opus mode
+/code-workflow --yes --tier opus:high           # --yes loop, only opus:high tasks
+/code-workflow --yes --tier sonnet:medium        # --yes loop, only sonnet:medium tasks
+/code-workflow --yes fix-toggle-alignment        # Start with this slug, then continue loop
+/code-workflow --yes --tier opus:high fix-auth   # Start with fix-auth, tier-filtered loop after
 ```
 
 ### Flags
@@ -763,6 +799,7 @@ If verification/review fails, increment attempts in the quality scores table.
 |------|--------|
 | `--opus` | Force `model: "opus"` on every agent launch. Disables Sonnet optimizations for the entire pipeline run. Use for critical tasks or when Sonnet quality has been insufficient. |
 | `--yes` | Skip all confirmation gates. Pipeline runs end-to-end without user input. Automated quality gates (9.0/10) still run. |
+| `--tier <model:effort>` | Filter backlog pickup to tasks matching this tier (`opus:high`, `opus:medium`, `sonnet:medium`). Untagged tasks default to `opus:high`. Exits cleanly when no matching tasks remain. Enables parallel execution across terminals at different tiers. |
 
 **Note**: All tasks must go through `/init-tasks` first for codebase research, acceptance criteria, and implementation planning. Tasks without a `task.md` file will be rejected with a redirect to `/init-tasks`.
 

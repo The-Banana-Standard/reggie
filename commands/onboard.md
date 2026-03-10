@@ -256,6 +256,18 @@ After all stages complete:
 
 If yes, commit with message: `chore: onboard project to Claude Code agent system`
 
+After the commit (or if user declines commit), emit:
+
+```
+~~REGGIE:DONE:onboard:success~~
+```
+
+If the user says `abort` at any stage, emit:
+
+```
+~~REGGIE:DONE:onboard:failed~~
+```
+
 ---
 
 ## Post-Completion: CAPTURE-LEARNINGS

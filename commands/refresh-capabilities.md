@@ -251,6 +251,12 @@ Read `~/.claude/skills-registry.yaml` if it exists. This is a curated index of c
    └──────────────────────────────────────────────────────────────────┘
    ```
 
+After the completion box, emit:
+
+```
+~~REGGIE:DONE:refresh-capabilities:success~~
+```
+
 ---
 
 ## Notes

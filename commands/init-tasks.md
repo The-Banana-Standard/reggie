@@ -464,25 +464,34 @@ organize them and compute metadata, not modify them.
    - `[moderate]` — has a plan, 2-4 files, some decisions
    - `[complex]` — has a plan, 5+ files or architecture decisions
 
-7. **Assign pipeline mode**: Based on task nature:
+7. **Assign execution tier**: Based on complexity classification, assign a
+   `[tier: model:effort]` tag that tells Forge what terminal configuration
+   to use and tells code-workflow which tasks to pick up:
+   - `[simple]` → `[tier: sonnet:medium]`
+   - `[moderate]` → `[tier: opus:medium]`
+   - `[complex]` → `[tier: opus:high]`
+   This enables parallel execution: Forge launches terminals at different
+   tiers and each code-workflow instance filters the backlog to matching tasks.
+
+8. **Assign pipeline mode**: Based on task nature:
    - `[code]` — default, standard code-workflow
    - `[design]` — UI/UX focused, should use design-workflow
 
-8. **Mark plan status**:
+9. **Mark plan status**:
    - `[planned]` — has a full implementation plan in task.md
    - `[unplanned]` — has acceptance criteria only, no implementation plan (code-workflow will reject these at PICKUP with a redirect to /init-tasks)
 
-9. **Check for staleness**: Flag tasks that may be stale:
-   - References files that no longer exist in the project
-   - Describes fixing something that appears already fixed
-   - Duplicates or near-duplicates of other tasks
-   Mark stale tasks with `[STALE: reason]` so the user can confirm removal.
+10. **Check for staleness**: Flag tasks that may be stale:
+    - References files that no longer exist in the project
+    - Describes fixing something that appears already fixed
+    - Duplicates or near-duplicates of other tasks
+    Mark stale tasks with `[STALE: reason]` so the user can confirm removal.
 
-10. **Order groups by priority** — first group is highest priority.
+11. **Order groups by priority** — first group is highest priority.
 
-11. **Order tasks within each group** by priority then dependency order.
+12. **Order tasks within each group** by priority then dependency order.
 
-12. **Handle singles**: If only 1 task fits a group, put it in "Other"
+13. **Handle singles**: If only 1 task fits a group, put it in "Other"
     at the bottom. Every group needs at least 2 items.
 
 ### Output Format
@@ -490,17 +499,17 @@ organize them and compute metadata, not modify them.
 Return the grouped list with full metadata:
 
 ### [Area of Focus 1]
-- [slug]: [One-line description] [P1] [complex] [code] [planned]
+- [slug]: [One-line description] [P1] [complex] [tier: opus:high] [code] [planned]
   files: src/middleware/auth.ts (MOD), src/utils/jwt.ts (NEW)
-- [slug]: [One-line description] [P2] [depends: slug-above] [conflicts: slug-above] [moderate] [code] [planned]
+- [slug]: [One-line description] [P2] [depends: slug-above] [conflicts: slug-above] [moderate] [tier: opus:medium] [code] [planned]
   files: src/middleware/rbac.ts (NEW), src/routes/*.ts (MOD)
 
 ### [Area of Focus 2]
-- [slug]: [One-line description] [P2] [simple] [code] [planned]
+- [slug]: [One-line description] [P2] [simple] [tier: sonnet:medium] [code] [planned]
   files: src/config/colors.xml (MOD)
 
 ### Other
-- [slug]: [One-line description] [P3] [simple] [code] [planned]
+- [slug]: [One-line description] [P3] [simple] [tier: sonnet:medium] [code] [planned]
   files: tests/*.test.ts (MOD)
 ```
 
@@ -521,13 +530,13 @@ After code-architect returns, present the grouping:
 Here's how I'd organize these based on your project structure:
 
 ### Authentication & Security
-- add-jwt-auth: Add JWT authentication [P1] [complex] [code] [planned]
+- add-jwt-auth: Add JWT authentication [P1] [complex] [tier: opus:high] [code] [planned]
   files: src/utils/jwt.ts (NEW), src/middleware/auth.ts (MOD), src/routes/login.ts (MOD)
-- implement-rbac: Implement role-based access [P2] [depends: add-jwt-auth] [conflicts: add-jwt-auth] [moderate] [code] [planned]
+- implement-rbac: Implement role-based access [P2] [depends: add-jwt-auth] [conflicts: add-jwt-auth] [moderate] [tier: opus:medium] [code] [planned]
   files: src/middleware/rbac.ts (NEW), src/routes/*.ts (MOD)
 
 ### Settings & UI Polish
-- polish-settings-screen: Polish settings screen UI [P2] [simple] [design] [planned]
+- polish-settings-screen: Polish settings screen UI [P2] [simple] [tier: sonnet:medium] [design] [planned]
   files: src/screens/Settings/ (MOD), src/components/SettingsRow (MOD), theme.ts (MOD)
 
 Does this grouping and metadata make sense? Want to adjust anything?
@@ -567,17 +576,17 @@ TASKS.md is a lightweight coordination file. Each task is a slug line with rich 
 ## Backlog
 
 ### [Area of Focus 1]
-- [ ] add-jwt-auth: Add JWT authentication [P1] [complex] [code] [planned]
+- [ ] add-jwt-auth: Add JWT authentication [P1] [complex] [tier: opus:high] [code] [planned]
   files: src/utils/jwt.ts (NEW), src/middleware/auth.ts (MOD), src/routes/login.ts (MOD)
-- [ ] implement-rbac: Implement role-based access [P2] [depends: add-jwt-auth] [conflicts: add-jwt-auth] [moderate] [code] [planned]
+- [ ] implement-rbac: Implement role-based access [P2] [depends: add-jwt-auth] [conflicts: add-jwt-auth] [moderate] [tier: opus:medium] [code] [planned]
   files: src/middleware/rbac.ts (NEW), src/routes/*.ts (MOD)
 
 ### [Area of Focus 2]
-- [ ] polish-settings-screen: Polish settings screen UI [P2] [simple] [design] [planned]
+- [ ] polish-settings-screen: Polish settings screen UI [P2] [simple] [tier: sonnet:medium] [design] [planned]
   files: src/screens/Settings/ (MOD), src/components/SettingsRow (MOD), theme.ts (MOD)
 
 ### Other
-- [ ] improve-test-coverage: Improve test coverage [P3] [simple] [code] [planned]
+- [ ] improve-test-coverage: Improve test coverage [P3] [simple] [tier: sonnet:medium] [code] [planned]
   files: tests/*.test.ts (MOD)
 ```
 
@@ -586,6 +595,7 @@ TASKS.md is a lightweight coordination file. Each task is a slug line with rich 
 - `[depends: slug-a, slug-b]` — must complete first
 - `[conflicts: slug-c]` — shares files, avoid parallel execution
 - `[simple]` / `[moderate]` / `[complex]` — complexity
+- `[tier: model:effort]` — execution tier for terminal matching (`sonnet:medium`, `opus:medium`, `opus:high`). Derived from complexity. Used by Forge to launch terminals at the right level and by code-workflow `--tier` flag to filter pickup.
 - `[code]` / `[design]` — pipeline mode
 - `[planned]` — has task.md with implementation plan (init-tasks always produces `[planned]`; code-workflow requires this)
 
@@ -692,6 +702,18 @@ First task: [slug] — [description]
   Implementation plan: [yes/no]
 
 Ready to start working? Run /code-workflow to pick up the first task.
+```
+
+After the confirmation message, emit the completion marker:
+
+```
+~~REGGIE:DONE:init-tasks:success~~
+```
+
+If the user aborts at any phase, emit:
+
+```
+~~REGGIE:DONE:init-tasks:failed~~
 ```
 
 ---
@@ -850,15 +872,15 @@ Moving to organization...
 ## Phase 4: ORGANIZE
 
 ### Authentication & Security
-- add-jwt-auth: Add JWT authentication [P1] [complex] [code] [planned]
+- add-jwt-auth: Add JWT authentication [P1] [complex] [tier: opus:high] [code] [planned]
   files: src/utils/jwt.ts (NEW), src/middleware/auth.ts (MOD), src/routes/login.ts (MOD)
 
 ### Settings & UI Polish
-- polish-settings-screen: Polish settings screen UI [P2] [simple] [design] [planned]
+- polish-settings-screen: Polish settings screen UI [P2] [simple] [tier: sonnet:medium] [design] [planned]
   files: src/screens/Settings/ (MOD), src/components/SettingsRow (MOD), theme.ts (MOD)
 
 ### Data Pipeline
-- migrate-csv-parser: Migrate CSV ingestion [P2] [complex] [code] [planned]
+- migrate-csv-parser: Migrate CSV ingestion [P2] [complex] [tier: opus:high] [code] [planned]
   files: src/services/ingestion/ (MOD), src/utils/csv-stream.ts (NEW)
 
 Does this grouping make sense?
@@ -1000,17 +1022,17 @@ Moving to organization...
 ## Phase 4: ORGANIZE
 
 ### User Engagement
-- implement-streak-system: Build streak tracking [P1] [complex] [code] [planned]
+- implement-streak-system: Build streak tracking [P1] [complex] [tier: opus:high] [code] [planned]
   files: src/models/UserProgress.swift (MOD), src/services/StreakManager.swift (NEW), src/views/HomeView.swift (MOD)
-- add-push-notifications: Add push notifications [P2] [complex] [code] [planned]
+- add-push-notifications: Add push notifications [P2] [complex] [tier: opus:high] [code] [planned]
   files: src/services/PushManager.swift (NEW), AppDelegate.swift (MOD)
-- redesign-onboarding: Redesign onboarding flow [P2] [moderate] [design] [planned]
+- redesign-onboarding: Redesign onboarding flow [P2] [moderate] [tier: opus:medium] [design] [planned]
   files: src/views/Onboarding/ (MOD)
 
 ### Quality & Polish
-- fix-android-color-rendering: Fix Android colors [P2] [simple] [code] [planned]
+- fix-android-color-rendering: Fix Android colors [P2] [simple] [tier: sonnet:medium] [code] [planned]
   files: android/app/src/main/res/values/colors.xml (MOD)
-- improve-test-coverage: Improve test coverage [P3] [simple] [code] [planned]
+- improve-test-coverage: Improve test coverage [P3] [simple] [tier: sonnet:medium] [code] [planned]
   files: tests/*.test.ts (MOD)
 
 > looks good

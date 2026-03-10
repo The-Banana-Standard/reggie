@@ -152,6 +152,18 @@ HANDOFF — Starting code-workflow at PLAN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
+After the handoff announcement, emit:
+
+```
+~~REGGIE:DONE:debug-workflow:success~~
+```
+
+If the user says `abort` at any stage, emit:
+
+```
+~~REGGIE:DONE:debug-workflow:failed~~
+```
+
 ---
 
 ## Post-HANDOFF: CAPTURE-LEARNINGS
