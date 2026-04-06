@@ -10,8 +10,8 @@ tags: [Reggie, How-To, Agentic Engineering]
 
 ## What You Install
 
-- `agents/` - 37 specialized AI agents
-- `commands/` - 36 slash commands
+- `agents/` - 36 specialized AI agents
+- `commands/` - 35 slash commands
 - `hooks/` - Post-task hooks for tracking and automation
 - `docs/` - System docs and references
 - `mcp-registry.yaml` - Curated MCP registry (versioned)
@@ -53,7 +53,7 @@ macOS/Linux:
 git clone https://github.com/The-Banana-Standard/reggie.git
 cd reggie
 git fetch --tags
-git checkout v1.1.0
+git checkout v1.1.2
 ./install.sh
 ```
 
@@ -63,7 +63,7 @@ Windows (PowerShell as Administrator):
 git clone https://github.com/The-Banana-Standard/reggie.git
 cd reggie
 git fetch --tags
-git checkout v1.1.0
+git checkout v1.1.2
 .\install.ps1
 ```
 

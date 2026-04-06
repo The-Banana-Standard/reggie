@@ -63,7 +63,7 @@ The result is a system that gets measurably better at the things it does repeate
 
 ## Pipelines
 
-The full Reggie system has 37 agents and 36 commands, but the core experience is built around 12 pipelines — each invokable as a slash command. These are the workflows we actually use day to day, organized by what they're for.
+The full Reggie system has 36 agents and 35 commands, but the core experience is built around 10 pipelines — each invokable as a slash command. These are the workflows we actually use day to day, organized by what they're for.
 
 ### Set Up
 
@@ -79,22 +79,21 @@ Building, fixing, and maintaining code.
 3. **Init Tasks** (`/init-tasks`) — Takes rough notes or a brain dump and organizes them into structured TASKS.md entries through four stages: intake, clarification, codebase-aware grouping by the code-architect agent, and formalization with P1/P2/P3 priorities and dependency tags.
 4. **Code Development** (`/code-workflow`) — The core of the system. Methodical feature development through eleven stages: research, planning, implementation, testing, quality checks, simplification, verification, review, security review, documentation sync, and capture-learnings. Picks up already-created tasks from TASKS.md.
 5. **Audit Pipeline** (`/audit-workflow`) — Runs security and quality audits on existing code, adds findings to TASKS.md with structured context (What/Where/Risk/Fix/Effort), then flows into the code pipeline to fix issues.
-6. **Port Feature** (`/port`) — Analyze a feature in one codebase, plan the adaptation, implement in the target, verify. Useful for moving functionality between platforms for the same project.
-7. **Debug** (`/debug-workflow`) — Socratic debugging: hypothesis-driven investigation with convergence checks. Diagnosis only — no fixes proposed until the problem is understood.
+6. **Debug** (`/debug-workflow`) — Socratic debugging: hypothesis-driven investigation with convergence checks. Diagnosis only — no fixes proposed until the problem is understood.
 
 ### Business
 
 Content and communication workflows.
 
-8. **Article Pipeline** (`/article-workflow`) — Research, outline, draft, edit, and review stages for writing. Includes an edit mode that jumps directly to the human-edit loop, plus a voice profile that learns the author's style over time.
+7. **Article Pipeline** (`/article-workflow`) — Research, outline, draft, edit, and review stages for writing. Includes an edit mode that jumps directly to the human-edit loop, plus a voice profile that learns the author's style over time.
 
 ### Reggie
 
 Maintaining and evolving the system itself. The self-improvement loop catches learnings from the bottom up. But the system also has a top-down evaluation. This is my personal favorite part, talking to reggie. Want a new pipeline? Want something in a current pipeline changed? Want reggie to evaluate its health? got any question about how reggie works? This is how you get the most out of reggie.
 
-9. **Evaluate Reggie** (`/evaluate-reggie`) — Periodic architectural review of the entire system. Scans for coverage gaps, redundancies, consistency drift, and integration health.
-10. **System Change** (`/reggie-system-change`) — Formalizes a change to Reggie through structured intake, brainstorming, planning, implementation, and verification. If you'd like to contribute to the system via our open source repository, this is the pipeline for you!
-11. **Reggie Guide** (`/reggie-guide`) - is a topic-based help for the system. It can answer any question about Reggie. It can also help you with specific tasks in the system. Just use /reggie-guide with a question.
+8. **Evaluate Reggie** (`/evaluate-reggie`) — Periodic architectural review of the entire system. Scans for coverage gaps, redundancies, consistency drift, and integration health.
+9. **System Change** (`/reggie-system-change`) — Formalizes a change to Reggie through structured intake, brainstorming, planning, implementation, and verification. If you'd like to contribute to the system via our open source repository, this is the pipeline for you!
+10. **Reggie Guide** (`/reggie-guide`) - is a topic-based help for the system. It can answer any question about Reggie. It can also help you with specific tasks in the system. Just use /reggie-guide with a question.
 
 ---
 
@@ -117,7 +116,7 @@ Here's what happens when you run `/code-workflow` with refined tasks in ./TASKS.
 
 **2. Context initialization.** A `.pipeline/[slug]/` directory is created for the task. This is the task's workspace — everything the pipeline needs to coordinate lives here:
 
-**3. Skip list computation.** The orchestrator assesses which stages are categorically inapplicable and records them in SKIP. Documentation-only tasks skip IMPLEMENT. Config-only tasks skip WRITE-TESTS. Design mode has its own default skips.
+**3. Skip list computation.** The orchestrator assesses which stages are categorically inapplicable and records them in SKIP. Documentation-only tasks skip IMPLEMENT. Config-only tasks skip WRITE-TESTS.
 
 RESEARCH and PLAN are never skipped — they're too important for grounding the work.
 

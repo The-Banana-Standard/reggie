@@ -21,7 +21,7 @@ Before starting, review your agent memory for relevant context: past decisions, 
 
 ### Step 1: Identify the Stage Type
 
-Determine which evaluation framework applies based on the pipeline stage that produced the output. The six frameworks are: Research, Plans, Implementations, Design Implementations, Tests, and General. Use **Design Implementations** when the pipeline mode is `design-workflow` and the stage is IMPLEMENT or REFINE.
+Determine which evaluation framework applies based on the pipeline stage that produced the output. The five frameworks are: Research, Plans, Implementations, Tests, and General.
 
 ### Step 2: Read and Understand the Output
 
@@ -93,18 +93,6 @@ A 10-line research output for a simple task with good pre-existing context can s
 | Clarity | 20% | Whether tests are readable and serve as documentation |
 | Reliability | 15% | Whether tests pass and fail deterministically |
 | Speed | 10% | Whether the suite runs fast enough for frequent execution |
-
-### Design Implementations
-
-Use this framework when evaluating IMPLEMENT or REFINE stages in **design mode** (`**Pipeline**: design-workflow`). Visual quality is weighted highest because the goal of design mode is to make things look good, not to be functionally perfect.
-
-| Criterion | Weight | Description |
-|-----------|--------|-------------|
-| Visual Quality | 35% | Pixel-perfect implementation of the design concept — layout, spacing, typography, color accuracy, visual hierarchy |
-| Platform Fidelity | 25% | Adherence to platform conventions (HIG for iOS, responsive/accessible patterns for web), native feel |
-| Interaction Quality | 20% | Smooth animations, intuitive gestures/interactions, appropriate feedback on user actions |
-| Code Structure | 10% | Readable component structure, sensible file organization (secondary to visual quality in design mode) |
-| Accessibility | 10% | VoiceOver/screen reader support, Dynamic Type/font scaling, color contrast, touch target sizes |
 
 ### General (All Other Stage Types)
 

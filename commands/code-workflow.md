@@ -53,7 +53,7 @@ This command orchestrates the **full development pipeline** for a single task.
 
 **`--opus` flag**: If `$ARGUMENTS` contains `--opus`, strip it from arguments before further parsing and force `model: "opus"` on **every** Task tool agent launch for the entire pipeline run. This disables all Sonnet optimizations. Use when maximum quality is needed on every stage. When active, print `⚙ Mode: all-opus` during PICKUP.
 
-**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. Stage advancement, REVIEW-WITH-USER acceptance, DESIGN-REVIEW approval, merge strategy selection, and any other human confirmation prompts are auto-approved. Automated quality gates (9.0/10 judge scoring) still run normally. When active, print `⚙ Mode: --yes (Ralph Wiggum)` during PICKUP.
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. Stage advancement, REVIEW-WITH-USER acceptance, merge strategy selection, and any other human confirmation prompts are auto-approved. Automated quality gates (9.0/10 judge scoring) still run normally. When active, print `⚙ Mode: --yes (Ralph Wiggum)` during PICKUP.
 
 **`--tier` flag**: If `$ARGUMENTS` contains `--tier <model:effort>` (e.g., `--tier opus:high`), strip it from arguments and enable tier-filtered pickup. During PICKUP, only pick up backlog tasks whose `[tier: X]` tag matches the specified tier. Tasks without a tier tag are treated as `opus:high` (default to highest). When active, print `⚙ Tier: [model:effort]` during PICKUP. Valid tiers: `opus:high`, `opus:medium`, `sonnet:medium`. This enables parallel execution — Forge launches terminals at different tiers and each filters to matching tasks.
 
@@ -63,7 +63,6 @@ This command orchestrates the **full development pipeline** for a single task.
 
 **MODEL ROUTING**: Use the tier table in `~/.claude/agents/pipeline-manager.md` → "Model Routing" to select the correct model for each agent launch. Tier 1 (judge, code-reviewer, security-reviewer) always Opus. Tier 2 (developers, qa-engineer, etc.) Opus default. Tier 3 (technical-writer, etc.) Sonnet acceptable.
 
-**DESIGN MODE**: For design-focused work (redesigning screens, new UI themes, visual polish), use `/design-workflow` instead. It runs a design-optimized stage sequence with different agents (design-innovator, visual-architect) and a human review gate. See `~/.claude/agents/pipeline-manager.md` → "Pipeline Modes" for how modes work.
 
 ### The Pipeline
 
@@ -439,7 +438,7 @@ Any learnings from this task to add to CLAUDE.md?
 
 Walk the user through what was built, mapped to each acceptance criterion from the task. This is a human gate — no judge scoring.
 
-**Skip condition**: If the task has no acceptance criteria (legacy format without enriched `>` blocks), auto-skip: `⊘ REVIEW-WITH-USER — skipped (no acceptance criteria found)`. Also skip in design mode (DESIGN-REVIEW already covers user review).
+**Skip condition**: If the task has no acceptance criteria (legacy format without enriched `>` blocks), auto-skip: `⊘ REVIEW-WITH-USER — skipped (no acceptance criteria found)`.
 
 **Process**:
 

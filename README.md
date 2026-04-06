@@ -6,7 +6,7 @@
 
 **Reggie turns your backlog into a parallel build queue.**
 
-A structured collaboration system between a human and Claude: 37 agents, 36 commands, and a pipeline architecture with quality gates on [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+A structured collaboration system between a human and Claude: 36 agents, 35 commands, and a pipeline architecture with quality gates on [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 Reggie extends Claude Code from a single-agent tool into a coordinated multi-agent system with memory, self-improvement, and enforced quality standards.
 
@@ -116,20 +116,20 @@ Local/generated in `~/.claude/`:
 
 ## What You Get
 
-### 37 Agents
+### 36 Agents
 
-- Developers: ios, android, web, typescript, go, python, cloud, firebase
+- Developers: ios, android, web, typescript, go, python, rust, cloud, firebase
 - Quality: code-architect, judge, qa-engineer, app-tester, refactorer, code-reviewer, security-reviewer
-- Research: researcher, thought-partner, claude-architect, feature-analyzer, codebase-debugger
+- Research: researcher, thought-partner, claude-architect, codebase-debugger
 - Design: design-innovator, visual-architect
 - Content: content-producer, social-media-strategist, editor, technical-writer
 - Pipeline managers: orchestration docs for each workflow
 - Utilities: repo-advisor
 
-### 36 Commands
+### 35 Commands
 
-- Workflows: `/code-workflow`, `/audit-workflow`, `/design-workflow`, `/article-workflow`, `/new-repo`, `/onboard`, `/port`, `/debug-workflow`, plus supporting workflow commands
-- Stages: `/plan`, `/implement`, `/write-tests`, `/code-review`, `/review-security`, `/commit`
+- Workflows: `/code-workflow`, `/audit-workflow`, `/article-workflow`, `/new-repo`, `/onboard`, `/debug-workflow`, plus supporting workflow commands
+- Stages: `/plan`, `/write-tests`, `/code-review`, `/review-security`, `/commit`
 - Utilities/System: `/brainstorm`, `/research`, `/debug`, `/audit`, `/diagram`, `/status`, `/reggie-guide`, `/improve`, `/evaluate-reggie`, `/reggie-system-change`
 
 ## Key Commands

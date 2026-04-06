@@ -4,7 +4,7 @@
 
 Dump everything you want built -- features, bugs, half-formed ideas. Reggie organizes them into structured tasks, then executes them in parallel across specialized agents. Each task flows through its own pipeline with quality gates. You review the results.
 
-37 agents. 36 commands. A pipeline architecture with quality gates. All living in `~/.claude/`, all portable across projects.
+36 agents. 35 commands. A pipeline architecture with quality gates. All living in `~/.claude/`, all portable across projects.
 
 Built on Claude Code. Extends it from a single-agent tool into a coordinated multi-agent system with memory, self-improvement, and enforced quality standards.
 
@@ -55,7 +55,7 @@ Brain dump → /init-tasks → /code-workflow (×N in parallel) → Done
 
 **Step 3: `/code-workflow` (×N in parallel).** Open as many terminals as you want. Run `/code-workflow` in each. Each session auto-picks a different task from the backlog and works in its own git worktree -- implement, test, review, commit. No conflicts, no interleaved commits. Every stage has a quality gate (9.0/10 to advance).
 
-That's the primary loop. There are other pipelines -- audit, content, design, debugging, porting -- but init-tasks + code-workflow is the daily driver.
+That's the primary loop. There are other pipelines -- audit, content, debugging -- but init-tasks + code-workflow is the daily driver.
 
 ---
 

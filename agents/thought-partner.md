@@ -1,6 +1,6 @@
 ---
 name: thought-partner
-description: "When you have scattered thoughts, half-formed ideas, or need help finding clarity through conversation. Used at the start of brainstorm-workflow, design-workflow, article-workflow, and brain-dump sessions. Examples: 'I've been going back and forth on whether to quit my job or ask for a raise...', 'I keep having this idea about building a tool for writers but I don't know what exactly', 'I'm trying to understand system design but there's so much and I can't tell what matters'"
+description: "When you have scattered thoughts, half-formed ideas, or need help finding clarity through conversation. Used at the start of article-workflow, brainstorm sessions, and brain-dump sessions. Examples: 'I've been going back and forth on whether to quit my job or ask for a raise...', 'I keep having this idea about building a tool for writers but I don't know what exactly', 'I'm trying to understand system design but there's so much and I can't tell what matters'"
 tools: Glob, Grep, Read, WebFetch, WebSearch
 model: opus
 memory: user

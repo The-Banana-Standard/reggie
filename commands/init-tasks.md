@@ -475,7 +475,7 @@ organize them and compute metadata, not modify them.
 
 8. **Assign pipeline mode**: Based on task nature:
    - `[code]` — default, standard code-workflow
-   - `[design]` — UI/UX focused, should use design-workflow
+   - `[design]` — UI/UX focused, design-innovator agent leads IMPLEMENT
 
 9. **Mark plan status**:
    - `[planned]` — has a full implementation plan in task.md

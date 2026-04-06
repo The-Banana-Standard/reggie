@@ -32,11 +32,11 @@ If the guide loads, you're set.
 
 ## What You Get
 
-### 37 Agents
+### 36 Agents
 
 Specialized AI agents that Claude Code invokes as subprocesses. Each has a defined role, tools, and output format.
 
-#### Developers (8)
+#### Developers (9)
 
 | Agent | Specialty | Tools |
 |-------|-----------|-------|
@@ -46,6 +46,7 @@ Specialized AI agents that Claude Code invokes as subprocesses. Each has a defin
 | `typescript-developer` | Node.js backends, type-safe APIs, Zod, testing | Read, Web, Write, Bash |
 | `go-developer` | Go servers, stdlib routing, concurrency, Docker | Read, Web, Write, Bash |
 | `python-developer` | pandas, FastAPI, pytest, CLI tools, data processing | Read, Web, Write, Bash |
+| `rust-developer` | Rust apps, Tauri v2, async tokio, serde, systems programming | Read, Web, Write, Bash |
 | `cloud-engineer` | Firebase, GCP, Docker, Vercel, GitHub Actions, CI/CD | Read, Web, Write, Bash |
 | `firebase-debugger` | Debug Cloud Functions, Firestore, Auth, Analytics | Read, Web, Bash |
 
@@ -63,14 +64,13 @@ Specialized AI agents that Claude Code invokes as subprocesses. Each has a defin
 | `code-reviewer` | Structured code review of task diff (REVIEW stage) | Read, Web, Bash |
 | `security-reviewer` | Security audit for secrets, injection, auth/authz (SECURITY-REVIEW stage) | Read, Web, Bash |
 
-#### Research & Thinking (5)
+#### Research & Thinking (4)
 
 | Agent | Role | Tools |
 |-------|------|-------|
 | `researcher` | Build pipeline context: search codebase first, web second, calibrate depth to complexity | Read, Web, Bash |
 | `thought-partner` | Brainstorm, untangle ideas, find clarity | Read, Web |
 | `claude-architect` | Design Claude Code system components (agents, commands, workflows) with correct permissions | Read, Web |
-| `feature-analyzer` | Analyze source codebase features for porting (boundaries, deps, patterns, risks) | Read, Web |
 | `codebase-debugger` | Socratic debugging partner: hypothesis-driven investigation to locate bugs | Read, Web, Bash |
 
 #### Design (2)
@@ -89,14 +89,13 @@ Specialized AI agents that Claude Code invokes as subprocesses. Each has a defin
 | `editor` | Review and improve written content (quality gate) | Read, Web, Write |
 | `technical-writer` | Documentation, changelogs, commit messages | Read, Web, Write, Bash |
 
-#### Pipeline Managers (10)
+#### Pipeline Managers (9)
 
 | Agent | Role | Tools |
 |-------|------|-------|
 | `pipeline-manager` | Core orchestrator for feature dev, brainstorm, and tournament flows | Read, Write |
 | `audit-pipeline-manager` | Audit → prioritize → fix loop | Read, Write |
 | `content-pipeline-manager` | Article and social media production | Read, Write |
-| `port-pipeline-manager` | Port features from source to target codebase | Read, Write, Bash |
 | `repo-bootstrapper` | New project setup (scaffold → git → docs → push) | Read, Write, Bash |
 | `onboard-pipeline-manager` | Onboard existing repos (discover → CLAUDE.md → doc cleanup) | Read, Write |
 | `debug-pipeline-manager` | Conversational debugging: diagnose before fixing | Read, Bash |
@@ -110,7 +109,7 @@ Specialized AI agents that Claude Code invokes as subprocesses. Each has a defin
 |-------|------|-------|
 | `repo-advisor` | Evaluate repo readiness for agent system | Read, Write, Bash |
 
-### 38 Slash Commands
+### 35 Slash Commands
 
 Commands invoke pipelines or individual stages.
 
@@ -120,11 +119,9 @@ Commands invoke pipelines or individual stages.
 |---------|-------------|
 | `/code-workflow` | Full feature development pipeline (13 stages, tasks predefined). Requires `/init-tasks` first — RESEARCH+PLAN handled there. |
 | `/audit-workflow` | Audit codebase, prioritize findings, fix them one by one |
-| `/design-workflow` | Design pipeline for iOS or React with parallel worktrees and human review |
 | `/article-workflow` | Article production pipeline (brainstorm → draft → edit → publish) |
 | `/social-workflow` | Adapt content into platform-specific social posts |
 | `/new-repo` | Bootstrap a new repo with structure, docs, git, and GitHub push |
-| `/port` | Port a feature from source codebase to target |
 | `/onboard` | Prepare existing repo for agent system (creates CLAUDE.md, cleans docs) |
 | `/init-tasks` | Brain dump or task list → collaborative RESEARCH+PLAN per task → slim TASKS.md with metadata + `.pipeline/[slug]/task.md` files with full plans. Required before `/code-workflow`. |
 | `/debug-workflow` | Conversational debugging: diagnose before fixing |
@@ -138,7 +135,6 @@ Commands invoke pipelines or individual stages.
 |---------|-------|
 | `/research` | Research the problem space |
 | `/plan` | Design the technical approach |
-| `/implement` | Hand off plan to developer agent |
 | `/write-tests` | Write tests for implementation |
 | `/simplify` | Clean up code without changing behavior |
 | `/verify-app` | End-to-end verification |
@@ -188,7 +184,7 @@ Every pipeline follows the same pattern:
 | Flag | Effect | Available On |
 |------|--------|-------------|
 | `--yes` | Skip all confirmation gates. Pipeline runs end-to-end without user input. Automated quality gates (9.0/10) still run. | All pipeline commands |
-| `--opus` | Force `model: "opus"` on every agent launch. | `/code-workflow`, `/design-workflow` |
+| `--opus` | Force `model: "opus"` on every agent launch. | `/code-workflow` |
 
 ### Quality Gate Escalation
 
@@ -209,7 +205,7 @@ PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY
   → UPDATE-CLAUDE → REVIEW-WITH-USER → COMMIT → COMPLETE
 ```
 
-**REVIEW-WITH-USER**: After all automated checks pass, walks the user through each acceptance criterion from the task, showing what was built and asking for confirmation. Mismatches loop back to IMPLEMENT with specific feedback. Skipped for legacy tasks without acceptance criteria and in design mode (where DESIGN-REVIEW covers this).
+**REVIEW-WITH-USER**: After all automated checks pass, walks the user through each acceptance criterion from the task, showing what was built and asking for confirmation. Mismatches loop back to IMPLEMENT with specific feedback. Skipped for legacy tasks without acceptance criteria.
 
 Each `→` is a quality gate. The pipeline manager orchestrates which agent runs at each stage.
 
@@ -240,7 +236,6 @@ Agents report unrelated issues they find during work under a `## Discovered Issu
 | Pipeline | Command | Stages |
 |----------|---------|--------|
 | Audit | `/audit-workflow` | AUDIT → PRIORITIZE → [loop: IMPLEMENT → ... → COMMIT per task] |
-| Design | `/design-workflow` | BRAINSTORM → RESEARCH-TRENDS → CONCEPT → [worktree] → PROTOTYPE → TEST → REFINE → BUILD → DESIGN-REVIEW → [merge] |
 | Article | `/article-workflow` | BRAINSTORM → RESEARCH → OUTLINE → DRAFT → EDIT → HUMAN-EDIT → [loop until satisfied] → REVIEW → PUBLISH |
 | Social | `/social-workflow` | EXTRACT-SNIPPETS → ADAPT-PER-PLATFORM → REVIEW |
 | Repo Setup | `/new-repo` | PROJECT-VISION (loop) → SCAFFOLD → SEED-MEMORY → CONFIGURE-TOOLS → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH |
@@ -451,8 +446,8 @@ Add a `CLAUDE.md` to any project root. Agents read this file to understand proje
 ```
 Package version: 3.0.0
 Last updated: 2026-03-09
-Agents: 37
-Commands: 38
-Pipelines: 12 (code, audit, design, article, social, repo-setup, port-feature, onboard, debug, improve, evaluate-reggie, reggie-system-change)
+Agents: 36
+Commands: 35
+Pipelines: 10 (code, audit, article, social, repo-setup, onboard, debug, improve, evaluate-reggie, reggie-system-change)
 Features: Git worktree isolation for parallel tasks, branch-per-task with merge strategies, cross-pipeline task sharing, conflict detection, discovered issues → backlog, researcher as context builder, always-loaded language patterns in developer agents, onboard workflow for existing repos, conversational debug workflow with Socratic diagnosis, MCP tool management with three-layer routing, capability manifest for plugin/skill awareness, self-improvement loop with agent learnings, workspace-level task distribution across repos
 ```

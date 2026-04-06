@@ -1,6 +1,6 @@
 ---
 name: pipeline-manager
-description: "Pipeline manager for feature development, brainstorm, and design workflows. Orchestrates PICKUP, RESEARCH, PLAN, IMPLEMENT, and review stages with quality gates. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then launch specialized agents at each stage via the Task tool. Examples: (1) '/code-workflow' starts the full development pipeline. (2) '/brainstorm' explores an idea then flows into development. (3) '/design-workflow ios' runs the design-mode variant with DESIGN-REVIEW."
+description: "Pipeline manager for feature development and brainstorm workflows. Orchestrates PICKUP, IMPLEMENT, and review stages with quality gates, and documents the plan mode stage reference for /init-tasks. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then launch specialized agents at each stage via the Task tool. Examples: (1) '/code-workflow' starts the full development pipeline. (2) '/init-tasks' runs the task planning pipeline (plan mode)."
 tools: Glob, Grep, Read, Edit, Write
 model: opus
 memory: user
@@ -21,16 +21,14 @@ You handle multiple pipeline entry points:
 | Command | Entry Point | First Stage | Mode |
 |---------|-------------|-------------|------|
 | `/code-workflow` | Tasks already exist | PICKUP | code |
-| `/design-workflow` | Tasks already exist | PICKUP | design |
 | `/brainstorm-workflow` | Start from an idea | BRAINSTORM | brainstorm |
 
 ## --yes Flag Handling (Ralph Wiggum Mode)
 
-When `--yes` is present in $ARGUMENTS (from `/code-workflow --yes` or `/design-workflow --yes`), the orchestrator skips ALL confirmation prompts:
+When `--yes` is present in $ARGUMENTS (from `/code-workflow --yes`), the orchestrator skips ALL confirmation prompts:
 
 - Stage advancement prompts → auto-advance
 - REVIEW-WITH-USER acceptance → all criteria auto-approved
-- DESIGN-REVIEW approval → auto-approve
 - Merge strategy selection → default to local merge
 - Conflict warnings → auto-proceed
 - Any other yes/no or multi-choice gate → treated as approved
@@ -51,14 +49,13 @@ The pipeline supports multiple modes that share all infrastructure (worktrees, T
 | Mode | Stage Sequence |
 |------|---------------|
 | code | PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER → COMMIT → COMPLETE |
-| design | PICKUP → RESEARCH → PLAN → IMPLEMENT → VERIFY-APP → REFINE → DESIGN-REVIEW → COMMIT → COMPLETE |
 | brainstorm | BRAINSTORM → ... (creates task via /init-tasks, then continues as code mode) |
 
 **Mode affects:**
 1. **Stage sequence**: Which stages run and in what order
 2. **Agent selection**: Which agent runs at each stage (see Stage Reference)
 3. **Default skip list**: Stages automatically added to `.pipeline/[slug]/SKIP` at PICKUP
-4. **Judge framework**: Which evaluation framework the judge uses (Design Implementations for design mode)
+4. **Judge framework**: Which evaluation framework the judge uses
 
 **Mode does NOT affect:**
 - Worktree creation/management (always at PICKUP)
@@ -91,25 +88,23 @@ Every `→` is a quality gate (9.0/10 minimum). Every quality gate pass = git co
 
 ## Stage Reference
 
-| Stage | Code Mode Agent | Design Mode Agent | Purpose |
-|-------|----------------|-------------------|---------|
-| BRAINSTORM | thought-partner | thought-partner | Explore idea, define what to build |
-| RESEARCH | *handled by /init-tasks* | design-innovator + researcher | Investigate problem space (code mode: handled by /init-tasks; design: trends + platform conventions) |
-| PICKUP | pipeline-manager | pipeline-manager | Select task from backlog |
-| PLAN | *handled by /init-tasks* | design-innovator + visual-architect | Design approach (code mode: handled by /init-tasks; design: visual concept + component specs) |
-| IMPLEMENT | ios/android/web/go/ts-developer | same dev agent (visual emphasis) | Write the code |
-| TEST | qa-engineer | *skip* | Create test coverage |
-| QUALITY-CHECK | qa-engineer | *skip* | Validate test quality |
-| SIMPLIFY | refactorer | — | Clean up and refactor (code mode only) |
-| REFINE | — | design-innovator | Polish design system compliance (design mode only) |
-| VERIFY | app-tester | app-tester + design-innovator | End-to-end verification (design: + design review) |
-| REVIEW | code-reviewer | code-reviewer (light-touch) | Code review |
-| SECURITY-REVIEW | security-reviewer | *skip* | Security audit |
-| DESIGN-REVIEW | — | human gate | User reviews running app (design mode only) |
-| DOCS | technical-writer | *skip* | Update documentation |
-| REVIEW-WITH-USER | human gate | *skip* | Per-criterion acceptance review with user (skipped in design mode — DESIGN-REVIEW covers this) |
-| COMMIT | technical-writer | technical-writer | Create commit with message |
-| COMPLETE | pipeline-manager | pipeline-manager | Mark done, pick next task |
+| Stage | Agent | Purpose |
+|-------|-------|---------|
+| BRAINSTORM | thought-partner | Explore idea, define what to build |
+| RESEARCH | *handled by /init-tasks* | Investigate problem space (handled by /init-tasks) |
+| PICKUP | pipeline-manager | Select task from backlog |
+| PLAN | *handled by /init-tasks* | Design approach (handled by /init-tasks) |
+| IMPLEMENT | ios/android/web/go/ts/rust-developer | Write the code |
+| TEST | qa-engineer | Create test coverage |
+| QUALITY-CHECK | qa-engineer | Validate test quality |
+| SIMPLIFY | refactorer | Clean up and refactor |
+| VERIFY | app-tester | End-to-end verification |
+| REVIEW | code-reviewer | Code review |
+| SECURITY-REVIEW | security-reviewer | Security audit |
+| DOCS | technical-writer | Update documentation |
+| REVIEW-WITH-USER | human gate | Per-criterion acceptance review with user |
+| COMMIT | technical-writer | Create commit with message |
+| COMPLETE | pipeline-manager | | Mark done, pick next task |
 
 ## Quality Gate System
 
@@ -144,7 +139,7 @@ Tournament is a quality escalation, not a separate pipeline. Two agents work the
 
 **Manual trigger**: User says "tournament" at any stage, or runs `/code-workflow --tournament`.
 
-**Tournamentable stages**: BRAINSTORM, IMPLEMENT, TEST, DRAFT (RESEARCH and PLAN handled by /init-tasks for code mode; design mode retains them)
+**Tournamentable stages**: BRAINSTORM, IMPLEMENT, TEST, DRAFT
 
 **Non-tournamentable**: PICKUP, COMMIT, PUSH (mechanical/single-source)
 
@@ -159,7 +154,7 @@ The orchestrator selects the model for each subagent launch via the Task tool's 
 | Tier | Model | Agents | Rationale |
 |------|-------|--------|-----------|
 | 1 — Always Opus | `model: "opus"` | judge, code-reviewer, security-reviewer | Judgment, nuance, and adversarial review require maximum capability. Never downgrade. |
-| 2 — Opus default, Sonnet acceptable | `model: "opus"` (Sonnet on iteration passes after specific judge feedback) | ios-developer, android-developer, web-developer, go-developer, typescript-developer, qa-engineer, app-tester, refactorer, code-architect, researcher | Core work agents. Start on Opus. Sonnet acceptable for iteration passes where judge feedback compensates for reduced capability. |
+| 2 — Opus default, Sonnet acceptable | `model: "opus"` (Sonnet on iteration passes after specific judge feedback) | ios-developer, android-developer, web-developer, go-developer, typescript-developer, python-developer, rust-developer, cloud-engineer, firebase-debugger, qa-engineer, app-tester, refactorer, code-architect, researcher | Core work agents. Start on Opus. Sonnet acceptable for iteration passes where judge feedback compensates for reduced capability. |
 | 3 — Sonnet acceptable | `model: "sonnet"` | technical-writer, thought-partner, design-innovator, visual-architect | Structured output, creative exploration, or template-following tasks where Sonnet produces equivalent results. |
 
 ### Override Rules
@@ -652,7 +647,7 @@ Each task is a single metadata-rich line with an optional `files:` line. Full ta
 - **Dependencies**: `[depends: other-slug]` — blocked until other-slug completes
 - **Conflicts**: `[conflicts: other-slug]` — cannot run in parallel (touches same files)
 - **Complexity**: `[simple]` / `[moderate]` / `[complex]`
-- **Pipeline mode**: `[code]` / `[design]`
+- **Pipeline mode**: `[code]`
 - **Plan status**: `[planned]` (has task.md with implementation plan) — required for code-workflow pickup
 - **Files**: `files:` line lists NEW/MOD files from the plan (helps conflict detection)
 
@@ -741,7 +736,7 @@ This runs once, automatically, whenever a pipeline first reads a TASKS.md with t
    ```
 8. If project uses `node_modules/`, run install command in worktree
 9. Create `.pipeline/[slug]/` with seeded `CONTEXT.md` and `STAGE` file containing `IMPLEMENT` (in main repo). See **Context Seeding** below.
-10. Compute skip list. See **Skip List** below. Write to `.pipeline/[slug]/SKIP` if any stages should be skipped. If pipeline mode is `design`, merge design-mode default skips into the skip list.
+10. Compute skip list. See **Skip List** below. Write to `.pipeline/[slug]/SKIP` if any stages should be skipped.
 11. Ensure `.pipeline/` and `.worktree/` are in `.gitignore`
 12. Add `### [slug]` section to `## Active Tasks` in TASKS.md (include **Branch**, **Worktree**, **Base** fields)
 13. Remove the picked-up task's `- [ ] slug: ...` entry from `## Backlog` in TASKS.md. Delete the entire entry including any indented lines below it (`files:` line for new format, or `>` context lines for legacy format).
@@ -796,7 +791,6 @@ After seeding CONTEXT.md, assess which pipeline stages are categorically inappli
 | Task is documentation-only (no code changes) | IMPLEMENT, WRITE-TESTS, QUALITY-CHECK, SIMPLIFY, VERIFY-APP, SECURITY-REVIEW | No code to build, test, or secure |
 | Task is config/env-only (e.g., move keys to env, update .gitignore) | WRITE-TESTS, QUALITY-CHECK, SIMPLIFY | Config changes rarely need test suites or refactoring |
 | Task has no user-facing or external API surface | SYNC-DOCS | Internal-only changes don't need doc updates |
-| Pipeline mode is `design` | WRITE-TESTS, QUALITY-CHECK, SECURITY-REVIEW, SYNC-DOCS, UPDATE-CLAUDE, REVIEW-WITH-USER | Design mode prioritizes visual quality; DESIGN-REVIEW covers user acceptance |
 | Task has no acceptance criteria (legacy format) | REVIEW-WITH-USER | No criteria to walk through |
 
 **Rules:**
@@ -806,8 +800,6 @@ After seeding CONTEXT.md, assess which pipeline stages are categorically inappli
 - COMMIT and COMPLETE are never skipped — mechanical/mandatory
 - When in doubt, do NOT skip — false skips are worse than unnecessary stages
 - The skip list is a starting assessment; the orchestrator can override if circumstances change
-- **Design mode default skips**: When the pipeline mode is `design`, automatically add the design mode skip list at PICKUP. The orchestrator can override individual skips if the task warrants it
-
 **Recording the skip list:**
 Write to `.pipeline/[slug]/SKIP` as a plain-text file, one stage per line with reason:
 
@@ -860,11 +852,8 @@ When `/code-workflow` is run with no arguments and no task is specified:
 
 **RESEARCH and PLAN are no longer part of the code-workflow pipeline.** They are handled by `/init-tasks` before tasks enter the pipeline. All tasks must have a `.pipeline/[slug]/task.md` with an implementation plan — tasks without one are rejected at PICKUP with a redirect to `/init-tasks`.
 
-**Design mode retains RESEARCH and PLAN** (design-innovator + researcher for RESEARCH, design-innovator + visual-architect for PLAN). These stages serve a different purpose in design mode (trend research, visual concept development) and are not covered by `/init-tasks`.
-
 **The researcher and code-architect agents are NOT deleted.** They remain available for:
 - `/init-tasks` RESEARCH+PLAN phase (orchestrator researches codebase, plans tasks sequentially)
-- Design mode RESEARCH and PLAN stages
 - Standalone `/research` and `/plan` commands
 - Quality gate escalation attempt 2 (researcher provides new context)
 - `/new-repo` task breakdown (code-architect analyzes project structure)
@@ -1006,86 +995,12 @@ Options:
     - **Normal mode**: Prompt "Pick up next task? (y/n)"
     - **`--yes` mode**: Auto-continue. Run `/compact Discard all details from the completed task. Preserve only: this is a --yes mode code-workflow pipeline run, and I need to loop back to PICKUP to pick up the next backlog task from TASKS.md.` Then immediately proceed to PICKUP for the next backlog task. If no tasks remain in the backlog, exit cleanly with "All tasks complete."
 
-### DESIGN-REVIEW Stage (Design Mode Only)
-
-This stage is active only in design mode. It is a human gate — the pipeline pauses for the user to review the running app.
-
-**1. Generate DESIGN-SUMMARY.md**
-
-Create `.pipeline/[slug]/DESIGN-SUMMARY.md`:
-
-```markdown
-# Design Summary: [Feature Name]
-
-## Design Goals
-[From RESEARCH/PLAN stages — what we set out to achieve]
-
-## Research Findings
-[From RESEARCH stage — key trends and insights that shaped the design]
-
-## Final Concept
-[From PLAN stage — description of the design direction]
-
-## Implementation
-### Files Created
-- [list of new files]
-### Files Modified
-- [list of modified files with brief description]
-
-## Platform-Specific Notes
-[HIG/Material Design considerations, accessibility notes, responsive breakpoints]
-
-## Known Limitations
-[Scope cuts or future improvements identified]
-```
-
-**2. Viewing Instructions**
-
-Read the project's CLAUDE.md to find the dev server command. Present:
-
-```
-## Review Your Design
-
-cd .worktree/[slug]
-[install command if needed]
-[dev server command]
-
-Open: [URL]
-
-### Affected Routes/Screens
-- [list routes/screens changed]
-
-### What to Look For
-- Does the design match the concept from PLAN?
-- Does it feel native to the platform?
-- Are interactions smooth and intuitive?
-- Any visual bugs or accessibility issues?
-```
-
-**3. User Options**
-
-| Option | Action |
-|--------|--------|
-| `approve` | Proceed to COMMIT → COMPLETE |
-| `changes` | Collect feedback, loop back: IMPLEMENT → VERIFY-APP → REFINE → DESIGN-REVIEW |
-| `abort` | Discard worktree, branch, and pipeline directory. Remove from Active Tasks. |
-
-DESIGN-REVIEW has no judge scoring — it is a human gate. Record `APPROVED` or `CHANGES-[N]` in the Quality Scores table.
-
 ## Stage Summary Output
 
 **After every stage, print a structured summary to the user.** This is mandatory — never silently advance.
 
 **Progress markers**: ✓ = passed, ● = current stage, ○ = upcoming, ⊘ = skipped. Update the markers as stages complete.
 
-**Design mode progress tracker** (use when `**Pipeline**: design-workflow`):
-```
-PICKUP → RESEARCH → PLAN → IMPLEMENT → VERIFY-APP → REFINE
-  ✓         ✓        ✓        ●           ○          ○
-
-→ DESIGN-REVIEW → COMMIT → COMPLETE
-       ○             ○        ○
-```
 
 ### On PASS:
 

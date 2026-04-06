@@ -58,14 +58,12 @@ THE PRIMARY WORKFLOW
   That's it. /init-tasks plans, /code-workflow executes.
 
 OTHER WORKFLOWS
-  /design-workflow         Design mode pipeline (visual quality focus, human review)
   /article-workflow        Write an article (brainstorm → publish)
   /article-workflow edit   Polish an existing draft
   /social-workflow         Turn content into social posts
   /audit-workflow          Audit and fix a codebase
   /debug-workflow          Conversational debugging (diagnose → fix)
   /onboard                 Prepare existing repo for agent system
-  /port                    Port feature from another codebase
   /new-repo               Bootstrap a new project
   /improve                Process agent learnings, improve agent/command files
   /evaluate-reggie        Evaluate agent system architecture, propose improvements
@@ -79,7 +77,6 @@ PIPELINE CONTROLS — while inside a workflow
 
 INDIVIDUAL STAGES — run outside a pipeline
   /plan                    Design an implementation plan
-  /implement               Hand off plan to developer agent
   /write-tests             Write tests
   /simplify                Clean up code
   /verify-app              End-to-end verification
@@ -118,13 +115,13 @@ Try: /reggie-guide pipelines, /reggie-guide agents, /reggie-guide quality gates,
 
 Auto-approve ALL confirmation gates in any pipeline command. The pipeline runs end-to-end without stopping for user input — no stage confirmations, no approval prompts, no human review gates. Full send.
 
-- **Applies to**: All pipeline commands (`/code-workflow`, `/design-workflow`, `/reggie-system-change`, `/evaluate-reggie`, `/improve`, `/audit-workflow`, `/article-workflow`, `/social-workflow`, `/debug-workflow`, `/port`, `/onboard`)
+- **Applies to**: All pipeline commands (`/code-workflow`, `/reggie-system-change`, `/evaluate-reggie`, `/improve`, `/audit-workflow`, `/article-workflow`, `/social-workflow`, `/debug-workflow`, `/onboard`)
 - **Does NOT bypass**: Automated quality gates (9.0/10 judge scoring still runs and iterates)
 - **Usage**: Append `--yes` to any pipeline command, e.g. `/code-workflow --yes`, `/reggie-system-change --yes [description]`
 
 **`--opus`**
 
-Force `model: "opus"` on every agent launch for the entire pipeline run. Available on `/code-workflow` and `/design-workflow`.
+Force `model: "opus"` on every agent launch for the entire pipeline run. Available on `/code-workflow`.
 
 ---
 
@@ -149,10 +146,8 @@ A pipeline is a sequence of stages that takes work from start to finish. Each st
 | Article | `/article-workflow` | BRAINSTORM → RESEARCH → OUTLINE → DRAFT → EDIT → HUMAN-EDIT → [loop until satisfied] → REVIEW → PUBLISH |
 | Article (edit) | `/article-workflow edit` | HUMAN-EDIT → [satisfied?] → RESEARCH PLAN → RESEARCH → DRAFT → EDIT → HUMAN-EDIT (loop until satisfied) → REVIEW → PUBLISH |
 | Social | `/social-workflow` | EXTRACT-SNIPPETS → ADAPT-PER-PLATFORM → REVIEW |
-| Design | `/design-workflow` | PICKUP → RESEARCH → PLAN → IMPLEMENT → VERIFY-APP → REFINE → DESIGN-REVIEW → COMMIT → COMPLETE (design mode of code-workflow) |
 | Audit | `/audit-workflow` | AUDIT → PRIORITIZE → [loop: RESEARCH → PLAN → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → COMMIT per task] |
 | Repo Setup | `/new-repo` | PROJECT-VISION (loop with 4 agents until satisfied) → SCAFFOLD → SEED-MEMORY → CONFIGURE-TOOLS → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH → handoff to `/init-tasks` |
-| Port Feature | `/port` | ANALYZE → PLAN → IMPLEMENT → VERIFY |
 | Onboard | `/onboard` | DISCOVER → VALIDATE → ANALYZE → DOC-AUDIT → GENERATE → SEED-MEMORY → CONFIGURE-TOOLS → REFINE → handoff to `/init-tasks` |
 | Improve | `/improve` | TOOLING-CHECK → COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE |
 
@@ -173,12 +168,12 @@ An agent is a specialized AI subprocess that Claude Code launches via the Task t
 
 | Category | Agents |
 |----------|--------|
-| Developers (8) | ios-developer, android-developer, web-developer, typescript-developer, go-developer, python-developer, cloud-engineer, firebase-debugger |
+| Developers (9) | ios-developer, android-developer, web-developer, typescript-developer, go-developer, python-developer, rust-developer, cloud-engineer, firebase-debugger |
 | Quality (7) | code-architect, judge, qa-engineer, app-tester, refactorer, code-reviewer, security-reviewer |
-| Research (5) | researcher, thought-partner, claude-architect, feature-analyzer, codebase-debugger |
+| Research (4) | researcher, thought-partner, claude-architect, codebase-debugger |
 | Design (2) | design-innovator, visual-architect |
 | Content (4) | content-producer, social-media-strategist, editor, technical-writer |
-| Pipeline Managers (10) | pipeline-manager, audit-pipeline-manager, content-pipeline-manager, port-pipeline-manager, repo-bootstrapper, onboard-pipeline-manager, debug-pipeline-manager, improve-pipeline-manager, evaluate-reggie-manager, reggie-system-change-manager |
+| Pipeline Managers (9) | pipeline-manager, audit-pipeline-manager, content-pipeline-manager, repo-bootstrapper, onboard-pipeline-manager, debug-pipeline-manager, improve-pipeline-manager, evaluate-reggie-manager, reggie-system-change-manager |
 | Utilities (1) | repo-advisor |
 
 **Where do they live?**
@@ -650,7 +645,7 @@ Run `/status`.
 The system escalates automatically: iterate → research → tournament → ask you. If you want to force it forward, say "skip".
 
 **Can I run stages individually outside a pipeline?**
-Yes. Commands like `/plan`, `/implement`, `/code-review`, `/review-security` etc. work standalone.
+Yes. Commands like `/plan`, `/write-tests`, `/code-review`, `/review-security` etc. work standalone.
 
 ---
 
@@ -763,12 +758,10 @@ The researcher caches **web research findings only** (external best practices, l
 | Quickly investigate a bug | `/debug` | Lightweight, no pipeline |
 | Audit codebase health | `/audit-workflow` | Full pipeline: audit → prioritize → fix loop |
 | Quick codebase assessment | `/audit` | One-shot audit, no fixes |
-| Design a UI feature | `/design-workflow` | Design mode pipeline with visual quality focus and human review |
 | Set up a new project | `/new-repo` | Scaffold → git → docs → push → `/init-tasks` to plan tasks |
 | Prepare an existing repo for agents | `/onboard` | Discovery → CLAUDE.md → agent memory → `/init-tasks` to plan tasks |
 | Write a technical article | `/article-workflow` | Brainstorm → draft → edit → publish |
 | Create social media posts | `/social-workflow` | Extract → adapt per platform → review |
-| Port a feature from another codebase | `/port` | Analyze → plan → implement → verify |
 | Plan an implementation (no coding) | `/plan` | Produces an architect plan only |
 | Review code I just wrote | `/code-review` | Structured code review of current diff |
 | Check for security issues | `/review-security` | Security audit of current changes |
