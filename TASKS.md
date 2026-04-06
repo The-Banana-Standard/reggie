@@ -4,7 +4,7 @@
 
 ### general-cleanup
 **Task**: Clean up stale files, counts, and references across the repo
-**Stage**: IMPLEMENT
+**Stage**: REVIEW
 **Pipeline**: code-workflow
 **Branch**: task/general-cleanup
 **Worktree**: .worktree/general-cleanup
@@ -17,12 +17,29 @@
 - MOD: docs/agents-is-all-you-need.md
 - MOD: docs/reggie-quickstart.md
 - MOD: docs/PORTABLE-PACKAGE.md
-- DEL: articles/
-- DEL: .pipeline/_tmp/pre-filter-rewrite-*.bundle
+- MOD: commands/reggie-guide.md
+- MOD: commands/code-workflow.md
+- MOD: commands/init-tasks.md
+- MOD: agents/pipeline-manager.md
+- MOD: agents/judge.md
+- MOD: agents/thought-partner.md
+- NEW: agents/rust-developer.md
+- DEL: agents/feature-analyzer.md
+- DEL: agents/port-pipeline-manager.md
+- DEL: commands/design-workflow.md
+- DEL: commands/implement.md
+- DEL: commands/port.md
+- DEL: articles/ (untracked)
+- DEL: .pipeline/_tmp/ bundle (untracked)
 **Quality Scores**:
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
+| IMPLEMENT | 9.24 | 2 | PASS |
+| WRITE-TESTS | SKIP | - | SKIP |
+| QUALITY-CHECK | SKIP | - | SKIP |
+| SIMPLIFY | SKIP | - | SKIP |
+| VERIFY-APP | SKIP | - | SKIP |
+| REVIEW | - | 0 | CURRENT |
 
 ---
 
