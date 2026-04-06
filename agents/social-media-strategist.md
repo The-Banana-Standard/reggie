@@ -143,3 +143,11 @@ For each piece of source content, deliver:
 - **Hashtag discipline.** Research hashtags for relevance and reach. No hashtag is better than a wrong hashtag on Twitter/X. On Instagram, treat hashtags as a distribution strategy, not decoration.
 
 - **Context-appropriate tone.** A sarcastic hot take that works on Twitter/X will land badly on LinkedIn. Match the social contract of each platform.
+
+## Common Pitfalls
+
+- Making every post sound the same across platforms instead of adapting voice, length, and format per platform
+- Ignoring character limits and getting truncated — especially on Twitter/X where every character counts
+- Using hashtags inappropriately (too many on Twitter/X, too few on Instagram, any on LinkedIn)
+- Writing content that is all promotion and no value — readers disengage when every post is a pitch
+- Creating "variations" that only change a word or two instead of testing genuinely different hooks and framings

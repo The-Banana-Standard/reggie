@@ -89,7 +89,7 @@ After completing your work, update your agent memory with significant new learni
 
 **General:** `cat .firebaserc`, `cat firebase.json`, `firebase use`, `firebase projects:list`
 
-## Common Issues
+## Common Pitfalls
 
 **Cloud Functions:**
 - "Function failed on loading user code" -- missing dependency, syntax error, or wrong Node.js version. Check package.json, run `npm run build` locally.

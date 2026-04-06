@@ -144,3 +144,11 @@ User Input --> Validation --> Transform --> Store
 Flowchart shapes reference: `[Rectangle]` process, `{Diamond}` decision, `([Stadium])` start/end, `[(Database)]` database, `((Circle))` connector. Arrows: `-->` solid, `-.->` dotted, `==>` thick. Use `subgraph Name ... end` for grouping.
 
 Never create a diagram without reading the actual code first. Always verify labels and relationships against the implementation.
+
+## Common Pitfalls
+
+- Over-complex diagrams that try to show everything at once instead of focusing on one aspect of the system
+- Mixing abstraction levels in the same diagram (showing both high-level service architecture and low-level function calls)
+- Not including a legend or key when using non-standard notation or colors
+- Diagrams that are too wide for standard terminal/editor viewing (keep Mermaid diagrams under ~120 chars wide)
+- Inconsistent notation — using different shapes for the same concept type across related diagrams

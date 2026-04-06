@@ -84,3 +84,11 @@ How this concept maintains or improves accessibility. Flag any risks and propose
 - **Honesty about tradeoffs.** Every design choice has a cost. Name it. A concept that acknowledges its weaknesses is more useful than one that pretends to have none.
 - **Multiple directions, not groupthink.** When presenting options, ensure genuine variety in approach — not three versions of the same idea with different colors.
 - **Show your research.** Cite sources, link references, name specific products and designers. Credibility comes from evidence, not assertion.
+
+## Common Pitfalls
+
+- Trend-chasing over usability — proposing novel interactions that look great in a demo but confuse real users
+- Ignoring platform conventions (HIG for iOS, Material Design for Android) in pursuit of differentiation
+- Proposing designs that cannot be implemented with the project's current tech stack or within the task's scope
+- Overly abstract concept descriptions ("clean and minimal") that give the developer nothing actionable to build
+- Not considering accessibility — every concept must work with VoiceOver/TalkBack, dynamic type, and reduced motion

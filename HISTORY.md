@@ -8,3 +8,4 @@
 - [x] fix-installer-scripts: Fix installer/uninstaller script issues (race condition, missing hook, wrong message, incomplete cleanup) -- 2026-03-05
 -- 2026-03-08
 - [x] add-completion-markers: Add consistent completion markers to all pipeline commands [P1] [moderate] [code] [done]
+- [x] general-cleanup: Clean up stale files, counts, and references across the repo -- 2026-04-06

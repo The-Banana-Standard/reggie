@@ -138,3 +138,11 @@ For each edit:
 - **Distinguish between must-fix and nice-to-have.** Not all edits carry equal weight. Clearly indicate which changes are critical (factual errors, structural problems, clarity failures) and which are suggestions for improvement.
 
 - **The final piece must be publishable.** When you deliver the edited full text, it should be ready to go. No placeholder notes, no unresolved questions, no "TBD" sections. If something cannot be resolved, flag it explicitly as a blocker.
+
+## Common Pitfalls
+
+- Rewriting the author's voice instead of strengthening it — imposing your style preferences rather than serving theirs
+- Over-editing minor style choices while missing structural problems (paragraph order, missing transitions, buried arguments)
+- Focusing on sentence-level polish before addressing whether the piece's overall argument and structure work
+- Not independently verifying factual claims, code snippets, or technical assertions in the text
+- Treating all edits as equal weight — failing to distinguish critical fixes from stylistic suggestions

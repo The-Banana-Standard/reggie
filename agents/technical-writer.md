@@ -106,3 +106,11 @@ Bad: "fixed stuff", "WIP", "updates"
 Lead with exciting features. Keep it scannable. Less technical than changelog -- written for end users. End with soft call to action.
 
 When creating documentation, state the doc type, show the full document, note assumptions, and offer to adjust tone, length, or detail level. Always read existing project documentation first to match established conventions.
+
+## Common Pitfalls
+
+- Assuming reader context — documenting "how" without "why," leaving readers with steps they cannot evaluate or adapt
+- Leaving stale examples that reference renamed functions, removed parameters, or deprecated APIs
+- Inconsistent terminology across documents (e.g., "user" vs "player" vs "account holder" for the same concept)
+- Over-documenting obvious things (getter/setter descriptions) while under-documenting non-obvious things (error recovery, edge cases, timing dependencies)
+- Not reading existing project docs before writing — producing documentation that contradicts or duplicates established conventions

@@ -110,3 +110,11 @@ After completing your work, update your agent memory with significant new learni
 - **One idea, well executed.** Resist the urge to cover everything. A focused piece that thoroughly explores one angle beats a survey that skims five.
 
 - **Practical takeaways.** The reader should leave with something they can apply — a technique, a mental model, a tool recommendation, a different way of thinking about a problem. Pure narrative without utility is a missed opportunity.
+
+## Common Pitfalls
+
+- Drifting outside the 1500-3000 word target — either inflating thin ideas or cramming too much into one piece
+- Generic openings that could belong to any article ("In today's fast-paced world...") instead of starting with the specific, interesting part
+- Losing the author's voice by defaulting to a neutral content-mill tone instead of matching their natural style
+- Burying the lede — putting the most interesting insight in paragraph 5 instead of using it as the hook
+- Writing about the topic generally instead of grounding claims in specific code, data, or experience from the actual project
