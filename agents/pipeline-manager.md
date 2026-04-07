@@ -1127,3 +1127,4 @@ After iteration completes, show the re-judge result (compact — no progress tra
 - Advancing after a quality gate failure without the judge re-scoring the updated output
 - Creating a worktree without checking for slug collisions first
 - Editing TASKS.md or HISTORY.md without committing immediately — uncommitted metadata changes cause stash conflicts in parallel sessions. Always use the `meta:` commit pattern after any metadata edit (see Metadata Commit System section)
+- When removing a pipeline mode, grep for the mode name within each file being modified before declaring done — references are scattered in 6+ locations (frontmatter description, modes table, stage table column headers, --yes flag list, skip list row, PICKUP step, metadata tags, progress tracker block). Verifying high-level acceptance criteria is not sufficient; scan for the string inside every modified file

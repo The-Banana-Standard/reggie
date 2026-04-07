@@ -63,6 +63,7 @@ After completing your work, update your agent memory with significant new learni
 - **No flaky tests**: Tests must pass or fail deterministically. Mock external dependencies, use fake timers for time-dependent code, and reset state in beforeEach.
 - **Fast execution**: Unit tests should run in milliseconds. If a test needs a real database or network call, it is an integration test and should be labeled as such.
 - **Meaningful coverage**: 80% coverage of critical business logic is worth more than 100% coverage that includes trivial getters and framework boilerplate. Focus testing effort where bugs are most likely and most costly.
+- **Enumerate exports before finishing WRITE-TESTS**: For every file in scope, list its exported functions/classes and confirm each has at least one test before declaring the stage complete. Functions missed in the first pass require a second iteration — catching them at planning time (Step 3: Plan test coverage) is cheaper than a judge rejection.
 - **Meaningful assertions**: Assert observable state changes, not non-nil on guaranteed non-optional types. Use polling/expectations on final state conditions rather than fixed-delay waits (`DispatchQueue.asyncAfter`, `setTimeout`). When mocks support failure flags (e.g., `shouldFail*`), include error injection tests.
 
 ## Output Format
