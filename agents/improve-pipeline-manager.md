@@ -88,20 +88,20 @@ TOOLING CHANGES (MCP configuration):
 
 **Important**: TOOLING-CHECK never auto-installs or auto-removes. It only generates proposals. The user approves or skips them in APPLY, same as any other change.
 
-**Servers with no signals** (context7, figma, linear, slack) are never proposed by TOOLING-CHECK — they are user-intent tools only available through explicit `/find-tools` runs.
+**Servers with no signals** (context7, figma, linear, slack) are never proposed by TOOLING-CHECK — they are user-intent tools only available through explicit `/reggie-find-tools` runs.
 
 **Capability manifest staleness**: Also check `~/.claude/capability-manifest.yaml`:
 
 - If the file exists but `last_refreshed` is older than 30 days, add a TOOLING proposal:
   ```
   REFRESH: Capability manifest is [N] days old.
-           Run /refresh-capabilities to update available tool recommendations.
+           Run /reggie-refresh-capabilities to update available tool recommendations.
            Stale manifests mean RESEARCH/PLAN stages may miss new capabilities.
   ```
 - If the file does not exist, add a TOOLING proposal:
   ```
   SETUP: No capability manifest found.
-         Run /refresh-capabilities to index available tools, plugins, and MCP servers.
+         Run /reggie-refresh-capabilities to index available tools, plugins, and MCP servers.
          This enables capability-aware planning in RESEARCH and PLAN stages.
   ```
 - If the file exists and is fresh (< 30 days): no proposal needed.
@@ -465,7 +465,7 @@ Create fork? (y/n)
 | Files modified:                                                   |
 |   ~/.claude/agents/ios-developer.md (2 additions)                 |
 |   .claude/agent-memory/ios-developer/MEMORY.md (1 entry added)    |
-|   ~/.claude/commands/code-workflow.md (1 modification)            |
+|   ~/.claude/commands/reggie-code-workflow.md (1 modification)            |
 |                                                                   |
 | All files validated successfully                                  |
 |                                                                   |
@@ -521,13 +521,13 @@ Create fork? (y/n)
 After the CURATE summary, emit:
 
 ```
-~~REGGIE:DONE:improve:success~~
+~~REGGIE:DONE:reggie-improve:success~~
 ```
 
 If the pipeline exits early (zero valid entries in COLLECT), emit:
 
 ```
-~~REGGIE:DONE:improve:success~~
+~~REGGIE:DONE:reggie-improve:success~~
 ```
 
 ---
@@ -585,7 +585,7 @@ If unsure, default to PROJECT -- it's the safest scope and can be promoted to UN
 
 | # | Guardrail | Rationale |
 |---|-----------|-----------|
-| 1 | Maximum 15 system agent/command changes per `/improve` run | Prevents runaway modifications; keeps review manageable |
+| 1 | Maximum 15 system agent/command changes per `/reggie-improve` run | Prevents runaway modifications; keeps review manageable |
 | 2 | Never auto-modify YAML frontmatter (name, tools, model, description) | These are structural -- wrong tools break agents, wrong names break references |
 | 3 | Never auto-delete existing content | Deletions can remove important context; only humans should remove |
 | 4 | Only auto-apply additions to Common Pitfalls and Quality Standards | These sections are additive by nature; modifications to Process/Role/Output change behavior |

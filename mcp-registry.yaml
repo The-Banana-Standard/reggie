@@ -1,5 +1,5 @@
 # MCP Registry — Curated mapping of project signals to MCP servers
-# Used by /find-tools, /onboard, /new-repo, and /improve (TOOLING-CHECK)
+# Used by /reggie-find-tools, /reggie-onboard, /reggie-new-repo, and /reggie-improve (TOOLING-CHECK)
 #
 # Signal types:
 #   files — Config files that indicate this tech is in use
@@ -99,7 +99,7 @@ servers:
     env_vars: []
     token_profile: low
     category: productivity
-    notes: "OAuth-based. User-intent tool — only suggested in /find-tools OPTIONAL."
+    notes: "OAuth-based. User-intent tool — only suggested in /reggie-find-tools OPTIONAL."
     relevant_agents: []
 
   linear:
@@ -115,7 +115,7 @@ servers:
     env_vars: []
     token_profile: low
     category: productivity
-    notes: "User-intent tool — only suggested in /find-tools OPTIONAL."
+    notes: "User-intent tool — only suggested in /reggie-find-tools OPTIONAL."
     relevant_agents: []
 
   stripe:
@@ -146,7 +146,7 @@ servers:
     env_vars: []
     token_profile: low
     category: docs
-    notes: "Docs lookup tool. No signal match — always shown in /find-tools OPTIONAL."
+    notes: "Docs lookup tool. No signal match — always shown in /reggie-find-tools OPTIONAL."
     relevant_agents: [researcher]
 
   chrome-devtools:
@@ -161,7 +161,7 @@ servers:
     env_vars: []
     token_profile: high
     category: frontend
-    notes: "Currently enabled globally in many setups. /find-tools offers to move to project-level for web projects."
+    notes: "Currently enabled globally in many setups. /reggie-find-tools offers to move to project-level for web projects."
     relevant_agents: [web-developer, app-tester, codebase-debugger]
 
   sentry:
@@ -192,7 +192,7 @@ servers:
     env_vars: ["FIGMA_ACCESS_TOKEN"]
     token_profile: medium
     category: frontend
-    notes: "Design-driven, no file signals. User-intent tool — only in /find-tools OPTIONAL."
+    notes: "Design-driven, no file signals. User-intent tool — only in /reggie-find-tools OPTIONAL."
     relevant_agents: [web-developer, ios-developer, android-developer, design-innovator]
 
   docker:

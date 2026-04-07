@@ -59,9 +59,9 @@ Each angle gets 2-3 variations for A/B testing.
 ### Arguments
 
 ```
-/social-workflow                           # Find recent content to adapt
-/social-workflow articles/streak-post.md   # Adapt specific file
-/social-workflow $ARGUMENTS
+/reggie-social-workflow                           # Find recent content to adapt
+/reggie-social-workflow articles/streak-post.md   # Adapt specific file
+/reggie-social-workflow $ARGUMENTS
 ```
 
 ### Workflow Controls
@@ -142,7 +142,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
    - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
-   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/improve` run
+   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
    - Clear processed minor entries from AGENT-IMPROVE.md; keep major entries for later
 
 **Summary box** (print after AUTO-IMPROVE completes or skips):
@@ -162,7 +162,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
 ### Example Session
 
 ```
-> /social-workflow articles/streak-post.md
+> /reggie-social-workflow articles/streak-post.md
 
 ## EXTRACT-SNIPPETS Stage
 Reading "What Duolingo Gets Wrong About Streaks"...

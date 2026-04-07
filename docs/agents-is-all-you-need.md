@@ -55,7 +55,7 @@ The system improves itself through two mechanisms that work together: collection
 
 **CAPTURE-LEARNINGS** is the collection step. It's embedded at the end of every pipeline. After a pipeline completes, the orchestrator reflects on what went well and what didn't. It reviews quality gate patterns, missed context, investigation dead ends, scoring calibrations that felt off. These learnings get appended to `~/.claude/AGENT-IMPROVE.md` with a standardized format and classification.
 
-**`/improve`** is the processing engine. It runs automatically at the end of every pipeline. If `AGENT-IMPROVE.md` has accumulated entries, the system processes them without us having to think about it.
+**`/reggie-improve`** is the processing engine. It runs automatically at the end of every pipeline. If `AGENT-IMPROVE.md` has accumulated entries, the system processes them without us having to think about it.
 
 The result is a system that gets measurably better at the things it does repeatedly. The judge learns to calibrate. The researcher learns where to look first. The architect learns which patterns work in which contexts.
 
@@ -69,29 +69,29 @@ The full Reggie system has 36 agents and 35 commands, but the core experience is
 
 Getting a project ready for Reggie.
 
-1. **Repo Setup** (`/new-repo`) — Project vision session, scaffolding, git setup.
-2. **Onboard** (`/onboard`) — Prepare an existing repo for Reggie. Seven stages from discovery through refinement, including memory-seeding that pre-populates agent knowledge based on the detected tech stack.
+1. **Repo Setup** (`/reggie-new-repo`) — Project vision session, scaffolding, git setup.
+2. **Onboard** (`/reggie-onboard`) — Prepare an existing repo for Reggie. Seven stages from discovery through refinement, including memory-seeding that pre-populates agent knowledge based on the detected tech stack.
 
 ### Coding
 
 Building, fixing, and maintaining code.
 
-3. **Init Tasks** (`/init-tasks`) — Takes rough notes or a brain dump and organizes them into structured TASKS.md entries through four stages: intake, clarification, codebase-aware grouping by the code-architect agent, and formalization with P1/P2/P3 priorities and dependency tags.
-4. **Code Development** (`/code-workflow`) — The core of the system. Methodical feature development through eleven stages: research, planning, implementation, testing, quality checks, simplification, verification, review, security review, documentation sync, and capture-learnings. Picks up already-created tasks from TASKS.md.
-5. **Audit Pipeline** (`/audit-workflow`) — Runs security and quality audits on existing code, adds findings to TASKS.md with structured context (What/Where/Risk/Fix/Effort), then flows into the code pipeline to fix issues.
-6. **Debug** (`/debug-workflow`) — Socratic debugging: hypothesis-driven investigation with convergence checks. Diagnosis only — no fixes proposed until the problem is understood.
+3. **Init Tasks** (`/reggie-init-tasks`) — Takes rough notes or a brain dump and organizes them into structured TASKS.md entries through four stages: intake, clarification, codebase-aware grouping by the code-architect agent, and formalization with P1/P2/P3 priorities and dependency tags.
+4. **Code Development** (`/reggie-code-workflow`) — The core of the system. Methodical feature development through eleven stages: research, planning, implementation, testing, quality checks, simplification, verification, review, security review, documentation sync, and capture-learnings. Picks up already-created tasks from TASKS.md.
+5. **Audit Pipeline** (`/reggie-audit-workflow`) — Runs security and quality audits on existing code, adds findings to TASKS.md with structured context (What/Where/Risk/Fix/Effort), then flows into the code pipeline to fix issues.
+6. **Debug** (`/reggie-debug-workflow`) — Socratic debugging: hypothesis-driven investigation with convergence checks. Diagnosis only — no fixes proposed until the problem is understood.
 
 ### Business
 
 Content and communication workflows.
 
-7. **Article Pipeline** (`/article-workflow`) — Research, outline, draft, edit, and review stages for writing. Includes an edit mode that jumps directly to the human-edit loop, plus a voice profile that learns the author's style over time.
+7. **Article Pipeline** (`/reggie-article-workflow`) — Research, outline, draft, edit, and review stages for writing. Includes an edit mode that jumps directly to the human-edit loop, plus a voice profile that learns the author's style over time.
 
 ### Reggie
 
 Maintaining and evolving the system itself. The self-improvement loop catches learnings from the bottom up. But the system also has a top-down evaluation. This is my personal favorite part, talking to reggie. Want a new pipeline? Want something in a current pipeline changed? Want reggie to evaluate its health? got any question about how reggie works? This is how you get the most out of reggie.
 
-8. **Evaluate Reggie** (`/evaluate-reggie`) — Periodic architectural review of the entire system. Scans for coverage gaps, redundancies, consistency drift, and integration health.
+8. **Evaluate Reggie** (`/reggie-evaluation-system`) — Periodic architectural review of the entire system. Scans for coverage gaps, redundancies, consistency drift, and integration health.
 9. **System Change** (`/reggie-system-change`) — Formalizes a change to Reggie through structured intake, brainstorming, planning, implementation, and verification. If you'd like to contribute to the system via our open source repository, this is the pipeline for you!
 10. **Reggie Guide** (`/reggie-guide`) - is a topic-based help for the system. It can answer any question about Reggie. It can also help you with specific tasks in the system. Just use /reggie-guide with a question.
 
@@ -103,14 +103,14 @@ Maintaining and evolving the system itself. The self-improvement loop catches le
 
 Before any code gets written, there needs to be a plan. We start by dumping rough notes into TASKS.md — feature ideas, bugs we've noticed, things that came up in conversation. It doesn't need to be structured. Just get it down.
 
-Then we run `/init-tasks`. The pipeline takes that brain dump and turns it into structured, refined tasks — but it's not just automation. It's a conversation. Claude reflects back what it heard, asks targeted follow-ups ("Is the Android color bug blocking users or just annoying?"), and lets us drop or split items on the fly. Vague entries like "make the backend better" get clarified before anything moves forward. Once the items are concrete, a code-architect agent explores the actual codebase to create meaningful groupings — not generic categories like "Backend" or "Frontend," but real areas of the code like "Authentication & Sessions" mapped to `src/auth/`. Each task gets a priority tag and dependency markers so parallel work doesn't collide.
+Then we run `/reggie-init-tasks`. The pipeline takes that brain dump and turns it into structured, refined tasks — but it's not just automation. It's a conversation. Claude reflects back what it heard, asks targeted follow-ups ("Is the Android color bug blocking users or just annoying?"), and lets us drop or split items on the fly. Vague entries like "make the backend better" get clarified before anything moves forward. Once the items are concrete, a code-architect agent explores the actual codebase to create meaningful groupings — not generic categories like "Backend" or "Frontend," but real areas of the code like "Authentication & Sessions" mapped to `src/auth/`. Each task gets a priority tag and dependency markers so parallel work doesn't collide.
 
-Once the tasks are refined and sitting in TASKS.md, they feed directly into `/code-workflow`. No copy-pasting, no re-explaining what needs to be built. The structured backlog becomes the input for the development pipeline.
+Once the tasks are refined and sitting in TASKS.md, they feed directly into `/reggie-code-workflow`. No copy-pasting, no re-explaining what needs to be built. The structured backlog becomes the input for the development pipeline.
 
 
 ### Completing a Task
 
-Here's what happens when you run `/code-workflow` with refined tasks in ./TASKS.md.
+Here's what happens when you run `/reggie-code-workflow` with refined tasks in ./TASKS.md.
 
 **1. Task pickup.** The orchestrator selects a task and moves it from backlog to active in TASKS.md. This file is shared across sessions — when a new session picks up work, it knows what's available versus what's already in progress.
 
@@ -156,7 +156,7 @@ This extends to scope management. Every agent prompt includes: "If you discover 
 
 ### Parallelism with Git Worktrees
 
-Everything so far assumes one task at a time. But what if you want to run multiple pipelines in parallel — several terminals, each running `/code-workflow`, auto-picking different tasks from a shared backlog?
+Everything so far assumes one task at a time. But what if you want to run multiple pipelines in parallel — several terminals, each running `/reggie-code-workflow`, auto-picking different tasks from a shared backlog?
 
 The solution is **git worktrees** — a native git feature that creates separate working directories, each on its own branch, all linked to the same repository. When a task is picked up, the system creates a dedicated branch and working directory.
 

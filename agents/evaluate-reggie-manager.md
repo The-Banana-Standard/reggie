@@ -1,6 +1,6 @@
 ---
 name: evaluate-reggie-manager
-description: "Pipeline manager for periodic evaluation of the ~/.claude/ agent system architecture. Orchestrates SCAN, EVALUATE, BRAINSTORM, PROPOSE, and optional IMPLEMENT stages to inventory the system, identify improvements, discuss with the user, and produce actionable proposals. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then run each stage yourself. Examples: (1) '/evaluate-reggie' triggers a full architectural review of the agent system. (2) 'I feel like some of my agents overlap — can you evaluate the whole system?' triggers system-wide redundancy analysis. (3) '/evaluate-reggie --implement' triggers evaluation with direct implementation of approved proposals."
+description: "Pipeline manager for periodic evaluation of the ~/.claude/ agent system architecture. Orchestrates SCAN, EVALUATE, BRAINSTORM, PROPOSE, and optional IMPLEMENT stages to inventory the system, identify improvements, discuss with the user, and produce actionable proposals. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then run each stage yourself. Examples: (1) '/reggie-evaluation-system' triggers a full architectural review of the agent system. (2) 'I feel like some of my agents overlap — can you evaluate the whole system?' triggers system-wide redundancy analysis. (3) '/reggie-evaluation-system --implement' triggers evaluation with direct implementation of approved proposals."
 tools: Glob, Grep, Read, Edit, Write
 model: opus
 memory: user
@@ -12,7 +12,7 @@ This document guides the main Claude orchestrator through the evaluate-reggie pi
 
 **IMPORTANT**: This is a reference document, not a subagent. The main Claude reads this for guidance and executes each stage directly.
 
-**This is NOT /improve.** The improve pipeline processes accumulated per-agent learnings from pipeline runs (AGENT-IMPROVE.md entries). This pipeline steps back and evaluates the entire system architecture: missing agents, redundant commands, outdated patterns, mismatched permissions, broken integrations, structural drift.
+**This is NOT /reggie-improve.** The improve pipeline processes accumulated per-agent learnings from pipeline runs (AGENT-IMPROVE.md entries). This pipeline steps back and evaluates the entire system architecture: missing agents, redundant commands, outdated patterns, mismatched permissions, broken integrations, structural drift.
 
 ---
 
@@ -267,7 +267,7 @@ For each prioritized item, produce a proposal:
 [Exactly what would change — which files, what modifications]
 
 ### Implementation Path
-[How to implement: /reggie-system-change for new components, /improve for agent edits, direct edits for small fixes]
+[How to implement: /reggie-system-change for new components, /reggie-improve for agent edits, direct edits for small fixes]
 
 ### Effort
 [small (< 30 min) / medium (1-2 hours) / large (half day+)]
@@ -329,7 +329,7 @@ Also produce an implementation plan if --implement is active:
 3. After all approved proposals are handled:
    - Print summary of what was done
    - List any follow-up items
-   - Suggest running /evaluate-reggie again after implementation to verify
+   - Suggest running /reggie-evaluation-system again after implementation to verify
 
 **Safety Rules**:
 - Never delete agent or command files — only modify or create
@@ -424,7 +424,7 @@ After each stage, print a summary box:
 │ Findings: [N] total, [N] prioritized, [N] deferred         │
 │ Proposals: [N] produced                                     │
 │                                                             │
-│ To implement: /evaluate-reggie --implement                  │
+│ To implement: /reggie-evaluation-system --implement                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -453,7 +453,7 @@ After each stage, print a summary box:
 - **Over-evaluating**: Not every inconsistency needs fixing. Some agents evolved organically for good reasons. BRAINSTORM exists to filter signal from noise with the user.
 - **Creating agents without reading similar files first**: Always read 2-3 similar existing files before creating a new agent, command, or pipeline manager. This ensures consistent structure, naming, and conventions.
 - **Ignoring the user's priorities**: The evaluation might flag 15 issues but the user might care about 3. BRAINSTORM is where user priorities override evaluator priorities.
-- **Confusing this with /improve**: If the issue is about a specific agent needing a new Common Pitfall or Quality Standard, that belongs in AGENT-IMPROVE.md, not here. This pipeline is for architectural/structural issues.
+- **Confusing this with /reggie-improve**: If the issue is about a specific agent needing a new Common Pitfall or Quality Standard, that belongs in AGENT-IMPROVE.md, not here. This pipeline is for architectural/structural issues.
 - **Changing tool permissions without understanding why**: Some agents have permissions that seem wrong but exist for a specific reason. Always check the agent's full Process section before proposing permission changes.
 - **Count drift in PORTABLE-PACKAGE.md**: After any changes, counts must be updated. Easy to forget.
 - **Evaluating while other pipelines are running**: SCAN might read files being modified by other sessions. Warn the user to pause other sessions first.

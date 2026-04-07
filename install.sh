@@ -1,78 +1,148 @@
 #!/bin/bash
-# install.sh — Install Reggie into ~/.claude/
+# install.sh — Install Reggie into ~/.claude/ (additive, per-file symlinks)
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
-TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP_DIR="$CLAUDE_DIR/backups/pre-reggie-$TIMESTAMP"
 
 echo "Installing Reggie from $REPO_DIR"
 echo ""
 
-# 1. Ensure ~/.claude/ exists
-mkdir -p "$CLAUDE_DIR"
+# 1. Ensure target directories exist
+mkdir -p "$CLAUDE_DIR/agents"
+mkdir -p "$CLAUDE_DIR/commands"
+mkdir -p "$CLAUDE_DIR/hooks"
 
-# 2. Back up existing content if it exists (and isn't already symlinked to this repo)
-NEEDS_BACKUP=false
-for item in agents commands hooks REGGIE.md; do
-  target="$CLAUDE_DIR/$item"
-  if [ -e "$target" ] && [ ! -L "$target" ]; then
-    NEEDS_BACKUP=true
-    break
+# 2. Migration: if agents/ or commands/ are directory-level symlinks (old install),
+#    remove them and restore from backup or create fresh directories.
+for dir in agents commands hooks; do
+  target="$CLAUDE_DIR/$dir"
+  if [ -L "$target" ] && [ -d "$target" ]; then
+    echo "Migrating from old directory-level symlink: $dir/"
+    rm "$target"
+    mkdir -p "$target"
   fi
 done
 
-if [ "$NEEDS_BACKUP" = true ]; then
-  echo "Backing up existing files to $BACKUP_DIR"
-  mkdir -p "$BACKUP_DIR"
-  for item in agents commands hooks; do
-    if [ -d "$CLAUDE_DIR/$item" ] && [ ! -L "$CLAUDE_DIR/$item" ]; then
-      cp -r "$CLAUDE_DIR/$item" "$BACKUP_DIR/$item" 2>/dev/null || true
-    fi
-  done
-  for item in REGGIE.md PORTABLE-PACKAGE.md agents-is-all-you-need.md reggie-quickstart.md mcp-registry.yaml skills-registry.yaml; do
-    if [ -f "$CLAUDE_DIR/$item" ] && [ ! -L "$CLAUDE_DIR/$item" ]; then
-      cp "$CLAUDE_DIR/$item" "$BACKUP_DIR/$item" 2>/dev/null || true
-    fi
-  done
-fi
+# 3. Symlink individual agent files
+AGENT_COUNT=0
+for file in "$REPO_DIR/agents/"*.md; do
+  [ -f "$file" ] || continue
+  filename=$(basename "$file")
+  dest="$CLAUDE_DIR/agents/$filename"
 
-# 3. Remove existing dirs/files or symlinks
-rm -rf "$CLAUDE_DIR/agents"
-rm -rf "$CLAUDE_DIR/commands"
-rm -rf "$CLAUDE_DIR/hooks"
-rm -f "$CLAUDE_DIR/REGGIE.md"
-rm -f "$CLAUDE_DIR/PORTABLE-PACKAGE.md"
-rm -f "$CLAUDE_DIR/agents-is-all-you-need.md"
-rm -f "$CLAUDE_DIR/reggie-quickstart.md"
-rm -f "$CLAUDE_DIR/mcp-registry.yaml"
-rm -f "$CLAUDE_DIR/skills-registry.yaml"
+  # Skip if already a symlink pointing to our repo
+  if [ -L "$dest" ]; then
+    link_target=$(readlink "$dest")
+    if [ "$link_target" = "$file" ]; then
+      AGENT_COUNT=$((AGENT_COUNT + 1))
+      continue
+    fi
+    # Symlink points elsewhere — remove it
+    rm "$dest"
+  elif [ -f "$dest" ]; then
+    # Regular file exists — back it up
+    backup_dest="$CLAUDE_DIR/agents/${filename}.pre-reggie-backup"
+    echo "  Backing up existing $filename -> ${filename}.pre-reggie-backup"
+    mv "$dest" "$backup_dest"
+  fi
+
+  ln -s "$file" "$dest"
+  AGENT_COUNT=$((AGENT_COUNT + 1))
+done
+
+# 4. Symlink individual command files
+CMD_COUNT=0
+for file in "$REPO_DIR/commands/"*.md; do
+  [ -f "$file" ] || continue
+  filename=$(basename "$file")
+  dest="$CLAUDE_DIR/commands/$filename"
+
+  # Skip if already a symlink pointing to our repo
+  if [ -L "$dest" ]; then
+    link_target=$(readlink "$dest")
+    if [ "$link_target" = "$file" ]; then
+      CMD_COUNT=$((CMD_COUNT + 1))
+      continue
+    fi
+    rm "$dest"
+  elif [ -f "$dest" ]; then
+    backup_dest="$CLAUDE_DIR/commands/${filename}.pre-reggie-backup"
+    echo "  Backing up existing $filename -> ${filename}.pre-reggie-backup"
+    mv "$dest" "$backup_dest"
+  fi
+
+  ln -s "$file" "$dest"
+  CMD_COUNT=$((CMD_COUNT + 1))
+done
+
+# 5. Symlink individual hook files
+HOOK_COUNT=0
+for file in "$REPO_DIR/hooks/"*; do
+  [ -f "$file" ] || continue
+  filename=$(basename "$file")
+  dest="$CLAUDE_DIR/hooks/$filename"
+
+  if [ -L "$dest" ]; then
+    link_target=$(readlink "$dest")
+    if [ "$link_target" = "$file" ]; then
+      HOOK_COUNT=$((HOOK_COUNT + 1))
+      continue
+    fi
+    rm "$dest"
+  elif [ -f "$dest" ]; then
+    backup_dest="$CLAUDE_DIR/hooks/${filename}.pre-reggie-backup"
+    echo "  Backing up existing $filename -> ${filename}.pre-reggie-backup"
+    mv "$dest" "$backup_dest"
+  fi
+
+  ln -s "$file" "$dest"
+  HOOK_COUNT=$((HOOK_COUNT + 1))
+done
+
+# 6. Symlink standalone files
+STANDALONE_FILES=(
+  "REGGIE.md:$REPO_DIR/REGGIE.md"
+  "PORTABLE-PACKAGE.md:$REPO_DIR/docs/PORTABLE-PACKAGE.md"
+  "agents-is-all-you-need.md:$REPO_DIR/docs/agents-is-all-you-need.md"
+  "reggie-quickstart.md:$REPO_DIR/docs/reggie-quickstart.md"
+  "mcp-registry.yaml:$REPO_DIR/mcp-registry.yaml"
+  "skills-registry.yaml:$REPO_DIR/skills-registry.yaml"
+)
+
+for entry in "${STANDALONE_FILES[@]}"; do
+  name="${entry%%:*}"
+  source="${entry#*:}"
+  dest="$CLAUDE_DIR/$name"
+
+  if [ -L "$dest" ]; then
+    link_target=$(readlink "$dest")
+    if [ "$link_target" = "$source" ]; then
+      continue
+    fi
+    rm "$dest"
+  elif [ -f "$dest" ]; then
+    echo "  Backing up existing $name -> ${name}.pre-reggie-backup"
+    mv "$dest" "$dest.pre-reggie-backup"
+  fi
+
+  ln -s "$source" "$dest"
+done
+
 # Legacy cleanup: old installs symlinked this file. Keep regular files untouched.
 [ -L "$CLAUDE_DIR/capability-manifest.yaml" ] && rm -f "$CLAUDE_DIR/capability-manifest.yaml"
 
-# 4. Create symlinks — directories
-ln -s "$REPO_DIR/agents" "$CLAUDE_DIR/agents"
-ln -s "$REPO_DIR/commands" "$CLAUDE_DIR/commands"
-ln -s "$REPO_DIR/hooks" "$CLAUDE_DIR/hooks"
-
-# 5. Create symlinks — files
-ln -s "$REPO_DIR/REGGIE.md" "$CLAUDE_DIR/REGGIE.md"
-ln -s "$REPO_DIR/docs/PORTABLE-PACKAGE.md" "$CLAUDE_DIR/PORTABLE-PACKAGE.md"
-ln -s "$REPO_DIR/docs/agents-is-all-you-need.md" "$CLAUDE_DIR/agents-is-all-you-need.md"
-ln -s "$REPO_DIR/docs/reggie-quickstart.md" "$CLAUDE_DIR/reggie-quickstart.md"
-ln -s "$REPO_DIR/mcp-registry.yaml" "$CLAUDE_DIR/mcp-registry.yaml"
-ln -s "$REPO_DIR/skills-registry.yaml" "$CLAUDE_DIR/skills-registry.yaml"
+# Legacy cleanup: remove old directory-level symlinks from pre-v1.2 installs
+# (already handled in step 2, this catches edge cases)
 
 echo ""
-echo "Reggie installed successfully."
+echo "Reggie installed successfully (additive, per-file symlinks)."
 echo ""
-echo "  Symlinked directories:"
-echo "    agents/   -> $REPO_DIR/agents"
-echo "    commands/ -> $REPO_DIR/commands"
-echo "    hooks/    -> $REPO_DIR/hooks"
+echo "  Agents:   $AGENT_COUNT files symlinked"
+echo "  Commands: $CMD_COUNT files symlinked"
+echo "  Hooks:    $HOOK_COUNT files symlinked"
 echo ""
-echo "  Symlinked files:"
+echo "  Standalone files:"
 echo "    REGGIE.md              -> $REPO_DIR/REGGIE.md"
 echo "    PORTABLE-PACKAGE.md    -> $REPO_DIR/docs/PORTABLE-PACKAGE.md"
 echo "    agents-is-all-you-need.md -> $REPO_DIR/docs/agents-is-all-you-need.md"
@@ -81,10 +151,12 @@ echo "    mcp-registry.yaml      -> $REPO_DIR/mcp-registry.yaml"
 echo "    skills-registry.yaml   -> $REPO_DIR/skills-registry.yaml"
 echo ""
 echo "  Local generated file:"
-echo "    capability-manifest.yaml (created/updated by /refresh-capabilities)"
+echo "    capability-manifest.yaml (created/updated by /reggie-refresh-capabilities)"
+echo ""
+echo "  User files in ~/.claude/agents/ and ~/.claude/commands/ are preserved."
 echo ""
 
-# 6. Optional local overlay files for user-specific additions
+# 7. Optional local overlay files for user-specific additions
 if [ ! -f "$CLAUDE_DIR/mcp-registry.local.yaml" ]; then
   cat > "$CLAUDE_DIR/mcp-registry.local.yaml" << 'OVERLAY_MCP_EOF'
 # Optional local MCP server overrides.
@@ -104,11 +176,10 @@ OVERLAY_SKILLS_EOF
 fi
 echo ""
 
-# 7. Add stats hooks to settings.json
+# 8. Add stats hooks to settings.json
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 
 if [ ! -f "$SETTINGS_FILE" ]; then
-  # No settings file — create one with just the hooks
   cat > "$SETTINGS_FILE" << 'SETTINGS_EOF'
 {
   "hooks": {
@@ -131,7 +202,6 @@ if [ ! -f "$SETTINGS_FILE" ]; then
 SETTINGS_EOF
   echo "  Created settings.json with stats hooks"
 elif command -v python3 &>/dev/null; then
-  # Settings file exists — merge hooks using python3 (idempotent)
   python3 - "$SETTINGS_FILE" << 'PYEOF'
 import json, sys
 
@@ -174,11 +244,10 @@ PYEOF
 else
   echo ""
   echo "  Could not auto-configure hooks (python3 not found)."
-  echo "  Manually add to $SETTINGS_FILE:"
   echo "  Manually add hooks to $SETTINGS_FILE. See README for details."
 fi
 
-# 8. Configure ENABLE_TOOL_SEARCH in shell profile
+# 9. Configure ENABLE_TOOL_SEARCH in shell profile
 SHELL_PROFILE=""
 if [ -f "$HOME/.zshrc" ]; then
   SHELL_PROFILE="$HOME/.zshrc"

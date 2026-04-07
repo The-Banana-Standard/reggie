@@ -1,5 +1,5 @@
 # Skills Registry — Curated index of community Claude Code skills
-# Used by /refresh-capabilities to populate the skills section of capability-manifest.yaml
+# Used by /reggie-refresh-capabilities to populate the skills section of capability-manifest.yaml
 # Pipeline PICKUP/PLAN stages use the manifest to recommend skills during task planning.
 #
 # Source trust levels:

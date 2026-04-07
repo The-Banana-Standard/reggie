@@ -199,11 +199,11 @@ Every `→` is a quality gate (9.0/10 to advance). HUMAN-EDIT is a mandatory hum
 ### Arguments
 
 ```
-/article-workflow                                    # Start with brainstorm
-/article-workflow how we built offline mode           # Start with a topic
-/article-workflow edit path/to/draft.md               # Jump to HUMAN-EDIT with existing draft
-/article-workflow edit                                # Jump to HUMAN-EDIT, prompts for file path
-/article-workflow $ARGUMENTS
+/reggie-article-workflow                                    # Start with brainstorm
+/reggie-article-workflow how we built offline mode           # Start with a topic
+/reggie-article-workflow edit path/to/draft.md               # Jump to HUMAN-EDIT with existing draft
+/reggie-article-workflow edit                                # Jump to HUMAN-EDIT, prompts for file path
+/reggie-article-workflow $ARGUMENTS
 ```
 
 ### Starting from an Existing Draft
@@ -261,7 +261,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
    - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
-   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/improve` run
+   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
    - Clear processed minor entries from AGENT-IMPROVE.md; keep major entries for later
 
 **Summary box** (print after AUTO-IMPROVE completes or skips):
@@ -315,19 +315,19 @@ The final article includes:
 After the PUBLISH output, emit:
 
 ```
-~~REGGIE:DONE:article-workflow:success~~
+~~REGGIE:DONE:reggie-article-workflow:success~~
 ```
 
 If the user says `abort` at any stage, emit:
 
 ```
-~~REGGIE:DONE:article-workflow:failed~~
+~~REGGIE:DONE:reggie-article-workflow:failed~~
 ```
 
 ### Example Session
 
 ```
-> /article-workflow building a streak system
+> /reggie-article-workflow building a streak system
 
 ## BRAINSTORM Stage
 Exploring the angle...
@@ -427,6 +427,6 @@ Article ready:
 "What Duolingo Gets Wrong About Streaks"
 2,180 words | 9 min read
 
-Run /social-workflow to create social posts from this article?
+Run /reggie-social-workflow to create social posts from this article?
 ```
 

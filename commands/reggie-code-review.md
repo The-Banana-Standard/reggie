@@ -51,14 +51,14 @@ The review is scored by the judge agent (9.0/10 to advance). If it fails:
 
 ### Verdict
 
-- **PASS**: No blockers. Advances to `/review-security`.
+- **PASS**: No blockers. Advances to `/reggie-review-security`.
 - **FAIL**: Blockers listed with specific file:line references and suggested fixes. Goes back to IMPLEMENT.
 
 ### Usage
 
 ```
-/code-review                # Review current task's changes
-/code-review $ARGUMENTS     # Review with specific focus
+/reggie-code-review                # Review current task's changes
+/reggie-code-review $ARGUMENTS     # Review with specific focus
 ```
 
 ### After Review
@@ -66,7 +66,7 @@ The review is scored by the judge agent (9.0/10 to advance). If it fails:
 If PASS:
 ```
 Code review passed. Proceeding to security review.
-Run: /review-security
+Run: /reggie-review-security
 ```
 
 If FAIL:
@@ -74,6 +74,6 @@ If FAIL:
 Code review found [N] blockers:
 - [file:line]: [issue]
 
-Fix these and re-run /code-review.
+Fix these and re-run /reggie-code-review.
 ```
 

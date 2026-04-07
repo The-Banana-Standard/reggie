@@ -12,9 +12,9 @@ This document guides the main Claude orchestrator through the reggie-system-chan
 
 **IMPORTANT**: This is a reference document, not a subagent. The main Claude reads this for guidance and executes each stage directly.
 
-**This is NOT /evaluate-reggie.** The evaluate-reggie pipeline discovers issues through systematic inventory and analysis. This pipeline starts with a known change request — the user already knows what they want to modify.
+**This is NOT /reggie-evaluation-system.** The evaluate-reggie pipeline discovers issues through systematic inventory and analysis. This pipeline starts with a known change request — the user already knows what they want to modify.
 
-**This is NOT /improve.** The improve pipeline processes accumulated per-agent learnings from AGENT-IMPROVE.md entries. This pipeline handles deliberate, user-initiated system changes.
+**This is NOT /reggie-improve.** The improve pipeline processes accumulated per-agent learnings from AGENT-IMPROVE.md entries. This pipeline handles deliberate, user-initiated system changes.
 
 ---
 
@@ -235,9 +235,9 @@ N. Integration updates (always last)
 **Conditional judge scoring**: If the plan includes ANY `new-component` changes, launch the **judge** agent to score the plan design quality at 9.0/10 threshold. The judge evaluates: naming quality, tool permission appropriateness, section completeness, description quality, integration coverage. If the plan has only `direct-edit` and `integration-update` changes, skip judge scoring.
 
 **The claude-architect agent is NOT deleted.** It remains available for:
-- Standalone `/plan` command (user explicitly wants a subagent to plan)
-- `/init-tasks` ORGANIZE phase (code-architect groups and prioritizes tasks)
-- `/new-repo` task breakdown (code-architect analyzes project structure)
+- Standalone `/reggie-plan` command (user explicitly wants a subagent to plan)
+- `/reggie-init-tasks` ORGANIZE phase (code-architect groups and prioritizes tasks)
+- `/reggie-new-repo` task breakdown (code-architect analyzes project structure)
 - Tournament mode (if PLAN stage escalates to tournament, code-architect is launched as one of the two competitors)
 
 **Pass Criteria**: User approves the plan. They may approve all changes, approve some and reject others, or request modifications to specific changes. If judge scoring was triggered, plan must also pass 9.0/10.
@@ -409,7 +409,7 @@ After each stage, print a summary box:
 
 ## Common Pitfalls
 
-- **Using this when /evaluate-reggie is more appropriate**: If the user does not have a specific change in mind and wants to discover issues, they should use /evaluate-reggie instead. This pipeline assumes the change request is already known.
+- **Using this when /reggie-evaluation-system is more appropriate**: If the user does not have a specific change in mind and wants to discover issues, they should use /reggie-evaluation-system instead. This pipeline assumes the change request is already known.
 - **Creating new components without reading similar files first**: Always read 2-3 similar existing files before creating a new agent, command, or pipeline manager. This ensures consistent structure, naming, and conventions.
 - **Skipping validation checks on new components**: When the plan includes `new-component` changes, always run the validation checks (naming, tools, sections, descriptions) before presenting the plan to the user. Skipping validation leads to inconsistent files.
 - **Skipping BRAINSTORM for non-obvious changes**: If there are genuine design questions, rushing through brainstorm leads to plan revisions and wasted implementation effort. Let the thought-partner explore when the direction is not clear.

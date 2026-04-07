@@ -61,10 +61,10 @@ This command runs the **onboard pipeline** — a 6-stage workflow that prepares 
 ### Arguments
 
 ```
-/onboard                    # Full onboard with tests and doc pruning
-/onboard --skip-tests       # Skip VALIDATE stage (build/test verification)
-/onboard --no-prune         # Skip REFINE stage (doc pruning)
-/onboard --yes              # Auto-approve all gates (Ralph Wiggum mode)
+/reggie-onboard                    # Full onboard with tests and doc pruning
+/reggie-onboard --skip-tests       # Skip VALIDATE stage (build/test verification)
+/reggie-onboard --no-prune         # Skip REFINE stage (doc pruning)
+/reggie-onboard --yes              # Auto-approve all gates (Ralph Wiggum mode)
 $ARGUMENTS
 ```
 
@@ -246,9 +246,9 @@ After all stages complete:
 │   - MEMORY.md (project memory)                                   │
 │                                                                  │
 │ Ready for:                                                       │
-│   /init-tasks      Brainstorm and plan development tasks         │
-│   /audit           Run a full codebase audit                     │
-│   /code-workflow   Execute planned tasks                         │
+│   /reggie-init-tasks      Brainstorm and plan development tasks         │
+│   /reggie-audit           Run a full codebase audit                     │
+│   /reggie-code-workflow   Execute planned tasks                         │
 │                                                                  │
 │ Commit the new files? (y/n)                                      │
 └──────────────────────────────────────────────────────────────────┘
@@ -259,13 +259,13 @@ If yes, commit with message: `chore: onboard project to Claude Code agent system
 After the commit (or if user declines commit), emit:
 
 ```
-~~REGGIE:DONE:onboard:success~~
+~~REGGIE:DONE:reggie-onboard:success~~
 ```
 
 If the user says `abort` at any stage, emit:
 
 ```
-~~REGGIE:DONE:onboard:failed~~
+~~REGGIE:DONE:reggie-onboard:failed~~
 ```
 
 ---
@@ -306,7 +306,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
    - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
-   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/improve` run
+   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
    - Clear processed minor entries from AGENT-IMPROVE.md; keep major entries for later
 
 **Summary box** (print after AUTO-IMPROVE completes or skips):

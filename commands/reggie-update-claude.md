@@ -43,7 +43,7 @@ If the learning is a general project rule, it goes in CLAUDE.md. If it's specifi
 
 ### If no CLAUDE.md exists
 
-Warn the user: "No CLAUDE.md found. Consider running `/onboard` to generate CLAUDE.md and all foundational docs."
+Warn the user: "No CLAUDE.md found. Consider running `/reggie-onboard` to generate CLAUDE.md and all foundational docs."
 
 If the user wants to proceed without onboarding, create a minimal CLAUDE.md:
 ```markdown
@@ -62,14 +62,14 @@ If the user wants to proceed without onboarding, create a minimal CLAUDE.md:
 [Preferred patterns in this codebase]
 
 ## Documentation
-See `docs/` for detailed documentation (run `/onboard` to generate).
+See `docs/` for detailed documentation (run `/reggie-onboard` to generate).
 ```
 
 Then add the new learning to the appropriate section.
 
 ### If the target foundational doc doesn't exist
 
-If the learning should go in a foundational doc that doesn't exist yet (e.g., `docs/patterns.md`), add it to CLAUDE.md instead and note: "This convention is documented in CLAUDE.md. Run `/onboard` to generate `docs/patterns.md` for a dedicated home."
+If the learning should go in a foundational doc that doesn't exist yet (e.g., `docs/patterns.md`), add it to CLAUDE.md instead and note: "This convention is documented in CLAUDE.md. Run `/reggie-onboard` to generate `docs/patterns.md` for a dedicated home."
 
 ### If CLAUDE.md exists
 

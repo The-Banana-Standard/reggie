@@ -27,7 +27,7 @@ git diff HEAD~1 -- package.json go.mod requirements.txt Podfile 2>/dev/null | he
 
 Use the **security-reviewer** agent to audit the current task's changes for security vulnerabilities.
 
-This runs **after the code review passes** (`/code-review` → PASS → `/review-security`).
+This runs **after the code review passes** (`/reggie-code-review` → PASS → `/reggie-review-security`).
 
 ### What Gets Audited
 
@@ -62,8 +62,8 @@ The review is scored by the judge agent (9.0/10 to advance). If it fails:
 ### Usage
 
 ```
-/review-security                # Security audit current task's changes
-/review-security $ARGUMENTS     # Audit with specific focus
+/reggie-review-security                # Security audit current task's changes
+/reggie-review-security $ARGUMENTS     # Audit with specific focus
 ```
 
 ### After Review
@@ -71,7 +71,7 @@ The review is scored by the judge agent (9.0/10 to advance). If it fails:
 If PASS:
 ```
 Security review passed. Proceeding to documentation sync.
-Run: /sync-docs to continue pipeline
+Run: /reggie-sync-docs to continue pipeline
 ```
 
 If FAIL:
@@ -79,6 +79,6 @@ If FAIL:
 Security review found [N] critical/high issues:
 - [file:line]: [vulnerability] — [exploit example]
 
-Fix these and re-run /review-security.
+Fix these and re-run /reggie-review-security.
 ```
 

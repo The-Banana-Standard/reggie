@@ -48,16 +48,16 @@ This command orchestrates the **evaluate-reggie pipeline** — a periodic archit
 
 **`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. BRAINSTORM confirmation, PROPOSE approval, IMPLEMENT per-proposal approval, and all other human prompts are auto-approved. Automated quality gates still run normally.
 
-**This is NOT /improve.** The improve pipeline processes per-agent learnings accumulated during pipeline runs. This pipeline evaluates the system architecture itself: are there missing agents, redundant commands, permission mismatches, outdated patterns, or broken integrations?
+**This is NOT /reggie-improve.** The improve pipeline processes per-agent learnings accumulated during pipeline runs. This pipeline evaluates the system architecture itself: are there missing agents, redundant commands, permission mismatches, outdated patterns, or broken integrations?
 
 ### Arguments
 
 ```
-/evaluate-reggie                    # Full evaluation: SCAN → EVALUATE → BRAINSTORM → PROPOSE
-/evaluate-reggie --scan-only        # Just produce the system inventory
-/evaluate-reggie --implement        # Full evaluation + implement + verify
-/evaluate-reggie --yes              # Auto-approve all gates (Ralph Wiggum mode)
-/evaluate-reggie --yes --implement  # Full auto: evaluate + implement + verify
+/reggie-evaluation-system                    # Full evaluation: SCAN → EVALUATE → BRAINSTORM → PROPOSE
+/reggie-evaluation-system --scan-only        # Just produce the system inventory
+/reggie-evaluation-system --implement        # Full evaluation + implement + verify
+/reggie-evaluation-system --yes              # Auto-approve all gates (Ralph Wiggum mode)
+/reggie-evaluation-system --yes --implement  # Full auto: evaluate + implement + verify
 $ARGUMENTS
 ```
 
@@ -134,19 +134,19 @@ The claude-architect produces a concrete proposal for each prioritized item with
 
 Present the proposals to the user.
 
-**If `--implement` NOT in $ARGUMENTS**: Print the PROPOSE completion box with a note to run `/evaluate-reggie --implement` to execute. Pipeline complete. Then emit:
+**If `--implement` NOT in $ARGUMENTS**: Print the PROPOSE completion box with a note to run `/reggie-evaluation-system --implement` to execute. Pipeline complete. Then emit:
 ```
-~~REGGIE:DONE:evaluate-reggie:success~~
+~~REGGIE:DONE:reggie-evaluation-system:success~~
 ```
 
 **If `--implement` in $ARGUMENTS**: Present proposals for approval, then advance to IMPLEMENT. After VERIFY completes, emit:
 ```
-~~REGGIE:DONE:evaluate-reggie:success~~
+~~REGGIE:DONE:reggie-evaluation-system:success~~
 ```
 
 If the user says `abort` at any stage, emit:
 ```
-~~REGGIE:DONE:evaluate-reggie:failed~~
+~~REGGIE:DONE:reggie-evaluation-system:failed~~
 ```
 
 ---
@@ -237,7 +237,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
    - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
-   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/improve` run
+   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
    - Clear processed minor entries from AGENT-IMPROVE.md; keep major entries for later
 
 **Summary box** (print after AUTO-IMPROVE completes or skips):

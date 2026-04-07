@@ -123,7 +123,7 @@ done
 
 ## Instructions
 
-You are generating documentation that maps repos to their responsibilities. This documentation is consumed by `/distribute-tasks` to know where to route tasks. The process is **recursive** — you generate docs for the current directory and all workspace-level directories below it. Individual repos are never modified.
+You are generating documentation that maps repos to their responsibilities. This documentation is consumed by `/reggie-distribute-tasks` to know where to route tasks. The process is **recursive** — you generate docs for the current directory and all workspace-level directories below it. Individual repos are never modified.
 
 ### Definitions
 
@@ -255,5 +255,5 @@ Generated workspace documentation:
 
 Total: [N] workspaces + [N] containers documented
 
-These docs can be consumed by /distribute-tasks for routing decisions.
+These docs can be consumed by /reggie-distribute-tasks for routing decisions.
 ```

@@ -40,18 +40,18 @@ You are orchestrating a debug workflow. This is a conversational debugging proce
 INTAKE → DEBUG-DIALOGUE → HANDOFF → [code-workflow at PLAN]
 ```
 
-### When to Use This vs /debug
+### When to Use This vs /reggie-debug
 
-- **`/debug`** — Quick investigation for simple, obvious issues
-- **`/debug-workflow`** — Structured diagnosis for complex bugs where the cause isn't clear
+- **`/reggie-debug`** — Quick investigation for simple, obvious issues
+- **`/reggie-debug-workflow`** — Structured diagnosis for complex bugs where the cause isn't clear
 
 ### Arguments
 
 ```
-/debug-workflow                              # Prompts for symptom description
-/debug-workflow the app crashes on launch    # With initial symptoms
-/debug-workflow --yes                        # Auto-approve all gates (Ralph Wiggum mode)
-/debug-workflow $ARGUMENTS                   # Captures all args as symptoms
+/reggie-debug-workflow                              # Prompts for symptom description
+/reggie-debug-workflow the app crashes on launch    # With initial symptoms
+/reggie-debug-workflow --yes                        # Auto-approve all gates (Ralph Wiggum mode)
+/reggie-debug-workflow $ARGUMENTS                   # Captures all args as symptoms
 ```
 
 ---
@@ -155,13 +155,13 @@ HANDOFF — Starting code-workflow at PLAN
 After the handoff announcement, emit:
 
 ```
-~~REGGIE:DONE:debug-workflow:success~~
+~~REGGIE:DONE:reggie-debug-workflow:success~~
 ```
 
 If the user says `abort` at any stage, emit:
 
 ```
-~~REGGIE:DONE:debug-workflow:failed~~
+~~REGGIE:DONE:reggie-debug-workflow:failed~~
 ```
 
 ---
@@ -202,7 +202,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
    - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
-   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/improve` run
+   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
    - Clear processed minor entries from AGENT-IMPROVE.md; keep major entries for later
 
 **Summary box** (print after AUTO-IMPROVE completes or skips):
@@ -234,7 +234,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
 ## Example Session
 
 ```
-> /debug-workflow the login button doesn't work
+> /reggie-debug-workflow the login button doesn't work
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 STAGE: INTAKE

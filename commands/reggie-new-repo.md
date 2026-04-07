@@ -29,7 +29,7 @@ This command orchestrates the **repo bootstrap pipeline** — a workflow that ta
 - Setting up a repo with proper structure from day one
 - Want CLAUDE.md, docs, and git configured automatically
 - Need consistent project scaffolding across your tech stacks
-- Want a TASKS.md backlog ready for `/code-workflow`
+- Want a TASKS.md backlog ready for `/reggie-code-workflow`
 
 ### The Bootstrap Pipeline
 
@@ -56,7 +56,7 @@ The loop brings in **4 specialist agents** in sequence:
 1. **thought-partner** — Initial Q&A: what we're building, platform, design feel, tech stack, MVP scope
 2. **researcher** — Prior art: similar apps, best practices, pitfalls to avoid
 3. **design-innovator** — Design direction: trends, interaction patterns, visual concepts (skipped for APIs/CLIs)
-4. **code-architect** — Task breakdown: 5-10 prioritized tasks ready for `/code-workflow`
+4. **code-architect** — Task breakdown: 5-10 prioritized tasks ready for `/reggie-code-workflow`
 
 After all agents complete, you get a **Complete Project Summary**. Review it, then:
 - Say **"satisfied"** to proceed to SCAFFOLD
@@ -89,11 +89,11 @@ After all agents complete, you get a **Complete Project Summary**. Review it, th
 ### Arguments
 
 ```
-/new-repo                          # Start with full PROJECT-VISION loop
-/new-repo daily-habits ios         # Provide context upfront, faster loop
-/new-repo my-api go                # Go server project
-/new-repo landing-page react       # React/Next.js project
-/new-repo $ARGUMENTS
+/reggie-new-repo                          # Start with full PROJECT-VISION loop
+/reggie-new-repo daily-habits ios         # Provide context upfront, faster loop
+/reggie-new-repo my-api go                # Go server project
+/reggie-new-repo landing-page react       # React/Next.js project
+/reggie-new-repo $ARGUMENTS
 ```
 
 ### Workflow Controls
@@ -112,7 +112,7 @@ After all agents complete, you get a **Complete Project Summary**. Review it, th
 ### Example Session
 
 ```
-> /new-repo
+> /reggie-new-repo
 
 ## PROJECT-VISION Loop
 
@@ -233,7 +233,7 @@ Push to personal GitHub as private repo? (y/n)
 
 Pipeline COMPLETE.
 TASKS.md has 6 raw tasks in backlog.
-Run /init-tasks to research and plan them, then /code-workflow to execute.
+Run /reggie-init-tasks to research and plan them, then /reggie-code-workflow to execute.
 ```
 
 ### Refining the Summary
@@ -260,13 +260,13 @@ Updated summary presented...
 After the PUSH stage completes (or if no push), emit:
 
 ```
-~~REGGIE:DONE:new-repo:success~~
+~~REGGIE:DONE:reggie-new-repo:success~~
 ```
 
 If the user says `abort` at any stage, emit:
 
 ```
-~~REGGIE:DONE:new-repo:failed~~
+~~REGGIE:DONE:reggie-new-repo:failed~~
 ```
 
 ---
@@ -308,7 +308,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
    - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
-   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/improve` run
+   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
    - Clear processed minor entries from AGENT-IMPROVE.md; keep major entries for later
 
 **Summary box** (print after AUTO-IMPROVE completes or skips):

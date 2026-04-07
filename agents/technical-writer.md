@@ -32,7 +32,7 @@ Before creating or updating any documentation, read all existing project docs to
 - `docs/getting-started.md` (if exists) — setup guide
 - `docs/contributing.md` (if exists) — contribution process
 
-This is critical for the SYNC-DOCS stage — you must know what docs exist and their current state before syncing them. For the DOCS stage in /onboard or /new-repo, use the Foundational Doc Templates defined in `onboard-pipeline-manager.md`.
+This is critical for the SYNC-DOCS stage — you must know what docs exist and their current state before syncing them. For the DOCS stage in /reggie-onboard or /reggie-new-repo, use the Foundational Doc Templates defined in `onboard-pipeline-manager.md`.
 
 **You are the only agent that creates and updates foundational docs.** All other agents READ these docs but never modify them. When updating docs, ensure consistency across all foundational docs — a change in architecture.md may require corresponding updates in patterns.md or data-models.md.
 

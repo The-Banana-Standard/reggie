@@ -50,8 +50,8 @@ This command orchestrates the **reggie-system-change pipeline** — a lightweigh
 
 | Situation | Use Instead |
 |-----------|-------------|
-| Discovering system issues (no specific change in mind) | `/evaluate-reggie` |
-| Processing accumulated agent learnings | `/improve` |
+| Discovering system issues (no specific change in mind) | `/reggie-evaluation-system` |
+| Processing accumulated agent learnings | `/reggie-improve` |
 
 ### Arguments
 
@@ -215,7 +215,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
    - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
-   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/improve` run
+   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
    - Clear processed minor entries from AGENT-IMPROVE.md; keep major entries for later
 
 **Summary box** (print after AUTO-IMPROVE completes or skips):

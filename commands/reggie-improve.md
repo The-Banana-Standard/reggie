@@ -50,18 +50,18 @@ This command runs the **two-level improve pipeline** -- the agent self-improveme
 ### When to Use
 
 - Auto-triggered at the end of every pipeline (if AGENT-IMPROVE.md has entries)
-- Manually via `/improve` to process accumulated learnings on demand
-- `/improve --dry-run` to preview what would change without applying
+- Manually via `/reggie-improve` to process accumulated learnings on demand
+- `/reggie-improve --dry-run` to preview what would change without applying
 
 ### Arguments
 
 ```
-/improve                    # Process all learnings
-/improve --dry-run          # Show proposals without applying
-/improve --minor-only       # Only process minor (auto-apply) changes
-/improve --target [agent]   # Only process learnings for a specific agent
-/improve --curate-only      # Only run the CURATE stage (memory maintenance)
-/improve --yes              # Auto-approve all gates (Ralph Wiggum mode)
+/reggie-improve                    # Process all learnings
+/reggie-improve --dry-run          # Show proposals without applying
+/reggie-improve --minor-only       # Only process minor (auto-apply) changes
+/reggie-improve --target [agent]   # Only process learnings for a specific agent
+/reggie-improve --curate-only      # Only run the CURATE stage (memory maintenance)
+/reggie-improve --yes              # Auto-approve all gates (Ralph Wiggum mode)
 $ARGUMENTS
 ```
 

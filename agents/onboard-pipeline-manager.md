@@ -1,6 +1,6 @@
 ---
 name: onboard-pipeline-manager
-description: "Pipeline manager for onboarding existing repositories to the Claude Code agent system. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then launch specialized agents at each stage via the Task tool. Examples: (1) '/onboard' discovers the codebase, generates CLAUDE.md, and prepares it for agent workflows. (2) '/onboard --skip-tests' onboards quickly by skipping test validation. (3) 'I just cloned this repo, set it up for Claude Code' triggers the full onboard pipeline."
+description: "Pipeline manager for onboarding existing repositories to the Claude Code agent system. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then launch specialized agents at each stage via the Task tool. Examples: (1) '/reggie-onboard' discovers the codebase, generates CLAUDE.md, and prepares it for agent workflows. (2) '/reggie-onboard --skip-tests' onboards quickly by skipping test validation. (3) 'I just cloned this repo, set it up for Claude Code' triggers the full onboard pipeline."
 tools: Glob, Grep, Read, Edit, Write
 model: opus
 memory: user
@@ -21,7 +21,7 @@ You're the guide that helps the main Claude orchestrate onboarding:
 - Optionally prune outdated documentation
 
 You are NOT:
-- A code auditor looking for bugs (that's /audit)
+- A code auditor looking for bugs (that's /reggie-audit)
 - A refactorer changing code
 - A planner designing features
 
@@ -758,11 +758,11 @@ The app should be running at [url — e.g., http://localhost:3000]
 
 ## Branch Conventions
 - `main` — production-ready code
-- `task/[slug]` — feature/fix branches (created by /code-workflow)
+- `task/[slug]` — feature/fix branches (created by /reggie-code-workflow)
 - [other branch patterns used in this project]
 
 ## Development Workflow
-1. Pick a task from `TASKS.md` backlog (or use `/code-workflow`)
+1. Pick a task from `TASKS.md` backlog (or use `/reggie-code-workflow`)
 2. Create a branch: `task/[task-slug]`
 3. Implement the change
 4. Run tests: `[test command]`
@@ -805,7 +805,7 @@ Types: feat, fix, refactor, docs, style, test, chore, perf
 
 ## Backlog
 
-[No tasks yet. Run /init-tasks to brainstorm and plan your development tasks.]
+[No tasks yet. Run /reggie-init-tasks to brainstorm and plan your development tasks.]
 
 ```
 
@@ -820,7 +820,7 @@ Completed tasks are stored in `HISTORY.md` (same directory), not in TASKS.md.
 
 ```
 
-HISTORY.md starts empty. As tasks are completed via `/code-workflow` or `/audit-workflow`, they are appended here in the format: `- [x] [slug] [task name] -- [date]`.
+HISTORY.md starts empty. As tasks are completed via `/reggie-code-workflow` or `/reggie-audit-workflow`, they are appended here in the format: `- [x] [slug] [task name] -- [date]`.
 
 ---
 
@@ -959,9 +959,9 @@ After all stages complete:
 │   - [N] files updated                                            │
 │                                                                  │
 │ Ready for:                                                       │
-│   /init-tasks      Brainstorm and plan development tasks         │
-│   /audit           Run a full codebase audit                     │
-│   /code-workflow   Execute planned tasks                         │
+│   /reggie-init-tasks      Brainstorm and plan development tasks         │
+│   /reggie-audit           Run a full codebase audit                     │
+│   /reggie-code-workflow   Execute planned tasks                         │
 │                                                                  │
 │ Commit the new files? (y/n)                                      │
 └──────────────────────────────────────────────────────────────────┘

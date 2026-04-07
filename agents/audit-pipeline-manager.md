@@ -1,6 +1,6 @@
 ---
 name: audit-pipeline-manager
-description: "Pipeline manager for the audit-and-refactor workflow. Orchestrates AUDIT, PRIORITIZE, and per-task fix loops with quality gates. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then launch specialized agents at each stage via the Task tool. Examples: (1) '/audit-workflow' runs a full codebase audit then fixes issues in priority order. (2) 'This codebase is a mess, audit and fix everything' triggers the full audit pipeline. (3) 'Audit the codebase and fix critical issues before our release' runs audit with priority filtering."
+description: "Pipeline manager for the audit-and-refactor workflow. Orchestrates AUDIT, PRIORITIZE, and per-task fix loops with quality gates. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then launch specialized agents at each stage via the Task tool. Examples: (1) '/reggie-audit-workflow' runs a full codebase audit then fixes issues in priority order. (2) 'This codebase is a mess, audit and fix everything' triggers the full audit pipeline. (3) 'Audit the codebase and fix critical issues before our release' runs audit with priority filtering."
 tools: Glob, Grep, Read, Edit, Write
 model: opus
 memory: user
@@ -284,7 +284,7 @@ After iteration, show re-judge result (compact):
 After PLAN passes its quality gate for an audit task:
 1. Parse the file list from the plan output (look for `### Files` section)
 2. Write the file list to this task's `**Files**` field in TASKS.md (format: `NEW: path` or `MOD: path`)
-3. Compare against all other active tasks' `**Files**` lists — including tasks from other pipelines (e.g., a `/code-workflow` session running in another terminal)
+3. Compare against all other active tasks' `**Files**` lists — including tasks from other pipelines (e.g., a `/reggie-code-workflow` session running in another terminal)
 4. If overlap exists, show conflict warning:
 
 ```

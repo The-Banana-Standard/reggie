@@ -80,7 +80,7 @@ This command takes a loose task list and — through collaborative dialogue with
 Skip brain dump, go straight to INTAKE with the provided input.
 
 **Brain dump mode** — `$ARGUMENTS` is empty:
-The standard workflow is for users to brain dump directly into TASKS.md before running `/init-tasks` (any format — bullet points, notes, half-formed ideas). If TASKS.md exists with raw unstructured content (no `## Backlog` header or metadata tags), treat it as a brain dump and flow into INTAKE with that as the raw input. If no TASKS.md exists at all, start with conversational exploration, then flow into INTAKE.
+The standard workflow is for users to brain dump directly into TASKS.md before running `/reggie-init-tasks` (any format — bullet points, notes, half-formed ideas). If TASKS.md exists with raw unstructured content (no `## Backlog` header or metadata tags), treat it as a brain dump and flow into INTAKE with that as the raw input. If no TASKS.md exists at all, start with conversational exploration, then flow into INTAKE.
 
 ### If TASKS.md Already Exists (structured)
 
@@ -479,7 +479,7 @@ organize them and compute metadata, not modify them.
 
 9. **Mark plan status**:
    - `[planned]` — has a full implementation plan in task.md
-   - `[unplanned]` — has acceptance criteria only, no implementation plan (code-workflow will reject these at PICKUP with a redirect to /init-tasks)
+   - `[unplanned]` — has acceptance criteria only, no implementation plan (code-workflow will reject these at PICKUP with a redirect to /reggie-init-tasks)
 
 10. **Check for staleness**: Flag tasks that may be stale:
     - References files that no longer exist in the project
@@ -701,19 +701,19 @@ First task: [slug] — [description]
   Acceptance criteria: [N] items
   Implementation plan: [yes/no]
 
-Ready to start working? Run /code-workflow to pick up the first task.
+Ready to start working? Run /reggie-code-workflow to pick up the first task.
 ```
 
 After the confirmation message, emit the completion marker:
 
 ```
-~~REGGIE:DONE:init-tasks:success~~
+~~REGGIE:DONE:reggie-init-tasks:success~~
 ```
 
 If the user aborts at any phase, emit:
 
 ```
-~~REGGIE:DONE:init-tasks:failed~~
+~~REGGIE:DONE:reggie-init-tasks:failed~~
 ```
 
 ---
@@ -721,9 +721,9 @@ If the user aborts at any phase, emit:
 ## Arguments
 
 ```
-/init-tasks                                  # Brain dump mode
-/init-tasks fix auth, add tests, refactor    # Organize these items
-/init-tasks $ARGUMENTS
+/reggie-init-tasks                                  # Brain dump mode
+/reggie-init-tasks fix auth, add tests, refactor    # Organize these items
+/reggie-init-tasks $ARGUMENTS
 ```
 
 ---
@@ -731,7 +731,7 @@ If the user aborts at any phase, emit:
 ## Example: Organize Mode
 
 ```
-> /init-tasks fix toggle alignment in settings, adjust section spacing
+> /reggie-init-tasks fix toggle alignment in settings, adjust section spacing
   in settings, increase back button tap target, add JWT auth,
   migrate CSV parser
 
@@ -905,13 +905,13 @@ First task: add-jwt-auth — Add JWT authentication
   Acceptance criteria: 4 items
   Implementation plan: yes
 
-Ready to start working? Run /code-workflow to pick up the first task.
+Ready to start working? Run /reggie-code-workflow to pick up the first task.
 ```
 
 ## Example: Brain Dump Mode
 
 ```
-> /init-tasks
+> /reggie-init-tasks
 
 Let's figure out what needs to be done on this project.
 Dump whatever's on your mind...
@@ -1055,5 +1055,5 @@ First task: implement-streak-system — Build streak tracking
   Acceptance criteria: 5 items
   Implementation plan: yes
 
-Run /code-workflow to pick up the first task.
+Run /reggie-code-workflow to pick up the first task.
 ```

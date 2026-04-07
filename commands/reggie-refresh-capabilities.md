@@ -70,10 +70,10 @@ You (the main Claude) handle this directly. No subagents needed.
 ### Arguments
 
 ```
-/refresh-capabilities                # Full refresh from all sources
-/refresh-capabilities --smithery     # Refresh Smithery section only
-/refresh-capabilities --skills       # Refresh community skills section only
-/refresh-capabilities --check        # Show current manifest status (no changes)
+/reggie-refresh-capabilities                # Full refresh from all sources
+/reggie-refresh-capabilities --smithery     # Refresh Smithery section only
+/reggie-refresh-capabilities --skills       # Refresh community skills section only
+/reggie-refresh-capabilities --check        # Show current manifest status (no changes)
 $ARGUMENTS
 ```
 
@@ -254,7 +254,7 @@ Read `~/.claude/skills-registry.yaml` if it exists. This is a curated index of c
 After the completion box, emit:
 
 ```
-~~REGGIE:DONE:refresh-capabilities:success~~
+~~REGGIE:DONE:reggie-refresh-capabilities:success~~
 ```
 
 ---
@@ -262,6 +262,6 @@ After the completion box, emit:
 ## Notes
 
 - This command writes local generated state to `~/.claude/capability-manifest.yaml`. It is not a source file to commit.
-- The manifest is designed to be human-readable and hand-editable. `/refresh-capabilities` augments but does not overwrite manual edits to existing entries.
+- The manifest is designed to be human-readable and hand-editable. `/reggie-refresh-capabilities` augments but does not overwrite manual edits to existing entries.
 - Smithery queries are rate-limited. The command makes ~8 API calls (one per category). If rate-limited, report what succeeded and what was skipped.
 - Community plugin entries from `wshobson/agents` are curated — the refresh process updates descriptions but does not auto-add new community plugins without verification. New community plugins are noted in the output for manual review.

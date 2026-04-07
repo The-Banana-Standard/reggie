@@ -1,6 +1,6 @@
 ---
 name: content-pipeline-manager
-description: "Pipeline manager for content production — articles, social media, and full lifecycle. Orchestrates brainstorm, research, draft, edit, review, and publish stages with quality gates. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then launch specialized agents at each stage via the Task tool. Examples: (1) '/article-workflow' runs the full article pipeline from brainstorm to publish. (2) '/social-workflow' extracts snippets and adapts them per platform. (3) '/article-workflow edit path/to/draft.md' jumps to HUMAN-EDIT on an existing draft."
+description: "Pipeline manager for content production — articles, social media, and full lifecycle. Orchestrates brainstorm, research, draft, edit, review, and publish stages with quality gates. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then launch specialized agents at each stage via the Task tool. Examples: (1) '/reggie-article-workflow' runs the full article pipeline from brainstorm to publish. (2) '/reggie-social-workflow' extracts snippets and adapts them per platform. (3) '/reggie-article-workflow edit path/to/draft.md' jumps to HUMAN-EDIT on an existing draft."
 tools: Glob, Grep, Read, Edit, Write
 model: opus
 memory: user
@@ -36,10 +36,10 @@ When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confir
 ## Pipeline Modes
 
 Detect the mode from user input:
-- `/content-workflow article` or mentions of blog, post, essay, article → **Article mode**
-- `/content-workflow social` or mentions of social, Twitter/X, LinkedIn, threads → **Social mode**
-- `/content-workflow full` or mentions of both → **Full mode** (article then social)
-- `/article-workflow edit [path]` or mentions of existing draft → **Edit mode** (jump to HUMAN-EDIT)
+- `/reggie-article-workflow` or mentions of blog, post, essay, article → **Article mode**
+- `/reggie-social-workflow` or mentions of social, Twitter/X, LinkedIn, threads → **Social mode**
+- Both `/reggie-article-workflow` and `/reggie-social-workflow` or mentions of both → **Full mode** (article then social)
+- `/reggie-article-workflow edit [path]` or mentions of existing draft → **Edit mode** (jump to HUMAN-EDIT)
 - If ambiguous: **ask the user** before proceeding
 
 ## Article Pipeline

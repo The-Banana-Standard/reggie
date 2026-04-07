@@ -30,7 +30,7 @@ done
 
 ## Instructions
 
-Sync all project documentation to reflect the current state of the code. This command is used both as a standalone utility and as the SYNC-DOCS stage in `/code-workflow`.
+Sync all project documentation to reflect the current state of the code. This command is used both as a standalone utility and as the SYNC-DOCS stage in `/reggie-code-workflow`.
 
 ### Process
 
@@ -74,7 +74,7 @@ Sync all project documentation to reflect the current state of the code. This co
 - Database field types, relationships, indices
 - Authentication requirements
 
-**CHANGELOG.md** — If it exists, add entries for user-facing changes (use `/changelog` for detailed changelog work)
+**CHANGELOG.md** — If it exists, add entries for user-facing changes (use `/reggie-changelog` for detailed changelog work)
 
 **docs/architecture.md** (if exists) — Update:
 - Module boundaries if new services/components added

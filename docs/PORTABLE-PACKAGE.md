@@ -18,7 +18,7 @@ cd reggie
 # .\install.ps1   # Windows (PowerShell as Administrator)
 ```
 
-This symlinks `agents/`, `commands/`, `hooks/`, and system files into `~/.claude/`. Restart Claude Code to pick up the new commands.
+This creates per-file symlinks for each agent, command, and hook into `~/.claude/`. User-created files are preserved. Restart Claude Code to pick up the new commands.
 
 ### Verify
 
@@ -117,51 +117,51 @@ Commands invoke pipelines or individual stages.
 
 | Command | What It Does |
 |---------|-------------|
-| `/code-workflow` | Full feature development pipeline (13 stages, tasks predefined). Requires `/init-tasks` first — RESEARCH+PLAN handled there. |
-| `/audit-workflow` | Audit codebase, prioritize findings, fix them one by one |
-| `/article-workflow` | Article production pipeline (brainstorm → draft → edit → publish) |
-| `/social-workflow` | Adapt content into platform-specific social posts |
-| `/new-repo` | Bootstrap a new repo with structure, docs, git, and GitHub push |
-| `/onboard` | Prepare existing repo for agent system (creates CLAUDE.md, cleans docs) |
-| `/init-tasks` | Brain dump or task list → collaborative RESEARCH+PLAN per task → slim TASKS.md with metadata + `.pipeline/[slug]/task.md` files with full plans. Required before `/code-workflow`. |
-| `/debug-workflow` | Conversational debugging: diagnose before fixing |
-| `/improve` | Process accumulated agent learnings, apply improvements |
-| `/evaluate-reggie` | Evaluate agent system architecture, propose improvements |
+| `/reggie-code-workflow` | Full feature development pipeline (13 stages, tasks predefined). Requires `/reggie-init-tasks` first — RESEARCH+PLAN handled there. |
+| `/reggie-audit-workflow` | Audit codebase, prioritize findings, fix them one by one |
+| `/reggie-article-workflow` | Article production pipeline (brainstorm → draft → edit → publish) |
+| `/reggie-social-workflow` | Adapt content into platform-specific social posts |
+| `/reggie-new-repo` | Bootstrap a new repo with structure, docs, git, and GitHub push |
+| `/reggie-onboard` | Prepare existing repo for agent system (creates CLAUDE.md, cleans docs) |
+| `/reggie-init-tasks` | Brain dump or task list → collaborative RESEARCH+PLAN per task → slim TASKS.md with metadata + `.pipeline/[slug]/task.md` files with full plans. Required before `/reggie-code-workflow`. |
+| `/reggie-debug-workflow` | Conversational debugging: diagnose before fixing |
+| `/reggie-improve` | Process accumulated agent learnings, apply improvements |
+| `/reggie-evaluation-system` | Evaluate agent system architecture, propose improvements |
 | `/reggie-system-change` | Formalize known changes to agent system components |
 
 #### Pipeline Stages (invoke individually)
 
 | Command | Stage |
 |---------|-------|
-| `/research` | Research the problem space |
-| `/plan` | Design the technical approach |
-| `/write-tests` | Write tests for implementation |
-| `/simplify` | Clean up code without changing behavior |
-| `/verify-app` | End-to-end verification |
-| `/code-review` | Code review current task's changes (REVIEW stage) |
-| `/review-security` | Security audit current task's changes (SECURITY-REVIEW stage) |
-| `/commit` | Create commit with documentation |
+| `/reggie-research` | Research the problem space |
+| `/reggie-plan` | Design the technical approach |
+| `/reggie-write-tests` | Write tests for implementation |
+| `/reggie-simplify` | Clean up code without changing behavior |
+| `/reggie-verify-app` | End-to-end verification |
+| `/reggie-code-review` | Code review current task's changes (REVIEW stage) |
+| `/reggie-review-security` | Security audit current task's changes (SECURITY-REVIEW stage) |
+| `/reggie-commit` | Create commit with documentation |
 
 #### Utilities
 
 | Command | What It Does |
 |---------|-------------|
-| `/status` | Current task and stage |
-| `/audit` | Run codebase audit |
-| `/debug` | Debug an issue |
-| `/diagram` | Create architecture diagram |
-| `/brainstorm` | Brainstorm session |
-| `/docs` | Write documentation |
-| `/changelog` | Update changelog |
-| `/sync-docs` | Sync all documentation |
-| `/update-claude` | Capture learnings in CLAUDE.md |
-| `/fix-tests` | Fix failing tests |
-| `/find-tools` | Scan project, configure MCP servers |
-| `/refresh-capabilities` | Update capability manifest from all sources |
-| `/repo-advisor` | Evaluate repo readiness for agent system |
+| `/reggie-status` | Current task and stage |
+| `/reggie-audit` | Run codebase audit |
+| `/reggie-debug` | Debug an issue |
+| `/reggie-diagram` | Create architecture diagram |
+| `/reggie-brainstorm` | Brainstorm session |
+| `/reggie-docs` | Write documentation |
+| `/reggie-changelog` | Update changelog |
+| `/reggie-sync-docs` | Sync all documentation |
+| `/reggie-update-claude` | Capture learnings in CLAUDE.md |
+| `/reggie-fix-tests` | Fix failing tests |
+| `/reggie-find-tools` | Scan project, configure MCP servers |
+| `/reggie-refresh-capabilities` | Update capability manifest from all sources |
+| `/reggie-repo-advisor` | Evaluate repo readiness for agent system |
 | `/reggie-guide` | Topic-based help for the agent system |
-| `/setup-workspace-docs` | Generate workspace CLAUDE.md + architecture docs for multi-repo workspaces |
-| `/distribute-tasks` | Parse freeform notes into tasks and route them to correct repo TASKS.md files |
+| `/reggie-setup-workspace-docs` | Generate workspace CLAUDE.md + architecture docs for multi-repo workspaces |
+| `/reggie-distribute-tasks` | Parse freeform notes into tasks and route them to correct repo TASKS.md files |
 
 ---
 
@@ -184,7 +184,7 @@ Every pipeline follows the same pattern:
 | Flag | Effect | Available On |
 |------|--------|-------------|
 | `--yes` | Skip all confirmation gates. Pipeline runs end-to-end without user input. Automated quality gates (9.0/10) still run. | All pipeline commands |
-| `--opus` | Force `model: "opus"` on every agent launch. | `/code-workflow` |
+| `--opus` | Force `model: "opus"` on every agent launch. | `/reggie-code-workflow` |
 
 ### Quality Gate Escalation
 
@@ -197,7 +197,7 @@ Attempt 3: AUTO-TOURNAMENT — two agents compete, judge picks winner
 Attempt 4: Escalate to user for guidance
 ```
 
-### Feature Development Pipeline (`/code-workflow`)
+### Feature Development Pipeline (`/reggie-code-workflow`)
 
 ```
 PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY
@@ -216,32 +216,32 @@ Multiple Claude sessions can work on different tasks in the same repo simultaneo
 1. **Git worktree isolation**: Each task gets `.worktree/[slug]/` (full working copy on branch `task/[slug]`) — eliminates interleaved commits between parallel sessions
 2. **Pipeline metadata isolation**: Each task gets `.pipeline/[slug]/` directory with its own `CONTEXT.md`, `HANDOFF.md`, and `DECISIONS.md` (stays in main repo)
 3. **Shared TASKS.md**: All active tasks tracked under `## Active Tasks` with `### [slug]` subsections (includes Branch, Worktree, Base fields)
-4. **Auto-pickup**: Running `/code-workflow` with no arguments auto-picks the next task from backlog and creates a worktree
+4. **Auto-pickup**: Running `/reggie-code-workflow` with no arguments auto-picks the next task from backlog and creates a worktree
 5. **Conflict detection**: After PLAN passes, file lists are compared across active tasks. Overlapping files trigger a warning (worktrees prevent immediate breakage but warn about merge conflicts at completion)
 6. **Merge strategies at completion**: Local merge (merge branch + delete), PR (push + create PR), or push only
 7. **Clean completion**: The COMPLETE stage merges or pushes the branch, removes the worktree, removes the task's `### [slug]` section, and deletes `.pipeline/[slug]/`
 
-Works across pipeline types — a `/code-workflow` session and an `/audit-workflow` session can run simultaneously with cross-pipeline conflict detection.
+Works across pipeline types — a `/reggie-code-workflow` session and an `/reggie-audit-workflow` session can run simultaneously with cross-pipeline conflict detection.
 
 ### Cross-Pipeline Task Sharing
 
-The audit pipeline creates a prioritized backlog via AUDIT → PRIORITIZE. A `/code-workflow` session in another terminal can auto-pick tasks from that same backlog. Both pipelines share the same TASKS.md, and conflict detection works across pipeline types.
+The audit pipeline creates a prioritized backlog via AUDIT → PRIORITIZE. A `/reggie-code-workflow` session in another terminal can auto-pick tasks from that same backlog. Both pipelines share the same TASKS.md, and conflict detection works across pipeline types.
 
 ### Discovered Issues
 
-Agents report unrelated issues they find during work under a `## Discovered Issues` heading. The orchestrator adds these to `### Ungroomed` at the bottom of `## Backlog` in TASKS.md after each stage. Ungroomed items are never auto-picked — they must go through `/init-tasks` for refinement first. This captures tech debt, bugs, and security problems without letting them enter the pipeline unrefined.
+Agents report unrelated issues they find during work under a `## Discovered Issues` heading. The orchestrator adds these to `### Ungroomed` at the bottom of `## Backlog` in TASKS.md after each stage. Ungroomed items are never auto-picked — they must go through `/reggie-init-tasks` for refinement first. This captures tech debt, bugs, and security problems without letting them enter the pipeline unrefined.
 
 ### Other Pipelines
 
 | Pipeline | Command | Stages |
 |----------|---------|--------|
-| Audit | `/audit-workflow` | AUDIT → PRIORITIZE → [loop: IMPLEMENT → ... → COMMIT per task] |
-| Article | `/article-workflow` | BRAINSTORM → RESEARCH → OUTLINE → DRAFT → EDIT → HUMAN-EDIT → [loop until satisfied] → REVIEW → PUBLISH |
-| Social | `/social-workflow` | EXTRACT-SNIPPETS → ADAPT-PER-PLATFORM → REVIEW |
-| Repo Setup | `/new-repo` | PROJECT-VISION (loop) → SCAFFOLD → SEED-MEMORY → CONFIGURE-TOOLS → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH |
-| Onboard | `/onboard` | DISCOVER → VALIDATE → ANALYZE → DOC-AUDIT → GENERATE → SEED-MEMORY → CONFIGURE-TOOLS → REFINE |
-| Improve | `/improve` | TOOLING-CHECK → COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE |
-| Evaluate | `/evaluate-reggie` | SCAN → EVALUATE → BRAINSTORM → PROPOSE → [IMPLEMENT → VERIFY] |
+| Audit | `/reggie-audit-workflow` | AUDIT → PRIORITIZE → [loop: IMPLEMENT → ... → COMMIT per task] |
+| Article | `/reggie-article-workflow` | BRAINSTORM → RESEARCH → OUTLINE → DRAFT → EDIT → HUMAN-EDIT → [loop until satisfied] → REVIEW → PUBLISH |
+| Social | `/reggie-social-workflow` | EXTRACT-SNIPPETS → ADAPT-PER-PLATFORM → REVIEW |
+| Repo Setup | `/reggie-new-repo` | PROJECT-VISION (loop) → SCAFFOLD → SEED-MEMORY → CONFIGURE-TOOLS → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH |
+| Onboard | `/reggie-onboard` | DISCOVER → VALIDATE → ANALYZE → DOC-AUDIT → GENERATE → SEED-MEMORY → CONFIGURE-TOOLS → REFINE |
+| Improve | `/reggie-improve` | TOOLING-CHECK → COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE |
+| Evaluate | `/reggie-evaluation-system` | SCAN → EVALUATE → BRAINSTORM → PROPOSE → [IMPLEMENT → VERIFY] |
 | System Change | `/reggie-system-change` | INTAKE → BRAINSTORM → PLAN → IMPLEMENT → VERIFY |
 
 ### MCP Tool Management
@@ -252,11 +252,11 @@ MCP (Model Context Protocol) servers extend agent capabilities with external too
 - **`skills-registry.yaml`** — Curated index of community Claude Code skills (SKILL.md-based playbooks) from Anthropic, awesome-claude-skills, and notable standalone repos (versioned)
 - **`~/.claude/mcp-registry.local.yaml`** — Optional local overlay for user-specific MCP entries
 - **`~/.claude/skills-registry.local.yaml`** — Optional local overlay for user-specific skill entries
-- **`~/.claude/capability-manifest.yaml`** — Local generated index of ~200 capabilities (official plugins, community plugins, community skills, Smithery servers, local MCP cross-reference). Pipeline PICKUP builds a capability snapshot; `/init-tasks` RESEARCH+PLAN phase consults it to recommend tools and skills
-- **`/find-tools`** — Scan a project and configure relevant MCP servers on demand
-- **`/refresh-capabilities`** — Update the capability manifest from all sources (plugin marketplaces, skills registry, Smithery API, community repos)
-- **CONFIGURE-TOOLS stage** — Automatically scan and configure during `/onboard` and `/new-repo`
-- **TOOLING-CHECK stage** — Periodic drift check during `/improve` (unused servers, missing tools, stale manifest)
+- **`~/.claude/capability-manifest.yaml`** — Local generated index of ~200 capabilities (official plugins, community plugins, community skills, Smithery servers, local MCP cross-reference). Pipeline PICKUP builds a capability snapshot; `/reggie-init-tasks` RESEARCH+PLAN phase consults it to recommend tools and skills
+- **`/reggie-find-tools`** — Scan a project and configure relevant MCP servers on demand
+- **`/reggie-refresh-capabilities`** — Update the capability manifest from all sources (plugin marketplaces, skills registry, Smithery API, community repos)
+- **CONFIGURE-TOOLS stage** — Automatically scan and configure during `/reggie-onboard` and `/reggie-new-repo`
+- **TOOLING-CHECK stage** — Periodic drift check during `/reggie-improve` (unused servers, missing tools, stale manifest)
 - **Pipeline MCP routing** — The orchestrator reads `.mcp.json` at pipeline start and tells each subagent which MCP tools are available via ToolSearch, keeping context cost at zero for agents that don't need them
 - **Per-launch capability logging** — Each subagent launch is logged with its full capability profile (built-in tools, MCP routing, deferred tools, pre-loaded context, agent memory, estimated context tier)
 
@@ -414,7 +414,7 @@ The article pipeline includes a HUMAN-EDIT stage where the author reviews and ed
 
 ### Per-Project Context
 
-Add a `CLAUDE.md` to any project root. Agents read this file to understand project-specific conventions, tech stack, and patterns. The `/new-repo` command creates this automatically.
+Add a `CLAUDE.md` to any project root. Agents read this file to understand project-specific conventions, tech stack, and patterns. The `/reggie-new-repo` command creates this automatically.
 
 ---
 
@@ -437,7 +437,7 @@ Add a `CLAUDE.md` to any project root. Agents read this file to understand proje
 
 **Commands not appearing** — Restart Claude Code. Commands load at startup.
 
-**Pipeline stuck** — Run `/status` to see where you are, or describe what's wrong to the orchestrator.
+**Pipeline stuck** — Run `/reggie-status` to see where you are, or describe what's wrong to the orchestrator.
 
 ---
 

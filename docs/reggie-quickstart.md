@@ -19,7 +19,7 @@ tags: [Reggie, How-To, Agentic Engineering]
 - `install.sh` / `install.ps1` - Install scripts
 - `uninstall.sh` / `uninstall.ps1` - Uninstall scripts
 
-`capability-manifest.yaml` is local generated state in `~/.claude/` and is refreshed with `/refresh-capabilities`.
+`capability-manifest.yaml` is local generated state in `~/.claude/` and is refreshed with `/reggie-refresh-capabilities`.
 
 ---
 
@@ -86,7 +86,8 @@ cd reggie
 ```
 
 Installer behavior:
-- Symlinks Reggie directories/files into `~/.claude/`
+- Creates per-file symlinks into `~/.claude/agents/`, `~/.claude/commands/`, and `~/.claude/hooks/`
+- Preserves user-created files (additive install -- never deletes existing files)
 - Configures stats tracking hooks in `settings.json`
 - Adds `ENABLE_TOOL_SEARCH=auto:5` to shell profile
 - Creates optional local overlays if missing:
@@ -106,33 +107,33 @@ After install, restart Claude Code and run:
 ## Daily Driver Loop
 
 ```text
-Brain dump -> /init-tasks -> /code-workflow (xN in parallel)
+Brain dump -> /reggie-init-tasks -> /reggie-code-workflow (xN in parallel)
 ```
 
 ### New project path
 
 1. Create/open project folder
 2. Run `claude`
-3. Run `/new-repo`
+3. Run `/reggie-new-repo`
 4. Brain dump raw tasks into `TASKS.md`
-5. Run `/init-tasks`
-6. Run `/code-workflow` (single or multiple terminals)
+5. Run `/reggie-init-tasks`
+6. Run `/reggie-code-workflow` (single or multiple terminals)
 
 ### Existing project path
 
 1. Open project folder
 2. Run `claude`
-3. Run `/onboard`
+3. Run `/reggie-onboard`
 4. Brain dump raw tasks into `TASKS.md`
-5. Run `/init-tasks`
-6. Run `/code-workflow`
+5. Run `/reggie-init-tasks`
+6. Run `/reggie-code-workflow`
 
 ---
 
 ## Capabilities
 
-- `/find-tools` is explicit and interactive (opt-in tool discovery/configuration)
-- `/refresh-capabilities` is optional and refreshes local generated manifest state
+- `/reggie-find-tools` is explicit and interactive (opt-in tool discovery/configuration)
+- `/reggie-refresh-capabilities` is optional and refreshes local generated manifest state
 - Curated registries are versioned in this repo
 - Local overlays are user-specific and not versioned
 

@@ -76,14 +76,14 @@ Use the **repo-advisor** agent to evaluate this repository's agent-readiness.
 
 **No arguments** -> Full assessment (or drift if agent has previous memory for this project)
 ```
-/repo-advisor
+/reggie-repo-advisor
 ```
 
 **With mode** -> Specific assessment type
 ```
-/repo-advisor full     -> Complete infrastructure + config quality + stats analysis
-/repo-advisor quick    -> Fast infrastructure existence check only
-/repo-advisor drift    -> Compare to previous assessment (requires prior run)
+/reggie-repo-advisor full     -> Complete infrastructure + config quality + stats analysis
+/reggie-repo-advisor quick    -> Fast infrastructure existence check only
+/reggie-repo-advisor drift    -> Compare to previous assessment (requires prior run)
 ```
 
 ### For $ARGUMENTS:
@@ -97,7 +97,7 @@ Use the **repo-advisor** agent to evaluate this repository's agent-readiness.
 
 This command evaluates **this PROJECT's readiness for agents**. It answers: "Is this repo set up well for Claude Code?"
 
-It does NOT evaluate the agent system itself. For that, use `/evaluate-reggie` which answers: "Is ~/.claude/ healthy?"
+It does NOT evaluate the agent system itself. For that, use `/reggie-evaluation-system` which answers: "Is ~/.claude/ healthy?"
 
 ### Output
 
@@ -106,8 +106,8 @@ The repo-advisor is conversational. Expect prose, not tables. Every finding come
 ### Follow-up
 
 After assessment, the natural next steps are usually one of:
-- `/onboard` -- if the project lacks basic infrastructure
-- `/update-claude` -- if CLAUDE.md exists but needs improvement
-- `/init-tasks` -- if there's no task tracking
-- `/audit` -- if infrastructure is fine but code health is unknown
+- `/reggie-onboard` -- if the project lacks basic infrastructure
+- `/reggie-update-claude` -- if CLAUDE.md exists but needs improvement
+- `/reggie-init-tasks` -- if there's no task tracking
+- `/reggie-audit` -- if infrastructure is fine but code health is unknown
 

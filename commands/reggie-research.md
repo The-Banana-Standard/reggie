@@ -24,12 +24,12 @@ Be specific about what you want to know and what decision it's informing — you
 ### Examples
 
 ```
-/research how do successful puzzle games handle daily challenges and streaks
+/reggie-research how do successful puzzle games handle daily challenges and streaks
 
-/research compare Supabase vs Firebase for a mobile app with offline support
+/reggie-research compare Supabase vs Firebase for a mobile app with offline support
 
-/research what are indie iOS developers charging for premium puzzle games
+/reggie-research what are indie iOS developers charging for premium puzzle games
 
-/research how does Duolingo's notification strategy work
+/reggie-research how does Duolingo's notification strategy work
 ```
 

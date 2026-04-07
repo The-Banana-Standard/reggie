@@ -78,8 +78,8 @@ You (the main Claude) handle this directly. No subagents needed.
 ### Arguments
 
 ```
-/find-tools                    # Scan project and recommend MCP servers
-/find-tools --check            # Show current config status only (no install)
+/reggie-find-tools                    # Scan project and recommend MCP servers
+/reggie-find-tools --check            # Show current config status only (no install)
 $ARGUMENTS
 ```
 
@@ -302,7 +302,7 @@ If yes, append the export line to the user's shell profile and note it takes eff
 
 MCP tool schemas load into every subagent launched via the Task tool during pipeline runs — not just the parent session. The `tools:` allowlist on Task filters built-in tools but does NOT filter MCP tools. This means:
 
-- In a `/code-workflow` run with 10+ subagent launches, MCP context cost is multiplied 10x+
+- In a `/reggie-code-workflow` run with 10+ subagent launches, MCP context cost is multiplied 10x+
 - chrome-devtools (28 tools, `high` token profile) is the largest single contributor
 - Subagents that never use MCP tools (researcher, architect, reviewer) still pay the full schema cost
 
@@ -332,27 +332,27 @@ MCP tool schemas load into every subagent launched via the Task tool during pipe
 │ Tool Search: [enabled / already enabled / not enabled]           │
 │                                                                  │
 │ MCP servers are now available in this project.                   │
-│ Run /find-tools --check to review your config anytime.           │
+│ Run /reggie-find-tools --check to review your config anytime.           │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 After the completion box, emit:
 
 ```
-~~REGGIE:DONE:find-tools:success~~
+~~REGGIE:DONE:reggie-find-tools:success~~
 ```
 
 ---
 
 ## For Integration: CONFIGURE-TOOLS Stage
 
-When called from `/onboard` or `/new-repo`, the flow is the same but:
+When called from `/reggie-onboard` or `/reggie-new-repo`, the flow is the same but:
 - Skip the Tool Search setup check (not relevant during onboard/new-repo)
-- Auto-scan and present recommendations without the explicit `/find-tools` framing
+- Auto-scan and present recommendations without the explicit `/reggie-find-tools` framing
 - The CONFIGURE-TOOLS stage name is used in the pipeline output
 - The Smithery search step runs if `SMITHERY_API_KEY` is set — same keyword extraction from the already-discovered tech stack. This lets newly onboarded or scaffolded projects benefit from Smithery discovery automatically.
 
-When called from `/improve` (TOOLING-CHECK), the flow is read-only:
+When called from `/reggie-improve` (TOOLING-CHECK), the flow is read-only:
 - SCAN and MATCH LOCAL only (no Smithery search — avoid API calls in read-only audits)
 - Produces tool gap/unused proposals that feed into PROPOSE
 - Does NOT install anything directly
@@ -365,8 +365,8 @@ After presenting findings, add a brief note:
 
 ```
 For broader capability awareness (plugins, community agents, Smithery servers),
-run /refresh-capabilities. Pipeline planning stages automatically consult the
+run /reggie-refresh-capabilities. Pipeline planning stages automatically consult the
 capability manifest during RESEARCH and PLAN to recommend relevant tools.
 ```
 
-This is informational only — `/find-tools` remains focused on MCP servers.
+This is informational only — `/reggie-find-tools` remains focused on MCP servers.

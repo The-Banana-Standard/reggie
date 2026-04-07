@@ -62,5 +62,5 @@ Create GitHub Release from `v1.1.0` and mark it as the default stable install ta
 ## 6. Post-Release Verification
 
 - Follow stable install docs from a fresh environment.
-- Run `/find-tools --check` and `/refresh-capabilities --check` to confirm expected local file behavior.
+- Run `/reggie-find-tools --check` and `/reggie-refresh-capabilities --check` to confirm expected local file behavior.
 - Verify CI workflows are green on the release tag.

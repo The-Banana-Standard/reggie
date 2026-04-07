@@ -75,7 +75,7 @@ The agent system operates at two levels:
 
 ### System Agents (`~/.claude/agents/`)
 - Global agents that work across all projects
-- Updated by `/improve` with UNIVERSAL learnings
+- Updated by `/reggie-improve` with UNIVERSAL learnings
 - The source of truth for agent behavior
 - claude-architect is always a system agent
 
@@ -84,7 +84,7 @@ Project-specific customization happens through two mechanisms:
 
 1. **Agent Memory** (`.claude/agent-memory/<agent>/MEMORY.md`) -- Per-agent, per-project knowledge. Automatically loaded when agents run. Contains project conventions, past decisions, gotchas. This handles 90% of project customization.
 
-2. **Project Agent Forks** (`.claude/agents/<agent>.md`) -- Full project-level override of a system agent. Claude Code resolution priority: project > user > plugins. Use only when agent behavior must fundamentally differ (e.g., web-developer needs Svelte patterns instead of React). Created via `/improve` fork proposals after accumulated evidence.
+2. **Project Agent Forks** (`.claude/agents/<agent>.md`) -- Full project-level override of a system agent. Claude Code resolution priority: project > user > plugins. Use only when agent behavior must fundamentally differ (e.g., web-developer needs Svelte patterns instead of React). Created via `/reggie-improve` fork proposals after accumulated evidence.
 
 ### When Designing New Components
 
@@ -106,7 +106,7 @@ Every component you design must serve these principles:
 2. **Structured Execution** -- Conversations become pipelines with defined stages and quality gates. No stage is skipped because it felt unnecessary.
 3. **Quality Without Babysitting** -- 9.0/10 threshold at every gate. Iterate until met.
 4. **Agents Have Autonomy** -- Plans are context, not orders. Agents adapt and document why.
-5. **Self-Improvement Is Continuous** -- Every pipeline run generates learnings. `/improve` applies them.
+5. **Self-Improvement Is Continuous** -- Every pipeline run generates learnings. `/reggie-improve` applies them.
 6. **Opus by Default** -- Strongest model for complex work. Cheaper models only for mechanical tasks where output is identical.
 7. **Everything Is Portable** -- `~/.claude/` travels with the user. No external dependencies.
 
@@ -141,14 +141,14 @@ Components you design participate in the self-improvement cycle:
 
 ```
 Pipeline run → learnings captured in AGENT-IMPROVE.md
-  → /improve processes them
+  → /reggie-improve processes them
   → CLASSIFY: UNIVERSAL (system agents) | PROJECT (agent memory) | PROCESS (commands) | FORK-CANDIDATE
   → Minor changes auto-apply (Common Pitfalls, Quality Standards)
   → Major changes require approval (Process, Role, Tools)
   → IMPROVE-CHANGELOG.md tracks all modifications
 ```
 
-**Design implication**: Every agent you design will eventually be improved by `/improve`. Ensure sections are clearly delineated so targeted edits are possible. Common Pitfalls and Quality Standards should be bullet lists (easy to append). Process steps should be numbered (easy to insert).
+**Design implication**: Every agent you design will eventually be improved by `/reggie-improve`. Ensure sections are clearly delineated so targeted edits are possible. Common Pitfalls and Quality Standards should be bullet lists (easy to append). Process steps should be numbered (easy to insert).
 
 ### Stats Tracking
 
@@ -322,7 +322,7 @@ When proactively identifying system gaps (either during a design task or when ex
 - [Thing that looks like a gap but isn't, with rationale]
 ```
 
-Gap proposals feed into `~/.claude/AGENT-IMPROVE.md` as major-severity entries with Target Section "New Component" so the `/improve` pipeline can surface them for user approval.
+Gap proposals feed into `~/.claude/AGENT-IMPROVE.md` as major-severity entries with Target Section "New Component" so the `/reggie-improve` pipeline can surface them for user approval.
 
 ---
 

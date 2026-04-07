@@ -37,18 +37,18 @@ Use the **researcher** agent to analyze this codebase.
 
 **No arguments** → Full audit
 ```
-/audit
+/reggie-audit
 ```
 
 **With focus area** → Targeted audit
 ```
-/audit security      → Security-focused review
-/audit tests         → Test coverage and quality
-/audit architecture  → Structural issues
-/audit deps          → Dependency health
-/audit performance   → Performance concerns
-/audit quality       → Code quality issues
-/audit orientation   → Just help me understand this codebase
+/reggie-audit security      → Security-focused review
+/reggie-audit tests         → Test coverage and quality
+/reggie-audit architecture  → Structural issues
+/reggie-audit deps          → Dependency health
+/reggie-audit performance   → Performance concerns
+/reggie-audit quality       → Code quality issues
+/reggie-audit orientation   → Just help me understand this codebase
 ```
 
 ### For $ARGUMENTS:

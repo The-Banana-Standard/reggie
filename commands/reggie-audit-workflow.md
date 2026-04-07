@@ -71,12 +71,12 @@ This command orchestrates the **audit pipeline** — a systematic workflow that 
 ### Arguments
 
 ```
-/audit-workflow                    # Full audit, all categories
-/audit-workflow security           # Security-focused audit
-/audit-workflow performance        # Performance-focused audit
-/audit-workflow tests              # Test coverage audit
-/audit-workflow --yes              # Auto-approve all gates (Ralph Wiggum mode)
-/audit-workflow $ARGUMENTS         # Custom focus
+/reggie-audit-workflow                    # Full audit, all categories
+/reggie-audit-workflow security           # Security-focused audit
+/reggie-audit-workflow performance        # Performance-focused audit
+/reggie-audit-workflow tests              # Test coverage audit
+/reggie-audit-workflow --yes              # Auto-approve all gates (Ralph Wiggum mode)
+/reggie-audit-workflow $ARGUMENTS         # Custom focus
 ```
 
 ---
@@ -505,7 +505,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
    - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
-   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/improve` run
+   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
    - Clear processed minor entries from AGENT-IMPROVE.md; keep major entries for later
 
 **Summary box** (print after AUTO-IMPROVE completes or skips):
@@ -529,7 +529,7 @@ After all tasks are done:
 1. Run a final summary of all changes made
 2. List all commits created
 3. Note any tasks that were skipped or deferred
-4. **Run `/audit` one more time** — re-audit the codebase to verify health improved
+4. **Run `/reggie-audit` one more time** — re-audit the codebase to verify health improved
 5. Compare before/after health score
 6. Prompt user: push to remote?
 
@@ -550,13 +550,13 @@ After all tasks are done:
 After the completion box, emit:
 
 ```
-~~REGGIE:DONE:audit-workflow:success~~
+~~REGGIE:DONE:reggie-audit-workflow:success~~
 ```
 
 If the user says `abort` at any point, emit:
 
 ```
-~~REGGIE:DONE:audit-workflow:failed~~
+~~REGGIE:DONE:reggie-audit-workflow:failed~~
 ```
 
 ---

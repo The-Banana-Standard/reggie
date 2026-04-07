@@ -113,12 +113,12 @@ Execute each stage, waiting for completion and confirmation before proceeding. A
 
 **Key rule: never resume someone else's active task.** Active tasks in TASKS.md are assumed to be owned by another session. This session should only work on tasks it picks up fresh from the backlog or that the user explicitly specifies.
 
-**Auto-pickup** (when `/code-workflow` is run with no arguments and no task context):
+**Auto-pickup** (when `/reggie-code-workflow` is run with no arguments and no task context):
 1. Look at TASKS.md: list active tasks (these belong to other sessions) and backlog
 2. If backlog has items, auto-pick using priority + dependency + tier logic:
    - Scan all `- [ ]` items across all sections EXCEPT `### Ungroomed`
    - Filter out tasks with unmet dependencies (`[depends: slug]` where slug is still in backlog or active)
-   - **If `--tier` is active**: Filter to tasks whose `[tier: X]` tag matches the specified tier. Tasks without a `[tier:]` tag are treated as `opus:high`. If no tasks match the tier, print "No [tier] tasks in backlog. Waiting." and exit cleanly with `~~REGGIE:DONE:code-workflow:success~~`.
+   - **If `--tier` is active**: Filter to tasks whose `[tier: X]` tag matches the specified tier. Tasks without a `[tier:]` tag are treated as `opus:high`. If no tasks match the tier, print "No [tier] tasks in backlog. Waiting." and exit cleanly with `~~REGGIE:DONE:reggie-code-workflow:success~~`.
    - From remaining, pick highest priority: P1 > P2 > P3 (tasks without tags = P2)
    - Within same priority, pick first in document order (top-to-bottom)
    - If ALL tasks are blocked by dependencies, warn user and ask what to do
@@ -140,13 +140,13 @@ Execute each stage, waiting for completion and confirmation before proceeding. A
    ```
 8. If project uses `node_modules/`, run install command in `.worktree/[slug]/`
 9. **Context Seeding from task.md**: Create `.pipeline/[slug]/` if it doesn't exist. Seed `CONTEXT.md`:
-   - **If `.pipeline/[slug]/task.md` exists** (from `/init-tasks`): Read the task.md file and write its contents into `CONTEXT.md` under `## Pre-existing Context`. The task.md contains Problem, Vision, Context, Affected Areas, Acceptance Criteria, and Implementation Plan — all preserved verbatim.
+   - **If `.pipeline/[slug]/task.md` exists** (from `/reggie-init-tasks`): Read the task.md file and write its contents into `CONTEXT.md` under `## Pre-existing Context`. The task.md contains Problem, Vision, Context, Affected Areas, Acceptance Criteria, and Implementation Plan — all preserved verbatim.
    - **If no task.md**: The task has not been planned. Print redirect message and stop:
      ```
      This task needs planning before it can enter the pipeline. Run:
-       /init-tasks [task description]
+       /reggie-init-tasks [task description]
      to research it against the codebase, create an implementation plan,
-     then run /code-workflow to pick it up.
+     then run /reggie-code-workflow to pick it up.
      ```
      Move the task back to `## Backlog` in TASKS.md and remove it from `## Active Tasks`. Clean up the worktree. Stop the pipeline for this task.
 10. Ensure `.pipeline/` and `.worktree/` are in `.gitignore`
@@ -156,7 +156,7 @@ Execute each stage, waiting for completion and confirmation before proceeding. A
 14. **Staleness Validation**: If task.md has `## Implementation Plan` with a `### Files` section, validate that referenced files still exist in the codebase:
     - For `MOD:` files: check they exist. If missing, warn: "File [path] from plan no longer exists."
     - For `NEW:` files: check they DON'T exist yet (if they do, the plan may be stale). If found, warn: "File [path] already exists — plan may be stale."
-    - If any warnings: ask user to proceed (accept risk), re-plan via `/init-tasks`, or skip task.
+    - If any warnings: ask user to proceed (accept risk), re-plan via `/reggie-init-tasks`, or skip task.
     - If no warnings: proceed normally.
 15. **Conflict Detection**: Parse the file list from the task.md `### Files` section. Compare against all other active tasks' `**Files**` lists in TASKS.md. If overlap exists, show conflict warning and ask user to choose: Proceed / Wait / Rethink / Abort. If no overlap, proceed.
 16. **Skip List**: Evaluate which stages are categorically inapplicable (see pipeline-manager.md → Skip List). Write `.pipeline/[slug]/SKIP` with stage names and reasons. If no stages should be skipped, skip this step.
@@ -172,7 +172,7 @@ Backlog is empty. Options:
   2. Wait for an active task to complete
 ```
 
-**If task specified in arguments** (`/code-workflow fix-toggle-alignment` or `/code-workflow --yes fix-toggle-alignment`):
+**If task specified in arguments** (`/reggie-code-workflow fix-toggle-alignment` or `/reggie-code-workflow --yes fix-toggle-alignment`):
 First, check if the argument matches a slug in TASKS.md `## Backlog` (look for `- [ ] [argument]:` pattern).
 
 - **If slug matches a backlog task**: Pick up that specific task. This is a "start here" directive — useful for guaranteeing which task this session grabs when multiple code-workflows run in parallel. After completing this task, normal behavior resumes: in `--yes` mode, continue the loop picking up remaining tasks; in normal mode, ask "Pick up the next task?". The slug only controls which task is picked up FIRST — it does not limit the session to a single task.
@@ -180,12 +180,12 @@ First, check if the argument matches a slug in TASKS.md `## Backlog` (look for `
 - **If slug does NOT match any backlog task**: Treat as a new task description. Redirect the user:
 ```
 This task needs refinement before entering the pipeline. Run:
-  /init-tasks [task description]
+  /reggie-init-tasks [task description]
 to refine it with codebase context and acceptance criteria, then
-run /code-workflow to pick it up from the backlog.
+run /reggie-code-workflow to pick it up from the backlog.
 ```
 
-**Resuming your own task** (after context compaction or `/code-workflow resume [slug]`):
+**Resuming your own task** (after context compaction or `/reggie-code-workflow resume [slug]`):
 - Only resume a specific task if the user explicitly names it
 - Verify worktree exists; if missing, recreate from branch: `git worktree add .worktree/[slug] task/[slug]`
 - Read `.pipeline/[slug]/CONTEXT.md` and `.pipeline/[slug]/HANDOFF.md` to restore context
@@ -324,7 +324,7 @@ Issues found:
 
 This needs to go back. Where should we return?
 1. Back to IMPLEMENT (fix the code)
-2. Re-plan via /init-tasks (rethink approach entirely)
+2. Re-plan via /reggie-init-tasks (rethink approach entirely)
 ```
 
 Loop back to selected stage.
@@ -565,7 +565,7 @@ Before committing, capture any agent-level learnings from this pipeline run. Thi
    - If unsure, default to PROJECT
 
 **Focus areas for code-workflow**:
-- Did the task.md plan from /init-tasks survive implementation, or did the developer deviate significantly?
+- Did the task.md plan from /reggie-init-tasks survive implementation, or did the developer deviate significantly?
 - Did tests catch real issues, or were they superficial?
 - Did the refactorer actually simplify, or just rearrange?
 - Did reviews (code + security) catch things that earlier stages should have prevented?
@@ -587,7 +587,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
    - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
-   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/improve` run
+   - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
    - Clear processed minor entries from AGENT-IMPROVE.md; keep major entries for later
 
 **Summary box** (print after AUTO-IMPROVE completes or skips):
@@ -710,17 +710,17 @@ Backlog ([X] tasks remaining):
 
 - **Normal mode**: Ask "Pick up the next task? (y/n)". If yes, loop back to Stage 1 with new task. If no (or no tasks remain), emit:
   ```
-  ~~REGGIE:DONE:code-workflow:success~~
+  ~~REGGIE:DONE:reggie-code-workflow:success~~
   ```
 - **`--yes` mode (Ralph Wiggum)**: Auto-continue — **always** loop back to PICKUP for the next task, regardless of whether the just-completed task was specified by slug or auto-picked. A slug argument only controls which task is picked up first; it does not limit the session to one task. Run `/compact Discard all details from the completed task. Preserve only: this is a --yes mode code-workflow pipeline run, and I need to loop back to PICKUP to pick up the next backlog task from TASKS.md. Flags still active: --yes [and --tier X if set].` Then immediately proceed to PICKUP for the next backlog task (respecting `--tier` filter if active). If no matching tasks remain in the backlog, exit cleanly with "All tasks complete." and emit:
   ```
-  ~~REGGIE:DONE:code-workflow:success~~
+  ~~REGGIE:DONE:reggie-code-workflow:success~~
   ```
 
 If the user says `abort` at any stage, emit:
 
 ```
-~~REGGIE:DONE:code-workflow:failed~~
+~~REGGIE:DONE:reggie-code-workflow:failed~~
 ```
 
 ---
@@ -779,17 +779,17 @@ If verification/review fails, increment attempts in the quality scores table.
 ## Starting the Workflow
 
 ```
-/code-workflow                    # Start/continue workflow (picks from backlog)
-/code-workflow --opus             # Force Opus for all agents (no Sonnet overrides)
-/code-workflow --yes              # Auto-approve all confirmation gates (Ralph Wiggum mode)
-/code-workflow status             # Show current workflow state
-/code-workflow pause              # Pause and save progress
-/code-workflow resume [slug]      # Resume paused workflow
-/code-workflow --opus resume [slug]  # Resume with all-opus mode
-/code-workflow --yes --tier opus:high           # --yes loop, only opus:high tasks
-/code-workflow --yes --tier sonnet:medium        # --yes loop, only sonnet:medium tasks
-/code-workflow --yes fix-toggle-alignment        # Start with this slug, then continue loop
-/code-workflow --yes --tier opus:high fix-auth   # Start with fix-auth, tier-filtered loop after
+/reggie-code-workflow                    # Start/continue workflow (picks from backlog)
+/reggie-code-workflow --opus             # Force Opus for all agents (no Sonnet overrides)
+/reggie-code-workflow --yes              # Auto-approve all confirmation gates (Ralph Wiggum mode)
+/reggie-code-workflow status             # Show current workflow state
+/reggie-code-workflow pause              # Pause and save progress
+/reggie-code-workflow resume [slug]      # Resume paused workflow
+/reggie-code-workflow --opus resume [slug]  # Resume with all-opus mode
+/reggie-code-workflow --yes --tier opus:high           # --yes loop, only opus:high tasks
+/reggie-code-workflow --yes --tier sonnet:medium        # --yes loop, only sonnet:medium tasks
+/reggie-code-workflow --yes fix-toggle-alignment        # Start with this slug, then continue loop
+/reggie-code-workflow --yes --tier opus:high fix-auth   # Start with fix-auth, tier-filtered loop after
 ```
 
 ### Flags
@@ -800,19 +800,19 @@ If verification/review fails, increment attempts in the quality scores table.
 | `--yes` | Skip all confirmation gates. Pipeline runs end-to-end without user input. Automated quality gates (9.0/10) still run. |
 | `--tier <model:effort>` | Filter backlog pickup to tasks matching this tier (`opus:high`, `opus:medium`, `sonnet:medium`). Untagged tasks default to `opus:high`. Exits cleanly when no matching tasks remain. Enables parallel execution across terminals at different tiers. |
 
-**Note**: All tasks must go through `/init-tasks` first for codebase research, acceptance criteria, and implementation planning. Tasks without a `task.md` file will be rejected with a redirect to `/init-tasks`.
+**Note**: All tasks must go through `/reggie-init-tasks` first for codebase research, acceptance criteria, and implementation planning. Tasks without a `task.md` file will be rejected with a redirect to `/reggie-init-tasks`.
 
 ---
 
 ## Example Session
 
 ```
-> /code-workflow
+> /reggie-code-workflow
 
 Picking up from backlog: implement-streak-system [P1]
   "Build streak tracking for user retention"
   Acceptance criteria: 5 items
-  Implementation plan: yes (from /init-tasks)
+  Implementation plan: yes (from /reggie-init-tasks)
 
 Other active tasks: fix-color-rendering (IMPLEMENT)
 Starting IMPLEMENT stage.

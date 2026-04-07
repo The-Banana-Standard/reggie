@@ -1,6 +1,6 @@
 ---
 name: pipeline-manager
-description: "Pipeline manager for feature development and brainstorm workflows. Orchestrates PICKUP, IMPLEMENT, and review stages with quality gates, and documents the plan mode stage reference for /init-tasks. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then launch specialized agents at each stage via the Task tool. Examples: (1) '/code-workflow' starts the full development pipeline. (2) '/init-tasks' runs the task planning pipeline (plan mode)."
+description: "Pipeline manager for feature development and brainstorm workflows. Orchestrates PICKUP, IMPLEMENT, and review stages with quality gates, and documents the plan mode stage reference for /reggie-init-tasks. This is a REFERENCE DOCUMENT for the main Claude orchestrator — do NOT launch this as a subagent. Read this file for guidance, then launch specialized agents at each stage via the Task tool. Examples: (1) '/reggie-code-workflow' starts the full development pipeline. (2) '/reggie-init-tasks' runs the task planning pipeline (plan mode)."
 tools: Glob, Grep, Read, Edit, Write
 model: opus
 memory: user
@@ -20,12 +20,12 @@ You handle multiple pipeline entry points:
 
 | Command | Entry Point | First Stage | Mode |
 |---------|-------------|-------------|------|
-| `/code-workflow` | Tasks already exist | PICKUP | code |
-| `/brainstorm-workflow` | Start from an idea | BRAINSTORM | brainstorm |
+| `/reggie-code-workflow` | Tasks already exist | PICKUP | code |
+| `/reggie-brainstorm` | Start from an idea | BRAINSTORM | brainstorm |
 
 ## --yes Flag Handling (Ralph Wiggum Mode)
 
-When `--yes` is present in $ARGUMENTS (from `/code-workflow --yes`), the orchestrator skips ALL confirmation prompts:
+When `--yes` is present in $ARGUMENTS (from `/reggie-code-workflow --yes`), the orchestrator skips ALL confirmation prompts:
 
 - Stage advancement prompts → auto-advance
 - REVIEW-WITH-USER acceptance → all criteria auto-approved
@@ -49,7 +49,7 @@ The pipeline supports multiple modes that share all infrastructure (worktrees, T
 | Mode | Stage Sequence |
 |------|---------------|
 | code | PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER → COMMIT → COMPLETE |
-| brainstorm | BRAINSTORM → ... (creates task via /init-tasks, then continues as code mode) |
+| brainstorm | BRAINSTORM → ... (creates task via /reggie-init-tasks, then continues as code mode) |
 
 **Mode affects:**
 1. **Stage sequence**: Which stages run and in what order
@@ -70,8 +70,8 @@ The pipeline supports multiple modes that share all infrastructure (worktrees, T
 ```
 BRAINSTORM → RESEARCH → PLAN → BUILD → REVIEW-GATE → COMPLETE
                           ↑
-             /code-workflow enters here (PICKUP → IMPLEMENT)
-             (RESEARCH+PLAN handled by /init-tasks)
+             /reggie-code-workflow enters here (PICKUP → IMPLEMENT)
+             (RESEARCH+PLAN handled by /reggie-init-tasks)
 ```
 
 ### BUILD Module (expanded)
@@ -91,9 +91,9 @@ Every `→` is a quality gate (9.0/10 minimum). Every quality gate pass = git co
 | Stage | Agent | Purpose |
 |-------|-------|---------|
 | BRAINSTORM | thought-partner | Explore idea, define what to build |
-| RESEARCH | *handled by /init-tasks* | Investigate problem space (handled by /init-tasks) |
+| RESEARCH | *handled by /reggie-init-tasks* | Investigate problem space (handled by /reggie-init-tasks) |
 | PICKUP | pipeline-manager | Select task from backlog |
-| PLAN | *handled by /init-tasks* | Design approach (handled by /init-tasks) |
+| PLAN | *handled by /reggie-init-tasks* | Design approach (handled by /reggie-init-tasks) |
 | IMPLEMENT | ios/android/web/go/ts/rust-developer | Write the code |
 | TEST | qa-engineer | Create test coverage |
 | QUALITY-CHECK | qa-engineer | Validate test quality |
@@ -137,7 +137,7 @@ Tournament is a quality escalation, not a separate pipeline. Two agents work the
 
 **Auto-triggers** after 2 quality gate failures on the same stage (3 if Sonnet→Opus escalation applies first, 2 if `--opus` flag is active since Sonnet→Opus step is skipped).
 
-**Manual trigger**: User says "tournament" at any stage, or runs `/code-workflow --tournament`.
+**Manual trigger**: User says "tournament" at any stage, or runs `/reggie-code-workflow --tournament`.
 
 **Tournamentable stages**: BRAINSTORM, IMPLEMENT, TEST, DRAFT
 
@@ -351,7 +351,7 @@ MCP tool schemas propagate to every subagent launched via Task — the `tools:` 
    - trail-of-bits-security (curated) — CodeQL/Semgrep static analysis [overlaps: security-reviewer]
    - webapp-testing (official) — Playwright UI verification [overlaps: app-tester]
 
-   To install recommended tools: /find-tools
+   To install recommended tools: /reggie-find-tools
    ```
 
    - **Installed**: Cross-reference `.mcp.json`, `~/.claude/settings.json` enabledPlugins, and installed plugin directories against manifest entries
@@ -359,7 +359,7 @@ MCP tool schemas propagate to every subagent launched via Task — the `tools:` 
    - **Task-relevant**: Entries whose `keywords` overlap with the task description. Exclude duplicates from Installed/Recommended. Cap at 5.
    - **Community skills**: Entries with `source: community-skill` whose `keywords` overlap with the task description or whose `signals` match project files/deps. Note `overlaps_with` if present. Cap at 3. Reggie agents always take priority — skills are supplementary options only.
    - If no manifest exists, skip silently. This is an enhancement, not a requirement.
-   - **Staleness check**: If manifest `last_refreshed` is older than 14 days, print: `NOTE: Capability manifest is [N] days old. Run /refresh-capabilities to update.`
+   - **Staleness check**: If manifest `last_refreshed` is older than 14 days, print: `NOTE: Capability manifest is [N] days old. Run /reggie-refresh-capabilities to update.`
 
 4. **Log orchestrator context profile**: Write to `.pipeline/[slug]/CONTEXT.md` under `## Orchestrator Context Profile`:
 
@@ -499,7 +499,7 @@ The pipeline-manager maintains a cumulative context document (`.pipeline/[slug]/
 Only present if context was available. Downstream agents should read this before starting work.]
 
 ## Implementation Plan
-[Seeded from task.md (created by /init-tasks) — contains Problem, Vision,
+[Seeded from task.md (created by /reggie-init-tasks) — contains Problem, Vision,
 Context, Affected Areas, Acceptance Criteria, and Implementation Plan.
 The file list in the plan is a hard boundary — the implementer must
 not modify files outside this list. Within those files, the implementer
@@ -544,9 +544,9 @@ Agents working on a task will often discover unrelated problems in the codebase 
      > [Detail line 1 from agent's output — file paths, specific problem]
      > [Detail line 2 — severity, suggested fix direction if noted]
    ```
-   Extract the most useful 1-3 lines from the agent's `## Discovered Issues` output. Keep them concrete (file paths, specific symptoms). If the agent only provided a one-liner, a one-liner backlog entry is fine — do not pad it. Append to `### Ungroomed` at the bottom of `## Backlog` (create the section if it doesn't exist). Do NOT sort discovered issues into named sections — that happens during `/init-tasks` ORGANIZE.
+   Extract the most useful 1-3 lines from the agent's `## Discovered Issues` output. Keep them concrete (file paths, specific symptoms). If the agent only provided a one-liner, a one-liner backlog entry is fine — do not pad it. Append to `### Ungroomed` at the bottom of `## Backlog` (create the section if it doesn't exist). Do NOT sort discovered issues into named sections — that happens during `/reggie-init-tasks` ORGANIZE.
 4. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: discovered-issues [current-task-slug]" --no-gpg-sign 2>/dev/null`
-5. These backlog items are then available for future `/code-workflow` or `/audit-workflow` sessions to pick up
+5. These backlog items are then available for future `/reggie-code-workflow` or `/reggie-audit-workflow` sessions to pick up
 
 ### What Each Agent Contributes Back
 
@@ -628,9 +628,9 @@ Completed tasks are stored in `HISTORY.md` (same directory as TASKS.md), not in 
 
 ### Grouped Backlog Format
 
-The backlog uses `### Section Name` headers to organize tasks into areas of focus. These groups are created by `/init-tasks` (using code-architect to analyze project structure) or manually by the user.
+The backlog uses `### Section Name` headers to organize tasks into areas of focus. These groups are created by `/reggie-init-tasks` (using code-architect to analyze project structure) or manually by the user.
 
-**Task format (slim — output of `/init-tasks` FORMALIZE phase):**
+**Task format (slim — output of `/reggie-init-tasks` FORMALIZE phase):**
 
 Each task is a single metadata-rich line with an optional `files:` line. Full task descriptions and implementation plans live in `.pipeline/[slug]/task.md` files.
 
@@ -651,7 +651,7 @@ Each task is a single metadata-rich line with an optional `files:` line. Full ta
 - **Plan status**: `[planned]` (has task.md with implementation plan) — required for code-workflow pickup
 - **Files**: `files:` line lists NEW/MOD files from the plan (helps conflict detection)
 
-**task.md files**: Pre-planned tasks have a `.pipeline/[slug]/task.md` file containing the full enriched description (Problem, Vision, Context, Affected Areas, Acceptance Criteria) and an Implementation Plan — minimal for simple tasks (files + 1-2 steps) or full for complex tasks (Overview, Files, Approach, Key Decisions, Risks). These are created by `/init-tasks` FORMALIZE phase, read by PICKUP for context seeding, and deleted by COMPLETE.
+**task.md files**: Pre-planned tasks have a `.pipeline/[slug]/task.md` file containing the full enriched description (Problem, Vision, Context, Affected Areas, Acceptance Criteria) and an Implementation Plan — minimal for simple tasks (files + 1-2 steps) or full for complex tasks (Overview, Files, Approach, Key Decisions, Risks). These are created by `/reggie-init-tasks` FORMALIZE phase, read by PICKUP for context seeding, and deleted by COMPLETE.
 
 **Legacy format (still supported for backwards compatibility):**
 ```
@@ -664,12 +664,12 @@ Each task is a single metadata-rich line with an optional `files:` line. Full ta
 - `[P1]` — blocking or critical
 - `[P2]` — standard (default if no tag)
 - `[P3]` — nice-to-have
-- Tags are assigned by `/init-tasks`, can be manually set
+- Tags are assigned by `/reggie-init-tasks`, can be manually set
 
 **Dependency tags:**
 - `[depends: slug]` — this task requires another task to complete first
 - `[depends: slug-a, slug-b]` — multiple dependencies (all must be satisfied)
-- Mapped by `/init-tasks` ORGANIZE phase using code-architect analysis
+- Mapped by `/reggie-init-tasks` ORGANIZE phase using code-architect analysis
 - PICKUP validates dependencies; if unmet, defers the task
 
 **Context blocks:**
@@ -713,10 +713,10 @@ This runs once, automatically, whenever a pipeline first reads a TASKS.md with t
    ```
    WARNING: CLAUDE.md not found. Agents will have limited project context.
    Options:
-     1. Run /onboard first (recommended — generates CLAUDE.md + foundational docs)
+     1. Run /reggie-onboard first (recommended — generates CLAUDE.md + foundational docs)
      2. Continue without it
    ```
-   If user chooses option 1, stop PICKUP and prompt them to run `/onboard`.
+   If user chooses option 1, stop PICKUP and prompt them to run `/reggie-onboard`.
    If user chooses option 2, continue. This is a soft gate — the pipeline works without CLAUDE.md, but agents produce better results with it.
 3. User selects from backlog, describes a new task, or auto-picks highest-priority backlog item
 4. Generate slug from task name (collision check: append `-2` if slug exists)
@@ -742,13 +742,13 @@ This runs once, automatically, whenever a pipeline first reads a TASKS.md with t
 13. Remove the picked-up task's `- [ ] slug: ...` entry from `## Backlog` in TASKS.md. Delete the entire entry including any indented lines below it (`files:` line for new format, or `>` context lines for legacy format).
 14. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: pickup [slug]" --no-gpg-sign 2>/dev/null`
 15. If > 3 active tasks: warn user ("You have [N] active tasks — consider completing some before starting more")
-16. Advance to IMPLEMENT (or BRAINSTORM if brainstorm-workflow)
+16. Advance to IMPLEMENT (or BRAINSTORM if using `/reggie-brainstorm`)
 
 ### Context Seeding (at PICKUP)
 
 When creating `.pipeline/[slug]/CONTEXT.md`, seed it with pre-existing context instead of leaving it empty:
 
-1. **Read from task.md file** (preferred — new format from `/init-tasks`): Check if `.pipeline/[slug]/task.md` exists. If it does, read its full contents and write them into `## Pre-existing Context` in CONTEXT.md, preserving all sections verbatim (Problem, Vision, Context, Affected Areas, Acceptance Criteria, Implementation Plan). The REVIEW-WITH-USER stage later reads the `## Acceptance Criteria` section from this context.
+1. **Read from task.md file** (preferred — new format from `/reggie-init-tasks`): Check if `.pipeline/[slug]/task.md` exists. If it does, read its full contents and write them into `## Pre-existing Context` in CONTEXT.md, preserving all sections verbatim (Problem, Vision, Context, Affected Areas, Acceptance Criteria, Implementation Plan). The REVIEW-WITH-USER stage later reads the `## Acceptance Criteria` section from this context.
 
 2. **Staleness validation**: If task.md references files, validate them:
    - MOD files: check they still exist. If any are missing, warn: "⚠ Stale plan: [file] no longer exists. Plan may need updating."
@@ -794,7 +794,7 @@ After seeding CONTEXT.md, assess which pipeline stages are categorically inappli
 | Task has no acceptance criteria (legacy format) | REVIEW-WITH-USER | No criteria to walk through |
 
 **Rules:**
-- RESEARCH and PLAN are not part of the code-workflow pipeline — they are handled by `/init-tasks`. All tasks must have a `task.md` with an implementation plan before entering code-workflow. Tasks without one are rejected at PICKUP with a redirect to `/init-tasks`.
+- RESEARCH and PLAN are not part of the code-workflow pipeline — they are handled by `/reggie-init-tasks`. All tasks must have a `task.md` with an implementation plan before entering code-workflow. Tasks without one are rejected at PICKUP with a redirect to `/reggie-init-tasks`.
 - IMPLEMENT is only skipped for genuinely non-code tasks
 - REVIEW is never skipped — every change gets reviewed
 - COMMIT and COMPLETE are never skipped — mechanical/mandatory
@@ -814,10 +814,10 @@ If no stages should be skipped, do not create the SKIP file.
 **Resuming your own task**: Only if the user explicitly says to resume a specific slug (e.g., after context compaction or returning to a paused task). Verify the worktree exists; if missing, recreate from the branch: `git worktree add .worktree/[slug] task/[slug]`. Read `.pipeline/[slug]/CONTEXT.md` + `.pipeline/[slug]/HANDOFF.md` to restore context, continue from the stage in TASKS.md.
 
 ### Auto-Pickup
-When `/code-workflow` is run with no arguments and no task is specified:
+When `/reggie-code-workflow` is run with no arguments and no task is specified:
 1. List active tasks as FYI (these belong to other sessions — do not touch)
 2. If backlog has items, auto-pick using priority + dependency logic:
-   - Scan all `- [ ]` items across all sections EXCEPT `### Ungroomed` (ungroomed items are never auto-picked — they must go through `/init-tasks` first)
+   - Scan all `- [ ]` items across all sections EXCEPT `### Ungroomed` (ungroomed items are never auto-picked — they must go through `/reggie-init-tasks` first)
    - Filter out tasks with unmet dependencies (`[depends: slug]` where slug is still in backlog or active)
    - From remaining, pick highest priority first: P1 > P2 > P3 (tasks without tags = P2)
    - Within same priority, pick first in document order (top-to-bottom)
@@ -846,17 +846,17 @@ When `/code-workflow` is run with no arguments and no task is specified:
 4. If fail: follow escalation (iterate → research → Opus retry if Sonnet → tournament → user)
 5. Update TASKS.md with scores and status
 6. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: stage [slug] [STAGE-NAME]" --no-gpg-sign 2>/dev/null`
-7. Write current stage to `.pipeline/[slug]/STAGE` file (plain text, e.g., `IMPLEMENT`). This file is read by `/status` to show progress without parsing TASKS.md.
+7. Write current stage to `.pipeline/[slug]/STAGE` file (plain text, e.g., `IMPLEMENT`). This file is read by `/reggie-status` to show progress without parsing TASKS.md.
 
 ### RESEARCH and PLAN — Removed from Code Mode
 
-**RESEARCH and PLAN are no longer part of the code-workflow pipeline.** They are handled by `/init-tasks` before tasks enter the pipeline. All tasks must have a `.pipeline/[slug]/task.md` with an implementation plan — tasks without one are rejected at PICKUP with a redirect to `/init-tasks`.
+**RESEARCH and PLAN are no longer part of the code-workflow pipeline.** They are handled by `/reggie-init-tasks` before tasks enter the pipeline. All tasks must have a `.pipeline/[slug]/task.md` with an implementation plan — tasks without one are rejected at PICKUP with a redirect to `/reggie-init-tasks`.
 
 **The researcher and code-architect agents are NOT deleted.** They remain available for:
-- `/init-tasks` RESEARCH+PLAN phase (orchestrator researches codebase, plans tasks sequentially)
-- Standalone `/research` and `/plan` commands
+- `/reggie-init-tasks` RESEARCH+PLAN phase (orchestrator researches codebase, plans tasks sequentially)
+- Standalone `/reggie-research` and `/reggie-plan` commands
 - Quality gate escalation attempt 2 (researcher provides new context)
-- `/new-repo` task breakdown (code-architect analyzes project structure)
+- `/reggie-new-repo` task breakdown (code-architect analyzes project structure)
 - Onboard pipeline stages (researcher)
 
 ### Pre-IMPLEMENT Dependency Validation
@@ -898,7 +898,7 @@ claimed by active task "[other-task]":
 Options:
   1. Proceed -- accept merge risk
   2. Wait -- pause until the other task completes
-  3. Re-plan via /init-tasks -- redesign around the overlap
+  3. Re-plan via /reggie-init-tasks -- redesign around the overlap
   4. Abort -- cancel this task
 ```
 
@@ -989,7 +989,7 @@ Options:
    - **deferred_tools_count**: from the Orchestrator Context Profile
    - **enable_tool_search**: from the PICKUP check
 
-9. Delete `.pipeline/[slug]/` directory (this includes task.md if it exists — created by `/init-tasks`, consumed by PICKUP)
+9. Delete `.pipeline/[slug]/` directory (this includes task.md if it exists — created by `/reggie-init-tasks`, consumed by PICKUP)
 10. Show remaining active tasks + backlog
 11. **Next task behavior**:
     - **Normal mode**: Prompt "Pick up next task? (y/n)"

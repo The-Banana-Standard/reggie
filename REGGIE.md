@@ -46,14 +46,14 @@ Reggie lives in `~/.claude/`. Copy the agents and commands directories to a new 
 ## How It Works
 
 ```
-Brain dump → /init-tasks → /code-workflow (×N in parallel) → Done
+Brain dump → /reggie-init-tasks → /reggie-code-workflow (×N in parallel) → Done
 ```
 
 **Step 1: Brain dump.** Write down everything you want done -- features, bugs, ideas, half-formed thoughts. Drop them in `TASKS.md`, paste them in chat, or just talk through them. Don't worry about order or format.
 
-**Step 2: `/init-tasks`.** Reggie takes your raw notes and turns them into implementation-ready tasks. It researches each one against your actual codebase, asks targeted questions ("I see two auth middlewares -- which one?"), groups related tasks, and builds plans. You make the decisions, Reggie does the legwork.
+**Step 2: `/reggie-init-tasks`.** Reggie takes your raw notes and turns them into implementation-ready tasks. It researches each one against your actual codebase, asks targeted questions ("I see two auth middlewares -- which one?"), groups related tasks, and builds plans. You make the decisions, Reggie does the legwork.
 
-**Step 3: `/code-workflow` (×N in parallel).** Open as many terminals as you want. Run `/code-workflow` in each. Each session auto-picks a different task from the backlog and works in its own git worktree -- implement, test, review, commit. No conflicts, no interleaved commits. Every stage has a quality gate (9.0/10 to advance).
+**Step 3: `/reggie-code-workflow` (×N in parallel).** Open as many terminals as you want. Run `/reggie-code-workflow` in each. Each session auto-picks a different task from the backlog and works in its own git worktree -- implement, test, review, commit. No conflicts, no interleaved commits. Every stage has a quality gate (9.0/10 to advance).
 
 That's the primary loop. There are other pipelines -- audit, content, debugging -- but init-tasks + code-workflow is the daily driver.
 
@@ -88,14 +88,14 @@ Every pipeline command emits a machine-readable marker as its very last output l
 
 | Field | Values |
 |-------|--------|
-| `command-name` | The slash command name without `/` (e.g., `code-workflow`, `init-tasks`) |
+| `command-name` | The slash command name without `/` (e.g., `reggie-code-workflow`, `reggie-init-tasks`) |
 | `status` | `success` or `failed` |
 
 **Rules**:
 - Marker is visible plain text — no ANSI escapes, no code blocks
 - Emitted after the final completion box or summary, as the absolute last line
 - `failed` marker emitted on early exit due to quality gate failure, user abort, or error
-- `/brainstorm` is excluded (conversational, no defined endpoint)
+- `/reggie-brainstorm` is excluded (conversational, no defined endpoint)
 
 ---
 
@@ -112,7 +112,7 @@ Every pipeline command emits a machine-readable marker as its very last output l
 
 ```bash
 # Check system health
-/status
+/reggie-status
 
 # See all commands
 /reggie-guide
