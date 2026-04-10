@@ -1,3 +1,7 @@
+---
+type: pipeline
+---
+
 # Audit Workflow
 
 Execute the full audit-to-fix pipeline for a codebase.

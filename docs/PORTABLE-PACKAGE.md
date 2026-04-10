@@ -393,6 +393,10 @@ You are a [role]...
 Create a new file in `~/.claude/commands/`:
 
 ```markdown
+---
+type: pipeline
+---
+
 # My Command
 
 Brief description.
@@ -407,6 +411,8 @@ Brief description.
 
 What to do when `/my-command` is invoked.
 ```
+
+The `type: pipeline` frontmatter is optional — add it for multi-stage workflow commands so tools like Forge can classify them. Omit it for single-action commands.
 
 ### Voice Profile
 

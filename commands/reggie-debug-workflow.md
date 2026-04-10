@@ -1,3 +1,7 @@
+---
+type: pipeline
+---
+
 # Debug Workflow
 
 Conversational debugging workflow that produces a diagnosis before transitioning to code-workflow for implementation.

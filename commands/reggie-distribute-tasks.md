@@ -1,3 +1,7 @@
+---
+type: pipeline
+---
+
 # Distribute Tasks
 
 Parse freeform notes into discrete tasks and distribute them to the correct repos based on workspace documentation.

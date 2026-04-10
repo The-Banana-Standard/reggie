@@ -1,3 +1,7 @@
+---
+type: pipeline
+---
+
 # Onboard Workflow
 
 Prepare an existing repository for the Claude Code agent system.

@@ -1,3 +1,7 @@
+---
+type: pipeline
+---
+
 # Improve
 
 Process accumulated agent learnings and apply improvements to system agents, project agent memory, and command files.

@@ -1,3 +1,7 @@
+---
+type: pipeline
+---
+
 # Social Workflow
 
 Adapt existing content into platform-specific social media posts.

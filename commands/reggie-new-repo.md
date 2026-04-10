@@ -1,3 +1,7 @@
+---
+type: pipeline
+---
+
 # New Repo
 
 Bootstrap a new repository with proper structure, docs, and git setup.

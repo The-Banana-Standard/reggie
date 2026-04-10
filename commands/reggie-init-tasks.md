@@ -1,3 +1,7 @@
+---
+type: pipeline
+---
+
 # Initialize Tasks
 
 Refine loosely-formed tasks into a structured TASKS.md with implementation-ready task files, rich metadata, and grouped areas of focus.

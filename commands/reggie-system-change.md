@@ -1,3 +1,7 @@
+---
+type: pipeline
+---
+
 # Reggie System Change
 
 Formalize changes to the ~/.claude/ agent system from conversation or known requirements.

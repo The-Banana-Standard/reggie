@@ -1,3 +1,7 @@
+---
+type: pipeline
+---
+
 # Article Workflow
 
 Execute the full article production pipeline from idea to published draft.

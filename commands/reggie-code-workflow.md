@@ -1,3 +1,7 @@
+---
+type: pipeline
+---
+
 # Code Workflow
 
 Execute the complete development workflow for a task from start to finish.

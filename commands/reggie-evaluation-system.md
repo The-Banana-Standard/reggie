@@ -1,3 +1,7 @@
+---
+type: pipeline
+---
+
 # Evaluate Reggie
 
 Evaluate the ~/.claude/ agent system architecture and propose improvements.
