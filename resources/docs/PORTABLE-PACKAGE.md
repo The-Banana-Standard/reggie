@@ -10,15 +10,7 @@ A complete agent and pipeline system for software development, design, and conte
 
 ### Install
 
-```bash
-# Clone the repo and run the install script
-git clone https://github.com/The-Banana-Standard/reggie.git
-cd reggie
-./install.sh      # macOS/Linux
-# .\install.ps1   # Windows (PowerShell as Administrator)
-```
-
-This creates per-file symlinks for each agent, command, and hook into `~/.claude/`. User-created files are preserved. Restart Claude Code to pick up the new commands.
+Reggie is installed and managed by [Forge](https://github.com/The-Banana-Standard/forge-reggie), the desktop companion app. Forge copies the contents of `resources/` into `~/.claude/` and keeps them in sync. User-created files are preserved. Restart Claude Code to pick up the new commands.
 
 ### Verify
 

@@ -54,7 +54,4 @@
 ### Ungroomed
 - [ ] update-forge-reggie-data: Update forge-reggie reggie_data.rs to use manager: frontmatter lookup instead of find_matching_manager heuristic [P2]
   > Discovered during prefix-rename-agents. The Forge app in forge-reggie/src-tauri/src/commands/reggie_data.rs still uses substring heuristics to match pipeline commands to managers. Now that commands have manager: frontmatter, Forge should parse that field directly.
-- [ ] fix-install-sh-fallback: Fix install.sh fallback block missing Task, Skill, and ToolSearch matchers [P3]
-  > Discovered during prefix-rename-agents simplify stage. 4 pre-existing test failures in tests/test-installer-fixes.sh Fix 1.
-
 ---

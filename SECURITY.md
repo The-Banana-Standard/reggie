@@ -29,9 +29,8 @@ If private reporting is unavailable, contact the maintainers directly and mark t
 ## Scope
 
 In scope:
-- Install/uninstall scripts (`install.sh`, `install.ps1`, `uninstall.sh`, `uninstall.ps1`)
-- Hooks and automation scripts (`hooks/`)
-- Registry files and capability plumbing (`mcp-registry.yaml`, `skills-registry.yaml`, capability refresh flows)
+- Hooks and automation scripts (`resources/hooks/`)
+- Registry files and capability plumbing (`resources/registries/mcp-registry.yaml`, `resources/registries/skills-registry.yaml`, capability refresh flows)
 - Agent/command definitions that can affect execution safety
 
 Out of scope:

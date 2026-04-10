@@ -7,7 +7,7 @@ Thanks for your interest in contributing. Reggie is a personal system shared ope
 1. **Fork** the repository
 2. **Create a branch** for your change (`git checkout -b my-change`)
 3. **Make your changes**
-4. **Test** by running `./install.sh` and verifying your changes work in Claude Code
+4. **Test** by copying your changed files from `resources/` into `~/.claude/` and verifying they work in Claude Code
 5. **Submit a pull request**
 
 ## What You Can Contribute
@@ -28,7 +28,7 @@ Thanks for your interest in contributing. Reggie is a personal system shared ope
 - Examples and use cases
 
 ### Bug Fixes
-- Fix broken cross-references between agents/commands
+- Fix broken cross-references between resources/agents and resources/commands
 - Fix incorrect tool permissions in agent frontmatter
 - Fix outdated counts or references
 

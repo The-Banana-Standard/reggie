@@ -8,10 +8,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Renamed all 36 agent files to `reggie-` prefix (e.g., `ios-developer.md` -> `reggie-ios-developer.md`)
-- Shortened pipeline manager names from `pipeline-manager-*` to `reggie-*-manager` (e.g., `pipeline-manager-code.md` -> `reggie-code-manager.md`)
+- Shortened pipeline manager names from `*-pipeline-manager` to `reggie-*-manager` (e.g., `audit-pipeline-manager.md` -> `reggie-audit-manager.md`)
 - Added `manager:` frontmatter to pipeline commands linking each to its pipeline manager agent
 - Added `type: pipeline` frontmatter to 12 pipeline commands
 - Updated cross-references across 74+ files to use new agent names
+- Reorganized repo: moved agents, commands, hooks, docs, and registries into `resources/`
+- Rewrote installation docs for Forge-based installation (replacing install.sh scripts)
+
+### Removed
+- Deleted install.sh, install.ps1, uninstall.sh, uninstall.ps1 (replaced by Forge app installer)
+- Deleted tests/test-installer-fixes.sh (tested deleted scripts)
 
 ## [1.1.2] - 2026-03-09
 

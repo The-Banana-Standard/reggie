@@ -4,9 +4,9 @@ This checklist captures the remaining operational steps that are intentionally n
 
 ## 1. Preflight
 
-- Confirm `mcp-registry.yaml` and `skills-registry.yaml` are tracked.
+- Confirm `resources/registries/mcp-registry.yaml` and `resources/registries/skills-registry.yaml` are tracked.
 - Confirm `.claude/` and `capability-manifest.yaml` are ignored and untracked.
-- Confirm install/uninstall docs and scripts match current behavior.
+- Confirm install/uninstall docs match current behavior.
 - Confirm security baseline files exist (`SECURITY.md`, `.github/CODEOWNERS`, CI workflows).
 
 ## 2. Purge Historical Runtime Data

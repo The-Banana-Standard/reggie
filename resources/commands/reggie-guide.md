@@ -532,26 +532,26 @@ Yes. Section headers are optional. A backlog with no `### ` headers works exactl
 ### Topic: Installation & File Structure
 
 **How is Reggie installed?**
-Reggie is a git repo that symlinks into `~/.claude/`. The install script (`install.sh` on macOS/Linux, `install.ps1` on Windows) symlinks core directories/files, configures the stats tracking hook in `settings.json`, adds `ENABLE_TOOL_SEARCH=auto:5` to your shell profile, and backs up existing managed files. It also creates optional local overlay files (`mcp-registry.local.yaml`, `skills-registry.local.yaml`) when missing. Edits in either location are the same file for symlinked content. The uninstall script (`uninstall.sh` / `uninstall.ps1`) removes managed symlinks, removes stats hooks from `settings.json`, and restores from backup if available. On Windows, creating symlinks requires Administrator PowerShell or Developer Mode.
+Reggie is installed and managed by [Forge](https://github.com/The-Banana-Standard/forge-reggie), the desktop companion app. Forge copies the contents of `resources/` into `~/.claude/` and keeps them in sync. All distributable content lives under `resources/` in the repo: `resources/agents/`, `resources/commands/`, `resources/hooks/`, `resources/docs/`, and `resources/registries/`.
 
-**What gets symlinked?**
+**What gets installed where?**
 
-| ~/.claude/ path | Repo path | Type |
+| ~/.claude/ path | Repo path | What |
 |----------------|-----------|------|
-| `agents/` | `agents/` | Directory symlink |
-| `commands/` | `commands/` | Directory symlink |
-| `hooks/` | `hooks/` | Directory symlink |
-| `REGGIE.md` | `REGGIE.md` | File symlink |
-| `PORTABLE-PACKAGE.md` | `docs/PORTABLE-PACKAGE.md` | File symlink |
-| `agents-is-all-you-need.md` | `docs/agents-is-all-you-need.md` | File symlink |
-| `reggie-quickstart.md` | `docs/reggie-quickstart.md` | File symlink |
-| `mcp-registry.yaml` | `mcp-registry.yaml` | File symlink |
-| `skills-registry.yaml` | `skills-registry.yaml` | File symlink |
+| `agents/*.md` | `resources/agents/*.md` | 36 agent definitions |
+| `commands/*.md` | `resources/commands/*.md` | 35 slash commands |
+| `hooks/track-stats.sh` | `resources/hooks/track-stats.sh` | Stats tracking hook |
+| `REGGIE.md` | `resources/docs/REGGIE.md` | Philosophy and principles |
+| `PORTABLE-PACKAGE.md` | `resources/docs/PORTABLE-PACKAGE.md` | Full system reference |
+| `agents-is-all-you-need.md` | `resources/docs/agents-is-all-you-need.md` | Design essay |
+| `reggie-quickstart.md` | `resources/docs/reggie-quickstart.md` | Quickstart guide |
+| `mcp-registry.yaml` | `resources/registries/mcp-registry.yaml` | Curated MCP registry |
+| `skills-registry.yaml` | `resources/registries/skills-registry.yaml` | Curated skills registry |
 
 **What gets configured automatically?**
-The install script adds stats tracking hooks to `~/.claude/settings.json` (idempotent — safe to run multiple times). These hooks track Task, Skill, and ToolSearch usage for pipeline stats. It also adds `export ENABLE_TOOL_SEARCH=auto:5` to your shell profile (~/.zshrc, ~/.bashrc, or PowerShell $PROFILE) — this defers MCP tool schemas so agents only load tools they need. The uninstall script removes the stats hooks from settings.json.
+Forge adds stats tracking hooks to `~/.claude/settings.json` (idempotent — safe to run multiple times). These hooks track Task, Skill, and ToolSearch usage for pipeline stats. It also sets `ENABLE_TOOL_SEARCH=auto:5` in your shell profile — this defers MCP tool schemas so agents only load tools they need.
 
-**What stays local (NOT symlinked)?**
+**What stays local (NOT installed from repo)?**
 These files are user-specific and not part of the open-source repo:
 
 | File | Purpose |
@@ -568,62 +568,19 @@ These files are user-specific and not part of the open-source repo:
 | `cache/`, `debug/`, `file-history/` | Runtime data |
 
 **What does this mean for /reggie-system-change?**
-When `/reggie-system-change` edits agents, commands, hooks, or docs, those changes happen in the git repo via the symlinks. You can commit and push them. Changes to local-only files (settings.json, AGENT-IMPROVE.md, etc.) are not version-controlled.
+When `/reggie-system-change` edits agents, commands, hooks, or docs, those changes happen in the `resources/` directory of the git repo. You can commit and push them. Changes to local-only files (settings.json, AGENT-IMPROVE.md, etc.) are not version-controlled.
 
 **How do I install?**
-
-macOS/Linux:
-
-```bash
-git clone https://github.com/The-Banana-Standard/reggie.git
-cd reggie
-./install.sh
-```
-
-Windows (PowerShell as Administrator):
-
-```powershell
-git clone https://github.com/The-Banana-Standard/reggie.git
-cd reggie
-.\install.ps1
-```
+Install [Forge](https://github.com/The-Banana-Standard/forge-reggie) and use it to install Reggie. Forge handles cloning the repo, copying `resources/` into `~/.claude/`, and configuring hooks.
 
 **What do I do after installing?**
-Restart Claude Code and run: `/reggie-guide I just ran install.sh what do I do now?`
+Restart Claude Code and run: `/reggie-guide I just installed Reggie, what do I do now?`
 
 **How do I update?**
-
-Stable channel:
-
-```bash
-cd /path/to/reggie
-git fetch --tags
-git checkout <newer-tag>
-./install.sh   # run if needed
-```
-
-Edge channel:
-
-```bash
-cd /path/to/reggie
-git pull        # Changes take effect immediately via symlinks
-```
+Updates are managed through Forge. Pull the latest changes from the repo and Forge will sync `resources/` into `~/.claude/`.
 
 **How do I uninstall?**
-
-macOS/Linux:
-
-```bash
-cd /path/to/reggie
-./uninstall.sh
-```
-
-Windows (PowerShell):
-
-```powershell
-cd ~\path\to\reggie
-.\uninstall.ps1
-```
+Use Forge to remove Reggie files from `~/.claude/`. Alternatively, delete the Reggie agent and command files from `~/.claude/agents/` and `~/.claude/commands/` manually.
 
 ---
 

@@ -1,20 +1,16 @@
 # Global owner
 * @The-Banana-Standard
 
-# Installers and hooks
-/install.sh @The-Banana-Standard
-/install.ps1 @The-Banana-Standard
-/uninstall.sh @The-Banana-Standard
-/uninstall.ps1 @The-Banana-Standard
-/hooks/ @The-Banana-Standard
+# Hooks
+/resources/hooks/ @The-Banana-Standard
 
 # Registries and capability docs
-/mcp-registry.yaml @The-Banana-Standard
-/skills-registry.yaml @The-Banana-Standard
-/commands/find-tools.md @The-Banana-Standard
-/commands/refresh-capabilities.md @The-Banana-Standard
+/resources/registries/mcp-registry.yaml @The-Banana-Standard
+/resources/registries/skills-registry.yaml @The-Banana-Standard
+/resources/commands/reggie-find-tools.md @The-Banana-Standard
+/resources/commands/reggie-refresh-capabilities.md @The-Banana-Standard
 
 # Core system definitions
-/agents/ @The-Banana-Standard
-/commands/ @The-Banana-Standard
+/resources/agents/ @The-Banana-Standard
+/resources/commands/ @The-Banana-Standard
 /.github/ @The-Banana-Standard
