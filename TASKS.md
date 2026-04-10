@@ -4,7 +4,7 @@
 
 ### rename-app-to-reggie
 **Task**: Rename app from Forge to Reggie across all configs, source, and tests
-**Stage**: VERIFY-APP
+**Stage**: COMMIT
 **Pipeline**: code-workflow
 **Branch**: task/rename-app-to-reggie
 **Worktree**: .worktree/rename-app-to-reggie
@@ -18,9 +18,9 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | 9.66 | 1 | PASS |
 | SIMPLIFY | SKIP | 0 | SKIP |
-| VERIFY-APP | - | 0 | CURRENT |
-| REVIEW | - | 0 | - |
-| REVIEW-WITH-USER | - | 0 | - |
+| VERIFY-APP | 9.0+ | 1 | PASS |
+| REVIEW | 9.5 | 1 | PASS |
+| REVIEW-WITH-USER | APPROVED | 0 | PASS |
 
 ---
 
