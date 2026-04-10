@@ -1,5 +1,6 @@
 ---
 type: pipeline
+manager: reggie-code-manager
 ---
 
 # Distribute Tasks

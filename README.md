@@ -118,13 +118,13 @@ Local/generated in `~/.claude/`:
 
 ### 36 Agents
 
-- Developers: ios, android, web, typescript, go, python, rust, cloud, firebase
-- Quality: code-architect, judge, qa-engineer, app-tester, refactorer, code-reviewer, security-reviewer
-- Research: researcher, thought-partner, claude-architect, codebase-debugger
-- Design: design-innovator, visual-architect
-- Content: content-producer, social-media-strategist, editor, technical-writer
+- Developers: reggie-ios-developer, reggie-android-developer, reggie-web-developer, reggie-typescript-developer, reggie-go-developer, reggie-python-developer, reggie-rust-developer, reggie-cloud-engineer, reggie-firebase-debugger
+- Quality: reggie-code-architect, reggie-judge, reggie-qa-engineer, reggie-app-tester, reggie-refactorer, reggie-code-reviewer, reggie-security-reviewer
+- Research: reggie-researcher, reggie-thought-partner, reggie-claude-architect, reggie-codebase-debugger
+- Design: reggie-design-innovator, reggie-visual-architect
+- Content: reggie-content-producer, reggie-social-media-strategist, reggie-article-editor, reggie-technical-writer
 - Pipeline managers: orchestration docs for each workflow
-- Utilities: repo-advisor
+- Utilities: reggie-repo-advisor
 
 ### 35 Commands
 

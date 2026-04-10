@@ -15,7 +15,7 @@ find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.swift" -o -name "*.k
 
 ## Instructions
 
-Use the **technical-writer** agent to create documentation for: $ARGUMENTS
+Use the **reggie-technical-writer** agent to create documentation for: $ARGUMENTS
 
 If no specific target given, ask:
 ```

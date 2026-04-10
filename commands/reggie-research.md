@@ -1,10 +1,10 @@
 # Research
 
-Use the researcher agent to investigate a topic.
+Use the reggie-researcher agent to investigate a topic.
 
 ## Instructions
 
-Use the **researcher** agent to research: $ARGUMENTS
+Use the **reggie-researcher** agent to research: $ARGUMENTS
 
 This is for:
 - Learning how something works

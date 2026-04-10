@@ -1,5 +1,6 @@
 ---
 type: pipeline
+manager: reggie-content-manager
 ---
 
 # Social Workflow
@@ -27,9 +28,9 @@ pwd
 
 This command orchestrates the **social media pipeline** — a workflow that takes existing long-form content and adapts it into platform-specific social posts with multiple variations for testing.
 
-**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the content-pipeline-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/content-pipeline-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. After each agent returns, launch the **judge** agent to score the output (9.0/10 threshold). Print the stage summary box after every stage. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
+**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the reggie-content-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/reggie-content-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. After each agent returns, launch the **reggie-judge** agent to score the output (9.0/10 threshold). Print the stage summary box after every stage. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
-**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. All human prompts are auto-approved. Automated quality gates (9.0/10 judge scoring) still run normally.
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. All human prompts are auto-approved. Automated quality gates (9.0/10 reggie-judge scoring) still run normally.
 
 ### When to Use
 
@@ -48,9 +49,9 @@ Every `→` is a quality gate (9.0/10 to advance).
 
 ### Pipeline Stages
 
-**EXTRACT-SNIPPETS** — social-media-strategist reads the source content and identifies the most compelling angles, quotes, data points, and narratives. A single article may yield 3-5 distinct social angles.
+**EXTRACT-SNIPPETS** — reggie-social-media-strategist reads the source content and identifies the most compelling angles, quotes, data points, and narratives. A single article may yield 3-5 distinct social angles.
 
-**ADAPT-PER-PLATFORM** — social-media-strategist writes native content for each platform:
+**ADAPT-PER-PLATFORM** — reggie-social-media-strategist writes native content for each platform:
 - **Twitter/X**: 280-char tweets, threads with numbered tweets, hook-first
 - **LinkedIn**: Professional framing, "see more" optimized opening, 150-300 words
 - **Instagram**: Visual-first captions, hashtag strategy, suggested visual assets
@@ -58,7 +59,7 @@ Every `→` is a quality gate (9.0/10 to advance).
 
 Each angle gets 2-3 variations for A/B testing.
 
-**REVIEW** — judge evaluates platform-nativeness, hook quality, variation distinctness, and value-before-promotion ratio.
+**REVIEW** — reggie-judge evaluates platform-nativeness, hook quality, variation distinctness, and value-before-promotion ratio.
 
 ### Arguments
 
@@ -117,7 +118,7 @@ After social content passes review, capture agent-level learnings. This feeds th
 
 **Process**:
 1. Review the social pipeline — snippet quality, platform adaptation, variation distinctness
-2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/improve-pipeline-manager.md` for format)
+2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/reggie-improve-manager.md` for format)
 3. If the pipeline ran smoothly, capture zero learnings — do NOT invent entries
 4. Classify each learning at capture time:
    - **UNIVERSAL**: Would benefit any project using this agent (general best practices, language-level patterns)
@@ -143,7 +144,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
 2. If file doesn't exist or has 0 entries: skip silently, proceed to next stage
 3. If 1-2 entries: print "X entries in AGENT-IMPROVE.md (below threshold of 3). Deferring to next pipeline run." and proceed
 4. If 3+ entries: run the improve pipeline with `--minor-only` behavior:
-   - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
+   - Read `~/.claude/agents/reggie-improve-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
    - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run

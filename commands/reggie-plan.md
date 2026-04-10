@@ -1,6 +1,6 @@
 # Plan Feature Implementation
 
-Use the code-architect agent to create a technical plan before coding.
+Use the reggie-code-architect agent to create a technical plan before coding.
 
 ## Context
 
@@ -15,7 +15,7 @@ cat package.json 2>/dev/null | grep -A 5 '"name"\|"dependencies"' | head -20 || 
 
 ## Instructions
 
-Use the **code-architect** agent to create a technical plan for: $ARGUMENTS
+Use the **reggie-code-architect** agent to create a technical plan for: $ARGUMENTS
 
 The plan should include:
 1. Overview of what we're building

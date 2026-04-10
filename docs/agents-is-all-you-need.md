@@ -40,7 +40,7 @@ In practice, most failures resolve on the first retry. The feedback loop is tigh
 
 Agents have **persistent memory** — a two-tier system that lets knowledge survive across sessions:
 
-- **System-level memory** (`~/.claude/agent-memory/<agent>/MEMORY.md`): global knowledge that persists across all projects. The judge's scoring calibration lives here. The architect's pattern preferences live here.
+- **System-level memory** (`~/.claude/agent-memory/<agent>/MEMORY.md`): global knowledge that persists across all projects. The judge's scoring calibration lives here. The code-architect's pattern preferences live here.
 - **Project-level memory** (`project-repo/.claude/agent-memory/<agent>/MEMORY.md`): per-project knowledge. The researcher's cache of "this project uses a custom auth flow, check `auth/` first" lives here.
 
 Every agent's process starts with **Step 0: Consult Memory** and ends with **Final: Update Memory**. Memory files are capped at 200 lines — concise and actionable, not a diary.
@@ -57,7 +57,7 @@ The system improves itself through two mechanisms that work together: collection
 
 **`/reggie-improve`** is the processing engine. It runs automatically at the end of every pipeline. If `AGENT-IMPROVE.md` has accumulated entries, the system processes them without us having to think about it.
 
-The result is a system that gets measurably better at the things it does repeatedly. The judge learns to calibrate. The researcher learns where to look first. The architect learns which patterns work in which contexts.
+The result is a system that gets measurably better at the things it does repeatedly. The judge learns to calibrate. The researcher learns where to look first. The code-architect learns which patterns work in which contexts.
 
 ---
 
@@ -76,7 +76,7 @@ Getting a project ready for Reggie.
 
 Building, fixing, and maintaining code.
 
-3. **Init Tasks** (`/reggie-init-tasks`) — Takes rough notes or a brain dump and organizes them into structured TASKS.md entries through four stages: intake, clarification, codebase-aware grouping by the code-architect agent, and formalization with P1/P2/P3 priorities and dependency tags.
+3. **Init Tasks** (`/reggie-init-tasks`) — Takes rough notes or a brain dump and organizes them into structured TASKS.md entries through four stages: intake, clarification, codebase-aware grouping by the reggie-code-architect agent, and formalization with P1/P2/P3 priorities and dependency tags.
 4. **Code Development** (`/reggie-code-workflow`) — The core of the system. Methodical feature development through eleven stages: research, planning, implementation, testing, quality checks, simplification, verification, review, security review, documentation sync, and capture-learnings. Picks up already-created tasks from TASKS.md.
 5. **Audit Pipeline** (`/reggie-audit-workflow`) — Runs security and quality audits on existing code, adds findings to TASKS.md with structured context (What/Where/Risk/Fix/Effort), then flows into the code pipeline to fix issues.
 6. **Debug** (`/reggie-debug-workflow`) — Socratic debugging: hypothesis-driven investigation with convergence checks. Diagnosis only — no fixes proposed until the problem is understood.
@@ -103,7 +103,7 @@ Maintaining and evolving the system itself. The self-improvement loop catches le
 
 Before any code gets written, there needs to be a plan. We start by dumping rough notes into TASKS.md — feature ideas, bugs we've noticed, things that came up in conversation. It doesn't need to be structured. Just get it down.
 
-Then we run `/reggie-init-tasks`. The pipeline takes that brain dump and turns it into structured, refined tasks — but it's not just automation. It's a conversation. Claude reflects back what it heard, asks targeted follow-ups ("Is the Android color bug blocking users or just annoying?"), and lets us drop or split items on the fly. Vague entries like "make the backend better" get clarified before anything moves forward. Once the items are concrete, a code-architect agent explores the actual codebase to create meaningful groupings — not generic categories like "Backend" or "Frontend," but real areas of the code like "Authentication & Sessions" mapped to `src/auth/`. Each task gets a priority tag and dependency markers so parallel work doesn't collide.
+Then we run `/reggie-init-tasks`. The pipeline takes that brain dump and turns it into structured, refined tasks — but it's not just automation. It's a conversation. Claude reflects back what it heard, asks targeted follow-ups ("Is the Android color bug blocking users or just annoying?"), and lets us drop or split items on the fly. Vague entries like "make the backend better" get clarified before anything moves forward. Once the items are concrete, a reggie-code-architect agent explores the actual codebase to create meaningful groupings — not generic categories like "Backend" or "Frontend," but real areas of the code like "Authentication & Sessions" mapped to `src/auth/`. Each task gets a priority tag and dependency markers so parallel work doesn't collide.
 
 Once the tasks are refined and sitting in TASKS.md, they feed directly into `/reggie-code-workflow`. No copy-pasting, no re-explaining what needs to be built. The structured backlog becomes the input for the development pipeline.
 

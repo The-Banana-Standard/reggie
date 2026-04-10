@@ -70,7 +70,7 @@ find . -name "*.md" -maxdepth 2 2>/dev/null | grep -v node_modules | grep -v .gi
 
 ## Instructions
 
-Use the **repo-advisor** agent to evaluate this repository's agent-readiness.
+Use the **reggie-repo-advisor** agent to evaluate this repository's agent-readiness.
 
 ### Modes
 

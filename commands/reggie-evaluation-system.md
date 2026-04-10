@@ -1,5 +1,6 @@
 ---
 type: pipeline
+manager: reggie-evaluate-manager
 ---
 
 # Evaluate Reggie
@@ -48,7 +49,7 @@ cat ~/.claude/REGGIE.md
 
 This command orchestrates the **evaluate-reggie pipeline** — a periodic architectural review of the `~/.claude/` agent system. It inventories all agents and commands, analyzes the system for gaps and issues, discusses findings with you, and produces actionable improvement proposals.
 
-**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the evaluate-reggie-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/evaluate-reggie-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
+**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the reggie-evaluate-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/reggie-evaluate-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
 **`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. BRAINSTORM confirmation, PROPOSE approval, IMPLEMENT per-proposal approval, and all other human prompts are auto-approved. Automated quality gates still run normally.
 
@@ -78,11 +79,11 @@ No numeric quality gates. Confirmation-based gates throughout.
 
 ## Phase 1: SCAN
 
-Launch **researcher** agent via Task tool.
+Launch **reggie-researcher** agent via Task tool.
 
-Read `~/.claude/agents/evaluate-reggie-manager.md` Stage 1: SCAN for the full prompt template. The core task: inventory every file in `~/.claude/agents/` and `~/.claude/commands/`, recording metadata, section completeness, cross-references, and system file accuracy.
+Read `~/.claude/agents/reggie-evaluate-manager.md` Stage 1: SCAN for the full prompt template. The core task: inventory every file in `~/.claude/agents/` and `~/.claude/commands/`, recording metadata, section completeness, cross-references, and system file accuracy.
 
-Key instructions for the researcher:
+Key instructions for the reggie-researcher:
 - Read EVERY file in both directories. Do not sample.
 - For agents: record name, category, tools, memory type, line count, section completeness
 - For commands: record name, type, Context/Instructions/Arguments presence, agents referenced
@@ -90,7 +91,7 @@ Key instructions for the researcher:
 - Check PORTABLE-PACKAGE.md counts against actual file counts
 - Check reggie-guide.md completeness
 
-After the researcher returns, print the SCAN summary box.
+After the reggie-researcher returns, print the SCAN summary box.
 
 **If `--scan-only` in $ARGUMENTS**: Print the inventory and stop. Do not advance to EVALUATE.
 
@@ -98,11 +99,11 @@ After the researcher returns, print the SCAN summary box.
 
 ## Phase 2: EVALUATE
 
-Launch **claude-architect** agent via Task tool.
+Launch **reggie-claude-architect** agent via Task tool.
 
-Read `~/.claude/agents/evaluate-reggie-manager.md` Stage 2: EVALUATE for the full prompt template. Provide the full inventory from SCAN as input.
+Read `~/.claude/agents/reggie-evaluate-manager.md` Stage 2: EVALUATE for the full prompt template. Provide the full inventory from SCAN as input.
 
-The claude-architect evaluates six dimensions:
+The reggie-claude-architect evaluates six dimensions:
 1. Coverage gaps (missing agents for tech stack, missing reviewers)
 2. Redundancies (overlapping agents, duplicate commands)
 3. Consistency (section structure, memory config, examples, naming, permissions)
@@ -110,31 +111,31 @@ The claude-architect evaluates six dimensions:
 5. Integration health (pipeline manager/command alignment)
 6. Permission audit (over/under-permissioned agents)
 
-After the claude-architect returns, print the EVALUATE summary box.
+After the reggie-claude-architect returns, print the EVALUATE summary box.
 
 ---
 
 ## Phase 3: BRAINSTORM
 
-Launch **thought-partner** agent via Task tool.
+Launch **reggie-thought-partner** agent via Task tool.
 
-Read `~/.claude/agents/evaluate-reggie-manager.md` Stage 3: BRAINSTORM for the full prompt template. Provide the evaluation findings and strengths.
+Read `~/.claude/agents/reggie-evaluate-manager.md` Stage 3: BRAINSTORM for the full prompt template. Provide the evaluation findings and strengths.
 
-This is a CONVERSATION with the user. The thought-partner discusses what resonates, what to prioritize, and what to leave alone. The user may add findings, deprioritize flagged issues, or redirect entirely.
+This is a CONVERSATION with the user. The reggie-thought-partner discusses what resonates, what to prioritize, and what to leave alone. The user may add findings, deprioritize flagged issues, or redirect entirely.
 
 **Conversational gate**: This stage ends when the user confirms the prioritized summary.
 
-After the thought-partner produces the Brainstorm Summary and the user confirms, print the BRAINSTORM summary box.
+After the reggie-thought-partner produces the Brainstorm Summary and the user confirms, print the BRAINSTORM summary box.
 
 ---
 
 ## Phase 4: PROPOSE
 
-Launch **claude-architect** agent via Task tool.
+Launch **reggie-claude-architect** agent via Task tool.
 
-Read `~/.claude/agents/evaluate-reggie-manager.md` Stage 4: PROPOSE for the full prompt template. Provide the Brainstorm Summary (prioritized items only) and relevant SCAN inventory data.
+Read `~/.claude/agents/reggie-evaluate-manager.md` Stage 4: PROPOSE for the full prompt template. Provide the Brainstorm Summary (prioritized items only) and relevant SCAN inventory data.
 
-The claude-architect produces a concrete proposal for each prioritized item with: problem, proposed change, implementation path, effort, risk, and dependencies.
+The reggie-claude-architect produces a concrete proposal for each prioritized item with: problem, proposed change, implementation path, effort, risk, and dependencies.
 
 Present the proposals to the user.
 
@@ -159,7 +160,7 @@ If the user says `abort` at any stage, emit:
 
 **Skip this phase entirely if `--implement` is NOT in $ARGUMENTS.**
 
-Read `~/.claude/agents/evaluate-reggie-manager.md` Stage 5: IMPLEMENT for full details. You (main Claude) execute this directly.
+Read `~/.claude/agents/reggie-evaluate-manager.md` Stage 5: IMPLEMENT for full details. You (main Claude) execute this directly.
 
 1. Present each proposal to the user: approve (y), skip (n), or modify
 2. For each approved proposal, route to the appropriate method:
@@ -175,11 +176,11 @@ Read `~/.claude/agents/evaluate-reggie-manager.md` Stage 5: IMPLEMENT for full d
 
 ## Phase 6: VERIFY (only after IMPLEMENT)
 
-Launch **researcher** agent via Task tool.
+Launch **reggie-researcher** agent via Task tool.
 
-Read `~/.claude/agents/evaluate-reggie-manager.md` Stage 6: VERIFY for the full prompt template. Provide the list of all changes made during IMPLEMENT.
+Read `~/.claude/agents/reggie-evaluate-manager.md` Stage 6: VERIFY for the full prompt template. Provide the list of all changes made during IMPLEMENT.
 
-The researcher validates:
+The reggie-researcher validates:
 1. **File counts** — actual counts match PORTABLE-PACKAGE.md and MEMORY.md
 2. **Cross-references** — no dangling references to deleted/renamed files
 3. **Internal consistency** — pipeline managers match commands, reggie-guide.md is complete
@@ -210,7 +211,7 @@ After the evaluation pipeline completes, capture agent-level learnings. This fee
 
 **Process**:
 1. Review the evaluation pipeline — SCAN thoroughness, EVALUATE accuracy, BRAINSTORM productivity, PROPOSE quality
-2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/improve-pipeline-manager.md` for format)
+2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/reggie-improve-manager.md` for format)
 3. If the pipeline ran smoothly, capture zero learnings — do NOT invent entries
 4. Classify each learning at capture time:
    - **UNIVERSAL**: Would benefit any project using this agent
@@ -238,7 +239,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
 2. If file doesn't exist or has 0 entries: skip silently, proceed to next stage
 3. If 1-2 entries: print "X entries in AGENT-IMPROVE.md (below threshold of 3). Deferring to next pipeline run." and proceed
 4. If 3+ entries: run the improve pipeline with `--minor-only` behavior:
-   - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
+   - Read `~/.claude/agents/reggie-improve-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
    - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run

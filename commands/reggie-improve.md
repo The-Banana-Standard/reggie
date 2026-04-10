@@ -1,5 +1,6 @@
 ---
 type: pipeline
+manager: reggie-improve-manager
 ---
 
 # Improve
@@ -47,7 +48,7 @@ echo "Project agent overrides: $(ls .claude/agents/ 2>/dev/null | wc -l | tr -d 
 
 This command runs the **two-level improve pipeline** -- the agent self-improvement loop that processes accumulated learnings from pipeline runs and routes them to the correct targets: system agents (universal), project agent memory (project-specific), or commands (process changes).
 
-**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the improve-pipeline-manager as a subagent -- subagents cannot launch other subagents. Instead, read `~/.claude/agents/improve-pipeline-manager.md` for detailed guidance, then run each stage yourself. Launch the **researcher** agent via the Task tool during ANALYZE. All other stages you execute directly. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
+**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the reggie-improve-manager as a subagent -- subagents cannot launch other subagents. Instead, read `~/.claude/agents/reggie-improve-manager.md` for detailed guidance, then run each stage yourself. Launch the **reggie-researcher** agent via the Task tool during ANALYZE. All other stages you execute directly. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
 **`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. Major change approvals, frontmatter approvals, fork proposals, and all other human prompts are auto-approved.
 
@@ -90,11 +91,11 @@ Learnings are classified and routed to different targets:
 
 ### Execution
 
-Read `~/.claude/agents/improve-pipeline-manager.md` for full stage details, then execute each stage in sequence:
+Read `~/.claude/agents/reggie-improve-manager.md` for full stage details, then execute each stage in sequence:
 
 1. **COLLECT**: Parse `~/.claude/AGENT-IMPROVE.md`, group by target, print summary
 2. **CLASSIFY**: Tag each learning as UNIVERSAL/PROJECT/PROCESS/FORK-CANDIDATE
-3. **ANALYZE**: Launch **researcher** to filter, dedupe, categorize, prioritize, evaluate fork candidates
+3. **ANALYZE**: Launch **reggie-researcher** to filter, dedupe, categorize, prioritize, evaluate fork candidates
 4. **PROPOSE**: Generate specific diffs for universal/process changes, memory entries for project changes, fork proposals with trade-off analysis
 5. **APPLY**: Auto-apply minor changes and memory entries, present major changes and forks for approval
 6. **VERIFY**: Validate all modified files (agents, commands, memory)

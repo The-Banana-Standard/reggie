@@ -1,5 +1,6 @@
 ---
 type: pipeline
+manager: reggie-code-manager
 ---
 
 # Initialize Tasks
@@ -76,7 +77,7 @@ This command takes a loose task list and — through collaborative dialogue with
 
 **Init-tasks is a partnership.** Reggie researches, asks targeted questions grounded in the codebase, and the user makes decisions. Every implementation choice that could go multiple ways gets surfaced as a question — never resolved silently.
 
-**IMPORTANT**: You (the main Claude) run this directly. Subagent calls: **researcher** (web research when needed), **code-architect** during ORGANIZE (section assignment + metadata). All other phases are handled by you directly — including codebase research and planning. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
+**IMPORTANT**: You (the main Claude) run this directly. Subagent calls: **reggie-researcher** (web research when needed), **reggie-code-architect** during ORGANIZE (section assignment + metadata). All other phases are handled by you directly — including codebase research and planning. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
 ### Two Modes
 
@@ -255,7 +256,7 @@ For each task (or grouped task), work through this cycle:
    - **Firebase MCP**: For backend tasks — check Firestore structure, Cloud Functions, auth config
    - **Other configured servers**: Any MCP server relevant to the task's technology
    - Only invoke MCP tools when they provide context you can't get from the codebase alone
-4. **Launch researcher for web research** if needed (unfamiliar APIs, external best practices, library comparison). Include your codebase findings so the researcher skips codebase exploration:
+4. **Launch reggie-researcher for web research** if needed (unfamiliar APIs, external best practices, library comparison). Include your codebase findings so the researcher skips codebase exploration:
    ```
    Codebase context for [task]:
    [your findings — affected files, existing patterns, conventions]
@@ -408,11 +409,11 @@ Moving to organization...
 
 ## Phase 4: ORGANIZE
 
-Launch **code-architect** agent to assign refined tasks to areas of focus, prioritize, and compute rich metadata.
+Launch **reggie-code-architect** agent to assign refined tasks to areas of focus, prioritize, and compute rich metadata.
 
 **IMPORTANT**: ORGANIZE does NOT modify task descriptions, sub-items, acceptance criteria, or implementation plans. Tasks are already fully refined from RESEARCH+PLAN. ORGANIZE only handles section assignment, priority ordering, dependency mapping, conflict detection, and metadata assignment.
 
-**Prompt for code-architect:**
+**Prompt for reggie-code-architect:**
 
 ```
 ## Task: Assign refined tasks to areas of focus and compute metadata
@@ -479,7 +480,7 @@ organize them and compute metadata, not modify them.
 
 8. **Assign pipeline mode**: Based on task nature:
    - `[code]` — default, standard code-workflow
-   - `[design]` — UI/UX focused, design-innovator agent leads IMPLEMENT
+   - `[design]` — UI/UX focused, reggie-design-innovator agent leads IMPLEMENT
 
 9. **Mark plan status**:
    - `[planned]` — has a full implementation plan in task.md
@@ -528,7 +529,7 @@ Completed tasks (for staleness checking):
 [paste last 20 entries from HISTORY.md, or "No HISTORY.md found"]
 ```
 
-After code-architect returns, present the grouping:
+After reggie-code-architect returns, present the grouping:
 
 ```
 Here's how I'd organize these based on your project structure:
@@ -977,7 +978,7 @@ Is this task ready?
 
 This looks straightforward — let me research it quickly.
 
-[Quick read of Android color code, no researcher needed]
+[Quick read of Android color code, no reggie-researcher needed]
 
 fix-android-color-rendering: Fix color rendering on Android
 

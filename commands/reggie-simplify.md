@@ -1,6 +1,6 @@
 # Simplify Recent Changes
 
-Use the refactorer agent to clean up code after implementation.
+Use the reggie-refactorer agent to clean up code after implementation.
 
 ## Context
 
@@ -15,7 +15,7 @@ git diff --stat HEAD~1 2>/dev/null || git diff --stat --cached
 
 ## Instructions
 
-Use the **refactorer** agent to review and simplify the changed files listed above.
+Use the **reggie-refactorer** agent to review and simplify the changed files listed above.
 
 Focus on:
 - Removing dead code and unused imports

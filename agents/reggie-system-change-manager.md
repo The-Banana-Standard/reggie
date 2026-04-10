@@ -27,7 +27,7 @@ INTAKE → BRAINSTORM → PLAN → IMPLEMENT → VERIFY
           (on demand)     (on demand)
 ```
 
-Confirmation-based gates with one exception: when the PLAN includes `new-component` changes (creating new files), the plan goes through **judge scoring (9.0/10)** to validate design quality before user approval. All other gates are confirmation-based.
+Confirmation-based gates with one exception: when the PLAN includes `new-component` changes (creating new files), the plan goes through **reggie-judge scoring (9.0/10)** to validate design quality before user approval. All other gates are confirmation-based.
 
 ## --yes Flag Handling (Ralph Wiggum Mode)
 
@@ -43,14 +43,14 @@ When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confir
 
 ### On-Demand Research
 
-BRAINSTORM and PLAN can dispatch the **researcher** agent when questions arise about current system state that require reading many files. This is not a sequential stage — it is a tool available to the orchestrator when the thought-partner needs information not already in context, or when dependency tracing during planning requires broad file exploration.
+BRAINSTORM and PLAN can dispatch the **reggie-researcher** agent when questions arise about current system state that require reading many files. This is not a sequential stage — it is a tool available to the orchestrator when the reggie-thought-partner needs information not already in context, or when dependency tracing during planning requires broad file exploration.
 
-**When to dispatch researcher**:
-- Thought-partner asks "how does X currently work?" and you do not have the answer in context
-- Claude-architect needs to know which files reference a specific agent before planning changes
+**When to dispatch reggie-researcher**:
+- The reggie-thought-partner asks "how does X currently work?" and you do not have the answer in context
+- The reggie-claude-architect needs to know which files reference a specific agent before planning changes
 - A dependency question arises that requires reading multiple files to answer
 
-**When NOT to dispatch researcher**:
+**When NOT to dispatch reggie-researcher**:
 - The information is already in the conversation context
 - The question can be answered by reading a single file (just read it directly)
 - The change is simple enough that full investigation is unnecessary
@@ -62,10 +62,10 @@ BRAINSTORM and PLAN can dispatch the **researcher** agent when questions arise a
 | Stage | Purpose | Executor | Gate |
 |-------|---------|----------|------|
 | INTAKE | Capture the change request with full context | Main Claude | Auto (requirement stated) |
-| BRAINSTORM | Explore the design space, confirm direction | thought-partner agent | User confirms direction |
-| PLAN | Concrete file-by-file change plan with classifications | Main Claude (orchestrator-direct) | User approves plan (+ judge 9.0/10 if new components) |
+| BRAINSTORM | Explore the design space, confirm direction | reggie-thought-partner agent | User confirms direction |
+| PLAN | Concrete file-by-file change plan with classifications | Main Claude (orchestrator-direct) | User approves plan (+ reggie-judge 9.0/10 if new components) |
 | IMPLEMENT | Execute approved plan: direct edits + file creation | Main Claude | Changes applied |
-| VERIFY | Validate consistency after changes | researcher agent | All checks pass |
+| VERIFY | Validate consistency after changes | reggie-researcher agent | All checks pass |
 
 ---
 
@@ -108,7 +108,7 @@ Does this capture what you want to change?
 
 ### Stage 2: BRAINSTORM
 
-**Executor**: Launch **thought-partner** agent via Task tool
+**Executor**: Launch **reggie-thought-partner** agent via Task tool
 
 **Purpose**: Explore the design space for the change. Quick if the direction is obvious from conversation context, deeper if there are real design questions to resolve.
 
@@ -148,7 +148,7 @@ When the direction is confirmed, produce a summary:
 - [Anything explicitly excluded]
 ```
 
-**On-demand research**: If the thought-partner (or you, while formulating the prompt) needs information about current system state — how an agent currently works, what a pipeline manager currently does, which files reference something — dispatch the **researcher** agent to gather that information before or during the brainstorm.
+**On-demand research**: If the reggie-thought-partner (or you, while formulating the prompt) needs information about current system state — how an agent currently works, what a pipeline manager currently does, which files reference something — dispatch the **reggie-researcher** agent to gather that information before or during the brainstorm.
 
 **Pass Criteria**: User confirms the brainstorm summary direction. This is a conversational gate.
 
@@ -158,7 +158,7 @@ When the direction is confirmed, produce a summary:
 
 **Executor**: Main Claude (orchestrator handles planning directly)
 
-**Purpose**: Produce a concrete, file-by-file change plan with classifications, risks, and dependencies. The orchestrator writes the plan directly instead of delegating to claude-architect — this eliminates context transfer overhead since the orchestrator already has the conversation context, brainstorm findings, and direct file access.
+**Purpose**: Produce a concrete, file-by-file change plan with classifications, risks, and dependencies. The orchestrator writes the plan directly instead of delegating to reggie-claude-architect — this eliminates context transfer overhead since the orchestrator already has the conversation context, brainstorm findings, and direct file access.
 
 **Process**:
 
@@ -205,10 +205,10 @@ N. Integration updates (always last)
 ```
 
 4. Run validation checks on your own plan (see below)
-5. If the plan includes `new-component` changes, launch the **judge** agent to score design quality (9.0/10 threshold)
+5. If the plan includes `new-component` changes, launch the **reggie-judge** agent to score design quality (9.0/10 threshold)
 6. Present the plan to the user for approval. If `--yes` flag is active, auto-approve.
 
-**On-demand research**: If you need to trace dependencies that require reading many files — dispatch the **researcher** agent to do the dependency analysis. For simple dependency checks (grep for a name across a few files), do it yourself.
+**On-demand research**: If you need to trace dependencies that require reading many files — dispatch the **reggie-researcher** agent to do the dependency analysis. For simple dependency checks (grep for a name across a few files), do it yourself.
 
 **Classification rules**:
 - **direct-edit**: Any modification to an existing agent, command, or pipeline manager file. This includes adding sections, changing content, updating descriptions, adjusting process steps.
@@ -218,7 +218,7 @@ N. Integration updates (always last)
 **Validation checks** (performed by the orchestrator on its own plan):
 
 1. **Naming conflicts**: Do any proposed filenames already exist in `~/.claude/agents/` or `~/.claude/commands/`?
-2. **Naming conventions**: Do names follow role-based pattern (e.g., `researcher` not `research`)?
+2. **Naming conventions**: Do names follow role-based pattern (e.g., `reggie-researcher` not `reggie-research`)?
 3. **Tool permissions validation**:
    - Valid tools only: `Glob, Grep, Read, Edit, Write, NotebookEdit, Bash, WebFetch, WebSearch`
    - No invalid combinations: Write without Read, Bash without Read, NotebookEdit without Read
@@ -232,15 +232,15 @@ N. Integration updates (always last)
 7. **Integration completeness**: Are updates to PORTABLE-PACKAGE.md, reggie-guide.md, MEMORY.md identified?
 8. **No skills**: Reject any attempt to create a skill — language/framework patterns belong in developer agents.
 
-**Conditional judge scoring**: If the plan includes ANY `new-component` changes, launch the **judge** agent to score the plan design quality at 9.0/10 threshold. The judge evaluates: naming quality, tool permission appropriateness, section completeness, description quality, integration coverage. If the plan has only `direct-edit` and `integration-update` changes, skip judge scoring.
+**Conditional reggie-judge scoring**: If the plan includes ANY `new-component` changes, launch the **reggie-judge** agent to score the plan design quality at 9.0/10 threshold. The judge evaluates: naming quality, tool permission appropriateness, section completeness, description quality, integration coverage. If the plan has only `direct-edit` and `integration-update` changes, skip reggie-judge scoring.
 
-**The claude-architect agent is NOT deleted.** It remains available for:
+**The reggie-claude-architect agent is NOT deleted.** It remains available for:
 - Standalone `/reggie-plan` command (user explicitly wants a subagent to plan)
-- `/reggie-init-tasks` ORGANIZE phase (code-architect groups and prioritizes tasks)
-- `/reggie-new-repo` task breakdown (code-architect analyzes project structure)
-- Tournament mode (if PLAN stage escalates to tournament, code-architect is launched as one of the two competitors)
+- `/reggie-init-tasks` ORGANIZE phase (reggie-code-architect groups and prioritizes tasks)
+- `/reggie-new-repo` task breakdown (reggie-code-architect analyzes project structure)
+- Tournament mode (if PLAN stage escalates to tournament, reggie-code-architect is launched as one of the two competitors)
 
-**Pass Criteria**: User approves the plan. They may approve all changes, approve some and reject others, or request modifications to specific changes. If judge scoring was triggered, plan must also pass 9.0/10.
+**Pass Criteria**: User approves the plan. They may approve all changes, approve some and reject others, or request modifications to specific changes. If reggie-judge scoring was triggered, plan must also pass 9.0/10.
 
 ---
 
@@ -256,7 +256,7 @@ N. Integration updates (always last)
    - List each change with its classification and risk
    - For any frontmatter changes, ask for explicit per-change approval:
      ```
-     Change 3 modifies YAML frontmatter in researcher.md:
+     Change 3 modifies YAML frontmatter in reggie-researcher.md:
        tools: adding WebSearch
      Approve this frontmatter change? (y/n)
      ```
@@ -308,7 +308,7 @@ N. Integration updates (always last)
 
 ### Stage 5: VERIFY
 
-**Executor**: Launch **researcher** agent via Task tool
+**Executor**: Launch **reggie-researcher** agent via Task tool
 
 **Purpose**: Validate that all implemented changes are internally consistent, no references are broken, and counts are accurate.
 
@@ -412,7 +412,7 @@ After each stage, print a summary box:
 - **Using this when /reggie-evaluation-system is more appropriate**: If the user does not have a specific change in mind and wants to discover issues, they should use /reggie-evaluation-system instead. This pipeline assumes the change request is already known.
 - **Creating new components without reading similar files first**: Always read 2-3 similar existing files before creating a new agent, command, or pipeline manager. This ensures consistent structure, naming, and conventions.
 - **Skipping validation checks on new components**: When the plan includes `new-component` changes, always run the validation checks (naming, tools, sections, descriptions) before presenting the plan to the user. Skipping validation leads to inconsistent files.
-- **Skipping BRAINSTORM for non-obvious changes**: If there are genuine design questions, rushing through brainstorm leads to plan revisions and wasted implementation effort. Let the thought-partner explore when the direction is not clear.
+- **Skipping BRAINSTORM for non-obvious changes**: If there are genuine design questions, rushing through brainstorm leads to plan revisions and wasted implementation effort. Let the reggie-thought-partner explore when the direction is not clear.
 - **Over-brainstorming obvious changes**: If the conversation has already resolved the design, a 2-sentence brainstorm confirmation is fine. Do not force exploration where none is needed.
 - **Modifying YAML frontmatter without per-change approval**: Tool permissions, model, memory type, and name changes in frontmatter can have cascading effects. Always get explicit approval for each frontmatter modification.
 - **Forgetting integration updates**: After modifying agents or commands, PORTABLE-PACKAGE.md, reggie-guide.md, and MEMORY.md often need corresponding updates. The PLAN stage must identify these, and VERIFY must catch any that were missed.

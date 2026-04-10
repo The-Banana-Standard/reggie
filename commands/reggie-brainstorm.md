@@ -1,10 +1,10 @@
 # Brainstorm
 
-Use the thought-partner agent as a thinking partner.
+Use the reggie-thought-partner agent as a thinking partner.
 
 ## Instructions
 
-Use the **thought-partner** agent to help think through: $ARGUMENTS
+Use the **reggie-thought-partner** agent to help think through: $ARGUMENTS
 
 This is for:
 - Messy brain dumps that need untangling

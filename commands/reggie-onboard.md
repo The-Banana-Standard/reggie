@@ -1,5 +1,6 @@
 ---
 type: pipeline
+manager: reggie-onboard-manager
 ---
 
 # Onboard Workflow
@@ -58,7 +59,7 @@ echo "=== Existing Agent Infrastructure ==="
 
 This command runs the **onboard pipeline** — a 6-stage workflow that prepares any repository for the Claude Code agent system.
 
-**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the onboard-pipeline-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/onboard-pipeline-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
+**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the reggie-onboard-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/reggie-onboard-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
 **`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. All human prompts are auto-approved.
 
@@ -86,12 +87,12 @@ $ARGUMENTS
 
 | Stage | Agent | Purpose | Skippable |
 |-------|-------|---------|-----------|
-| DISCOVER | researcher | Map structure, tech stack, docs, config | No |
+| DISCOVER | reggie-researcher | Map structure, tech stack, docs, config | No |
 | VALIDATE | (direct bash) | Run build/test to verify they work | `--skip-tests` |
-| ANALYZE | researcher | Identify patterns, conventions, architecture | No |
-| DOC-AUDIT | researcher | Assess existing docs for signal vs noise | No |
-| GENERATE | technical-writer | Create CLAUDE.md, TASKS.md, HISTORY.md, .pipeline/, MEMORY.md | No |
-| REFINE | technical-writer | Prune/update docs per audit recommendations | `--no-prune` |
+| ANALYZE | reggie-researcher | Identify patterns, conventions, architecture | No |
+| DOC-AUDIT | reggie-researcher | Assess existing docs for signal vs noise | No |
+| GENERATE | reggie-technical-writer | Create CLAUDE.md, TASKS.md, HISTORY.md, .pipeline/, MEMORY.md | No |
+| REFINE | reggie-technical-writer | Prune/update docs per audit recommendations | `--no-prune` |
 
 ---
 
@@ -99,7 +100,7 @@ $ARGUMENTS
 
 ### Phase 1: DISCOVER
 
-Launch **researcher** via Task tool with this prompt:
+Launch **reggie-researcher** via Task tool with this prompt:
 
 ```
 Perform a discovery audit of this repository. This is NOT a quality audit —
@@ -134,7 +135,7 @@ Otherwise, run directly (no subagent):
 
 ### Phase 3: ANALYZE
 
-Launch **researcher** via Task tool with this prompt:
+Launch **reggie-researcher** via Task tool with this prompt:
 
 ```
 Analyze this codebase to identify patterns, conventions, and architecture.
@@ -162,7 +163,7 @@ Output in Codebase Analysis format.
 
 ### Phase 4: DOC-AUDIT
 
-Launch **researcher** via Task tool with this prompt:
+Launch **reggie-researcher** via Task tool with this prompt:
 
 ```
 Audit the existing documentation in this repository. For each doc:
@@ -182,7 +183,7 @@ No quality gate. Store recommendations for REFINE stage.
 
 ### Phase 5: GENERATE
 
-Launch **technical-writer** via Task tool with this prompt:
+Launch **reggie-technical-writer** via Task tool with this prompt:
 
 ```
 Generate the Claude Code infrastructure files for this repository.
@@ -218,7 +219,7 @@ the codebase analysis.
 
 If `--no-prune` in $ARGUMENTS, skip this stage.
 
-Launch **technical-writer** via Task tool with this prompt:
+Launch **reggie-technical-writer** via Task tool with this prompt:
 
 ```
 Based on the DOC-AUDIT recommendations, clean up the documentation:
@@ -280,7 +281,7 @@ After onboard is complete and committed, capture agent-level learnings. This fee
 
 **Process**:
 1. Review the onboard pipeline — discovery quality, analysis accuracy, CLAUDE.md usefulness
-2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/improve-pipeline-manager.md` for format)
+2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/reggie-improve-manager.md` for format)
 3. If the pipeline ran smoothly, capture zero learnings — do NOT invent entries
 4. Classify each learning at capture time:
    - **UNIVERSAL**: Would benefit any project using this agent (general best practices, language-level patterns)
@@ -290,7 +291,7 @@ After onboard is complete and committed, capture agent-level learnings. This fee
 
 **Focus areas for onboard**:
 - Did the discovery stage miss any key project aspects?
-- Did researcher's analysis accurately identify patterns?
+- Did reggie-researcher's analysis accurately identify patterns?
 - Was the generated CLAUDE.md specific enough to be useful?
 - Did doc pruning recommendations make sense?
 
@@ -307,7 +308,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
 2. If file doesn't exist or has 0 entries: skip silently, proceed to next stage
 3. If 1-2 entries: print "X entries in AGENT-IMPROVE.md (below threshold of 3). Deferring to next pipeline run." and proceed
 4. If 3+ entries: run the improve pipeline with `--minor-only` behavior:
-   - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
+   - Read `~/.claude/agents/reggie-improve-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
    - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run

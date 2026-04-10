@@ -25,7 +25,7 @@ git diff HEAD~1 -- package.json go.mod requirements.txt Podfile 2>/dev/null | he
 
 ## Instructions
 
-Use the **security-reviewer** agent to audit the current task's changes for security vulnerabilities.
+Use the **reggie-security-reviewer** agent to audit the current task's changes for security vulnerabilities.
 
 This runs **after the code review passes** (`/reggie-code-review` → PASS → `/reggie-review-security`).
 
@@ -49,10 +49,10 @@ This runs **after the code review passes** (`/reggie-code-review` → PASS → `
 
 ### Quality Gate
 
-The review is scored by the judge agent (9.0/10 to advance). If it fails:
+The review is scored by the reggie-judge agent (9.0/10 to advance). If it fails:
 - CRITICAL and HIGH findings must be fixed
 - Review runs again after fixes
-- Standard escalation: iterate → researcher → auto-tournament → user
+- Standard escalation: iterate → reggie-researcher → auto-tournament → user
 
 ### Verdict
 

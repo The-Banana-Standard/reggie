@@ -1,5 +1,6 @@
 ---
 type: pipeline
+manager: reggie-system-change-manager
 ---
 
 # Reggie System Change
@@ -41,7 +42,7 @@ This command orchestrates the **reggie-system-change pipeline** — a lightweigh
 
 **IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the reggie-system-change-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/reggie-system-change-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
-**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. INTAKE confirmation, BRAINSTORM direction, PLAN approval, frontmatter approvals, and all other human prompts are auto-approved. Automated quality gates (9.0/10 judge scoring on new components) still run normally.
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. INTAKE confirmation, BRAINSTORM direction, PLAN approval, frontmatter approvals, and all other human prompts are auto-approved. Automated quality gates (9.0/10 reggie-judge scoring on new components) still run normally.
 
 ### When to Use
 
@@ -94,20 +95,20 @@ If the change request is obvious from the conversation, this can be a quick conf
 
 ## Phase 2: BRAINSTORM
 
-Launch **thought-partner** agent via Task tool.
+Launch **reggie-thought-partner** agent via Task tool.
 
 Read `~/.claude/agents/reggie-system-change-manager.md` Stage 2: BRAINSTORM for the full prompt template. Provide the confirmed change request.
 
-Key guidance for the thought-partner:
+Key guidance for the reggie-thought-partner:
 - If the direction is already clear from conversation, confirm quickly and move on
 - If there are genuine design questions, explore them one at a time
-- If questions arise about current system state that you cannot answer, pause BRAINSTORM and dispatch **researcher** to gather the needed information, then resume
+- If questions arise about current system state that you cannot answer, pause BRAINSTORM and dispatch **reggie-researcher** to gather the needed information, then resume
 
-**On-demand research**: Before or during the brainstorm, if you need information about how the current system works (which files do X, how does Y pipeline flow, what agents reference Z), launch the **researcher** agent to investigate. Provide the researcher's findings to the thought-partner as additional context.
+**On-demand research**: Before or during the brainstorm, if you need information about how the current system works (which files do X, how does Y pipeline flow, what agents reference Z), launch the **reggie-researcher** agent to investigate. Provide the reggie-researcher's findings to the reggie-thought-partner as additional context.
 
 **Conversational gate**: This stage ends when the user confirms the brainstorm summary direction.
 
-After the thought-partner produces the Brainstorm Summary and the user confirms, print the BRAINSTORM summary box.
+After the reggie-thought-partner produces the Brainstorm Summary and the user confirms, print the BRAINSTORM summary box.
 
 ---
 
@@ -125,10 +126,10 @@ Read `~/.claude/agents/reggie-system-change-manager.md` Stage 3: PLAN (Orchestra
    - Risks and dependencies identified
    - Execution order specified
 4. Run validation checks on your own plan (naming, tool permissions, required sections, description quality)
-5. If the plan includes `new-component` changes, launch the **judge** agent to score design quality (9.0/10 threshold)
+5. If the plan includes `new-component` changes, launch the **reggie-judge** agent to score design quality (9.0/10 threshold)
 6. Present the plan to the user for approval. If `--yes` flag is active, auto-approve.
 
-**On-demand research**: For broad dependency analysis requiring many files, dispatch **researcher**. For simple grep-based checks, do it yourself.
+**On-demand research**: For broad dependency analysis requiring many files, dispatch **reggie-researcher**. For simple grep-based checks, do it yourself.
 
 **Approval gate**: The user may approve all changes, approve some and reject others, request modifications, or ask to re-plan. After approval, print the PLAN summary box.
 
@@ -159,11 +160,11 @@ After all changes are applied, print the IMPLEMENT summary box and advance to VE
 
 ## Phase 5: VERIFY
 
-Launch **researcher** agent via Task tool.
+Launch **reggie-researcher** agent via Task tool.
 
 Read `~/.claude/agents/reggie-system-change-manager.md` Stage 5: VERIFY for the full prompt template. Provide the list of all changes made during IMPLEMENT.
 
-The researcher validates:
+The reggie-researcher validates:
 1. **File counts** — actual counts match PORTABLE-PACKAGE.md and MEMORY.md
 2. **Cross-references** — no dangling references to renamed or changed files
 3. **Internal consistency** — pipeline managers match commands, reggie-guide.md is complete
@@ -193,12 +194,12 @@ After the pipeline completes, capture agent-level learnings. This feeds the self
 
 **Process**:
 1. Review the pipeline run — was BRAINSTORM the right depth? Did PLAN identify all affected files? Were there surprises during IMPLEMENT?
-2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/improve-pipeline-manager.md` for format)
+2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/reggie-improve-manager.md` for format)
 3. If the pipeline ran smoothly, capture zero learnings — do NOT invent entries
 4. Classify each learning at capture time: UNIVERSAL / PROJECT / PROCESS
 
 **Focus areas for reggie-system-change**:
-- Did the thought-partner correctly gauge brainstorm depth (quick vs deep)?
+- Did the reggie-thought-partner correctly gauge brainstorm depth (quick vs deep)?
 - Did the orchestrator's plan identify all affected files and dependencies?
 - Were integration updates (PORTABLE-PACKAGE.md, reggie-guide.md, MEMORY.md) identified upfront or caught only during VERIFY?
 - Did any files have unexpected current state during IMPLEMENT?
@@ -216,7 +217,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
 2. If file doesn't exist or has 0 entries: skip silently, proceed to next stage
 3. If 1-2 entries: print "X entries in AGENT-IMPROVE.md (below threshold of 3). Deferring to next pipeline run." and proceed
 4. If 3+ entries: run the improve pipeline with `--minor-only` behavior:
-   - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
+   - Read `~/.claude/agents/reggie-improve-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
    - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run

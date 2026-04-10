@@ -38,7 +38,7 @@ fi
 
 ## Instructions
 
-Use the **pipeline-manager** agent to report:
+Use the **reggie-code-manager** agent to report:
 
 1. **All active tasks** with their current stage and pipeline
    - Read stage from `.pipeline/[slug]/STAGE` file for each active task (most reliable source)

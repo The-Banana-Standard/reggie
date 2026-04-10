@@ -128,7 +128,7 @@ If foundational docs are missing but the project is mature enough to warrant the
 3. If it should exist, present what you would populate it with (summary, not full doc)
 4. Ask the user: "Create [doc]? (y/n)"
 5. Only create with user approval
-6. Use the templates from `onboard-pipeline-manager.md` (Foundational Doc Templates section)
+6. Use the templates from `reggie-onboard-manager.md` (Foundational Doc Templates section)
 
 ### What NOT to Do
 

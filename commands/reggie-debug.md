@@ -33,7 +33,7 @@ Debug the issue: $ARGUMENTS
 5. **Verify** - Confirm fix works and doesn't break other things
 
 ### For Firebase Issues
-Use the **firebase-debugger** agent if the issue involves:
+Use the **reggie-firebase-debugger** agent if the issue involves:
 - Cloud Functions
 - Firestore
 - Authentication

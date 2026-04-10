@@ -21,7 +21,7 @@ git diff --stat HEAD~1 2>/dev/null || git diff --stat --cached 2>/dev/null || ec
 
 ## Instructions
 
-Use the **code-reviewer** agent to review the changes made in the current pipeline task.
+Use the **reggie-code-reviewer** agent to review the changes made in the current pipeline task.
 
 ### What Gets Reviewed
 
@@ -44,10 +44,10 @@ This reviews the **current task's diff only** — not the whole codebase. The re
 
 ### Quality Gate
 
-The review is scored by the judge agent (9.0/10 to advance). If it fails:
+The review is scored by the reggie-judge agent (9.0/10 to advance). If it fails:
 - BLOCKER findings must be fixed
 - Review runs again after fixes
-- Standard escalation: iterate → researcher → auto-tournament → user
+- Standard escalation: iterate → reggie-researcher → auto-tournament → user
 
 ### Verdict
 

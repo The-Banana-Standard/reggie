@@ -1,6 +1,6 @@
 # Write Tests
 
-Use the qa-engineer agent to write tests for code.
+Use the reggie-qa-engineer agent to write tests for code.
 
 ## Context
 
@@ -20,7 +20,7 @@ find . -type f \( -name "*.test.*" -o -name "*.spec.*" \) 2>/dev/null | grep -v 
 
 ## Instructions
 
-Use the **qa-engineer** agent to write tests for: $ARGUMENTS
+Use the **reggie-qa-engineer** agent to write tests for: $ARGUMENTS
 
 If no specific target, write tests for recently changed files.
 

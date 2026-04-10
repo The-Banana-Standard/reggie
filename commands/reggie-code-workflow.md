@@ -1,5 +1,6 @@
 ---
 type: pipeline
+manager: reggie-code-manager
 ---
 
 # Code Workflow
@@ -53,19 +54,19 @@ If `$ARGUMENTS` is empty and the backlog is empty and there are active tasks, **
 
 This command orchestrates the **full development pipeline** for a single task.
 
-**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the pipeline-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/pipeline-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. After each agent returns, launch the **judge** agent to score the output (9.0/10 threshold). Print the stage summary box after every stage. If the judge fails a stage, feed the feedback back to the stage agent, re-launch, and re-judge until it passes or escalates. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
+**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the reggie-code-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/reggie-code-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. After each agent returns, launch the **reggie-judge** agent to score the output (9.0/10 threshold). Print the stage summary box after every stage. If the judge fails a stage, feed the feedback back to the stage agent, re-launch, and re-judge until it passes or escalates. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
 **`--opus` flag**: If `$ARGUMENTS` contains `--opus`, strip it from arguments before further parsing and force `model: "opus"` on **every** Task tool agent launch for the entire pipeline run. This disables all Sonnet optimizations. Use when maximum quality is needed on every stage. When active, print `⚙ Mode: all-opus` during PICKUP.
 
-**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. Stage advancement, REVIEW-WITH-USER acceptance, merge strategy selection, and any other human confirmation prompts are auto-approved. Automated quality gates (9.0/10 judge scoring) still run normally. When active, print `⚙ Mode: --yes (Ralph Wiggum)` during PICKUP.
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. Stage advancement, REVIEW-WITH-USER acceptance, merge strategy selection, and any other human confirmation prompts are auto-approved. Automated quality gates (9.0/10 reggie-judge scoring) still run normally. When active, print `⚙ Mode: --yes (Ralph Wiggum)` during PICKUP.
 
 **`--tier` flag**: If `$ARGUMENTS` contains `--tier <model:effort>` (e.g., `--tier opus:high`), strip it from arguments and enable tier-filtered pickup. During PICKUP, only pick up backlog tasks whose `[tier: X]` tag matches the specified tier. Tasks without a tier tag are treated as `opus:high` (default to highest). When active, print `⚙ Tier: [model:effort]` during PICKUP. Valid tiers: `opus:high`, `opus:medium`, `sonnet:medium`. This enables parallel execution — Forge launches terminals at different tiers and each filters to matching tasks.
 
 **DISCOVERED ISSUES**: When prompting any agent, always include: "If you discover unrelated issues in the codebase (bugs, tech debt, security problems, missing tests), list them under a `## Discovered Issues` heading at the end of your output. Do not fix them." After each stage returns, check for discovered issues and add them to `### Ungroomed` at the bottom of `## Backlog` in TASKS.md (create the section if it doesn't exist).
 
-**PRE-LAUNCH CONTEXT**: Before launching any subagent, pre-read relevant files (~200 line budget) and include their contents in the Task prompt. See `~/.claude/agents/pipeline-manager.md` → "Pre-Launch Context Loading" for what to include and the format template.
+**PRE-LAUNCH CONTEXT**: Before launching any subagent, pre-read relevant files (~200 line budget) and include their contents in the Task prompt. See `~/.claude/agents/reggie-code-manager.md` → "Pre-Launch Context Loading" for what to include and the format template.
 
-**MODEL ROUTING**: Use the tier table in `~/.claude/agents/pipeline-manager.md` → "Model Routing" to select the correct model for each agent launch. Tier 1 (judge, code-reviewer, security-reviewer) always Opus. Tier 2 (developers, qa-engineer, etc.) Opus default. Tier 3 (technical-writer, etc.) Sonnet acceptable.
+**MODEL ROUTING**: Use the tier table in `~/.claude/agents/reggie-code-manager.md` → "Model Routing" to select the correct model for each agent launch. Tier 1 (reggie-judge, reggie-code-reviewer, reggie-security-reviewer) always Opus. Tier 2 (developers, reggie-qa-engineer, etc.) Opus default. Tier 3 (reggie-technical-writer, etc.) Sonnet acceptable.
 
 
 ### The Pipeline
@@ -107,13 +108,13 @@ This command orchestrates the **full development pipeline** for a single task.
 
 ### Workflow Execution
 
-Execute each stage, waiting for completion and confirmation before proceeding. After updating TASKS.md quality scores or stage status at each stage, commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: stage [slug] [STAGE-NAME]" --no-gpg-sign 2>/dev/null`. See pipeline-manager.md → "Metadata Commit System" for all commit events.
+Execute each stage, waiting for completion and confirmation before proceeding. After updating TASKS.md quality scores or stage status at each stage, commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: stage [slug] [STAGE-NAME]" --no-gpg-sign 2>/dev/null`. See reggie-code-manager.md → "Metadata Commit System" for all commit events.
 
 ---
 
 ## Stage 1: PICKUP
 
-**Migration check**: If TASKS.md contains a `## Completed` section (old format), auto-migrate those entries to `HISTORY.md` and remove the section from TASKS.md, then commit metadata: `git add TASKS.md HISTORY.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: migrate-history" --no-gpg-sign 2>/dev/null`. See pipeline-manager.md → "TASKS.md Migration" for details.
+**Migration check**: If TASKS.md contains a `## Completed` section (old format), auto-migrate those entries to `HISTORY.md` and remove the section from TASKS.md, then commit metadata: `git add TASKS.md HISTORY.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: migrate-history" --no-gpg-sign 2>/dev/null`. See reggie-code-manager.md → "TASKS.md Migration" for details.
 
 **Key rule: never resume someone else's active task.** Active tasks in TASKS.md are assumed to be owned by another session. This session should only work on tasks it picks up fresh from the backlog or that the user explicitly specifies.
 
@@ -163,7 +164,7 @@ Execute each stage, waiting for completion and confirmation before proceeding. A
     - If any warnings: ask user to proceed (accept risk), re-plan via `/reggie-init-tasks`, or skip task.
     - If no warnings: proceed normally.
 15. **Conflict Detection**: Parse the file list from the task.md `### Files` section. Compare against all other active tasks' `**Files**` lists in TASKS.md. If overlap exists, show conflict warning and ask user to choose: Proceed / Wait / Rethink / Abort. If no overlap, proceed.
-16. **Skip List**: Evaluate which stages are categorically inapplicable (see pipeline-manager.md → Skip List). Write `.pipeline/[slug]/SKIP` with stage names and reasons. If no stages should be skipped, skip this step.
+16. **Skip List**: Evaluate which stages are categorically inapplicable (see reggie-code-manager.md → Skip List). Write `.pipeline/[slug]/SKIP` with stage names and reasons. If no stages should be skipped, skip this step.
 
 **If no backlog items remain:**
 ```
@@ -195,7 +196,7 @@ run /reggie-code-workflow to pick it up from the backlog.
 - Read `.pipeline/[slug]/CONTEXT.md` and `.pipeline/[slug]/HANDOFF.md` to restore context
 - Continue from the stage recorded in TASKS.md
 
-Use **pipeline-manager** agent to manage TASKS.md.
+Use **reggie-code-manager** agent to manage TASKS.md.
 
 **IMPORTANT**: After creating `.pipeline/[slug]/` and `.worktree/[slug]/`, ensure both `.pipeline/` and `.worktree/` are in `.gitignore`.
 
@@ -205,7 +206,7 @@ When launching any code-modifying agent (IMPLEMENT, WRITE-TESTS, SIMPLIFY, VERIF
 
 > "The project root for this task is: `[absolute path to .worktree/[slug]]`. All file reads, writes, and bash commands must operate in this directory."
 
-Agents that only manage pipeline metadata (judge, pipeline-manager) operate from the main repo root. The `.pipeline/[slug]/CONTEXT.md` is always read/written from the main repo root.
+Agents that only manage pipeline metadata (reggie-judge, reggie-code-manager) operate from the main repo root. The `.pipeline/[slug]/CONTEXT.md` is always read/written from the main repo root.
 
 ### Skip Handling
 
@@ -218,7 +219,7 @@ Before launching any stage agent, check `.pipeline/[slug]/SKIP`. If the current 
 ```
 ## Implementation Phase
 
-[Use appropriate dev agent: **ios-developer**, **android-developer**, **web-developer**, **typescript-developer**, **go-developer**, **python-developer**, **cloud-engineer**, or **firebase-debugger**]
+[Use appropriate dev agent: **reggie-ios-developer**, **reggie-android-developer**, **reggie-web-developer**, **reggie-typescript-developer**, **reggie-go-developer**, **reggie-python-developer**, **reggie-cloud-engineer**, or **reggie-firebase-debugger**]
 
 Implementing: [task]
 Platform: [detected platform]
@@ -241,7 +242,7 @@ Ready to write tests? (y/n)
 ```
 ## Testing Phase
 
-[Use **qa-engineer** agent]
+[Use **reggie-qa-engineer** agent]
 
 Writing tests for: [implemented feature]
 ```
@@ -262,7 +263,7 @@ Ready for quality check? (y/n)
 ```
 ## Quality Check Phase
 
-[Use **qa-engineer** agent]
+[Use **reggie-qa-engineer** agent]
 
 Validating test quality and coverage...
 ```
@@ -284,7 +285,7 @@ Ready to simplify? (y/n)
 ```
 ## Simplification Phase
 
-[Use **refactorer** agent]
+[Use **reggie-refactorer** agent]
 
 Cleaning up implementation...
 ```
@@ -304,7 +305,7 @@ Ready to verify? (y/n)
 ```
 ## Verification Phase
 
-[Use **app-tester** agent]
+[Use **reggie-app-tester** agent]
 
 Running tests and verifying the feature works...
 ```
@@ -340,7 +341,7 @@ Loop back to selected stage.
 ```
 ## Code Review Phase
 
-[Use **code-reviewer** agent]
+[Use **reggie-code-reviewer** agent]
 
 Reviews the current task's diff for:
 - Bugs and edge cases
@@ -372,7 +373,7 @@ Going back to IMPLEMENT to address blockers.
 ```
 ## Security Review Phase
 
-[Use **security-reviewer** agent]
+[Use **reggie-security-reviewer** agent]
 
 Audits the current task's changes for:
 - Secrets in code
@@ -404,7 +405,7 @@ Going back to IMPLEMENT to fix security issues.
 ```
 ## Documentation Sync Phase
 
-[Use **technical-writer** agent]
+[Use **reggie-technical-writer** agent]
 
 Updating:
 - CHANGELOG.md
@@ -440,7 +441,7 @@ Any learnings from this task to add to CLAUDE.md?
 
 ## Stage 10.5: REVIEW-WITH-USER
 
-Walk the user through what was built, mapped to each acceptance criterion from the task. This is a human gate — no judge scoring.
+Walk the user through what was built, mapped to each acceptance criterion from the task. This is a human gate — no reggie-judge scoring.
 
 **Skip condition**: If the task has no acceptance criteria (legacy format without enriched `>` blocks), auto-skip: `⊘ REVIEW-WITH-USER — skipped (no acceptance criteria found)`.
 
@@ -571,7 +572,7 @@ Before committing, capture any agent-level learnings from this pipeline run. Thi
 **Focus areas for code-workflow**:
 - Did the task.md plan from /reggie-init-tasks survive implementation, or did the developer deviate significantly?
 - Did tests catch real issues, or were they superficial?
-- Did the refactorer actually simplify, or just rearrange?
+- Did the reggie-refactorer actually simplify, or just rearrange?
 - Did reviews (code + security) catch things that earlier stages should have prevented?
 - Was the task.md plan detailed enough, or did the implementer struggle with missing context?
 
@@ -588,7 +589,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
 2. If file doesn't exist or has 0 entries: skip silently, proceed to next stage
 3. If 1-2 entries: print "X entries in AGENT-IMPROVE.md (below threshold of 3). Deferring to next pipeline run." and proceed
 4. If 3+ entries: run the improve pipeline with `--minor-only` behavior:
-   - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
+   - Read `~/.claude/agents/reggie-improve-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
    - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
@@ -623,7 +624,7 @@ fi
 ```
 ## Commit Phase
 
-[Use **technical-writer** agent for commit message]
+[Use **reggie-technical-writer** agent for commit message]
 
 Committing in worktree:
   git -C .worktree/[slug] add [changed files]
@@ -658,7 +659,7 @@ Ready to mark task complete? (y/n)
      git log [base-branch]..task/[slug] --pretty=format:"%s%n%b" --reverse
      # Synthesize a single conventional commit (feat:/fix:/refactor: + concise summary)
      # with 2-5 body bullets covering key changes (strip stage prefixes like implement:/test:)
-     # See pipeline-manager.md "Composing the Squash Commit Message" for full details
+     # See reggie-code-manager.md "Composing the Squash Commit Message" for full details
      git commit -m "$(cat <<'EOF'
      [summary line, e.g. feat: add streak tracking with daily reset logic]
 
@@ -776,7 +777,7 @@ Code changes live in `.worktree/add-streak-tracking/` (branch `task/add-streak-t
 
 If verification/review fails, increment attempts in the quality scores table.
 
-**Metadata commits**: Every edit to TASKS.md or HISTORY.md is immediately committed on the base branch with a `meta:` prefix (e.g., `meta: pickup [slug]`, `meta: stage [slug] IMPLEMENT`, `meta: complete [slug]`). This prevents stash conflicts when multiple sessions edit metadata in parallel. See pipeline-manager.md → "Metadata Commit System" for the full convention.
+**Metadata commits**: Every edit to TASKS.md or HISTORY.md is immediately committed on the base branch with a `meta:` prefix (e.g., `meta: pickup [slug]`, `meta: stage [slug] IMPLEMENT`, `meta: complete [slug]`). This prevents stash conflicts when multiple sessions edit metadata in parallel. See reggie-code-manager.md → "Metadata Commit System" for the full convention.
 
 ---
 

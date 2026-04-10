@@ -304,13 +304,13 @@ MCP tool schemas load into every subagent launched via the Task tool during pipe
 
 - In a `/reggie-code-workflow` run with 10+ subagent launches, MCP context cost is multiplied 10x+
 - chrome-devtools (28 tools, `high` token profile) is the largest single contributor
-- Subagents that never use MCP tools (researcher, architect, reviewer) still pay the full schema cost
+- Subagents that never use MCP tools (reggie-researcher, reggie-code-architect, reggie-code-reviewer) still pay the full schema cost
 
 **Mitigations (in priority order):**
 1. **ENABLE_TOOL_SEARCH** — Defers schema loading so subagents only pay for tools they actually invoke
 2. **Project-scope servers** — Only loads MCP tools in projects that need them (vs global which loads everywhere)
 3. **Remove unused servers** — The UNUSED category above identifies configured tools with no matching signals. Removing them eliminates wasted context.
-4. **Pipeline prompt gating** — The pipeline-manager tells each subagent which MCP tools are relevant, preventing agents from wasting turns on irrelevant tools
+4. **Pipeline prompt gating** — The reggie-code-manager tells each subagent which MCP tools are relevant, preventing agents from wasting turns on irrelevant tools
 
 ---
 

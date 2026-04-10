@@ -40,15 +40,15 @@ Specialized AI agents that Claude Code invokes as subprocesses. Each has a defin
 
 | Agent | Specialty | Tools |
 |-------|-----------|-------|
-| `ios-developer` | SwiftUI, UIKit, StoreKit, HealthKit, XCTest, Swift patterns | Read, Web, Write, Bash |
-| `android-developer` | Jetpack Compose, Material 3, Capacitor, Gradle, Kotlin patterns | Read, Web, Write, Bash |
-| `web-developer` | React, Next.js App Router, TypeScript, Tailwind, Vercel, React patterns | Read, Web, Write, Bash |
-| `typescript-developer` | Node.js backends, type-safe APIs, Zod, testing | Read, Web, Write, Bash |
-| `go-developer` | Go servers, stdlib routing, concurrency, Docker | Read, Web, Write, Bash |
-| `python-developer` | pandas, FastAPI, pytest, CLI tools, data processing | Read, Web, Write, Bash |
-| `rust-developer` | Rust apps, Tauri v2, async tokio, serde, systems programming | Read, Web, Write, Bash |
-| `cloud-engineer` | Firebase, GCP, Docker, Vercel, GitHub Actions, CI/CD | Read, Web, Write, Bash |
-| `firebase-debugger` | Debug Cloud Functions, Firestore, Auth, Analytics | Read, Web, Bash |
+| `reggie-ios-developer` | SwiftUI, UIKit, StoreKit, HealthKit, XCTest, Swift patterns | Read, Web, Write, Bash |
+| `reggie-android-developer` | Jetpack Compose, Material 3, Capacitor, Gradle, Kotlin patterns | Read, Web, Write, Bash |
+| `reggie-web-developer` | React, Next.js App Router, TypeScript, Tailwind, Vercel, React patterns | Read, Web, Write, Bash |
+| `reggie-typescript-developer` | Node.js backends, type-safe APIs, Zod, testing | Read, Web, Write, Bash |
+| `reggie-go-developer` | Go servers, stdlib routing, concurrency, Docker | Read, Web, Write, Bash |
+| `reggie-python-developer` | pandas, FastAPI, pytest, CLI tools, data processing | Read, Web, Write, Bash |
+| `reggie-rust-developer` | Rust apps, Tauri v2, async tokio, serde, systems programming | Read, Web, Write, Bash |
+| `reggie-cloud-engineer` | Firebase, GCP, Docker, Vercel, GitHub Actions, CI/CD | Read, Web, Write, Bash |
+| `reggie-firebase-debugger` | Debug Cloud Functions, Firestore, Auth, Analytics | Read, Web, Bash |
 
 *Tool categories are simplified: **Read** = Glob + Grep + Read; **Web** = WebFetch + WebSearch; **Write** = Edit + Write (+ NotebookEdit where applicable); **Bash** = Bash.*
 
@@ -56,58 +56,58 @@ Specialized AI agents that Claude Code invokes as subprocesses. Each has a defin
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| `code-architect` | Design implementation plans (PLAN stage) | Read, Web |
-| `judge` | Evaluate quality gates and tournament rounds (9.0/10 threshold) | Read, Web |
-| `qa-engineer` | Write tests and check quality (WRITE-TESTS / QUALITY-CHECK) | Read, Web, Write, Bash |
-| `app-tester` | End-to-end verification (VERIFY stage) | Read, Web, Bash |
-| `refactorer` | Simplify code without behavior changes (SIMPLIFY stage) | Read, Write, Bash |
-| `code-reviewer` | Structured code review of task diff (REVIEW stage) | Read, Web, Bash |
-| `security-reviewer` | Security audit for secrets, injection, auth/authz (SECURITY-REVIEW stage) | Read, Web, Bash |
+| `reggie-code-architect` | Design implementation plans (PLAN stage) | Read, Web |
+| `reggie-judge` | Evaluate quality gates and tournament rounds (9.0/10 threshold) | Read, Web |
+| `reggie-qa-engineer` | Write tests and check quality (WRITE-TESTS / QUALITY-CHECK) | Read, Web, Write, Bash |
+| `reggie-app-tester` | End-to-end verification (VERIFY stage) | Read, Web, Bash |
+| `reggie-refactorer` | Simplify code without behavior changes (SIMPLIFY stage) | Read, Write, Bash |
+| `reggie-code-reviewer` | Structured code review of task diff (REVIEW stage) | Read, Web, Bash |
+| `reggie-security-reviewer` | Security audit for secrets, injection, auth/authz (SECURITY-REVIEW stage) | Read, Web, Bash |
 
 #### Research & Thinking (4)
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| `researcher` | Build pipeline context: search codebase first, web second, calibrate depth to complexity | Read, Web, Bash |
-| `thought-partner` | Brainstorm, untangle ideas, find clarity | Read, Web |
-| `claude-architect` | Design Claude Code system components (agents, commands, workflows) with correct permissions | Read, Web |
-| `codebase-debugger` | Socratic debugging partner: hypothesis-driven investigation to locate bugs | Read, Web, Bash |
+| `reggie-researcher` | Build pipeline context: search codebase first, web second, calibrate depth to complexity | Read, Web, Bash |
+| `reggie-thought-partner` | Brainstorm, untangle ideas, find clarity | Read, Web |
+| `reggie-claude-architect` | Design Claude Code system components (agents, commands, workflows) with correct permissions | Read, Web |
+| `reggie-codebase-debugger` | Socratic debugging partner: hypothesis-driven investigation to locate bugs | Read, Web, Bash |
 
 #### Design (2)
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| `design-innovator` | UI/UX trend research, cutting-edge design concepts | Read, Web |
-| `visual-architect` | Architecture diagrams, data flows, system visualizations | Read, Web, Write, Bash |
+| `reggie-design-innovator` | UI/UX trend research, cutting-edge design concepts | Read, Web |
+| `reggie-visual-architect` | Architecture diagrams, data flows, system visualizations | Read, Web, Write, Bash |
 
 #### Content & Communication (4)
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| `content-producer` | Write Substack-length technical articles (1500-3000 words) | Read, Web, Write |
-| `social-media-strategist` | Adapt content for Twitter/X, LinkedIn, Instagram | Read, Web, Write |
-| `editor` | Review and improve written content (quality gate) | Read, Web, Write |
-| `technical-writer` | Documentation, changelogs, commit messages | Read, Web, Write, Bash |
+| `reggie-content-producer` | Write Substack-length technical articles (1500-3000 words) | Read, Web, Write |
+| `reggie-social-media-strategist` | Adapt content for Twitter/X, LinkedIn, Instagram | Read, Web, Write |
+| `reggie-article-editor` | Review and improve written content (quality gate) | Read, Web, Write |
+| `reggie-technical-writer` | Documentation, changelogs, commit messages | Read, Web, Write, Bash |
 
 #### Pipeline Managers (9)
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| `pipeline-manager` | Core orchestrator for feature dev, brainstorm, and tournament flows | Read, Write |
-| `audit-pipeline-manager` | Audit → prioritize → fix loop | Read, Write |
-| `content-pipeline-manager` | Article and social media production | Read, Write |
-| `repo-bootstrapper` | New project setup (scaffold → git → docs → push) | Read, Write, Bash |
-| `onboard-pipeline-manager` | Onboard existing repos (discover → CLAUDE.md → doc cleanup) | Read, Write |
-| `debug-pipeline-manager` | Conversational debugging: diagnose before fixing | Read, Bash |
-| `improve-pipeline-manager` | Two-level agent improvement loop | Read, Write |
-| `evaluate-reggie-manager` | Periodic architectural review of agent system | Read, Write |
+| `reggie-code-manager` | Core orchestrator for feature dev, brainstorm, and tournament flows | Read, Write |
+| `reggie-audit-manager` | Audit → prioritize → fix loop | Read, Write |
+| `reggie-content-manager` | Article and social media production | Read, Write |
+| `reggie-bootstrap-manager` | New project setup (scaffold → git → docs → push) | Read, Write, Bash |
+| `reggie-onboard-manager` | Onboard existing repos (discover → CLAUDE.md → doc cleanup) | Read, Write |
+| `reggie-debug-manager` | Conversational debugging: diagnose before fixing | Read, Bash |
+| `reggie-improve-manager` | Two-level agent improvement loop | Read, Write |
+| `reggie-evaluate-manager` | Periodic architectural review of agent system | Read, Write |
 | `reggie-system-change-manager` | Formalize changes to agent system components | Read, Write |
 
 #### Utilities (1)
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| `repo-advisor` | Evaluate repo readiness for agent system | Read, Write, Bash |
+| `reggie-repo-advisor` | Evaluate repo readiness for agent system | Read, Write, Bash |
 
 ### 35 Slash Commands
 
@@ -171,9 +171,9 @@ Commands invoke pipelines or individual stages.
 
 Every pipeline follows the same pattern:
 1. The **main Claude orchestrates directly** — it reads the pipeline manager agent file for guidance, then launches specialized agents at each stage via the Task tool
-2. After each stage agent returns, Claude launches the **judge** agent to score the output (9.0/10 threshold)
+2. After each stage agent returns, Claude launches the **reggie-judge** agent to score the output (9.0/10 threshold)
 3. A **stage summary box** is printed after every stage showing score, summary, and next step
-4. If a stage fails, the judge's feedback is fed back and the stage is re-run and re-judged
+4. If a stage fails, the reggie-judge's feedback is fed back and the stage is re-run and re-judged
 5. Quality gate pass = `git commit` (checkpoint)
 6. Full pipeline pass = push-ready
 
@@ -191,9 +191,9 @@ Every pipeline follows the same pattern:
 When a stage fails its quality gate:
 
 ```
-Attempt 1: Iterate with judge feedback
-Attempt 2: Call researcher for new information, iterate again
-Attempt 3: AUTO-TOURNAMENT — two agents compete, judge picks winner
+Attempt 1: Iterate with reggie-judge feedback
+Attempt 2: Call reggie-researcher for new information, iterate again
+Attempt 3: AUTO-TOURNAMENT — two agents compete, reggie-judge picks winner
 Attempt 4: Escalate to user for guidance
 ```
 
@@ -416,7 +416,7 @@ The `type: pipeline` frontmatter is optional — add it for multi-stage workflow
 
 ### Voice Profile
 
-The article pipeline includes a HUMAN-EDIT stage where the author reviews and edits the AI draft. Claude analyzes the edits to build a persistent voice profile at `~/.claude/voice-profile.md`. Over time, the content-producer and editor agents read this profile to match the author's natural writing voice — tone, word choices, sentence patterns, and structural preferences.
+The article pipeline includes a HUMAN-EDIT stage where the author reviews and edits the AI draft. Claude analyzes the edits to build a persistent voice profile at `~/.claude/voice-profile.md`. Over time, the reggie-content-producer and reggie-article-editor agents read this profile to match the author's natural writing voice — tone, word choices, sentence patterns, and structural preferences.
 
 ### Per-Project Context
 
@@ -455,5 +455,5 @@ Last updated: 2026-03-09
 Agents: 36
 Commands: 35
 Pipelines: 10 (code, audit, article, social, repo-setup, onboard, debug, improve, evaluate-reggie, reggie-system-change)
-Features: Git worktree isolation for parallel tasks, branch-per-task with merge strategies, cross-pipeline task sharing, conflict detection, discovered issues → backlog, researcher as context builder, always-loaded language patterns in developer agents, onboard workflow for existing repos, conversational debug workflow with Socratic diagnosis, MCP tool management with three-layer routing, capability manifest for plugin/skill awareness, self-improvement loop with agent learnings, workspace-level task distribution across repos
+Features: Git worktree isolation for parallel tasks, branch-per-task with merge strategies, cross-pipeline task sharing, conflict detection, discovered issues → backlog, reggie-researcher as context builder, always-loaded language patterns in developer agents, onboard workflow for existing repos, conversational debug workflow with Socratic diagnosis, MCP tool management with three-layer routing, capability manifest for plugin/skill awareness, self-improvement loop with agent learnings, workspace-level task distribution across repos
 ```

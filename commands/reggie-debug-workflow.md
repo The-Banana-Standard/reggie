@@ -1,5 +1,6 @@
 ---
 type: pipeline
+manager: reggie-debug-manager
 ---
 
 # Debug Workflow
@@ -34,7 +35,7 @@ if [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then echo "Python proje
 
 You are orchestrating a debug workflow. This is a conversational debugging process that produces a diagnosis before any code changes.
 
-**IMPORTANT**: You (the main Claude) run this workflow directly. Read `~/.claude/agents/debug-pipeline-manager.md` for stage guidance, then launch the codebase-debugger agent via the Task tool during DEBUG-DIALOGUE. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
+**IMPORTANT**: You (the main Claude) run this workflow directly. Read `~/.claude/agents/reggie-debug-manager.md` for stage guidance, then launch the reggie-codebase-debugger agent via the Task tool during DEBUG-DIALOGUE. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
 **`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. INTAKE clarifications, convergence checks, diagnosis confirmation, and handoff prompts are auto-approved.
 
@@ -87,16 +88,16 @@ INTAKE Complete — Moving to DEBUG-DIALOGUE
 **Purpose**: Locate the root cause through hypothesis-driven investigation.
 
 **Your actions**:
-1. Launch the **codebase-debugger** agent with the symptom summary:
+1. Launch the **reggie-codebase-debugger** agent with the symptom summary:
    ```
-   Task tool → subagent_type: codebase-debugger
+   Task tool → subagent_type: reggie-codebase-debugger
    Prompt: Include symptoms, expected/actual behavior, context
    ```
 2. The debugger will:
    - Form hypotheses about potential causes
    - Investigate the codebase to test hypotheses
    - Ask follow-up questions if needed
-   - Invoke researcher for deep subsystem investigation
+   - Invoke reggie-researcher for deep subsystem investigation
    - Offer periodic convergence checks
 
 3. When the debugger offers a convergence check like:
@@ -176,7 +177,7 @@ After handing off to code-workflow, capture agent-level learnings. This feeds th
 
 **Process**:
 1. Review the debug pipeline — hypothesis quality, investigation efficiency
-2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/improve-pipeline-manager.md` for format)
+2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/reggie-improve-manager.md` for format)
 3. If the pipeline ran smoothly, capture zero learnings — do NOT invent entries
 4. Classify each learning at capture time:
    - **UNIVERSAL**: Would benefit any project using this agent (general best practices, language-level patterns)
@@ -185,9 +186,9 @@ After handing off to code-workflow, capture agent-level learnings. This feeds th
    - If unsure, default to PROJECT
 
 **Focus areas for debug-workflow**:
-- Did the codebase-debugger form good initial hypotheses?
+- Did the reggie-codebase-debugger form good initial hypotheses?
 - How many hypotheses were tested before finding root cause?
-- Did the debugger invoke researcher when it should have?
+- Did the debugger invoke reggie-researcher when it should have?
 - Was the diagnosis accurate?
 
 After capturing (or skipping), the AUTO-IMPROVE stage runs next.
@@ -203,7 +204,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
 2. If file doesn't exist or has 0 entries: skip silently, proceed to next stage
 3. If 1-2 entries: print "X entries in AGENT-IMPROVE.md (below threshold of 3). Deferring to next pipeline run." and proceed
 4. If 3+ entries: run the improve pipeline with `--minor-only` behavior:
-   - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
+   - Read `~/.claude/agents/reggie-improve-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
    - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
@@ -256,7 +257,7 @@ I understand the login button isn't working. Let me ask a few questions:
 INTAKE Complete — Moving to DEBUG-DIALOGUE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Launching codebase-debugger to investigate...
+Launching reggie-codebase-debugger to investigate...
 
 [Debugger investigates, forms hypotheses, reports findings]
 

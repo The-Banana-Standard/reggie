@@ -1,6 +1,6 @@
 # Create Architecture Diagram
 
-Use the visual-architect agent to visualize code architecture.
+Use the reggie-visual-architect agent to visualize code architecture.
 
 ## Context
 
@@ -15,7 +15,7 @@ find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.swift" -o -name "*.k
 
 ## Instructions
 
-Use the **visual-architect** agent to create a diagram for: $ARGUMENTS
+Use the **reggie-visual-architect** agent to create a diagram for: $ARGUMENTS
 
 If no specific request, create a system architecture overview showing:
 - Main components/modules

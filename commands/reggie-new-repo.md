@@ -1,5 +1,6 @@
 ---
 type: pipeline
+manager: reggie-bootstrap-manager
 ---
 
 # New Repo
@@ -25,7 +26,7 @@ gh api user/orgs --jq '.[].login' 2>/dev/null | head -5
 
 This command orchestrates the **repo bootstrap pipeline** — a workflow that takes a project idea from concept through scaffolding, documentation, and git setup to a pushed GitHub repository ready for development.
 
-**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the repo-bootstrapper as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/repo-bootstrapper.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
+**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the reggie-bootstrap-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/reggie-bootstrap-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
 ### When to Use
 
@@ -38,15 +39,15 @@ This command orchestrates the **repo bootstrap pipeline** — a workflow that ta
 ### The Bootstrap Pipeline
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                    PROJECT-VISION LOOP                    │
-│                                                          │
-│  thought-partner → researcher → design-innovator →       │
-│  code-architect → Summary → [satisfied?]                 │
-│                                   ↓ no                   │
-│                              (loop with feedback)        │
-│                                   ↓ yes                  │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              PROJECT-VISION LOOP                               │
+│                                                                                │
+│  reggie-thought-partner → reggie-researcher → reggie-design-innovator →        │
+│  reggie-code-architect → Summary → [satisfied?]                                │
+│                                     ↓ no                                       │
+│                                (loop with feedback)                            │
+│                                     ↓ yes                                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
                               ↓
            SCAFFOLD → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH
 ```
@@ -57,10 +58,10 @@ The PROJECT-VISION loop runs until you say "satisfied" with the complete project
 
 The loop brings in **4 specialist agents** in sequence:
 
-1. **thought-partner** — Initial Q&A: what we're building, platform, design feel, tech stack, MVP scope
-2. **researcher** — Prior art: similar apps, best practices, pitfalls to avoid
-3. **design-innovator** — Design direction: trends, interaction patterns, visual concepts (skipped for APIs/CLIs)
-4. **code-architect** — Task breakdown: 5-10 prioritized tasks ready for `/reggie-code-workflow`
+1. **reggie-thought-partner** — Initial Q&A: what we're building, platform, design feel, tech stack, MVP scope
+2. **reggie-researcher** — Prior art: similar apps, best practices, pitfalls to avoid
+3. **reggie-design-innovator** — Design direction: trends, interaction patterns, visual concepts (skipped for APIs/CLIs)
+4. **reggie-code-architect** — Task breakdown: 5-10 prioritized tasks ready for `/reggie-code-workflow`
 
 After all agents complete, you get a **Complete Project Summary**. Review it, then:
 - Say **"satisfied"** to proceed to SCAFFOLD
@@ -79,7 +80,7 @@ After all agents complete, you get a **Complete Project Summary**. Review it, th
 
 **CLAUDE-MD** — Create CLAUDE.md with project overview, tech stack, conventions, key commands, and agent preferences.
 
-**DOCS** — technical-writer creates:
+**DOCS** — reggie-technical-writer creates:
 - `docs/architecture.md` — High-level architecture
 - `docs/getting-started.md` — Setup and first run
 - `docs/contributing.md` — How to contribute
@@ -120,7 +121,7 @@ After all agents complete, you get a **Complete Project Summary**. Review it, th
 
 ## PROJECT-VISION Loop
 
-### Phase 1: thought-partner
+### Phase 1: reggie-thought-partner
 What are we building?
 → A habit tracking app for daily routines
 
@@ -141,7 +142,7 @@ MVP scope? (or "you decide")
 
 ---
 
-### Phase 2: researcher
+### Phase 2: reggie-researcher
 Investigating similar apps and patterns...
 
 Research findings:
@@ -152,7 +153,7 @@ Research findings:
 
 ---
 
-### Phase 3: design-innovator
+### Phase 3: reggie-design-innovator
 Exploring design direction...
 
 Recommended: "Quiet Motivation"
@@ -163,7 +164,7 @@ Recommended: "Quiet Motivation"
 
 ---
 
-### Phase 4: code-architect
+### Phase 4: reggie-code-architect
 Breaking MVP into tasks...
 
 6 tasks generated (~14 hours total):
@@ -247,7 +248,7 @@ If you're not satisfied, provide feedback and only the relevant agents re-run:
 ```
 → I want a bolder design, more playful
 
-Re-running design-innovator with feedback...
+Re-running reggie-design-innovator with feedback...
 
 Updated Design Direction:
 **Style**: Playful Progress
@@ -281,7 +282,7 @@ After the new repo is scaffolded, committed, and pushed, capture agent-level lea
 
 **Process**:
 1. Review the bootstrap pipeline — PROJECT-VISION loop quality, scaffold completeness, documentation accuracy
-2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/improve-pipeline-manager.md` for format)
+2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/reggie-improve-manager.md` for format)
 3. If the pipeline ran smoothly, capture zero learnings — do NOT invent entries
 4. Classify each learning at capture time:
    - **UNIVERSAL**: Would benefit any project using this agent
@@ -291,10 +292,10 @@ After the new repo is scaffolded, committed, and pushed, capture agent-level lea
 
 **Focus areas for new-repo**:
 - Did the PROJECT-VISION loop converge quickly, or did it take too many iterations?
-- Did thought-partner ask the right questions to establish project scope?
-- Did researcher find relevant prior art for the chosen stack?
+- Did reggie-thought-partner ask the right questions to establish project scope?
+- Did reggie-researcher find relevant prior art for the chosen stack?
 - Was the scaffold complete and correct for the tech stack, or were manual fixes needed?
-- Did code-architect produce a well-scoped task breakdown?
+- Did reggie-code-architect produce a well-scoped task breakdown?
 
 After capturing (or skipping), the AUTO-IMPROVE stage runs next.
 
@@ -309,7 +310,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
 2. If file doesn't exist or has 0 entries: skip silently, proceed to next stage
 3. If 1-2 entries: print "X entries in AGENT-IMPROVE.md (below threshold of 3). Deferring to next pipeline run." and proceed
 4. If 3+ entries: run the improve pipeline with `--minor-only` behavior:
-   - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
+   - Read `~/.claude/agents/reggie-improve-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
    - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run

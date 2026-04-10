@@ -1,6 +1,6 @@
 # Fix Failing Tests
 
-Use the qa-engineer agent to run tests and fix any failures.
+Use the reggie-qa-engineer agent to run tests and fix any failures.
 
 ## Context
 
@@ -15,7 +15,7 @@ find . -type f \( -name "*.test.*" -o -name "*.spec.*" -o -name "*_test.*" \) 2>
 
 ## Instructions
 
-Use the **qa-engineer** agent to fix the failing tests.
+Use the **reggie-qa-engineer** agent to fix the failing tests.
 
 1. Run the test suite
 2. For each failure:

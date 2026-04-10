@@ -29,7 +29,7 @@ fi
 
 ## Instructions
 
-Use the **technical-writer** agent for a three-step process:
+Use the **reggie-technical-writer** agent for a three-step process:
 
 ### Step 1: Analyze Changes
 

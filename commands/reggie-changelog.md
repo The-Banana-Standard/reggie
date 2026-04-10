@@ -28,7 +28,7 @@ fi
 
 ## Instructions
 
-Use the **technical-writer** agent to generate a changelog entry.
+Use the **reggie-technical-writer** agent to generate a changelog entry.
 
 1. Review commits since last tag (or last changelog entry)
 2. Group changes by type:

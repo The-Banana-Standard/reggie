@@ -31,7 +31,7 @@ git log --oneline -5 2>/dev/null
 
 ## Instructions
 
-Use the **researcher** agent to analyze this codebase.
+Use the **reggie-researcher** agent to analyze this codebase.
 
 ### Audit Modes
 

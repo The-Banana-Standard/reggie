@@ -1,5 +1,6 @@
 ---
 type: pipeline
+manager: reggie-content-manager
 ---
 
 # Article Workflow
@@ -151,9 +152,9 @@ pwd
 
 This command orchestrates the **article pipeline** — a workflow that takes a topic from brainstorm through research, outlining, drafting, editing, and review to produce a publication-ready article.
 
-**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the content-pipeline-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/content-pipeline-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. After each agent returns, launch the **judge** agent to score the output (9.0/10 threshold). Print the stage summary box after every stage. If the judge fails a stage, feed the feedback back to the stage agent, re-launch, and re-judge until it passes or escalates. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
+**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the reggie-content-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/reggie-content-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. After each agent returns, launch the **reggie-judge** agent to score the output (9.0/10 threshold). Print the stage summary box after every stage. If the judge fails a stage, feed the feedback back to the stage agent, re-launch, and re-judge until it passes or escalates. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
-**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. HUMAN-EDIT satisfaction checks, review approvals, and all other human prompts are auto-approved. Automated quality gates (9.0/10 judge scoring) still run normally.
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. HUMAN-EDIT satisfaction checks, review approvals, and all other human prompts are auto-approved. Automated quality gates (9.0/10 reggie-judge scoring) still run normally.
 
 ### When to Use
 
@@ -184,19 +185,19 @@ Every `→` is a quality gate (9.0/10 to advance). HUMAN-EDIT is a mandatory hum
 
 ### Pipeline Stages
 
-**BRAINSTORM** — thought-partner explores the topic. What's the angle? Who cares? What's the one thing the reader should take away?
+**BRAINSTORM** — reggie-thought-partner explores the topic. What's the angle? Who cares? What's the one thing the reader should take away?
 
-**RESEARCH** — researcher gathers supporting material: data, examples, quotes, competing perspectives, technical accuracy checks.
+**RESEARCH** — reggie-researcher gathers supporting material: data, examples, quotes, competing perspectives, technical accuracy checks.
 
-**OUTLINE** — content-producer structures the article: thesis, sections, key points per section, planned examples, estimated word count.
+**OUTLINE** — reggie-content-producer structures the article: thesis, sections, key points per section, planned examples, estimated word count.
 
-**DRAFT** — content-producer writes the full article (1500-3000 words target). Hook, body, conclusion with takeaway.
+**DRAFT** — reggie-content-producer writes the full article (1500-3000 words target). Hook, body, conclusion with takeaway.
 
-**EDIT** — editor performs structural editing, line editing, fact checking, voice consistency, and clarity enforcement.
+**EDIT** — reggie-article-editor performs structural editing, line editing, fact checking, voice consistency, and clarity enforcement.
 
 **HUMAN-EDIT** — Claude saves a snapshot of the AI draft, then hands you the file. Edit it however you want — no special format needed. When you're done, Claude diffs your version against the snapshot to see exactly what you changed. Those changes teach Claude your writing personality (updated in `.claude/voice-profile.md`). Future articles start closer to your voice automatically. Use `//` comments to flag areas for research (`// need retention data here`, `// find a real example of this`), explain voice preferences (`// voice: I never say "leverage"`), or mark weak sections (`// this section needs work`). Then Claude asks: **satisfied, or another pass?** If another pass, Claude scans your edits and comments to build a **research plan** — a structured list of what needs investigating. You confirm or adjust the plan, then the pipeline loops through RESEARCH → DRAFT → EDIT → HUMAN-EDIT. BRAINSTORM and OUTLINE are skipped on subsequent loops. **On each loop**, Claude overwrites both the draft file AND the snapshot with the new AI version before handing it back to you.
 
-**REVIEW** — judge evaluates the article against quality standards. Must score 9.0/10.
+**REVIEW** — reggie-judge evaluates the article against quality standards. Must score 9.0/10.
 
 **PUBLISH** — Final article delivered in clean markdown with headline options, subtitle, TL;DR, tags, and estimated read time.
 
@@ -235,7 +236,7 @@ After the article passes REVIEW and before PUBLISH, capture agent-level learning
 
 **Process**:
 1. Review the article pipeline — HUMAN-EDIT loop count, editor catch rate, research quality
-2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/improve-pipeline-manager.md` for format)
+2. For each genuine learning, append an entry to `~/.claude/AGENT-IMPROVE.md` using the standard entry format (see `~/.claude/agents/reggie-improve-manager.md` for format)
 3. If the pipeline ran smoothly, capture zero learnings — do NOT invent entries
 4. Classify each learning at capture time:
    - **UNIVERSAL**: Would benefit any project using this agent (general best practices, language-level patterns)
@@ -245,7 +246,7 @@ After the article passes REVIEW and before PUBLISH, capture agent-level learning
 
 **Focus areas for article-workflow**:
 - How many HUMAN-EDIT loops were needed? What did the human consistently change?
-- Did the editor catch issues the content-producer should have avoided?
+- Did the reggie-article-editor catch issues the reggie-content-producer should have avoided?
 - Were research findings well-integrated into the draft?
 - Did voice-profile learnings improve across iterations?
 
@@ -262,7 +263,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
 2. If file doesn't exist or has 0 entries: skip silently, proceed to next stage
 3. If 1-2 entries: print "X entries in AGENT-IMPROVE.md (below threshold of 3). Deferring to next pipeline run." and proceed
 4. If 3+ entries: run the improve pipeline with `--minor-only` behavior:
-   - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
+   - Read `~/.claude/agents/reggie-improve-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
    - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
@@ -356,7 +357,7 @@ Word count target: 2200
 
 ## DRAFT Stage
 Writing...
-[content-producer produces full draft]
+[reggie-content-producer produces full draft]
 
 ## EDIT Stage
 Editor feedback:
@@ -411,7 +412,7 @@ Researching against the plan...
 
 ## DRAFT Stage (pass 2)
 Rewriting with new research and your voice preferences...
-[content-producer rewrites incorporating findings + voice profile]
+[reggie-content-producer rewrites incorporating findings + voice profile]
 
 ## EDIT Stage (pass 2)
 Editor review of revised draft...

@@ -1,5 +1,6 @@
 ---
 type: pipeline
+manager: reggie-audit-manager
 ---
 
 # Audit Workflow
@@ -48,9 +49,9 @@ git log --oneline -5 2>/dev/null
 
 This command orchestrates the **audit pipeline** — a systematic workflow that audits a codebase, prioritizes findings, and fixes them one at a time through quality-gated stages.
 
-**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the audit-pipeline-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/audit-pipeline-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. After each agent returns, launch the **judge** agent to score the output (9.0/10 threshold). Print the stage summary box after every stage. If the judge fails a stage, feed the feedback back to the stage agent, re-launch, and re-judge until it passes or escalates. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
+**IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the reggie-audit-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/reggie-audit-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. After each agent returns, launch the **reggie-judge** agent to score the output (9.0/10 threshold). Print the stage summary box after every stage. If the judge fails a stage, feed the feedback back to the stage agent, re-launch, and re-judge until it passes or escalates. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
-**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. All human prompts are auto-approved. Automated quality gates (9.0/10 judge scoring) still run normally.
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. All human prompts are auto-approved. Automated quality gates (9.0/10 reggie-judge scoring) still run normally.
 
 **DISCOVERED ISSUES**: When prompting any agent, always include: "If you discover unrelated issues in the codebase (bugs, tech debt, security problems, missing tests), list them under a `## Discovered Issues` heading at the end of your output. Do not fix them." After each stage returns, check for discovered issues and add them to `### Ungroomed` at the bottom of `## Backlog` in TASKS.md (create the section if it doesn't exist).
 
@@ -87,14 +88,14 @@ This command orchestrates the **audit pipeline** — a systematic workflow that 
 
 ## Pre-flight: TASKS.md Migration
 
-If TASKS.md contains a `## Completed` section (old format), auto-migrate those entries to `HISTORY.md` and remove the section from TASKS.md before proceeding. See pipeline-manager.md → "TASKS.md Migration" for details.
+If TASKS.md contains a `## Completed` section (old format), auto-migrate those entries to `HISTORY.md` and remove the section from TASKS.md before proceeding. See reggie-code-manager.md → "TASKS.md Migration" for details.
 
 ## Phase 1: AUDIT
 
 ```
 ## Audit Phase
 
-[Launch **researcher** agent via Task tool]
+[Launch **reggie-researcher** agent via Task tool]
 
 Prompt: "Perform a full codebase audit. Identify all issues: critical bugs,
 security vulnerabilities, tech debt, missing tests, performance problems,
@@ -108,7 +109,7 @@ If $ARGUMENTS specifies a focus (e.g., "security"), tell the auditor:
 issues if you spot them, but go deep on [focus area]."
 ```
 
-After audit completes, launch **judge** to score thoroughness:
+After audit completes, launch **reggie-judge** to score thoroughness:
 - Did it check all directories?
 - Did it look at dependencies, configs, and infrastructure — not just app code?
 - Are severity ratings calibrated (not everything is "critical")?
@@ -122,7 +123,7 @@ AUDIT complete — [N] issues found ([breakdown by severity])
 ```
 
 **If FAIL:**
-Re-launch auditor with judge feedback to dig deeper into missed areas.
+Re-launch auditor with reggie-judge feedback to dig deeper into missed areas.
 
 ---
 
@@ -149,7 +150,7 @@ I've prioritized the audit findings into [N] tasks:
 Starting with Task 1. Ready? (y/n)
 ```
 
-Launch **judge** to score the prioritization:
+Launch **reggie-judge** to score the prioritization:
 - Is the ordering sensible? (high-impact low-effort first)
 - Are tasks well-scoped? (not too big, not too granular)
 - Are related findings grouped logically?
@@ -179,12 +180,12 @@ For each task from the prioritized backlog:
    done
    ```
 6. If project uses `node_modules/`, run install command in `.worktree/[slug]/`
-7. Create `.pipeline/[slug]/` with `CONTEXT.md` (in main repo). **Context Seeding**: Write the audit finding details to `CONTEXT.md` under a `## Pre-existing Context` section using structured format (What, Where, Risk, Fix approach, Effort, Severity). This gives the researcher a head start.
+7. Create `.pipeline/[slug]/` with `CONTEXT.md` (in main repo). **Context Seeding**: Write the audit finding details to `CONTEXT.md` under a `## Pre-existing Context` section using structured format (What, Where, Risk, Fix approach, Effort, Severity). This gives the reggie-researcher a head start.
 8. Ensure `.pipeline/` and `.worktree/` are in `.gitignore`
 9. Add `### [slug]` to `## Active Tasks` in TASKS.md (include **Branch**, **Worktree**, **Base** fields)
 10. Remove from backlog
 11. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: pickup [slug]" --no-gpg-sign 2>/dev/null`
-12. **Skip List**: Evaluate if any stages are categorically inapplicable. Write `.pipeline/[slug]/SKIP` with stage names and reasons. Never skip SECURITY-REVIEW for Critical/High severity findings. See pipeline-manager.md → Skip List for rules.
+12. **Skip List**: Evaluate if any stages are categorically inapplicable. Write `.pipeline/[slug]/SKIP` with stage names and reasons. Never skip SECURITY-REVIEW for Critical/High severity findings. See reggie-code-manager.md → Skip List for rules.
 
 **Skip Handling**: Before launching any stage agent, check `.pipeline/[slug]/SKIP`. If the current stage is listed, record `SKIP` in the quality scores table, print `⊘ [STAGE] — skipped ([reason])`, and advance to the next stage.
 
@@ -208,14 +209,14 @@ For each task from the prioritized backlog:
 
 ### Step 1: RESEARCH
 
-**You (the orchestrator) handle codebase research for this fix directly.** Use Glob/Grep/Read to scan for context relevant to this specific audit finding. Write findings to `.pipeline/[slug]/CONTEXT.md`. If web research is needed (best practices, security advisories), launch **researcher** with a web-only prompt including your codebase findings. See `~/.claude/agents/pipeline-manager.md` → "RESEARCH (Orchestrator-Direct Mode)".
+**You (the orchestrator) handle codebase research for this fix directly.** Use Glob/Grep/Read to scan for context relevant to this specific audit finding. Write findings to `.pipeline/[slug]/CONTEXT.md`. If web research is needed (best practices, security advisories), launch **reggie-researcher** with a web-only prompt including your codebase findings. See `~/.claude/agents/reggie-code-manager.md` → "RESEARCH (Orchestrator-Direct Mode)".
 
 Calibrate research depth to the fix:
 - **Simple fix** (rename, add constant, fix typo): Quick codebase scan, 5-10 lines of context
 - **Moderate fix** (refactor pattern, add validation): Codebase scan + relevant conventions, 20-40 lines
 - **Complex fix** (architecture change, security overhaul): Deep scan + web research, 40-80 lines
 
-After research completes, **judge scores it**. Key question: does the architect have enough context to plan a good fix?
+After research completes, **reggie-judge scores it**. Key question: does the architect have enough context to plan a good fix?
 
 Append research output to `.pipeline/[slug]/CONTEXT.md`.
 
@@ -226,7 +227,7 @@ Append research output to `.pipeline/[slug]/CONTEXT.md`.
 ```
 ## Planning Phase
 
-**You (the orchestrator) handle the PLAN stage directly.** Do NOT launch code-architect as a subagent. Explore the codebase, write the plan following code-architect's output format (see `~/.claude/agents/code-architect.md`), then launch judge to evaluate. See `~/.claude/agents/pipeline-manager.md` → "PLAN (Orchestrator-Direct Mode)".
+**You (the orchestrator) handle the PLAN stage directly.** Do NOT launch reggie-code-architect as a subagent. Explore the codebase, write the plan following reggie-code-architect's output format (see `~/.claude/agents/reggie-code-architect.md`), then launch reggie-judge to evaluate. See `~/.claude/agents/reggie-code-manager.md` → "PLAN (Orchestrator-Direct Mode)".
 
 Prompt context for planning: "Design a fix for this audit finding:
 
@@ -242,7 +243,7 @@ Prompt context for planning: "Design a fix for this audit finding:
   - What could go wrong"
 ```
 
-After plan completes, **judge scores it**:
+After plan completes, **reggie-judge scores it**:
 - Does the plan actually fix the root cause, not just the symptom?
 - Are edge cases considered?
 - Is the scope appropriate (not over-engineering, not under-engineering)?
@@ -263,7 +264,7 @@ Append plan to `.pipeline/[slug]/CONTEXT.md`.
 ```
 ## Implementation Phase
 
-[Launch appropriate dev agent: **ios-developer**, **web-developer**, etc.]
+[Launch appropriate dev agent: **reggie-ios-developer**, **reggie-web-developer**, etc.]
 
 Prompt: "Implement this fix:
 
@@ -274,7 +275,7 @@ Prompt: "Implement this fix:
   that changes the approach, adapt and note why."
 ```
 
-After implementation, **judge scores it**:
+After implementation, **reggie-judge scores it**:
 - Does it actually fix the finding?
 - Are there any new issues introduced?
 - Does it follow existing codebase conventions?
@@ -286,7 +287,7 @@ After implementation, **judge scores it**:
 ```
 ## Testing Phase
 
-[Launch **qa-engineer** agent]
+[Launch **reggie-qa-engineer** agent]
 
 Prompt: "Write tests for this audit fix:
 
@@ -300,7 +301,7 @@ Prompt: "Write tests for this audit fix:
   4. Run existing tests to ensure nothing broke"
 ```
 
-After tests, **judge scores**:
+After tests, **reggie-judge scores**:
 - Do tests actually verify the fix?
 - Are regression cases covered?
 - Do existing tests still pass?
@@ -312,7 +313,7 @@ After tests, **judge scores**:
 ```
 ## Quality Check Phase
 
-[Launch **qa-engineer** agent]
+[Launch **reggie-qa-engineer** agent]
 
 Prompt: "Review test quality for this audit fix:
 
@@ -330,7 +331,7 @@ Prompt: "Review test quality for this audit fix:
 ```
 ## Simplification Phase
 
-[Launch **refactorer** agent]
+[Launch **reggie-refactorer** agent]
 
 Prompt: "Review and simplify this audit fix:
 
@@ -347,7 +348,7 @@ Prompt: "Review and simplify this audit fix:
 ```
 ## Verification Phase
 
-[Launch **app-tester** agent]
+[Launch **reggie-app-tester** agent]
 
 Prompt: "Verify this audit fix works end-to-end:
 
@@ -367,7 +368,7 @@ Prompt: "Verify this audit fix works end-to-end:
 ```
 ## Code Review Phase
 
-[Launch **code-reviewer** agent]
+[Launch **reggie-code-reviewer** agent]
 
 Prompt: "Code review this audit fix diff:
 
@@ -384,7 +385,7 @@ Prompt: "Code review this audit fix diff:
 ```
 ## Security Review Phase
 
-[Launch **security-reviewer** agent]
+[Launch **reggie-security-reviewer** agent]
 
 Prompt: "Security audit this change:
 
@@ -401,7 +402,7 @@ Prompt: "Security audit this change:
 ```
 ## Documentation Sync Phase
 
-[Launch **technical-writer** agent]
+[Launch **reggie-technical-writer** agent]
 
 Prompt: "Update documentation for this fix if needed.
   Only update docs that are actually affected.
@@ -423,7 +424,7 @@ Remove from Active Tasks in TASKS.md. Append to HISTORY.md (same directory): `- 
 Commit metadata: git add TASKS.md HISTORY.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: complete [slug]" --no-gpg-sign 2>/dev/null
 
 Then `cd [repo-root]` (shell may be in the worktree that is about to be removed) and ask user for merge strategy. **Always merge/push BEFORE removing the worktree.**
-  - Local merge: cd [repo-root] && git merge --squash task/[slug] && compose commit message from branch log (see pipeline-manager.md "Composing the Squash Commit Message") && git commit && git worktree remove --force .worktree/[slug] && git worktree prune && git branch -D task/[slug]
+  - Local merge: cd [repo-root] && git merge --squash task/[slug] && compose commit message from branch log (see reggie-code-manager.md "Composing the Squash Commit Message") && git commit && git worktree remove --force .worktree/[slug] && git worktree prune && git branch -D task/[slug]
   - PR: cd [repo-root] && git -C .worktree/[slug] push -u origin task/[slug] && gh pr create ... && git worktree remove --force .worktree/[slug] && git worktree prune
   - Push only: cd [repo-root] && git -C .worktree/[slug] push -u origin task/[slug] && git worktree remove --force .worktree/[slug] && git worktree prune
 Run: rm -rf .pipeline/[slug]/
@@ -506,7 +507,7 @@ After CAPTURE-LEARNINGS, automatically run the improve pipeline if enough entrie
 2. If file doesn't exist or has 0 entries: skip silently, proceed to next stage
 3. If 1-2 entries: print "X entries in AGENT-IMPROVE.md (below threshold of 3). Deferring to next pipeline run." and proceed
 4. If 3+ entries: run the improve pipeline with `--minor-only` behavior:
-   - Read `~/.claude/agents/improve-pipeline-manager.md` for full stage guidance
+   - Read `~/.claude/agents/reggie-improve-manager.md` for full stage guidance
    - Execute COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE
    - Auto-apply minor changes (Common Pitfalls, Quality Standards, project memory entries)
    - Log major proposals to `~/.claude/IMPROVE-CHANGELOG.md` but do NOT prompt for approval — defer to explicit `/reggie-improve` run
@@ -583,9 +584,9 @@ If the user says `abort` at any point, emit:
 Every stage is judged at 9.0/10. If a stage fails:
 
 ```
-Attempt 1: Feed judge feedback to stage agent, re-run, re-judge
-Attempt 2: Launch researcher for more context, re-run stage, re-judge
-Attempt 3: AUTO-TOURNAMENT — two agents compete, judge picks winner
+Attempt 1: Feed reggie-judge feedback to stage agent, re-run, re-judge
+Attempt 2: Launch reggie-researcher for more context, re-run stage, re-judge
+Attempt 3: AUTO-TOURNAMENT — two agents compete, reggie-judge picks winner
 Attempt 4: Escalate to user
 ```
 

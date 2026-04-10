@@ -27,7 +27,7 @@ Reggie is designed around the assumption that you'll run multiple sessions simul
 Every task flows through a predictable pipeline. Every stage has a defined input, a specialized agent, and a quality gate. PLAN before IMPLEMENT. REVIEW before COMMIT. No stage is skipped because it felt unnecessary.
 
 ### 3. Quality Without Babysitting
-The threshold is 9.0/10 to advance through any gate. If a stage fails, it iterates with feedback. If it fails again, the researcher gathers more context. If it still fails, two agents compete in a tournament. Only after all that does it escalate to you. You're not watching each agent -- the system handles retries and quality enforcement.
+The threshold is 9.0/10 to advance through any gate. If a stage fails, it iterates with feedback. If it fails again, the reggie-researcher gathers more context. If it still fails, two agents compete in a tournament. Only after all that does it escalate to you. You're not watching each agent -- the system handles retries and quality enforcement.
 
 ### 4. Agents Have Autonomy
 Plans are context, not orders. If a developer agent discovers something during implementation that changes the approach, they adapt and document why. Agents are trusted professionals working within structured pipelines, not spec-followers executing blindly.
@@ -69,7 +69,7 @@ These terms have specific meanings inside Reggie:
 | **Stage** | One step in a pipeline, handled by a specialized agent |
 | **Quality gate** | Judge-scored checkpoint (9.0/10 threshold) between stages |
 | **Escalation** | What happens when a stage fails: iterate, research, Opus retry, tournament, then ask the user |
-| **Tournament** | Two agents compete on the same stage; judge picks the winner |
+| **Tournament** | Two agents compete on the same stage; reggie-judge picks the winner |
 | **Agent** | A specialized AI role with defined responsibilities, tools, and memory |
 | **Pipeline manager** | Reference document that guides the orchestrator through a pipeline's stages |
 | **Orchestrator** | The main Claude session that reads pipeline managers and launches agents |

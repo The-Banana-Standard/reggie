@@ -116,7 +116,7 @@ Try: /reggie-guide pipelines, /reggie-guide agents, /reggie-guide quality gates,
 Auto-approve ALL confirmation gates in any pipeline command. The pipeline runs end-to-end without stopping for user input — no stage confirmations, no approval prompts, no human review gates. Full send.
 
 - **Applies to**: All pipeline commands (`/reggie-code-workflow`, `/reggie-system-change`, `/reggie-evaluation-system`, `/reggie-improve`, `/reggie-audit-workflow`, `/reggie-article-workflow`, `/reggie-social-workflow`, `/reggie-debug-workflow`, `/reggie-onboard`)
-- **Does NOT bypass**: Automated quality gates (9.0/10 judge scoring still runs and iterates)
+- **Does NOT bypass**: Automated quality gates (9.0/10 reggie-judge scoring still runs and iterates)
 - **Usage**: Append `--yes` to any pipeline command, e.g. `/reggie-code-workflow --yes`, `/reggie-system-change --yes [description]`
 
 **`--opus`**
@@ -152,7 +152,7 @@ A pipeline is a sequence of stages that takes work from start to finish. Each st
 | Improve | `/reggie-improve` | TOOLING-CHECK → COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE |
 
 **How stages connect:**
-The pipeline-manager maintains a cumulative `.pipeline/[slug]/CONTEXT.md` per task (in the main repo). Each agent's output is added verbatim (never summarized). The next agent gets relevant context from it. Agents have autonomy — the context is reference material, not rigid orders. The **researcher** agent builds the initial context by searching the codebase and web, calibrated to task complexity. Code-modifying agents work in the task's worktree (`.worktree/[slug]/`), while pipeline metadata stays in the main repo.
+The reggie-code-manager maintains a cumulative `.pipeline/[slug]/CONTEXT.md` per task (in the main repo). Each agent's output is added verbatim (never summarized). The next agent gets relevant context from it. Agents have autonomy — the context is reference material, not rigid orders. The **reggie-researcher** agent builds the initial context by searching the codebase and web, calibrated to task complexity. Code-modifying agents work in the task's worktree (`.worktree/[slug]/`), while pipeline metadata stays in the main repo.
 
 **Cross-pipeline task sharing:**
 The audit pipeline (AUDIT → PRIORITIZE) populates a backlog in TASKS.md. A `/reggie-code-workflow` session in another terminal can auto-pick tasks from that same backlog. Both pipelines share the same TASKS.md, each task gets its own worktree and branch, and conflict detection works across pipeline types.
@@ -162,19 +162,19 @@ The audit pipeline (AUDIT → PRIORITIZE) populates a backlog in TASKS.md. A `/r
 ### Topic: Agents
 
 **What is an agent?**
-An agent is a specialized AI subprocess that Claude Code launches via the Task tool. Each agent has a defined role, specific tools it can access, and a structured output format. You don't invoke agents directly — commands and pipelines invoke them for you. Work agents (developers, reviewers, testers, architect, refactorer) read relevant foundational docs from `docs/` at Step 1 before starting their main work. Non-technical agents (thought-partner, design-innovator) read `docs/soul.md` for product context.
+An agent is a specialized AI subprocess that Claude Code launches via the Task tool. Each agent has a defined role, specific tools it can access, and a structured output format. You don't invoke agents directly — commands and pipelines invoke them for you. Work agents (developers, reviewers, testers, reggie-code-architect, reggie-refactorer) read relevant foundational docs from `docs/` at Step 1 before starting their main work. Non-technical agents (reggie-thought-partner, reggie-design-innovator) read `docs/soul.md` for product context.
 
 **Agent categories:**
 
 | Category | Agents |
 |----------|--------|
-| Developers (9) | ios-developer, android-developer, web-developer, typescript-developer, go-developer, python-developer, rust-developer, cloud-engineer, firebase-debugger |
-| Quality (7) | code-architect, judge, qa-engineer, app-tester, refactorer, code-reviewer, security-reviewer |
-| Research (4) | researcher, thought-partner, claude-architect, codebase-debugger |
-| Design (2) | design-innovator, visual-architect |
-| Content (4) | content-producer, social-media-strategist, editor, technical-writer |
-| Pipeline Managers (9) | pipeline-manager, audit-pipeline-manager, content-pipeline-manager, repo-bootstrapper, onboard-pipeline-manager, debug-pipeline-manager, improve-pipeline-manager, evaluate-reggie-manager, reggie-system-change-manager |
-| Utilities (1) | repo-advisor |
+| Developers (9) | reggie-ios-developer, reggie-android-developer, reggie-web-developer, reggie-typescript-developer, reggie-go-developer, reggie-python-developer, reggie-rust-developer, reggie-cloud-engineer, reggie-firebase-debugger |
+| Quality (7) | reggie-code-architect, reggie-judge, reggie-qa-engineer, reggie-app-tester, reggie-refactorer, reggie-code-reviewer, reggie-security-reviewer |
+| Research (4) | reggie-researcher, reggie-thought-partner, reggie-claude-architect, reggie-codebase-debugger |
+| Design (2) | reggie-design-innovator, reggie-visual-architect |
+| Content (4) | reggie-content-producer, reggie-social-media-strategist, reggie-article-editor, reggie-technical-writer |
+| Pipeline Managers (9) | reggie-code-manager, reggie-audit-manager, reggie-content-manager, reggie-bootstrap-manager, reggie-onboard-manager, reggie-debug-manager, reggie-improve-manager, reggie-evaluate-manager, reggie-system-change-manager |
+| Utilities (1) | reggie-repo-advisor |
 
 **Where do they live?**
 `~/.claude/agents/` — each is a markdown file with YAML frontmatter defining name, description, tools, model, and memory type. Each agent has `memory: project` (per-project learnings) or `memory: user` (global learnings).
@@ -184,17 +184,17 @@ An agent is a specialized AI subprocess that Claude Code launches via the Task t
 ### Topic: Quality Gates
 
 **How do quality gates work?**
-Every stage output is scored by the judge agent. Threshold is 9.0/10. Below that, automatic escalation:
+Every stage output is scored by the reggie-judge agent. Threshold is 9.0/10. Below that, automatic escalation:
 
 ```
-Attempt 1: Iterate with judge feedback
-Attempt 2: Call researcher for new context, iterate again
-Attempt 3: AUTO-TOURNAMENT — two agents compete, judge picks winner
+Attempt 1: Iterate with reggie-judge feedback
+Attempt 2: Call reggie-researcher for new context, iterate again
+Attempt 3: AUTO-TOURNAMENT — two agents compete, reggie-judge picks winner
 Attempt 4: Escalate to user
 ```
 
 **What is a tournament?**
-When a stage fails its quality gate repeatedly, the system automatically runs two agents on the same stage independently. The judge evaluates both outputs blind and picks the winner. You can also say "tournament" at any stage to force it.
+When a stage fails its quality gate repeatedly, the system automatically runs two agents on the same stage independently. The reggie-judge evaluates both outputs blind and picks the winner. You can also say "tournament" at any stage to force it.
 
 **What stages can tournament?**
 BRAINSTORM, IMPLEMENT, TEST, DRAFT, OUTLINE, EDIT
@@ -224,7 +224,7 @@ Run `/reggie-article-workflow` or `/reggie-article-workflow edit path/to/draft.m
 ### Topic: Context Document
 
 **What is CONTEXT.md?**
-A cumulative document the pipeline-manager maintains during a pipeline run. Each stage's key outputs are appended verbatim. The next agent receives relevant sections as context. It lives at `.pipeline/[task-slug]/CONTEXT.md` in the main repo — each task gets its own isolated context.
+A cumulative document the reggie-code-manager maintains during a pipeline run. Each stage's key outputs are appended verbatim. The next agent receives relevant sections as context. It lives at `.pipeline/[task-slug]/CONTEXT.md` in the main repo — each task gets its own isolated context.
 
 **How is it different from TASKS.md and the worktree?**
 - `TASKS.md` tracks task status, stage, scores, branch info — the pipeline's state machine (all tasks in one file, main repo)
@@ -254,7 +254,7 @@ Standardized documentation files in `docs/` that agents read before starting wor
 | `docs/contributing.md` | Contribution workflow, branch strategy, PR guidelines | Always |
 
 **How do agents use them?**
-Every work agent (developers, reviewers, testers, architect, refactorer) reads the subset of foundational docs relevant to their role at Step 1, before their main work. Non-technical agents (thought-partner, design-innovator) read `docs/soul.md` only for product context. The technical-writer is the only agent that creates or updates them.
+Every work agent (developers, reviewers, testers, reggie-code-architect, reggie-refactorer) reads the subset of foundational docs relevant to their role at Step 1, before their main work. Non-technical agents (reggie-thought-partner, reggie-design-innovator) read `docs/soul.md` only for product context. The reggie-technical-writer is the only agent that creates or updates them.
 
 **How are they created and maintained?**
 - `/reggie-onboard` GENERATE stage — creates them for existing repos
@@ -311,8 +311,8 @@ Yes. Run `/reggie-audit-workflow` to AUDIT and PRIORITIZE — this populates the
 
 ### Topic: Researcher & Context Building
 
-**What does the researcher do?**
-The researcher's primary job is to build context for downstream agents (architect, implementer, reviewers). It searches the codebase first, then the web, and writes its findings into `.pipeline/[slug]/CONTEXT.md`. This context is the foundation every subsequent agent builds on.
+**What does the reggie-researcher do?**
+The reggie-researcher's primary job is to build context for downstream agents (architect, implementer, reviewers). It searches the codebase first, then the web, and writes its findings into `.pipeline/[slug]/CONTEXT.md`. This context is the foundation every subsequent agent builds on.
 
 **How does it decide how much to research?**
 It calibrates depth to task complexity:
@@ -412,7 +412,7 @@ Each learning is classified and routed to the correct target:
 **Key files:**
 - `~/.claude/AGENT-IMPROVE.md` — Accumulator (persistent until processed)
 - `~/.claude/IMPROVE-CHANGELOG.md` — Record of all changes made
-- `~/.claude/agents/improve-pipeline-manager.md` — Pipeline reference doc
+- `~/.claude/agents/reggie-improve-manager.md` — Pipeline reference doc
 - `~/.claude/commands/reggie-improve.md` — Command to invoke
 
 **Arguments:**
@@ -439,9 +439,9 @@ Four layers:
    - `/reggie-new-repo` CONFIGURE-TOOLS stage — Configure for new projects based on chosen stack
    - `/reggie-improve` TOOLING-CHECK stage — Periodic drift check (new signals, unused servers)
 
-2. **Capability awareness** — The pipeline-manager reads `~/.claude/capability-manifest.yaml` at PICKUP and matches project signals (files, deps, directories) against the manifest. It writes a capability snapshot to CONTEXT.md listing installed tools, recommended tools (matched signals but not installed), task-relevant tools (keyword matches), and community skills (supplementary SKILL.md-based playbooks). `/reggie-init-tasks` RESEARCH+PLAN phase and IMPLEMENT stage consult this snapshot to factor available tools and skills into plans.
+2. **Capability awareness** — The reggie-code-manager reads `~/.claude/capability-manifest.yaml` at PICKUP and matches project signals (files, deps, directories) against the manifest. It writes a capability snapshot to CONTEXT.md listing installed tools, recommended tools (matched signals but not installed), task-relevant tools (keyword matches), and community skills (supplementary SKILL.md-based playbooks). `/reggie-init-tasks` RESEARCH+PLAN phase and IMPLEMENT stage consult this snapshot to factor available tools and skills into plans.
 
-3. **Orchestrator awareness** — The pipeline-manager reads `.mcp.json` at pipeline start and cross-references with the merged MCP registry (`~/.claude/mcp-registry.yaml` + optional `~/.claude/mcp-registry.local.yaml`) to build a map of which MCP servers are relevant to which agent types.
+3. **Orchestrator awareness** — The reggie-code-manager reads `.mcp.json` at pipeline start and cross-references with the merged MCP registry (`~/.claude/mcp-registry.yaml` + optional `~/.claude/mcp-registry.local.yaml`) to build a map of which MCP servers are relevant to which agent types.
 
 4. **Subagent routing** — Before each subagent launch, the orchestrator checks the routing map. Agents that match a configured server's `relevant_agents` list get a prompt hint: "MCP tools available: [server]. Use ToolSearch to find these tools if needed." Agents not listed get no mention of MCP — they won't search for tools they don't know about, keeping context cost at zero. Each launch is logged with its full capability profile (built-in tools, MCP routing, deferred tools, pre-loaded context, agent memory, estimated context tier).
 
@@ -507,13 +507,13 @@ Tasks in TASKS.md use a slim metadata-rich format. Full task details live in sep
 
 **Priority tags**: `[P1]` (critical/blocking), `[P2]` (standard, default), `[P3]` (nice-to-have). Assigned by `/reggie-init-tasks` ORGANIZE phase. Tasks without tags default to P2.
 
-**Dependency tags**: `[depends: slug]` or `[depends: slug-a, slug-b]`. Mapped by `/reggie-init-tasks` ORGANIZE phase using code-architect analysis. Auto-pickup skips tasks with unmet dependencies.
+**Dependency tags**: `[depends: slug]` or `[depends: slug-a, slug-b]`. Mapped by `/reggie-init-tasks` ORGANIZE phase using reggie-code-architect analysis. Auto-pickup skips tasks with unmet dependencies.
 
 **How does auto-pickup work?**
 Auto-pickup is priority-aware and dependency-respecting: it scans all `- [ ]` items, filters out tasks with unmet dependencies, then picks the highest priority task (P1 > P2 > P3). Within the same priority, it picks first in document order.
 
 **How are groups created?**
-`/reggie-init-tasks` uses code-architect to analyze your project structure and group tasks into areas of focus. You can also create sections manually.
+`/reggie-init-tasks` uses reggie-code-architect to analyze your project structure and group tasks into areas of focus. You can also create sections manually.
 
 **How do I refine ungroomed items?**
 Run `/reggie-init-tasks` — if `### Ungroomed` has items, it offers to refine them. They go through RESEARCH+PLAN for acceptance criteria and implementation planning, then ORGANIZE moves them to proper sections with priorities and dependencies.
@@ -735,7 +735,7 @@ When processing learnings, `/reggie-improve` classifies each one:
 No. `.claude/agent-memory/` and `.claude/research-cache/` are `.gitignore`d. They're local developer knowledge, not shared code.
 
 **What is the research cache?**
-The researcher caches **web research findings only** (external best practices, library comparisons, API docs) to `.claude/research-cache/`. Codebase context is never cached — it's gathered live each time (by the orchestrator in pipeline mode, or by the researcher in standalone mode). Cache entries expire after 30 days. Size limit is 10-15k characters per entry. This prevents redundant web research while ensuring codebase context is always fresh.
+The reggie-researcher caches **web research findings only** (external best practices, library comparisons, API docs) to `.claude/research-cache/`. Codebase context is never cached — it's gathered live each time (by the orchestrator in pipeline mode, or by the reggie-researcher in standalone mode). Cache entries expire after 30 days. Size limit is 10-15k characters per entry. This prevents redundant web research while ensuring codebase context is always fresh.
 
 ---
 
@@ -796,12 +796,12 @@ A periodic architectural review of the ~/.claude/ agent system. Unlike /reggie-i
 
 | Stage | Agent | Purpose |
 |-------|-------|---------|
-| SCAN | researcher | Full inventory of all agents and commands |
-| EVALUATE | claude-architect | Analyze for gaps, redundancies, drift |
-| BRAINSTORM | thought-partner | Discuss findings with user, prioritize |
-| PROPOSE | claude-architect | Concrete improvement proposals |
+| SCAN | reggie-researcher | Full inventory of all agents and commands |
+| EVALUATE | reggie-claude-architect | Analyze for gaps, redundancies, drift |
+| BRAINSTORM | reggie-thought-partner | Discuss findings with user, prioritize |
+| PROPOSE | reggie-claude-architect | Concrete improvement proposals |
 | IMPLEMENT | Main Claude | Execute approved proposals (optional, `--implement` flag) |
-| VERIFY | researcher | Validate consistency after changes (after IMPLEMENT) |
+| VERIFY | reggie-researcher | Validate consistency after changes (after IMPLEMENT) |
 
 **No numeric quality gates.** Uses confirmation-based gates. The user decides what matters.
 
@@ -828,19 +828,19 @@ The unified pipeline for formalizing changes to the ~/.claude/ agent system — 
 | Stage | Agent | Purpose |
 |-------|-------|---------|
 | INTAKE | Main Claude | Capture the change request |
-| BRAINSTORM | thought-partner | Explore design space (quick if obvious) |
+| BRAINSTORM | reggie-thought-partner | Explore design space (quick if obvious) |
 | PLAN | orchestrator (direct) | File-by-file change plan with classifications and validation |
 | IMPLEMENT | Main Claude | Apply edits, create new files, update integration docs |
-| VERIFY | researcher | Validate consistency after changes |
+| VERIFY | reggie-researcher | Validate consistency after changes |
 
-**On-demand research.** The orchestrator reads files directly during PLAN (orchestrator-direct mode). For broad dependency tracing requiring many files, the researcher agent can be dispatched. BRAINSTORM can also dispatch the researcher when questions arise about current system state.
+**On-demand research.** The orchestrator reads files directly during PLAN (orchestrator-direct mode). For broad dependency tracing requiring many files, the reggie-researcher agent can be dispatched. BRAINSTORM can also dispatch the reggie-researcher when questions arise about current system state.
 
 **Change classifications:**
 - `direct-edit` — Modify existing file inline
 - `new-component` — Create new agent/command/workflow with validation (reads similar files first, validates structure)
 - `integration-update` — Update PORTABLE-PACKAGE.md, guide.md, MEMORY.md
 
-**Quality gates:** Confirmation-based for most changes. When the plan includes `new-component` changes, the PLAN goes through judge scoring (9.0/10) to validate design quality.
+**Quality gates:** Confirmation-based for most changes. When the plan includes `new-component` changes, the PLAN goes through reggie-judge scoring (9.0/10) to validate design quality.
 
 **How is this different from other system commands?**
 - `/reggie-evaluation-system` — Discovers issues (you do NOT know what to change yet)

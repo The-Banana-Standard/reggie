@@ -123,7 +123,7 @@ skills:
     marketplace: anthropic-agent-skills
     provides_skills: [mcp-builder, webapp-testing]
     category: testing
-    overlaps_with: [app-tester, qa-engineer]
+    overlaps_with: [reggie-app-tester, reggie-qa-engineer]
 
   # ===========================================================================
   # CURATED — Vetted community skills (from awesome-claude-skills + manual review)
@@ -140,7 +140,7 @@ skills:
     github_url: "https://github.com/obra/superpowers"
     provides_skills: [tdd, debugging, collaboration, code-review, refactoring]
     category: development
-    overlaps_with: [qa-engineer, code-reviewer, refactorer, codebase-debugger]
+    overlaps_with: [reggie-qa-engineer, reggie-code-reviewer, reggie-refactorer, reggie-codebase-debugger]
     notes: "Broad overlap with Reggie agents. Most useful for teams not using Reggie pipelines."
 
   trail-of-bits-security:
@@ -153,8 +153,8 @@ skills:
     github_url: "https://github.com/trailofbits/claude-skills"
     provides_skills: [codeql-analysis, semgrep-analysis, variant-analysis, code-auditing]
     category: security
-    overlaps_with: [security-reviewer]
-    notes: "Complements security-reviewer with tool-specific static analysis (CodeQL, Semgrep). Useful when those tools are installed."
+    overlaps_with: [reggie-security-reviewer]
+    notes: "Complements reggie-security-reviewer with tool-specific static analysis (CodeQL, Semgrep). Useful when those tools are installed."
 
   expo-skills:
     name: "Expo Skills (official)"
@@ -168,7 +168,7 @@ skills:
     install_type: manual
     provides_skills: [expo-development]
     category: mobile
-    overlaps_with: [ios-developer, android-developer]
+    overlaps_with: [reggie-ios-developer, reggie-android-developer]
 
   ios-simulator-skill:
     name: "iOS Simulator"
@@ -181,8 +181,8 @@ skills:
     github_url: "https://github.com/nicobrenner/ios-simulator-skill"
     provides_skills: [ios-simulator]
     category: mobile
-    overlaps_with: [ios-developer, app-tester]
-    notes: "Supplements ios-developer with simulator automation for visual testing."
+    overlaps_with: [reggie-ios-developer, reggie-app-tester]
+    notes: "Supplements reggie-ios-developer with simulator automation for visual testing."
 
   playwright-skill:
     name: "Playwright Skill"
@@ -194,7 +194,7 @@ skills:
     install_type: manual
     provides_skills: [playwright-automation]
     category: testing
-    overlaps_with: [app-tester, qa-engineer]
+    overlaps_with: [reggie-app-tester, reggie-qa-engineer]
 
   frontend-slides:
     name: "Frontend Slides"
@@ -213,7 +213,7 @@ skills:
     install_type: manual
     provides_skills: [d3-visualization]
     category: data
-    overlaps_with: [visual-architect]
+    overlaps_with: [reggie-visual-architect]
 
   scientific-skills:
     name: "Scientific Skills"
@@ -256,5 +256,5 @@ skills:
     install_type: manual
     provides_skills: [web-fuzzing]
     category: security
-    overlaps_with: [security-reviewer]
+    overlaps_with: [reggie-security-reviewer]
     notes: "Specialized pentest skill. Only relevant for authorized security testing engagements."
