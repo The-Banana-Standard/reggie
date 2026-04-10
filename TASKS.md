@@ -4,7 +4,7 @@
 
 ### prefix-rename-agents
 **Task**: Rename all 36 agent files to reggie- prefix, shorten pipeline manager names, add manager: frontmatter
-**Stage**: IMPLEMENT
+**Stage**: REVIEW
 **Pipeline**: code-workflow
 **Branch**: task/prefix-rename-agents
 **Worktree**: .worktree/prefix-rename-agents
@@ -20,12 +20,12 @@
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
 | IMPLEMENT | 9.26 | 2 | PASS |
-| WRITE-TESTS | - | 0 | - |
-| QUALITY-CHECK | - | 0 | - |
-| SIMPLIFY | - | 0 | - |
-| VERIFY-APP | - | 0 | - |
-| REVIEW | - | 0 | - |
-| SECURITY-REVIEW | - | 0 | - |
+| WRITE-TESTS | SKIP | 0 | SKIP |
+| QUALITY-CHECK | SKIP | 0 | SKIP |
+| SIMPLIFY | 9.0+ | 2 | PASS |
+| VERIFY-APP | SKIP | 0 | SKIP |
+| REVIEW | - | 0 | CURRENT |
+| SECURITY-REVIEW | SKIP | 0 | SKIP |
 | SYNC-DOCS | - | 0 | - |
 | UPDATE-CLAUDE | - | 0 | - |
 | REVIEW-WITH-USER | - | 0 | - |
