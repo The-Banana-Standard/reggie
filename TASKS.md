@@ -4,7 +4,7 @@
 
 ### reorganize-reggie-repo
 **Task**: Move agents/commands/hooks into resources/, remove install scripts
-**Stage**: REVIEW
+**Stage**: SYNC-DOCS
 **Pipeline**: code-workflow
 **Branch**: task/reorganize-reggie-repo
 **Worktree**: .worktree/reorganize-reggie-repo
@@ -25,9 +25,9 @@
 | QUALITY-CHECK | SKIP | 0 | SKIP |
 | SIMPLIFY | 9.5 | 1 | PASS |
 | VERIFY-APP | SKIP | 0 | SKIP |
-| REVIEW | - | 0 | CURRENT |
+| REVIEW | 9.5 | 1 | PASS |
 | SECURITY-REVIEW | SKIP | 0 | SKIP |
-| SYNC-DOCS | - | 0 | - |
+| SYNC-DOCS | - | 0 | CURRENT |
 | UPDATE-CLAUDE | - | 0 | - |
 | REVIEW-WITH-USER | - | 0 | - |
 
