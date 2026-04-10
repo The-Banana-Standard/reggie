@@ -14,3 +14,4 @@
 - [x] prefix-rename-agents: Rename all 36 agent files to reggie- prefix, shorten pipeline manager names, add manager: frontmatter -- 2026-04-10
 - [x] reorganize-reggie-repo: Move agents/commands/hooks into resources/, remove install scripts -- 2026-04-10
 - [x] integrate-app-code: Copy forge-reggie Tauri app into reggie repo, verify build -- 2026-04-10
+- [x] rename-app-to-reggie: Rename app from Forge to Reggie across all configs, source, and tests -- 2026-04-10

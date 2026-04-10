@@ -2,26 +2,6 @@
 
 ## Active Tasks
 
-### rename-app-to-reggie
-**Task**: Rename app from Forge to Reggie across all configs, source, and tests
-**Stage**: COMMIT
-**Pipeline**: code-workflow
-**Branch**: task/rename-app-to-reggie
-**Worktree**: .worktree/rename-app-to-reggie
-**Base**: release/v1.1.2
-**Started**: 2026-04-10
-**Attempts**: 0
-**Files**:
-- MOD: tauri.conf.json, Cargo.toml, package.json, index.html, 6 source files, 5 test files
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.66 | 1 | PASS |
-| SIMPLIFY | SKIP | 0 | SKIP |
-| VERIFY-APP | 9.0+ | 1 | PASS |
-| REVIEW | 9.5 | 1 | PASS |
-| REVIEW-WITH-USER | APPROVED | 0 | PASS |
-
 ---
 
 ## Backlog
