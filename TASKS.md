@@ -2,32 +2,6 @@
 
 ## Active Tasks
 
-### integrate-app-code
-**Task**: Copy forge-reggie Tauri app into reggie repo, verify build
-**Stage**: COMMIT
-**Pipeline**: code-workflow
-**Branch**: task/integrate-app-code
-**Worktree**: .worktree/integrate-app-code
-**Base**: release/v1.1.2
-**Started**: 2026-04-10
-**Attempts**: 0
-**Files**:
-- NEW: src-tauri/, src/, package.json, configs
-- MOD: .gitignore
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.39 | 1 | PASS |
-| WRITE-TESTS | SKIP | 0 | SKIP |
-| QUALITY-CHECK | SKIP | 0 | SKIP |
-| SIMPLIFY | SKIP | 0 | SKIP |
-| VERIFY-APP | 9.0+ | 1 | PASS |
-| REVIEW | 9.5 | 1 | PASS |
-| SECURITY-REVIEW | SKIP | 0 | SKIP |
-| SYNC-DOCS | SKIP | 0 | SKIP |
-| UPDATE-CLAUDE | SKIP | 0 | SKIP |
-| REVIEW-WITH-USER | APPROVED | 0 | PASS |
-
 ---
 
 ## Backlog
