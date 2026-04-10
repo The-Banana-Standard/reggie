@@ -1,0 +1,3024 @@
+use serde::Serialize;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DirectoryEntry {
+    pub name: String,
+    pub path: String,
+    pub is_git_repo: bool,
+    pub has_claude_md: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanResultEntry {
+    pub name: String,
+    pub path: String,
+    pub is_workspace: bool,
+    pub is_git_repo: bool,
+    pub has_claude_md: bool,
+    pub children: Vec<DirectoryEntry>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectInfo {
+    pub name: String,
+    pub path: String,
+    pub description: Option<String>,
+    pub tech_stack: Vec<String>,
+    pub claude_md: Option<String>,
+    pub tasks_md: Option<String>,
+    pub readme_excerpt: Option<String>,
+    pub is_git_repo: bool,
+    pub git_branch: Option<String>,
+    pub last_commit: Option<String>,
+}
+
+/// Directories to skip during recursive traversal (heavy or non-project dirs).
+const SKIP_DIRS: &[&str] = &[
+    "node_modules",
+    "target",
+    "build",
+    "dist",
+    "vendor",
+    "__pycache__",
+    "venv",
+];
+
+/// Recursively find all git repos under `dir`, skipping hidden dirs, symlinks,
+/// and heavy directories. Returns a flat list of `DirectoryEntry` for each
+/// directory that contains a `.git` folder.
+fn find_git_repos(dir: &Path) -> Vec<DirectoryEntry> {
+    let mut repos: Vec<DirectoryEntry> = Vec::new();
+    find_git_repos_recursive(dir, &mut repos);
+    repos.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    repos
+}
+
+fn find_git_repos_recursive(dir: &Path, repos: &mut Vec<DirectoryEntry>) {
+    let read_dir = match fs::read_dir(dir) {
+        Ok(rd) => rd,
+        Err(_) => return,
+    };
+
+    for entry in read_dir.flatten() {
+        let entry_path = entry.path();
+
+        // Do not follow symlinks to prevent infinite recursion
+        if entry.file_type().map(|ft| ft.is_symlink()).unwrap_or(false) {
+            continue;
+        }
+
+        if !entry_path.is_dir() {
+            continue;
+        }
+
+        let name = entry.file_name().to_string_lossy().to_string();
+
+        // Skip hidden directories
+        if name.starts_with('.') {
+            continue;
+        }
+
+        // Skip known heavy directories
+        if SKIP_DIRS.contains(&name.as_str()) {
+            continue;
+        }
+
+        if entry_path.join(".git").exists() {
+            // Found a git repo — add it and don't recurse deeper
+            repos.push(DirectoryEntry {
+                path: entry_path.to_string_lossy().to_string(),
+                is_git_repo: true,
+                has_claude_md: entry_path.join("CLAUDE.md").exists(),
+                name,
+            });
+        } else {
+            // Not a git repo — recurse deeper
+            find_git_repos_recursive(&entry_path, repos);
+        }
+    }
+}
+
+/// List visible (non-hidden) subdirectories of `dir`, sorted alphabetically.
+fn list_subdirs(dir: &Path) -> Result<Vec<DirectoryEntry>, String> {
+    let read_dir = fs::read_dir(dir)
+        .map_err(|e| format!("Failed to read directory: {}", e))?;
+
+    let mut entries: Vec<DirectoryEntry> = Vec::new();
+    for entry in read_dir.flatten() {
+        let entry_path = entry.path();
+        if !entry_path.is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+        entries.push(DirectoryEntry {
+            path: entry_path.to_string_lossy().to_string(),
+            is_git_repo: entry_path.join(".git").exists(),
+            has_claude_md: entry_path.join("CLAUDE.md").exists(),
+            name,
+        });
+    }
+    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(entries)
+}
+
+#[tauri::command]
+pub fn scan_workspace(workspace_path: String) -> Result<Vec<DirectoryEntry>, String> {
+    let path = PathBuf::from(&workspace_path);
+    if !path.is_dir() {
+        return Err(format!("Not a directory: {}", workspace_path));
+    }
+    list_subdirs(&path)
+}
+
+/// Scan a top-level "All Projects" folder with recursive git repo detection.
+/// For each top-level subdirectory:
+/// - If it has `.git` → it's a standalone repo (isWorkspace=false, isGitRepo=true)
+/// - Otherwise → recursively search for descendant git repos.
+///   If any are found, treat this top-level dir as a workspace with those repos as children.
+/// - If neither → skip it
+///
+/// Hidden directories, symlinks, and heavy directories (node_modules, target, etc.)
+/// are skipped at all levels to keep traversal fast.
+#[tauri::command]
+pub fn scan_all_projects(folder_path: String) -> Result<Vec<ScanResultEntry>, String> {
+    let path = PathBuf::from(&folder_path);
+    if !path.is_dir() {
+        return Err(format!("Not a directory: {}", folder_path));
+    }
+
+    let top_level = list_subdirs(&path)?;
+    let mut entries: Vec<ScanResultEntry> = Vec::new();
+
+    for dir in top_level {
+        let dir_path = PathBuf::from(&dir.path);
+
+        if dir.is_git_repo {
+            // Standalone repo at top level
+            entries.push(ScanResultEntry {
+                name: dir.name,
+                path: dir.path,
+                is_workspace: false,
+                is_git_repo: true,
+                has_claude_md: dir.has_claude_md,
+                children: Vec::new(),
+            });
+        } else {
+            // Recursively find all git repos under this directory
+            let children = find_git_repos(&dir_path);
+
+            if !children.is_empty() {
+                entries.push(ScanResultEntry {
+                    name: dir.name,
+                    path: dir.path,
+                    is_workspace: true,
+                    is_git_repo: false,
+                    has_claude_md: dir.has_claude_md,
+                    children,
+                });
+            }
+        }
+    }
+
+    Ok(entries)
+}
+
+#[tauri::command]
+pub fn get_project_info(project_path: String) -> Result<ProjectInfo, String> {
+    let path = PathBuf::from(&project_path);
+    let name = path.file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    // Detect tech stack from config files
+    let mut tech_stack: Vec<String> = Vec::new();
+    let mut description: Option<String> = None;
+
+    // package.json → Node/JS project
+    let pkg_json = path.join("package.json");
+    if pkg_json.exists() {
+        if let Ok(content) = fs::read_to_string(&pkg_json) {
+            if let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content) {
+                // Get description
+                if let Some(desc) = pkg.get("description").and_then(|d| d.as_str()) {
+                    if !desc.is_empty() {
+                        description = Some(desc.to_string());
+                    }
+                }
+                // Detect frameworks
+                let all_deps = merge_deps(&pkg);
+                if deps_has(&all_deps, "next") { tech_stack.push("Next.js".into()); }
+                else if deps_has(&all_deps, "react") { tech_stack.push("React".into()); }
+                if deps_has(&all_deps, "vue") { tech_stack.push("Vue".into()); }
+                if deps_has(&all_deps, "svelte") { tech_stack.push("Svelte".into()); }
+                if deps_has(&all_deps, "express") { tech_stack.push("Express".into()); }
+                if deps_has(&all_deps, "tailwindcss") { tech_stack.push("Tailwind".into()); }
+                if deps_has(&all_deps, "typescript") { tech_stack.push("TypeScript".into()); }
+                else { tech_stack.push("JavaScript".into()); }
+                if deps_has(&all_deps, "firebase") || deps_has(&all_deps, "firebase-admin") {
+                    tech_stack.push("Firebase".into());
+                }
+                if deps_has(&all_deps, "@tauri-apps/api") { tech_stack.push("Tauri".into()); }
+            }
+        }
+    }
+
+    // Cargo.toml → Rust project
+    if path.join("Cargo.toml").exists() {
+        tech_stack.push("Rust".into());
+    }
+
+    // Podfile / .xcodeproj → iOS
+    if path.join("Podfile").exists() || has_extension_in_dir(&path, "xcodeproj") {
+        tech_stack.push("iOS".into());
+    }
+
+    // build.gradle → Android
+    if path.join("build.gradle").exists() || path.join("build.gradle.kts").exists() {
+        tech_stack.push("Android".into());
+    }
+
+    // requirements.txt / pyproject.toml → Python
+    if path.join("requirements.txt").exists() || path.join("pyproject.toml").exists() {
+        tech_stack.push("Python".into());
+    }
+
+    // go.mod → Go
+    if path.join("go.mod").exists() {
+        tech_stack.push("Go".into());
+    }
+
+    // Read CLAUDE.md
+    let claude_md = read_file_truncated(&path.join("CLAUDE.md"), 2000);
+
+    // Read TASKS.md
+    let tasks_md = read_file_truncated(&path.join("TASKS.md"), 3000);
+
+    // Read README excerpt for description fallback
+    let readme_excerpt = read_readme_excerpt(&path);
+    if description.is_none() {
+        description = readme_excerpt.clone();
+    }
+
+    // Git info
+    let is_git_repo = path.join(".git").exists();
+    let mut git_branch: Option<String> = None;
+    let mut last_commit: Option<String> = None;
+
+    if is_git_repo {
+        // Read current branch
+        let head_file = path.join(".git/HEAD");
+        if let Ok(head) = fs::read_to_string(&head_file) {
+            let head = head.trim();
+            if let Some(branch) = head.strip_prefix("ref: refs/heads/") {
+                git_branch = Some(branch.to_string());
+            }
+        }
+        // Read last commit message from COMMIT_EDITMSG or logs
+        let commit_msg = path.join(".git/COMMIT_EDITMSG");
+        if let Ok(msg) = fs::read_to_string(&commit_msg) {
+            let first_line = msg.lines().next().unwrap_or("").trim().to_string();
+            if !first_line.is_empty() {
+                last_commit = Some(first_line);
+            }
+        }
+    }
+
+    Ok(ProjectInfo {
+        name,
+        path: project_path,
+        description,
+        tech_stack,
+        claude_md,
+        tasks_md,
+        readme_excerpt,
+        is_git_repo,
+        git_branch,
+        last_commit,
+    })
+}
+
+fn merge_deps(pkg: &serde_json::Value) -> std::collections::HashSet<String> {
+    let mut deps = std::collections::HashSet::new();
+    for key in &["dependencies", "devDependencies"] {
+        if let Some(obj) = pkg.get(key).and_then(|d| d.as_object()) {
+            for k in obj.keys() {
+                deps.insert(k.clone());
+            }
+        }
+    }
+    deps
+}
+
+fn deps_has(deps: &std::collections::HashSet<String>, name: &str) -> bool {
+    deps.contains(name)
+}
+
+fn has_extension_in_dir(path: &Path, ext: &str) -> bool {
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries.flatten() {
+            if let Some(e) = entry.path().extension() {
+                if e == ext {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+fn read_file_truncated(path: &Path, max_bytes: usize) -> Option<String> {
+    if !path.exists() {
+        return None;
+    }
+    match fs::read_to_string(path) {
+        Ok(content) => {
+            if content.trim().is_empty() {
+                None
+            } else if content.len() > max_bytes {
+                // Find the largest valid char boundary at or before max_bytes
+                let truncated = &content[..content.floor_char_boundary(max_bytes)];
+                Some(truncated.to_string())
+            } else {
+                Some(content)
+            }
+        }
+        Err(_) => None,
+    }
+}
+
+fn read_readme_excerpt(path: &Path) -> Option<String> {
+    for name in &["README.md", "readme.md", "README.MD", "README"] {
+        let readme = path.join(name);
+        if readme.exists() {
+            if let Ok(content) = fs::read_to_string(&readme) {
+                // Extract first meaningful paragraph after the title
+                let lines = content.lines();
+                let mut found_title = false;
+                let mut excerpt = String::new();
+
+                for line in lines {
+                    let trimmed = line.trim();
+                    // Skip title lines
+                    if trimmed.starts_with('#') {
+                        found_title = true;
+                        continue;
+                    }
+                    // Skip badges, empty lines after title
+                    if trimmed.is_empty() || trimmed.starts_with('[') || trimmed.starts_with('!') {
+                        if found_title && !excerpt.is_empty() {
+                            break;
+                        }
+                        continue;
+                    }
+                    if found_title || excerpt.is_empty() {
+                        if !excerpt.is_empty() {
+                            excerpt.push(' ');
+                        }
+                        excerpt.push_str(trimmed);
+                        if excerpt.len() > 300 {
+                            break;
+                        }
+                    }
+                }
+                if !excerpt.is_empty() {
+                    return Some(excerpt);
+                }
+            }
+        }
+    }
+    None
+}
+
+// --- Parallelizable tasks ---
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskEntry {
+    pub slug: String,
+    pub description: String,
+    pub priority: u8,
+    pub depends: Vec<String>,
+    pub conflicts: Vec<String>,
+    pub planned: bool,
+    pub checked: bool,
+    pub tier: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ParallelizableTaskSlug {
+    pub slug: String,
+    pub tier: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ParallelizableTasksResult {
+    pub slugs: Vec<ParallelizableTaskSlug>,
+    pub total_groomed: usize,
+}
+
+/// Parse a single task line into a TaskEntry, or None if it doesn't match.
+fn parse_task_line(line: &str) -> Option<TaskEntry> {
+    let trimmed = line.trim();
+
+    let (checked, rest) = if let Some(rest) = trimmed.strip_prefix("- [x] ").or_else(|| trimmed.strip_prefix("- [X] ")) {
+        (true, rest)
+    } else if let Some(rest) = trimmed.strip_prefix("- [ ] ") {
+        (false, rest)
+    } else {
+        return None;
+    };
+
+    // Try slug: description format (colon separator), else informal checkbox task
+    let (slug, description, tag_source_owned) = if let Some(colon_pos) = rest.find(':') {
+        let slug = rest[..colon_pos].trim().to_string();
+        if slug.is_empty() {
+            return None;
+        }
+        let after_colon = &rest[colon_pos + 1..];
+        let description = match after_colon.find('[') {
+            Some(bracket_pos) => after_colon[..bracket_pos].trim().to_string(),
+            None => after_colon.trim().to_string(),
+        };
+        (slug, description, after_colon.to_string())
+    } else {
+        // No colon — informal checkbox task, generate slug from text
+        let description = match rest.find('[') {
+            Some(bracket_pos) => rest[..bracket_pos].trim().to_string(),
+            None => rest.trim().to_string(),
+        };
+        let slug = to_kebab_case(&description);
+        if slug.is_empty() {
+            return None;
+        }
+        (slug, description, rest.to_string())
+    };
+
+    // Parse tags in square brackets
+    let mut priority: u8 = 2;
+    let mut depends: Vec<String> = Vec::new();
+    let mut conflicts: Vec<String> = Vec::new();
+    let mut planned = false;
+    let mut tier: Option<String> = None;
+
+    let mut search_from = 0usize;
+    let tag_source = &tag_source_owned;
+    while let Some(open) = tag_source[search_from..].find('[') {
+        let open_abs = search_from + open;
+        if let Some(close) = tag_source[open_abs..].find(']') {
+            let close_abs = open_abs + close;
+            let tag_content = &tag_source[open_abs + 1..close_abs];
+
+            match tag_content {
+                "P1" => priority = 1,
+                "P2" => priority = 2,
+                "P3" => priority = 3,
+                "planned" => planned = true,
+                _ if tag_content.starts_with("depends:") => {
+                    let vals = &tag_content["depends:".len()..];
+                    depends = vals.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+                }
+                _ if tag_content.starts_with("conflicts:") => {
+                    let vals = &tag_content["conflicts:".len()..];
+                    conflicts = vals.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+                }
+                _ if tag_content.starts_with("tier:") => {
+                    let val = tag_content["tier:".len()..].trim();
+                    if !val.is_empty() {
+                        tier = Some(val.to_string());
+                    }
+                }
+                _ => {}
+            }
+
+            search_from = close_abs + 1;
+        } else {
+            break;
+        }
+    }
+
+    Some(TaskEntry {
+        slug,
+        description,
+        priority,
+        depends,
+        conflicts,
+        planned,
+        checked,
+        tier,
+    })
+}
+
+#[tauri::command]
+pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTasksResult, String> {
+    use std::collections::HashSet;
+
+    let tasks_path = Path::new(&project_path).join("TASKS.md");
+    let content = fs::read_to_string(&tasks_path)
+        .map_err(|e| format!("Failed to read TASKS.md: {}", e))?;
+
+    // Collect all checked slugs from the entire file (for dependency resolution)
+    let checked_slugs: HashSet<String> = content
+        .lines()
+        .filter_map(parse_task_line)
+        .filter(|t| t.checked)
+        .map(|t| t.slug)
+        .collect();
+
+    // First pass: collect active task slugs from ## Active Tasks section (### headers)
+    let mut active_slugs: Vec<ParallelizableTaskSlug> = Vec::new();
+    {
+        let mut in_active = false;
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("## ") {
+                if trimmed.starts_with("## Active Tasks") {
+                    in_active = true;
+                } else if in_active {
+                    break;
+                }
+                continue;
+            }
+            if trimmed == "---" && in_active {
+                break;
+            }
+            if in_active && trimmed.starts_with("### ") {
+                let slug = trimmed["### ".len()..].trim().to_string();
+                if !slug.is_empty() {
+                    active_slugs.push(ParallelizableTaskSlug {
+                        slug,
+                        tier: None,
+                    });
+                }
+            }
+        }
+    }
+    active_slugs.truncate(5);
+
+    // Find the backlog section and parse tasks from it
+    let mut in_backlog = false;
+    let mut backlog_tasks: Vec<TaskEntry> = Vec::new();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        // Detect section headings (## level only)
+        if trimmed.starts_with("## ") {
+            if trimmed.starts_with("## Backlog") {
+                in_backlog = true;
+            } else if in_backlog {
+                break; // End of backlog section
+            }
+            continue;
+        }
+
+        if in_backlog {
+            if let Some(task) = parse_task_line(line) {
+                backlog_tasks.push(task);
+            }
+        }
+    }
+
+    // Filter to planned, unchecked tasks
+    let groomed: Vec<&TaskEntry> = backlog_tasks
+        .iter()
+        .filter(|t| t.planned && !t.checked)
+        .collect();
+    let total_groomed = groomed.len();
+
+    // Filter to ready tasks (all dependencies satisfied)
+    let mut ready: Vec<&TaskEntry> = groomed
+        .into_iter()
+        .filter(|t| t.depends.iter().all(|dep| checked_slugs.contains(dep)))
+        .collect();
+
+    // Sort by priority (P1=1 first)
+    ready.sort_by_key(|t| t.priority);
+
+    // Start with active slugs, then fill remaining capacity from backlog
+    let mut selected: Vec<ParallelizableTaskSlug> = active_slugs;
+    let mut selected_conflicts: HashSet<String> = HashSet::new();
+
+    for task in &ready {
+        if selected.len() >= 5 {
+            break;
+        }
+
+        // Check if this task's slug is in any already-selected task's conflicts
+        if selected_conflicts.contains(&task.slug) {
+            continue;
+        }
+
+        // Check if any already-selected slug is in this task's conflicts
+        if task.conflicts.iter().any(|c| selected.iter().any(|s| s.slug == *c)) {
+            continue;
+        }
+
+        // Add the task
+        selected.push(ParallelizableTaskSlug {
+            slug: task.slug.clone(),
+            tier: task.tier.clone(),
+        });
+        for c in &task.conflicts {
+            selected_conflicts.insert(c.clone());
+        }
+    }
+
+    Ok(ParallelizableTasksResult {
+        slugs: selected,
+        total_groomed,
+    })
+}
+
+// --- Scan tasks across repos ---
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskItemSummary {
+    pub slug: String,
+    pub description: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoTaskSummary {
+    pub name: String,
+    pub path: String,
+    pub workspace_name: Option<String>,
+    pub ungroomed_count: usize,
+    pub groomed_count: usize,
+    pub active_count: usize,
+    pub ungroomed_tasks: Vec<TaskItemSummary>,
+    pub groomed_tasks: Vec<TaskItemSummary>,
+    pub active_tasks: Vec<TaskItemSummary>,
+}
+
+struct ParsedTasks {
+    ungroomed_count: usize,
+    groomed_count: usize,
+    active_count: usize,
+    ungroomed_tasks: Vec<TaskItemSummary>,
+    groomed_tasks: Vec<TaskItemSummary>,
+    active_tasks: Vec<TaskItemSummary>,
+}
+
+/// Parse a TASKS.md file and return counts of ungroomed, groomed, and active tasks.
+/// Used by tests that only need counts.
+#[cfg(test)]
+fn count_tasks_in_file(content: &str) -> (usize, usize, usize) {
+    let parsed = parse_tasks_in_file(content);
+    (parsed.ungroomed_count, parsed.groomed_count, parsed.active_count)
+}
+
+/// Parse a TASKS.md file and return counts and individual task items.
+fn parse_tasks_in_file(content: &str) -> ParsedTasks {
+    let mut result = ParsedTasks {
+        ungroomed_count: 0,
+        groomed_count: 0,
+        active_count: 0,
+        ungroomed_tasks: Vec::new(),
+        groomed_tasks: Vec::new(),
+        active_tasks: Vec::new(),
+    };
+
+    let mut current_section = "";
+    let mut current_subsection = "";
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        if trimmed.starts_with("## ") {
+            current_section = if trimmed.starts_with("## Active") {
+                "active"
+            } else if trimmed.starts_with("## Backlog") {
+                "backlog"
+            } else {
+                ""
+            };
+            current_subsection = "";
+            continue;
+        }
+
+        if let Some(header) = trimmed.strip_prefix("### ") {
+            // In the Active section, each ### header is a task slug
+            if current_section == "active" {
+                result.active_count += 1;
+                let slug = header.trim().to_string();
+                if !slug.is_empty() {
+                    result.active_tasks.push(TaskItemSummary {
+                        description: String::new(),
+                        slug,
+                    });
+                }
+            }
+            current_subsection = if header.starts_with("Ungroomed") {
+                "ungroomed"
+            } else {
+                "other"
+            };
+            continue;
+        }
+
+        if let Some(task) = parse_task_line(line) {
+            if task.checked {
+                continue;
+            }
+            if current_section == "backlog" {
+                if current_subsection == "ungroomed" || !task.planned {
+                    result.ungroomed_count += 1;
+                    result.ungroomed_tasks.push(TaskItemSummary {
+                        slug: task.slug,
+                        description: task.description,
+                    });
+                } else {
+                    result.groomed_count += 1;
+                    result.groomed_tasks.push(TaskItemSummary {
+                        slug: task.slug,
+                        description: task.description,
+                    });
+                }
+            }
+        } else if current_section == "backlog" && current_subsection == "ungroomed" {
+            // Bare-dash lines (e.g. "- Fix the auth bug") in Ungroomed are brain-dump entries
+            if let Some(text) = trimmed.strip_prefix("- ") {
+                if !text.starts_with("[ ] ") && !text.starts_with("[x] ") && !text.starts_with("[X] ") {
+                    let slug = to_kebab_case(text);
+                    if !slug.is_empty() {
+                        result.ungroomed_count += 1;
+                        result.ungroomed_tasks.push(TaskItemSummary {
+                            slug,
+                            description: text.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    result
+}
+
+fn read_tasks(repo_path: &str) -> ParsedTasks {
+    let tasks_path = PathBuf::from(repo_path).join("TASKS.md");
+    match fs::read_to_string(&tasks_path) {
+        Ok(content) => parse_tasks_in_file(&content),
+        Err(_) => ParsedTasks {
+            ungroomed_count: 0,
+            groomed_count: 0,
+            active_count: 0,
+            ungroomed_tasks: Vec::new(),
+            groomed_tasks: Vec::new(),
+            active_tasks: Vec::new(),
+        },
+    }
+}
+
+#[tauri::command]
+pub fn scan_tasks_across_repos(folder_path: String) -> Result<Vec<RepoTaskSummary>, String> {
+    let path = PathBuf::from(&folder_path);
+    if !path.is_dir() {
+        return Err(format!("Not a directory: {}", folder_path));
+    }
+
+    // Use scan_all_projects logic to discover repos
+    let entries = scan_all_projects(folder_path)?;
+    let mut summaries: Vec<RepoTaskSummary> = Vec::new();
+
+    for entry in &entries {
+        if entry.is_workspace {
+            for child in &entry.children {
+                let parsed = read_tasks(&child.path);
+                summaries.push(RepoTaskSummary {
+                    name: child.name.clone(),
+                    path: child.path.clone(),
+                    workspace_name: Some(entry.name.clone()),
+                    ungroomed_count: parsed.ungroomed_count,
+                    groomed_count: parsed.groomed_count,
+                    active_count: parsed.active_count,
+                    ungroomed_tasks: parsed.ungroomed_tasks,
+                    groomed_tasks: parsed.groomed_tasks,
+                    active_tasks: parsed.active_tasks,
+                });
+            }
+        } else {
+            let parsed = read_tasks(&entry.path);
+            summaries.push(RepoTaskSummary {
+                name: entry.name.clone(),
+                path: entry.path.clone(),
+                workspace_name: None,
+                ungroomed_count: parsed.ungroomed_count,
+                groomed_count: parsed.groomed_count,
+                active_count: parsed.active_count,
+                ungroomed_tasks: parsed.ungroomed_tasks,
+                groomed_tasks: parsed.groomed_tasks,
+                active_tasks: parsed.active_tasks,
+            });
+        }
+    }
+
+    Ok(summaries)
+}
+
+/// Convert a task description to a kebab-case slug.
+fn to_kebab_case(input: &str) -> String {
+    let lowered = input.to_lowercase();
+    // Single pass: replace non-alphanumeric with '-' and collapse consecutive hyphens
+    let mut result = String::with_capacity(lowered.len());
+    let mut prev_hyphen = false;
+    for c in lowered.chars() {
+        if c.is_alphanumeric() {
+            result.push(c);
+            prev_hyphen = false;
+        } else if !prev_hyphen {
+            result.push('-');
+            prev_hyphen = true;
+        }
+    }
+    // Trim leading/trailing hyphens
+    result.trim_matches('-').to_string()
+}
+
+/// Append ungroomed tasks to a project's TASKS.md file.
+/// Creates the file with basic structure if it doesn't exist.
+/// Creates the `### Ungroomed` section if it doesn't exist.
+#[tauri::command]
+pub fn append_ungroomed_tasks(project_path: String, tasks: Vec<String>) -> Result<(), String> {
+    if tasks.is_empty() {
+        return Ok(());
+    }
+
+    let path = PathBuf::from(&project_path);
+    let tasks_file = path.join("TASKS.md");
+
+    let content = if tasks_file.exists() {
+        fs::read_to_string(&tasks_file)
+            .map_err(|e| format!("Failed to read TASKS.md: {}", e))?
+    } else {
+        // Create with basic structure
+        String::from("# Tasks\n\n## Backlog\n\n### Ungroomed\n")
+    };
+
+    // Build the new task lines
+    let mut new_lines = String::new();
+    for task in &tasks {
+        let trimmed = task.trim();
+        if !trimmed.is_empty() {
+            let slug = to_kebab_case(trimmed);
+            if slug.is_empty() {
+                continue; // Skip tasks with no alphanumeric content
+            }
+            new_lines.push_str(&format!("- [ ] {}: {}\n", slug, trimmed));
+        }
+    }
+
+    if new_lines.is_empty() {
+        return Ok(());
+    }
+
+    let updated = if let Some(pos) = content.find("### Ungroomed") {
+        // Find the end of the "### Ungroomed" heading line
+        let after_heading = match content[pos..].find('\n') {
+            Some(nl) => pos + nl + 1,
+            None => content.len(),
+        };
+
+        // Insert new tasks right after the heading line
+        let mut result = String::with_capacity(content.len() + new_lines.len());
+        result.push_str(&content[..after_heading]);
+        result.push_str(&new_lines);
+        result.push_str(&content[after_heading..]);
+        result
+    } else if let Some(pos) = content.find("## Backlog") {
+        // Find the end of "## Backlog" heading line
+        let after_heading = match content[pos..].find('\n') {
+            Some(nl) => pos + nl + 1,
+            None => {
+                // No newline after ## Backlog, add one
+                let mut result = String::with_capacity(content.len() + new_lines.len() + 20);
+                result.push_str(&content);
+                result.push_str("\n\n### Ungroomed\n");
+                result.push_str(&new_lines);
+                return fs::write(&tasks_file, result)
+                    .map_err(|e| format!("Failed to write TASKS.md: {}", e));
+            }
+        };
+
+        // Insert ### Ungroomed section after ## Backlog heading
+        let mut result = String::with_capacity(content.len() + new_lines.len() + 20);
+        result.push_str(&content[..after_heading]);
+        result.push_str("\n### Ungroomed\n");
+        result.push_str(&new_lines);
+        result.push('\n');
+        result.push_str(&content[after_heading..]);
+        result
+    } else {
+        // No Backlog section at all — append both
+        let mut result = String::with_capacity(content.len() + new_lines.len() + 40);
+        result.push_str(&content);
+        if !content.ends_with('\n') {
+            result.push('\n');
+        }
+        result.push_str("\n## Backlog\n\n### Ungroomed\n");
+        result.push_str(&new_lines);
+        result
+    };
+
+    fs::write(&tasks_file, updated)
+        .map_err(|e| format!("Failed to write TASKS.md: {}", e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Extract slug names from a ParallelizableTasksResult for easy assertion.
+    fn slug_names(result: &ParallelizableTasksResult) -> Vec<String> {
+        result.slugs.iter().map(|s| s.slug.clone()).collect()
+    }
+
+    // --- merge_deps ---
+
+    #[test]
+    fn merge_deps_combines_deps_and_dev_deps() {
+        let pkg: serde_json::Value = serde_json::json!({
+            "dependencies": { "react": "^18", "react-dom": "^18" },
+            "devDependencies": { "typescript": "^5", "vite": "^5" }
+        });
+        let deps = merge_deps(&pkg);
+        assert!(deps.contains("react"));
+        assert!(deps.contains("react-dom"));
+        assert!(deps.contains("typescript"));
+        assert!(deps.contains("vite"));
+        assert_eq!(deps.len(), 4);
+    }
+
+    #[test]
+    fn merge_deps_handles_missing_sections() {
+        let pkg: serde_json::Value = serde_json::json!({ "name": "test" });
+        let deps = merge_deps(&pkg);
+        assert!(deps.is_empty());
+    }
+
+    #[test]
+    fn merge_deps_deduplicates() {
+        let pkg: serde_json::Value = serde_json::json!({
+            "dependencies": { "lodash": "^4" },
+            "devDependencies": { "lodash": "^4" }
+        });
+        let deps = merge_deps(&pkg);
+        assert_eq!(deps.len(), 1);
+    }
+
+    // --- deps_has ---
+
+    #[test]
+    fn deps_has_finds_existing() {
+        let mut deps = std::collections::HashSet::new();
+        deps.insert("react".to_string());
+        assert!(deps_has(&deps, "react"));
+        assert!(!deps_has(&deps, "vue"));
+    }
+
+    // --- has_extension_in_dir ---
+
+    #[test]
+    fn has_extension_in_dir_finds_extension() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::File::create(dir.path().join("project.xcodeproj")).unwrap();
+        assert!(has_extension_in_dir(&dir.path().to_path_buf(), "xcodeproj"));
+    }
+
+    #[test]
+    fn has_extension_in_dir_no_match() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::File::create(dir.path().join("file.txt")).unwrap();
+        assert!(!has_extension_in_dir(&dir.path().to_path_buf(), "xcodeproj"));
+    }
+
+    // --- read_file_truncated ---
+
+    #[test]
+    fn read_file_truncated_reads_short_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("short.txt");
+        std::fs::write(&file_path, "Hello world").unwrap();
+
+        let result = read_file_truncated(&file_path, 100);
+        assert_eq!(result, Some("Hello world".to_string()));
+    }
+
+    #[test]
+    fn read_file_truncated_truncates_long_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("long.txt");
+        let content = "x".repeat(500);
+        std::fs::write(&file_path, &content).unwrap();
+
+        let result = read_file_truncated(&file_path, 100);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().len(), 100);
+    }
+
+    #[test]
+    fn read_file_truncated_multibyte_utf8_no_panic() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("emoji.txt");
+        // Each emoji is 4 bytes. 50 emojis = 200 bytes.
+        let content = "\u{1F600}".repeat(50);
+        std::fs::write(&file_path, &content).unwrap();
+
+        // Truncate at 10 bytes — falls in the middle of a 4-byte emoji
+        let result = read_file_truncated(&file_path, 10);
+        assert!(result.is_some());
+        let text = result.unwrap();
+        // Should truncate to a valid char boundary (8 bytes = 2 emojis)
+        assert_eq!(text.len(), 8);
+        assert!(text.is_char_boundary(text.len()));
+    }
+
+    #[test]
+    fn read_file_truncated_missing_file() {
+        let path = PathBuf::from("/nonexistent/file.txt");
+        assert_eq!(read_file_truncated(&path, 100), None);
+    }
+
+    #[test]
+    fn read_file_truncated_empty_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("empty.txt");
+        std::fs::write(&file_path, "").unwrap();
+        assert_eq!(read_file_truncated(&file_path, 100), None);
+    }
+
+    // --- read_readme_excerpt ---
+
+    #[test]
+    fn read_readme_excerpt_extracts_paragraph_after_title() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("README.md"),
+            "# My Project\n\nThis is the description of the project.\n\n## Getting Started\n",
+        ).unwrap();
+
+        let result = read_readme_excerpt(&dir.path().to_path_buf());
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), "This is the description of the project.");
+    }
+
+    #[test]
+    fn read_readme_excerpt_skips_badges() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("README.md"),
+            "# My Project\n\n[![Build](https://badge.svg)](https://link)\n![Logo](logo.png)\n\nActual description here.\n",
+        ).unwrap();
+
+        let result = read_readme_excerpt(&dir.path().to_path_buf());
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), "Actual description here.");
+    }
+
+    #[test]
+    fn read_readme_excerpt_no_readme() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = read_readme_excerpt(&dir.path().to_path_buf());
+        assert!(result.is_none());
+    }
+
+    // --- scan_workspace ---
+
+    #[test]
+    fn scan_workspace_lists_directories() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("project-a")).unwrap();
+        std::fs::create_dir(dir.path().join("project-b")).unwrap();
+        std::fs::write(dir.path().join("file.txt"), "not a dir").unwrap();
+        std::fs::create_dir(dir.path().join(".hidden")).unwrap();
+
+        let result = scan_workspace(dir.path().to_string_lossy().to_string());
+        assert!(result.is_ok());
+        let entries = result.unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].name, "project-a");
+        assert_eq!(entries[1].name, "project-b");
+    }
+
+    #[test]
+    fn scan_workspace_detects_git_and_claude_md() {
+        let dir = tempfile::tempdir().unwrap();
+        let proj = dir.path().join("myproject");
+        std::fs::create_dir(&proj).unwrap();
+        std::fs::create_dir(proj.join(".git")).unwrap();
+        std::fs::write(proj.join("CLAUDE.md"), "# Instructions").unwrap();
+
+        let result = scan_workspace(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].is_git_repo);
+        assert!(result[0].has_claude_md);
+    }
+
+    // --- scan_all_projects ---
+
+    #[test]
+    fn scan_all_projects_detects_standalone_repos() {
+        let dir = tempfile::tempdir().unwrap();
+        // Create a standalone repo (has .git)
+        let repo = dir.path().join("my-repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "my-repo");
+        assert!(!result[0].is_workspace);
+        assert!(result[0].is_git_repo);
+        assert!(result[0].children.is_empty());
+    }
+
+    #[test]
+    fn scan_all_projects_detects_workspaces() {
+        let dir = tempfile::tempdir().unwrap();
+        // Create a workspace (no .git, but contains repos)
+        let ws = dir.path().join("my-workspace");
+        std::fs::create_dir(&ws).unwrap();
+        let repo_a = ws.join("repo-a");
+        std::fs::create_dir(&repo_a).unwrap();
+        std::fs::create_dir(repo_a.join(".git")).unwrap();
+        let repo_b = ws.join("repo-b");
+        std::fs::create_dir(&repo_b).unwrap();
+        std::fs::create_dir(repo_b.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "my-workspace");
+        assert!(result[0].is_workspace);
+        assert!(!result[0].is_git_repo);
+        assert_eq!(result[0].children.len(), 2);
+        assert_eq!(result[0].children[0].name, "repo-a");
+        assert_eq!(result[0].children[1].name, "repo-b");
+    }
+
+    #[test]
+    fn scan_all_projects_mixed_repos_and_workspaces() {
+        let dir = tempfile::tempdir().unwrap();
+
+        // Standalone repo
+        let standalone = dir.path().join("standalone");
+        std::fs::create_dir(&standalone).unwrap();
+        std::fs::create_dir(standalone.join(".git")).unwrap();
+
+        // Workspace with one repo
+        let ws = dir.path().join("workspace");
+        std::fs::create_dir(&ws).unwrap();
+        let child = ws.join("child-repo");
+        std::fs::create_dir(&child).unwrap();
+        std::fs::create_dir(child.join(".git")).unwrap();
+
+        // Empty dir (should be skipped — no .git and no git children)
+        let empty = dir.path().join("empty-dir");
+        std::fs::create_dir(&empty).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        // Should only have standalone + workspace (empty dir skipped)
+        assert_eq!(result.len(), 2);
+
+        let standalone_entry = result.iter().find(|e| e.name == "standalone").unwrap();
+        assert!(!standalone_entry.is_workspace);
+        assert!(standalone_entry.is_git_repo);
+
+        let ws_entry = result.iter().find(|e| e.name == "workspace").unwrap();
+        assert!(ws_entry.is_workspace);
+        assert_eq!(ws_entry.children.len(), 1);
+    }
+
+    #[test]
+    fn scan_all_projects_skips_hidden_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let hidden = dir.path().join(".hidden-repo");
+        std::fs::create_dir(&hidden).unwrap();
+        std::fs::create_dir(hidden.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn scan_all_projects_invalid_path() {
+        let result = scan_all_projects("/nonexistent/path/abc123".to_string());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn scan_all_projects_skips_hidden_children_in_workspace() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("my-workspace");
+        std::fs::create_dir(&ws).unwrap();
+        // Visible repo
+        let repo = ws.join("visible-repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+        // Hidden repo — should be skipped
+        let hidden = ws.join(".hidden-repo");
+        std::fs::create_dir(&hidden).unwrap();
+        std::fs::create_dir(hidden.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].is_workspace);
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[0].children[0].name, "visible-repo");
+    }
+
+    #[test]
+    fn scan_all_projects_skips_dir_with_only_non_git_subdirs() {
+        let dir = tempfile::tempdir().unwrap();
+        // A directory with subdirs that have no .git — not a workspace, not a repo
+        let non_ws = dir.path().join("docs-folder");
+        std::fs::create_dir(&non_ws).unwrap();
+        std::fs::create_dir(non_ws.join("chapter1")).unwrap();
+        std::fs::create_dir(non_ws.join("chapter2")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn scan_all_projects_detects_claude_md_on_standalone_repo() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().join("my-repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+        std::fs::write(repo.join("CLAUDE.md"), "# Instructions").unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].has_claude_md);
+    }
+
+    #[test]
+    fn scan_all_projects_detects_claude_md_on_workspace_children() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("workspace");
+        std::fs::create_dir(&ws).unwrap();
+        let repo = ws.join("repo-with-claude");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+        std::fs::write(repo.join("CLAUDE.md"), "# Hello").unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].is_workspace);
+        assert_eq!(result[0].children.len(), 1);
+        assert!(result[0].children[0].has_claude_md);
+    }
+
+    #[test]
+    fn scan_all_projects_ignores_files_at_top_level() {
+        let dir = tempfile::tempdir().unwrap();
+        // Files at the top level should not appear in results
+        std::fs::write(dir.path().join("notes.txt"), "hello").unwrap();
+        std::fs::write(dir.path().join(".gitconfig"), "config").unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn scan_all_projects_sorts_results_alphabetically() {
+        let dir = tempfile::tempdir().unwrap();
+        // Create repos in non-alphabetical order
+        for name in &["zebra-repo", "alpha-repo", "Mango-repo"] {
+            let repo = dir.path().join(name);
+            std::fs::create_dir(&repo).unwrap();
+            std::fs::create_dir(repo.join(".git")).unwrap();
+        }
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].name, "alpha-repo");
+        // Case-insensitive sort: "Mango" before "zebra"
+        assert_eq!(result[1].name, "Mango-repo");
+        assert_eq!(result[2].name, "zebra-repo");
+    }
+
+    #[test]
+    fn scan_all_projects_workspace_children_sorted_alphabetically() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("my-workspace");
+        std::fs::create_dir(&ws).unwrap();
+        for name in &["zeta", "Alpha", "beta"] {
+            let repo = ws.join(name);
+            std::fs::create_dir(&repo).unwrap();
+            std::fs::create_dir(repo.join(".git")).unwrap();
+        }
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result[0].children.len(), 3);
+        assert_eq!(result[0].children[0].name, "Alpha");
+        assert_eq!(result[0].children[1].name, "beta");
+        assert_eq!(result[0].children[2].name, "zeta");
+    }
+
+    #[test]
+    fn scan_all_projects_empty_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn scan_all_projects_workspace_ignores_files_inside() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("my-workspace");
+        std::fs::create_dir(&ws).unwrap();
+        // One real repo
+        let repo = ws.join("real-repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+        // A file that should be ignored
+        std::fs::write(ws.join("README.md"), "workspace readme").unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[0].children[0].name, "real-repo");
+    }
+
+    // --- Recursive scan: deep nesting ---
+
+    #[test]
+    fn scan_all_projects_finds_repos_three_levels_deep() {
+        let dir = tempfile::tempdir().unwrap();
+        // Desktop -> Projects -> Workspace -> repo
+        let workspace = dir.path().join("Projects").join("Workspace");
+        std::fs::create_dir_all(&workspace).unwrap();
+        let repo = workspace.join("deep-repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "Projects");
+        assert!(result[0].is_workspace);
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[0].children[0].name, "deep-repo");
+    }
+
+    #[test]
+    fn scan_all_projects_finds_repos_four_levels_deep() {
+        let dir = tempfile::tempdir().unwrap();
+        // org -> team -> category -> project
+        let category = dir.path().join("org").join("team").join("category");
+        std::fs::create_dir_all(&category).unwrap();
+        let repo = category.join("my-project");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "org");
+        assert!(result[0].is_workspace);
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[0].children[0].name, "my-project");
+    }
+
+    #[test]
+    fn scan_all_projects_finds_repos_five_levels_deep() {
+        let dir = tempfile::tempdir().unwrap();
+        let deep = dir.path().join("a").join("b").join("c").join("d");
+        std::fs::create_dir_all(&deep).unwrap();
+        let repo = deep.join("deep-repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "a");
+        assert!(result[0].is_workspace);
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[0].children[0].name, "deep-repo");
+    }
+
+    // --- Recursive scan: skip directories ---
+
+    #[test]
+    fn scan_all_projects_skips_node_modules_containing_git() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("my-workspace");
+        std::fs::create_dir(&ws).unwrap();
+        // Real repo
+        let repo = ws.join("real-repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+        // node_modules with a .git inside (should be skipped)
+        let nm = ws.join("node_modules");
+        std::fs::create_dir(&nm).unwrap();
+        let fake_repo = nm.join("some-package");
+        std::fs::create_dir(&fake_repo).unwrap();
+        std::fs::create_dir(fake_repo.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[0].children[0].name, "real-repo");
+    }
+
+    #[test]
+    fn scan_all_projects_skips_all_skip_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("workspace");
+        std::fs::create_dir(&ws).unwrap();
+
+        // Create a real repo so the workspace is not empty
+        let real = ws.join("real");
+        std::fs::create_dir(&real).unwrap();
+        std::fs::create_dir(real.join(".git")).unwrap();
+
+        // Create each skip dir with a fake .git inside
+        for skip_name in &["node_modules", "target", "build", "dist", "vendor", "__pycache__", ".next", ".nuxt", ".venv", "venv"] {
+            let skip = ws.join(skip_name);
+            std::fs::create_dir(&skip).unwrap();
+            let fake = skip.join("nested");
+            std::fs::create_dir(&fake).unwrap();
+            std::fs::create_dir(fake.join(".git")).unwrap();
+        }
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[0].children[0].name, "real");
+    }
+
+    #[test]
+    fn scan_all_projects_skips_node_modules_at_various_depths() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("workspace");
+        std::fs::create_dir(&ws).unwrap();
+
+        // Real repo
+        let repo = ws.join("my-app");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        // node_modules at depth 1 inside workspace
+        let nm1 = ws.join("node_modules");
+        std::fs::create_dir(&nm1).unwrap();
+        std::fs::create_dir(nm1.join(".git")).unwrap();
+
+        // node_modules at depth 2 (inside a non-git subdir)
+        let subdir = ws.join("packages");
+        std::fs::create_dir(&subdir).unwrap();
+        let nm2 = subdir.join("node_modules");
+        std::fs::create_dir(&nm2).unwrap();
+        let fake2 = nm2.join("dep");
+        std::fs::create_dir(&fake2).unwrap();
+        std::fs::create_dir(fake2.join(".git")).unwrap();
+
+        // Real repo inside packages
+        let pkg_repo = subdir.join("pkg-a");
+        std::fs::create_dir(&pkg_repo).unwrap();
+        std::fs::create_dir(pkg_repo.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        let children = &result[0].children;
+        assert_eq!(children.len(), 2);
+        let names: Vec<&str> = children.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.contains(&"my-app"));
+        assert!(names.contains(&"pkg-a"));
+    }
+
+    // --- Recursive scan: hidden dirs at all levels ---
+
+    #[test]
+    fn scan_all_projects_skips_hidden_dirs_at_intermediate_levels() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("workspace");
+        std::fs::create_dir(&ws).unwrap();
+
+        // Hidden intermediate dir containing a repo -- should be skipped
+        let hidden_mid = ws.join(".hidden-folder");
+        std::fs::create_dir(&hidden_mid).unwrap();
+        let hidden_repo = hidden_mid.join("secret-repo");
+        std::fs::create_dir(&hidden_repo).unwrap();
+        std::fs::create_dir(hidden_repo.join(".git")).unwrap();
+
+        // Visible repo for comparison
+        let visible = ws.join("visible-repo");
+        std::fs::create_dir(&visible).unwrap();
+        std::fs::create_dir(visible.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[0].children[0].name, "visible-repo");
+    }
+
+    // --- Recursive scan: symlinks ---
+
+    #[cfg(unix)]
+    #[test]
+    fn scan_all_projects_does_not_follow_symlinks() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("workspace");
+        std::fs::create_dir(&ws).unwrap();
+
+        // Real repo
+        let repo = ws.join("real-repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        // Symlink to the real repo (should be skipped)
+        std::os::unix::fs::symlink(&repo, ws.join("linked-repo")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[0].children[0].name, "real-repo");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scan_all_projects_skips_symlinked_intermediate_dir() {
+        // Use a separate tempdir for the external target so it is outside the scan root
+        let external_dir = tempfile::tempdir().unwrap();
+        let ext_repo = external_dir.path().join("ext-repo");
+        std::fs::create_dir(&ext_repo).unwrap();
+        std::fs::create_dir(ext_repo.join(".git")).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("workspace");
+        std::fs::create_dir(&ws).unwrap();
+
+        // Symlink intermediate dir inside workspace pointing outside the scan root
+        std::os::unix::fs::symlink(external_dir.path(), ws.join("link-to-external")).unwrap();
+
+        // Real repo for baseline
+        let real = ws.join("real");
+        std::fs::create_dir(&real).unwrap();
+        std::fs::create_dir(real.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[0].children[0].name, "real");
+    }
+
+    // --- Recursive scan: mixed depths ---
+
+    #[test]
+    fn scan_all_projects_finds_repos_at_mixed_depths() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("workspace");
+        std::fs::create_dir(&ws).unwrap();
+
+        // Repo at depth 1 (direct child of workspace)
+        let shallow = ws.join("shallow-repo");
+        std::fs::create_dir(&shallow).unwrap();
+        std::fs::create_dir(shallow.join(".git")).unwrap();
+
+        // Repo at depth 3 (workspace -> category -> subcategory -> repo)
+        let deep_parent = ws.join("category").join("subcategory");
+        std::fs::create_dir_all(&deep_parent).unwrap();
+        let deep = deep_parent.join("deep-repo");
+        std::fs::create_dir(&deep).unwrap();
+        std::fs::create_dir(deep.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].is_workspace);
+        let children = &result[0].children;
+        assert_eq!(children.len(), 2);
+        let names: Vec<&str> = children.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.contains(&"shallow-repo"));
+        assert!(names.contains(&"deep-repo"));
+    }
+
+    // --- Recursive scan: git boundary ---
+
+    #[test]
+    fn scan_all_projects_stops_recursing_at_git_boundary() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("workspace");
+        std::fs::create_dir(&ws).unwrap();
+
+        // Parent repo
+        let parent_repo = ws.join("parent-repo");
+        std::fs::create_dir(&parent_repo).unwrap();
+        std::fs::create_dir(parent_repo.join(".git")).unwrap();
+
+        // Nested repo inside the parent (e.g., a submodule or vendored dep)
+        let nested = parent_repo.join("vendor").join("nested-repo");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::create_dir(nested.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[0].children[0].name, "parent-repo");
+        // nested-repo should NOT appear because recursion stops at parent-repo's .git
+    }
+
+    // --- Recursive scan: empty intermediate dirs ---
+
+    #[test]
+    fn scan_all_projects_skips_empty_intermediate_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        // Non-git dir with nested empty dirs but no repos anywhere
+        let empty_tree = dir.path().join("empty-tree");
+        std::fs::create_dir_all(empty_tree.join("a").join("b").join("c")).unwrap();
+
+        // Also a real workspace for contrast
+        let ws = dir.path().join("real-ws");
+        std::fs::create_dir(&ws).unwrap();
+        let repo = ws.join("repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        // empty-tree should be excluded entirely
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "real-ws");
+    }
+
+    // --- find_git_repos unit tests ---
+
+    #[test]
+    fn find_git_repos_returns_empty_for_empty_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let repos = find_git_repos(dir.path());
+        assert!(repos.is_empty());
+    }
+
+    #[test]
+    fn find_git_repos_finds_direct_child_repos() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().join("repo-a");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let repos = find_git_repos(dir.path());
+        assert_eq!(repos.len(), 1);
+        assert_eq!(repos[0].name, "repo-a");
+        assert!(repos[0].is_git_repo);
+    }
+
+    #[test]
+    fn find_git_repos_recurses_through_non_git_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("a").join("b");
+        std::fs::create_dir_all(&nested).unwrap();
+        let repo = nested.join("deep");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let repos = find_git_repos(dir.path());
+        assert_eq!(repos.len(), 1);
+        assert_eq!(repos[0].name, "deep");
+    }
+
+    #[test]
+    fn find_git_repos_does_not_recurse_into_git_repos() {
+        let dir = tempfile::tempdir().unwrap();
+        let outer = dir.path().join("outer");
+        std::fs::create_dir(&outer).unwrap();
+        std::fs::create_dir(outer.join(".git")).unwrap();
+        // Inner repo should not be found
+        let inner = outer.join("sub").join("inner");
+        std::fs::create_dir_all(&inner).unwrap();
+        std::fs::create_dir(inner.join(".git")).unwrap();
+
+        let repos = find_git_repos(dir.path());
+        assert_eq!(repos.len(), 1);
+        assert_eq!(repos[0].name, "outer");
+    }
+
+    #[test]
+    fn find_git_repos_sorts_results_case_insensitively() {
+        let dir = tempfile::tempdir().unwrap();
+        for name in &["Zebra", "alpha", "Beta"] {
+            let repo = dir.path().join(name);
+            std::fs::create_dir(&repo).unwrap();
+            std::fs::create_dir(repo.join(".git")).unwrap();
+        }
+
+        let repos = find_git_repos(dir.path());
+        assert_eq!(repos.len(), 3);
+        assert_eq!(repos[0].name, "alpha");
+        assert_eq!(repos[1].name, "Beta");
+        assert_eq!(repos[2].name, "Zebra");
+    }
+
+    #[test]
+    fn find_git_repos_detects_claude_md() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().join("repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+        std::fs::write(repo.join("CLAUDE.md"), "instructions").unwrap();
+
+        let repos = find_git_repos(dir.path());
+        assert_eq!(repos.len(), 1);
+        assert!(repos[0].has_claude_md);
+    }
+
+    #[test]
+    fn find_git_repos_skips_hidden_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let hidden = dir.path().join(".config");
+        std::fs::create_dir(&hidden).unwrap();
+        let repo = hidden.join("hidden-repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let repos = find_git_repos(dir.path());
+        assert!(repos.is_empty());
+    }
+
+    #[test]
+    fn find_git_repos_skips_skip_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let nm = dir.path().join("node_modules");
+        std::fs::create_dir(&nm).unwrap();
+        let repo = nm.join("package-with-git");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let repos = find_git_repos(dir.path());
+        assert!(repos.is_empty());
+    }
+
+    #[test]
+    fn scan_workspace_errors_on_invalid_path() {
+        let result = scan_workspace("/nonexistent/path/xyz".to_string());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Not a directory"));
+    }
+
+    #[test]
+    fn scan_workspace_empty_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = scan_workspace(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.is_empty());
+    }
+
+    // --- Path correctness ---
+
+    #[test]
+    fn find_git_repos_returns_correct_absolute_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("org").join("team");
+        std::fs::create_dir_all(&nested).unwrap();
+        let repo = nested.join("my-project");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let repos = find_git_repos(dir.path());
+        assert_eq!(repos.len(), 1);
+        assert_eq!(repos[0].path, repo.to_string_lossy().to_string());
+    }
+
+    #[test]
+    fn scan_all_projects_standalone_repo_has_correct_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().join("my-repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].path, repo.to_string_lossy().to_string());
+    }
+
+    #[test]
+    fn scan_all_projects_deep_child_has_correct_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let deep_parent = dir.path().join("ws").join("category");
+        std::fs::create_dir_all(&deep_parent).unwrap();
+        let repo = deep_parent.join("deep-repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[0].children[0].path, repo.to_string_lossy().to_string());
+    }
+
+    // --- Workspace-level has_claude_md ---
+
+    #[test]
+    fn scan_all_projects_detects_claude_md_on_workspace_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("my-workspace");
+        std::fs::create_dir(&ws).unwrap();
+        // CLAUDE.md on the workspace dir itself
+        std::fs::write(ws.join("CLAUDE.md"), "# Workspace instructions").unwrap();
+        let repo = ws.join("child-repo");
+        std::fs::create_dir(&repo).unwrap();
+        std::fs::create_dir(repo.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].is_workspace);
+        assert!(result[0].has_claude_md);
+    }
+
+    // --- .git as file (worktree) ---
+
+    #[test]
+    fn find_git_repos_detects_git_file_worktree() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().join("worktree-repo");
+        std::fs::create_dir(&repo).unwrap();
+        // Git worktrees create a .git FILE, not a directory
+        std::fs::write(repo.join(".git"), "gitdir: /some/other/path/.git/worktrees/wt").unwrap();
+
+        let repos = find_git_repos(dir.path());
+        assert_eq!(repos.len(), 1);
+        assert_eq!(repos[0].name, "worktree-repo");
+        assert!(repos[0].is_git_repo);
+    }
+
+    // --- Error message content ---
+
+    #[test]
+    fn scan_all_projects_invalid_path_error_message() {
+        let result = scan_all_projects("/nonexistent/path/abc123".to_string());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Not a directory"));
+    }
+
+    // --- Multiple repos at different depths in same workspace ---
+
+    // --- parse_task_line ---
+
+    #[test]
+    fn parse_task_line_unchecked_task() {
+        let result = parse_task_line("- [ ] my-slug: My description [P1] [planned]");
+        assert_eq!(result, Some(TaskEntry {
+            slug: "my-slug".to_string(),
+            description: "My description".to_string(),
+            priority: 1,
+            depends: vec![],
+            conflicts: vec![],
+            planned: true,
+            checked: false,
+            tier: None,
+        }));
+    }
+
+    #[test]
+    fn parse_task_line_checked_lowercase_x() {
+        let result = parse_task_line("- [x] done: Done task [P2] [planned]");
+        assert!(result.is_some());
+        let task = result.unwrap();
+        assert!(task.checked);
+        assert_eq!(task.slug, "done");
+    }
+
+    #[test]
+    fn parse_task_line_checked_uppercase_x() {
+        let result = parse_task_line("- [X] done: Done task [P2] [planned]");
+        assert!(result.is_some());
+        assert!(result.unwrap().checked);
+    }
+
+    #[test]
+    fn parse_task_line_default_priority_is_p2() {
+        let result = parse_task_line("- [ ] slug: Description [planned]");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().priority, 2);
+    }
+
+    #[test]
+    fn parse_task_line_priority_p1() {
+        let result = parse_task_line("- [ ] slug: Desc [P1] [planned]");
+        assert_eq!(result.unwrap().priority, 1);
+    }
+
+    #[test]
+    fn parse_task_line_priority_p2() {
+        let result = parse_task_line("- [ ] slug: Desc [P2] [planned]");
+        assert_eq!(result.unwrap().priority, 2);
+    }
+
+    #[test]
+    fn parse_task_line_priority_p3() {
+        let result = parse_task_line("- [ ] slug: Desc [P3] [planned]");
+        assert_eq!(result.unwrap().priority, 3);
+    }
+
+    #[test]
+    fn parse_task_line_depends_parsing() {
+        let result = parse_task_line("- [ ] blocked: Needs deps [P2] [depends: slug-a, slug-b] [planned]");
+        let task = result.unwrap();
+        assert_eq!(task.depends, vec!["slug-a".to_string(), "slug-b".to_string()]);
+    }
+
+    #[test]
+    fn parse_task_line_conflicts_parsing() {
+        let result = parse_task_line("- [ ] task: Desc [P2] [conflicts: slug-x] [planned]");
+        let task = result.unwrap();
+        assert_eq!(task.conflicts, vec!["slug-x".to_string()]);
+    }
+
+    #[test]
+    fn parse_task_line_planned_tag() {
+        let task_planned = parse_task_line("- [ ] slug: Desc [planned]").unwrap();
+        assert!(task_planned.planned);
+
+        let task_not_planned = parse_task_line("- [ ] slug: Desc [P1]").unwrap();
+        assert!(!task_not_planned.planned);
+    }
+
+    #[test]
+    fn parse_task_line_non_task_line_returns_none() {
+        assert!(parse_task_line("### Section Header").is_none());
+        assert!(parse_task_line("## Backlog").is_none());
+        assert!(parse_task_line("Some random text").is_none());
+        assert!(parse_task_line("").is_none());
+    }
+
+    #[test]
+    fn parse_task_line_no_colon_generates_slug() {
+        let task = parse_task_line("- [ ] no-colon-here").unwrap();
+        assert_eq!(task.slug, "no-colon-here");
+        assert_eq!(task.description, "no-colon-here");
+        assert!(!task.checked);
+        assert!(!task.planned);
+    }
+
+    #[test]
+    fn parse_task_line_no_colon_with_spaces() {
+        let task = parse_task_line("- [ ] the attempts counter is disappearing on the win modal").unwrap();
+        assert_eq!(task.slug, "the-attempts-counter-is-disappearing-on-the-win-modal");
+        assert_eq!(task.description, "the attempts counter is disappearing on the win modal");
+    }
+
+    #[test]
+    fn parse_task_line_no_colon_with_tags() {
+        let task = parse_task_line("- [ ] fix something important [P1]").unwrap();
+        assert_eq!(task.slug, "fix-something-important");
+        assert_eq!(task.description, "fix something important");
+        assert_eq!(task.priority, 1);
+    }
+
+    #[test]
+    fn parse_task_line_no_colon_checked() {
+        let task = parse_task_line("- [x] completed task without colon").unwrap();
+        assert!(task.checked);
+        assert_eq!(task.slug, "completed-task-without-colon");
+    }
+
+    #[test]
+    fn parse_task_line_empty_slug_returns_none() {
+        assert!(parse_task_line("- [ ] : description text [planned]").is_none());
+    }
+
+    #[test]
+    fn parse_task_line_no_tags() {
+        let result = parse_task_line("- [ ] simple: Just a description");
+        let task = result.unwrap();
+        assert_eq!(task.slug, "simple");
+        assert_eq!(task.description, "Just a description");
+        assert_eq!(task.priority, 2);
+        assert!(task.depends.is_empty());
+        assert!(task.conflicts.is_empty());
+        assert!(!task.planned);
+        assert!(!task.checked);
+    }
+
+    #[test]
+    fn parse_task_line_depends_with_space_after_colon() {
+        let result = parse_task_line("- [ ] task: Desc [depends: slug-a] [planned]");
+        let task = result.unwrap();
+        assert_eq!(task.depends, vec!["slug-a".to_string()]);
+    }
+
+    // --- get_parallelizable_tasks ---
+
+    /// Helper: create a temp dir with a TASKS.md file containing the given content.
+    fn create_tasks_md(content: &str) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("TASKS.md"), content).unwrap();
+        dir
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_missing_tasks_md_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Failed to read TASKS.md"));
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_empty_backlog() {
+        let dir = create_tasks_md("# TASKS\n\n## Backlog\n\n## Done\n");
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.slugs.is_empty());
+        assert_eq!(result.total_groomed, 0);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_single_planned_task() {
+        let dir = create_tasks_md(
+            "## Backlog\n- [ ] my-task: Do something [P1] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["my-task"]);
+        assert_eq!(result.total_groomed, 1);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_filters_non_planned() {
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] planned-task: Yes [P1] [planned]\n\
+             - [ ] unplanned-task: No [P1]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["planned-task"]);
+        assert_eq!(result.total_groomed, 1);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_filters_checked() {
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] open: Open task [P1] [planned]\n\
+             - [x] done: Done task [P1] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["open"]);
+        assert_eq!(result.total_groomed, 1);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_only_from_backlog_section() {
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             - [ ] active: Active task [P1] [planned]\n\n\
+             ## Backlog\n\
+             - [ ] backlog: Backlog task [P1] [planned]\n\n\
+             ## Done\n\
+             - [x] finished: Done [P1] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["backlog"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_unmet_dependency_excluded() {
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] independent: No deps [P1] [planned]\n\
+             - [ ] blocked: Needs prereq [P1] [depends: prereq] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["independent"]);
+        assert_eq!(result.total_groomed, 2);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_met_dependency_included() {
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             - [x] prereq: Already done [P1] [planned]\n\n\
+             ## Backlog\n\
+             - [ ] dependent: Needs prereq [P1] [depends: prereq] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["dependent"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_conflict_selects_higher_priority() {
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] high: High priority [P1] [conflicts: low] [planned]\n\
+             - [ ] low: Low priority [P2] [conflicts: high] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["high"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_priority_ordering() {
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] p3-task: Low [P3] [planned]\n\
+             - [ ] p1-task: High [P1] [planned]\n\
+             - [ ] p2-task: Medium [P2] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["p1-task", "p2-task", "p3-task"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_max_five_returned() {
+        let mut content = String::from("## Backlog\n");
+        for i in 0..8 {
+            content.push_str(&format!("- [ ] task-{}: Task {} [P1] [planned]\n", i, i));
+        }
+        let dir = create_tasks_md(&content);
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.slugs.len(), 5);
+        assert_eq!(result.total_groomed, 8);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_subsection_headers_dont_end_backlog() {
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             ### High Priority\n\
+             - [ ] high: Important [P1] [planned]\n\
+             ### Low Priority\n\
+             - [ ] low: Less important [P3] [planned]\n\n\
+             ## Done\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.slugs.len(), 2);
+        assert_eq!(result.slugs[0].slug, "high");
+        assert_eq!(result.slugs[1].slug, "low");
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_bidirectional_conflicts() {
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] alpha: First [P1] [conflicts: beta] [planned]\n\
+             - [ ] beta: Second [P1] [conflicts: alpha] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        // Only one should be selected; alpha appears first in the list at same priority
+        assert_eq!(result.slugs.len(), 1);
+        assert_eq!(result.slugs[0].slug, "alpha");
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_complex_scenario() {
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             - [x] foundation: Done [P1] [planned]\n\n\
+             ## Backlog\n\
+             - [ ] ui-work: Frontend [P1] [planned]\n\
+             - [ ] api-work: Backend [P1] [conflicts: db-migration] [planned]\n\
+             - [ ] db-migration: Migration [P2] [conflicts: api-work] [planned]\n\
+             - [ ] docs: Documentation [P3] [planned]\n\
+             - [ ] blocked-task: Needs missing [P1] [depends: not-done] [planned]\n\
+             - [ ] ready-dep: Has met dep [P2] [depends: foundation] [planned]\n\
+             - [ ] unplanned: Not groomed [P1]\n\
+             - [x] checked-backlog: Already done [P1] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+
+        // total_groomed: planned + unchecked = ui-work, api-work, db-migration, docs, blocked-task, ready-dep = 6
+        assert_eq!(result.total_groomed, 6);
+
+        // blocked-task excluded (dep not met)
+        assert!(!slug_names(&result).contains(&"blocked-task".to_string()));
+
+        // unplanned excluded
+        assert!(!slug_names(&result).contains(&"unplanned".to_string()));
+
+        // checked-backlog excluded
+        assert!(!slug_names(&result).contains(&"checked-backlog".to_string()));
+
+        // api-work and db-migration conflict; api-work is P1 so selected, db-migration excluded
+        assert!(slug_names(&result).contains(&"api-work".to_string()));
+        assert!(!slug_names(&result).contains(&"db-migration".to_string()));
+
+        // ui-work (P1), api-work (P1), ready-dep (P2), docs (P3) should be selected
+        assert!(slug_names(&result).contains(&"ui-work".to_string()));
+        assert!(slug_names(&result).contains(&"ready-dep".to_string()));
+        assert!(slug_names(&result).contains(&"docs".to_string()));
+
+        assert_eq!(result.slugs.len(), 4);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_unidirectional_conflict_forward() {
+        // alpha says it conflicts with beta, but beta does NOT list alpha
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] alpha: First [P1] [conflicts: beta] [planned]\n\
+             - [ ] beta: Second [P1] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        // alpha is selected first; beta is in alpha's conflicts, so beta is excluded
+        assert_eq!(slug_names(&result), vec!["alpha"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_unidirectional_conflict_reverse() {
+        // alpha has no conflicts, beta says it conflicts with alpha
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] alpha: First [P1] [planned]\n\
+             - [ ] beta: Second [P1] [conflicts: alpha] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        // alpha selected first (no conflicts). beta conflicts with alpha, so excluded.
+        assert_eq!(slug_names(&result), vec!["alpha"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_multiple_deps_partially_met() {
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             - [x] dep-a: Done [P1]\n\n\
+             ## Backlog\n\
+             - [ ] needs-both: Needs two deps [P1] [depends: dep-a, dep-b] [planned]\n\
+             - [ ] needs-one: Needs one dep [P1] [depends: dep-a] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        // needs-both excluded because dep-b is not checked; needs-one included
+        assert_eq!(slug_names(&result), vec!["needs-one"]);
+        assert_eq!(result.total_groomed, 2);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_no_backlog_section() {
+        let dir = create_tasks_md(
+            "# TASKS\n\n## Active\n\
+             - [ ] task: Something [P1] [planned]\n\n## Done\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.slugs.is_empty());
+        assert_eq!(result.total_groomed, 0);
+    }
+
+    #[test]
+    fn parse_task_line_indented_line() {
+        // Lines with leading whitespace should still parse (implementation calls trim())
+        let result = parse_task_line("  - [ ] slug: Description [P1] [planned]");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().slug, "slug");
+    }
+
+    #[test]
+    fn parse_task_line_with_tier_tag() {
+        let result = parse_task_line("- [ ] my-task: Description [P1] [planned] [tier: opus:high]");
+        let task = result.unwrap();
+        assert_eq!(task.tier, Some("opus:high".to_string()));
+    }
+
+    #[test]
+    fn parse_task_line_without_tier_tag() {
+        let result = parse_task_line("- [ ] my-task: Description [P1] [planned]");
+        let task = result.unwrap();
+        assert_eq!(task.tier, None);
+    }
+
+    #[test]
+    fn parse_task_line_with_empty_tier_tag() {
+        let result = parse_task_line("- [ ] my-task: Description [P1] [planned] [tier: ]");
+        let task = result.unwrap();
+        assert_eq!(task.tier, None);
+    }
+
+    #[test]
+    fn parse_task_line_with_model_only_tier() {
+        let result = parse_task_line("- [ ] my-task: Description [planned] [tier: sonnet]");
+        let task = result.unwrap();
+        assert_eq!(task.tier, Some("sonnet".to_string()));
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_returns_tier_per_slug() {
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] task-a: Task A [P1] [planned] [tier: opus:high]\n\
+             - [ ] task-b: Task B [P2] [planned] [tier: sonnet:medium]\n\
+             - [ ] task-c: Task C [P3] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.slugs.len(), 3);
+        assert_eq!(result.slugs[0].slug, "task-a");
+        assert_eq!(result.slugs[0].tier, Some("opus:high".to_string()));
+        assert_eq!(result.slugs[1].slug, "task-b");
+        assert_eq!(result.slugs[1].tier, Some("sonnet:medium".to_string()));
+        assert_eq!(result.slugs[2].slug, "task-c");
+        assert_eq!(result.slugs[2].tier, None);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_conflict_with_nonexistent_slug() {
+        // Task lists a conflict with a slug that isn't a candidate; should still be selected
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] task-a: First [P1] [conflicts: nonexistent] [planned]\n\
+             - [ ] task-b: Second [P2] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["task-a", "task-b"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_includes_active_tasks() {
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### my-active-task\n\
+             Some description\n\n\
+             ## Backlog\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["my-active-task"]);
+        assert_eq!(result.total_groomed, 0); // active tasks don't count as groomed
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_active_before_backlog() {
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### active-slug\n\n\
+             ## Backlog\n\
+             - [ ] backlog-slug: Backlog task [P1] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["active-slug", "backlog-slug"]);
+        assert_eq!(result.total_groomed, 1);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_active_fills_max_five() {
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### a1\n\
+             ### a2\n\
+             ### a3\n\
+             ### a4\n\
+             ### a5\n\n\
+             ## Backlog\n\
+             - [ ] backlog-task: Should not appear [P1] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["a1", "a2", "a3", "a4", "a5"]);
+        assert_eq!(result.total_groomed, 1); // groomed still counts backlog
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_active_capped_at_five() {
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### a1\n\
+             ### a2\n\
+             ### a3\n\
+             ### a4\n\
+             ### a5\n\
+             ### a6\n\
+             ### a7\n\n\
+             ## Backlog\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["a1", "a2", "a3", "a4", "a5"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_active_plus_backlog_mixed() {
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### active-1\n\
+             ### active-2\n\n\
+             ## Backlog\n\
+             - [ ] b1: First [P1] [planned]\n\
+             - [ ] b2: Second [P2] [planned]\n\
+             - [ ] b3: Third [P3] [planned]\n\
+             - [ ] b4: Fourth [P3] [planned]\n"
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        // 2 active + 3 backlog = 5 max
+        assert_eq!(slug_names(&result), vec!["active-1", "active-2", "b1", "b2", "b3"]);
+        assert_eq!(result.total_groomed, 4);
+    }
+
+    // --- (existing) scan_all_projects_collects_repos_from_multiple_branches ---
+
+    #[test]
+    fn scan_all_projects_collects_repos_from_multiple_branches() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("workspace");
+        std::fs::create_dir(&ws).unwrap();
+
+        // Branch A: ws/frontend/app (repo)
+        let frontend = ws.join("frontend");
+        std::fs::create_dir(&frontend).unwrap();
+        let app = frontend.join("app");
+        std::fs::create_dir(&app).unwrap();
+        std::fs::create_dir(app.join(".git")).unwrap();
+
+        // Branch B: ws/backend/services/api (repo)
+        let services = ws.join("backend").join("services");
+        std::fs::create_dir_all(&services).unwrap();
+        let api = services.join("api");
+        std::fs::create_dir(&api).unwrap();
+        std::fs::create_dir(api.join(".git")).unwrap();
+
+        // Direct child: ws/docs-site (repo)
+        let docs = ws.join("docs-site");
+        std::fs::create_dir(&docs).unwrap();
+        std::fs::create_dir(docs.join(".git")).unwrap();
+
+        let result = scan_all_projects(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].is_workspace);
+        let names: Vec<&str> = result[0].children.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names.len(), 3);
+        assert!(names.contains(&"app"));
+        assert!(names.contains(&"api"));
+        assert!(names.contains(&"docs-site"));
+    }
+
+    // --- count_tasks_in_file ---
+
+    #[test]
+    fn count_tasks_empty_content() {
+        let (ungroomed, groomed, active) = count_tasks_in_file("");
+        assert_eq!((ungroomed, groomed, active), (0, 0, 0));
+    }
+
+    #[test]
+    fn count_tasks_active_tasks() {
+        let content = "\
+## Active Tasks
+
+### my-task
+**Task**: Do something
+- [ ] sub-task: A subtask [P1]
+
+---
+
+## Backlog
+";
+        let (ungroomed, groomed, active) = count_tasks_in_file(content);
+        assert_eq!(active, 1);
+        assert_eq!(ungroomed, 0);
+        assert_eq!(groomed, 0);
+    }
+
+    #[test]
+    fn count_tasks_backlog_planned_vs_unplanned() {
+        let content = "\
+## Backlog
+
+- [ ] planned-task: A planned task [P1] [planned]
+- [ ] unplanned-task: An unplanned task [P2]
+";
+        let (ungroomed, groomed, _active) = count_tasks_in_file(content);
+        assert_eq!(groomed, 1);
+        assert_eq!(ungroomed, 1);
+    }
+
+    #[test]
+    fn count_tasks_ungroomed_subsection() {
+        let content = "\
+## Backlog
+
+### Ungroomed
+
+- [ ] raw-idea: Just an idea [planned]
+- [ ] another: Another idea
+
+### Feature Group
+
+- [ ] feature-task: A feature [planned]
+";
+        let (ungroomed, groomed, _active) = count_tasks_in_file(content);
+        // Both tasks in ### Ungroomed count as ungroomed regardless of [planned] tag
+        assert_eq!(ungroomed, 2);
+        assert_eq!(groomed, 1);
+    }
+
+    #[test]
+    fn count_tasks_checked_tasks_excluded() {
+        let content = "\
+## Backlog
+
+- [x] done-task: Already done [planned]
+- [ ] todo-task: Still todo [planned]
+";
+        let (ungroomed, groomed, _active) = count_tasks_in_file(content);
+        assert_eq!(groomed, 1);
+        assert_eq!(ungroomed, 0);
+    }
+
+    #[test]
+    fn count_tasks_mixed_sections() {
+        let content = "\
+## Active Tasks
+
+### running-task
+**Task**: Running
+- [ ] active-sub: Something [P1]
+
+---
+
+## Backlog
+
+### Feature Work
+
+- [ ] groomed-1: First groomed [P1] [planned]
+- [ ] groomed-2: Second groomed [P2] [planned]
+- [x] done-groomed: Already done [planned]
+- [ ] ungroomed-1: Not planned yet
+
+### Ungroomed
+
+- [ ] raw-1: Raw idea 1
+- [ ] raw-2: Raw idea 2 [planned]
+";
+        let (ungroomed, groomed, active) = count_tasks_in_file(content);
+        assert_eq!(active, 1);
+        assert_eq!(groomed, 2);
+        assert_eq!(ungroomed, 3); // 1 unplanned in Feature Work + 2 in Ungroomed
+    }
+
+    // --- bare-dash ungroomed tests ---
+
+    #[test]
+    fn count_tasks_bare_dash_in_ungroomed_counted() {
+        let content = "\
+## Backlog
+
+### Ungroomed
+
+- Fix the auth bug
+- Add dark mode
+";
+        let (ungroomed, groomed, _active) = count_tasks_in_file(content);
+        assert_eq!(ungroomed, 2);
+        assert_eq!(groomed, 0);
+    }
+
+    #[test]
+    fn count_tasks_bare_dash_in_other_section_ignored() {
+        let content = "\
+## Backlog
+
+### Feature Work
+
+- Fix the auth bug
+- [ ] real-task: Real task [planned]
+
+### Later Features
+
+- need to add git viewer
+";
+        let (ungroomed, groomed, _active) = count_tasks_in_file(content);
+        assert_eq!(groomed, 1); // only the [planned] checkbox line
+        assert_eq!(ungroomed, 0); // bare dashes in non-Ungroomed sections ignored
+    }
+
+    #[test]
+    fn count_tasks_bare_dash_empty_slug_skipped() {
+        let content = "\
+## Backlog
+
+### Ungroomed
+
+- !!!
+- ...
+- Fix the bug
+";
+        let (ungroomed, _groomed, _active) = count_tasks_in_file(content);
+        assert_eq!(ungroomed, 1); // only 'Fix the bug' produces a non-empty slug
+    }
+
+    #[test]
+    fn count_tasks_bare_dash_mixed_with_checkbox() {
+        let content = "\
+## Backlog
+
+### Ungroomed
+
+- [ ] formal-task: A formal ungroomed task
+- Fix the auth bug
+- Add dark mode
+";
+        let (ungroomed, _groomed, _active) = count_tasks_in_file(content);
+        assert_eq!(ungroomed, 3); // 1 checkbox + 2 bare-dash
+    }
+
+    #[test]
+    fn count_tasks_bare_dash_no_double_count_with_checkbox() {
+        // Lines that look like checkboxes should NOT be matched by bare-dash fallback
+        let content = "\
+## Backlog
+
+### Ungroomed
+
+- [ ] task-one: First task
+- [x] done-task: Done
+";
+        let (ungroomed, _groomed, _active) = count_tasks_in_file(content);
+        assert_eq!(ungroomed, 1); // only the unchecked checkbox; [x] excluded, no bare-dash double count
+    }
+
+    // --- scan_tasks_across_repos ---
+
+    /// Helper to create a git repo directory with an optional TASKS.md file.
+    fn make_repo(parent: &Path, name: &str, tasks_content: Option<&str>) -> PathBuf {
+        let repo_dir = parent.join(name);
+        std::fs::create_dir_all(&repo_dir).unwrap();
+        std::fs::create_dir(repo_dir.join(".git")).unwrap();
+        if let Some(content) = tasks_content {
+            std::fs::write(repo_dir.join("TASKS.md"), content).unwrap();
+        }
+        repo_dir
+    }
+
+    #[test]
+    fn scan_tasks_returns_error_for_nonexistent_path() {
+        let result = scan_tasks_across_repos("/nonexistent/path/xyz".to_string());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Not a directory"));
+    }
+
+    #[test]
+    fn scan_tasks_empty_directory_returns_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = scan_tasks_across_repos(dir.path().to_string_lossy().to_string());
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn scan_tasks_standalone_repo_without_tasks_md() {
+        let dir = tempfile::tempdir().unwrap();
+        make_repo(dir.path(), "my-repo", None);
+
+        let result = scan_tasks_across_repos(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "my-repo");
+        assert!(result[0].workspace_name.is_none());
+        assert_eq!(result[0].ungroomed_count, 0);
+        assert_eq!(result[0].groomed_count, 0);
+        assert_eq!(result[0].active_count, 0);
+    }
+
+    #[test]
+    fn scan_tasks_standalone_repo_with_tasks_md() {
+        let dir = tempfile::tempdir().unwrap();
+        let tasks = "\
+## Active Tasks
+
+### running
+**Task**: Something
+- [ ] sub: work [P1]
+
+---
+
+## Backlog
+
+- [ ] todo-1: First task [P1] [planned]
+- [ ] todo-2: Second task [P2]
+";
+        make_repo(dir.path(), "project-a", Some(tasks));
+
+        let result = scan_tasks_across_repos(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "project-a");
+        assert_eq!(result[0].active_count, 1);
+        assert_eq!(result[0].groomed_count, 1);
+        assert_eq!(result[0].ungroomed_count, 1);
+    }
+
+    #[test]
+    fn scan_tasks_workspace_with_child_repos() {
+        let dir = tempfile::tempdir().unwrap();
+        // Create a workspace directory (not itself a git repo) containing child repos
+        let ws = dir.path().join("my-workspace");
+        std::fs::create_dir_all(&ws).unwrap();
+
+        let child_tasks = "\
+## Backlog
+
+- [ ] task-a: A task [planned]
+- [ ] task-b: B task
+";
+        make_repo(&ws, "child-1", Some(child_tasks));
+        make_repo(&ws, "child-2", None);
+
+        let result = scan_tasks_across_repos(dir.path().to_string_lossy().to_string()).unwrap();
+        // Should have 2 entries (one per child repo in the workspace)
+        assert_eq!(result.len(), 2);
+
+        let child1 = result.iter().find(|r| r.name == "child-1").unwrap();
+        assert_eq!(child1.workspace_name, Some("my-workspace".to_string()));
+        assert_eq!(child1.groomed_count, 1);
+        assert_eq!(child1.ungroomed_count, 1);
+
+        let child2 = result.iter().find(|r| r.name == "child-2").unwrap();
+        assert_eq!(child2.workspace_name, Some("my-workspace".to_string()));
+        assert_eq!(child2.groomed_count, 0);
+        assert_eq!(child2.ungroomed_count, 0);
+    }
+
+    #[test]
+    fn scan_tasks_multiple_standalone_repos() {
+        let dir = tempfile::tempdir().unwrap();
+        make_repo(dir.path(), "alpha", Some("## Backlog\n\n- [ ] t: task\n"));
+        make_repo(dir.path(), "beta", Some("## Backlog\n\n- [ ] t: task [planned]\n"));
+
+        let result = scan_tasks_across_repos(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.len(), 2);
+
+        let alpha = result.iter().find(|r| r.name == "alpha").unwrap();
+        assert!(alpha.workspace_name.is_none());
+        assert_eq!(alpha.ungroomed_count, 1);
+
+        let beta = result.iter().find(|r| r.name == "beta").unwrap();
+        assert!(beta.workspace_name.is_none());
+        assert_eq!(beta.groomed_count, 1);
+    }
+
+    // --- append_ungroomed_tasks tests ---
+
+    #[test]
+    fn append_tasks_creates_file_when_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+
+        append_ungroomed_tasks(project.clone(), vec!["Fix the bug".into()]).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        assert!(content.contains("# Tasks"));
+        assert!(content.contains("## Backlog"));
+        assert!(content.contains("### Ungroomed"));
+        assert!(content.contains("- [ ] fix-the-bug: Fix the bug"));
+    }
+
+    #[test]
+    fn append_tasks_adds_to_existing_ungroomed_section() {
+        let dir = tempfile::tempdir().unwrap();
+        let tasks_content = "# Tasks\n\n## Backlog\n\n### Ungroomed\n- [ ] Existing task\n";
+        std::fs::write(dir.path().join("TASKS.md"), tasks_content).unwrap();
+
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec!["New task one".into(), "New task two".into()],
+        ).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        assert!(content.contains("- [ ] new-task-one: New task one"));
+        assert!(content.contains("- [ ] new-task-two: New task two"));
+        assert!(content.contains("- [ ] Existing task"));
+        // New tasks should appear before existing ones (inserted right after heading)
+        let new_pos = content.find("New task one").unwrap();
+        let existing_pos = content.find("Existing task").unwrap();
+        assert!(new_pos < existing_pos);
+    }
+
+    #[test]
+    fn append_tasks_creates_ungroomed_section_when_backlog_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let tasks_content = "# Tasks\n\n## Backlog\n\n### Groomed\n- [ ] groomed-task: Do something\n";
+        std::fs::write(dir.path().join("TASKS.md"), tasks_content).unwrap();
+
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec!["Ungroomed item".into()],
+        ).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        assert!(content.contains("### Ungroomed"));
+        assert!(content.contains("- [ ] ungroomed-item: Ungroomed item"));
+    }
+
+    #[test]
+    fn append_tasks_creates_backlog_and_ungroomed_when_neither_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let tasks_content = "# Tasks\n\nSome random content.\n";
+        std::fs::write(dir.path().join("TASKS.md"), tasks_content).unwrap();
+
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec!["My task".into()],
+        ).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        assert!(content.contains("## Backlog"));
+        assert!(content.contains("### Ungroomed"));
+        assert!(content.contains("- [ ] my-task: My task"));
+    }
+
+    #[test]
+    fn append_tasks_skips_empty_and_whitespace_tasks() {
+        let dir = tempfile::tempdir().unwrap();
+
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec!["  ".into(), "".into(), "Real task".into()],
+        ).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        assert!(content.contains("- [ ] real-task: Real task"));
+        // Should only have one task line
+        let task_count = content.matches("- [ ]").count();
+        assert_eq!(task_count, 1);
+    }
+
+    #[test]
+    fn append_tasks_skips_all_special_char_tasks() {
+        let dir = tempfile::tempdir().unwrap();
+
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec!["!@#$%".into(), "Real task".into()],
+        ).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        assert!(content.contains("- [ ] real-task: Real task"));
+        // All-special task should be skipped, only one task line
+        let task_count = content.matches("- [ ]").count();
+        assert_eq!(task_count, 1);
+    }
+
+    #[test]
+    fn append_tasks_noop_when_empty_list() {
+        let dir = tempfile::tempdir().unwrap();
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec![],
+        ).unwrap();
+
+        // File should not be created
+        assert!(!dir.path().join("TASKS.md").exists());
+    }
+
+    // --- to_kebab_case ---
+
+    #[test]
+    fn to_kebab_case_basic() {
+        assert_eq!(to_kebab_case("Fix the bug"), "fix-the-bug");
+    }
+
+    #[test]
+    fn to_kebab_case_special_chars() {
+        assert_eq!(to_kebab_case("Add (dark) mode!"), "add-dark-mode");
+    }
+
+    #[test]
+    fn to_kebab_case_multiple_spaces() {
+        assert_eq!(to_kebab_case("Fix   the   bug"), "fix-the-bug");
+    }
+
+    #[test]
+    fn to_kebab_case_numbers() {
+        assert_eq!(to_kebab_case("Add v2 support"), "add-v2-support");
+    }
+
+    #[test]
+    fn to_kebab_case_already_kebab() {
+        assert_eq!(to_kebab_case("already-kebab-case"), "already-kebab-case");
+    }
+
+    #[test]
+    fn to_kebab_case_leading_trailing_special() {
+        assert_eq!(to_kebab_case("  --Fix it!--  "), "fix-it");
+    }
+
+    #[test]
+    fn to_kebab_case_empty() {
+        assert_eq!(to_kebab_case(""), "");
+    }
+
+    #[test]
+    fn to_kebab_case_unicode_chars() {
+        // Unicode alphanumeric chars are preserved by is_alphanumeric()
+        assert_eq!(to_kebab_case("Café résumé"), "café-résumé");
+    }
+
+    #[test]
+    fn to_kebab_case_numbers_only() {
+        assert_eq!(to_kebab_case("123"), "123");
+    }
+
+    #[test]
+    fn to_kebab_case_single_word() {
+        assert_eq!(to_kebab_case("Refactor"), "refactor");
+    }
+
+    #[test]
+    fn to_kebab_case_all_special_chars() {
+        // All non-alphanumeric chars produce hyphens which get trimmed
+        assert_eq!(to_kebab_case("!@#$%^&*()"), "");
+    }
+
+    #[test]
+    fn to_kebab_case_colon_in_text() {
+        // Colon is not alphanumeric, should become hyphen
+        assert_eq!(to_kebab_case("Fix: the bug"), "fix-the-bug");
+    }
+
+    // --- Round-trip: append_ungroomed_tasks output is parseable ---
+
+    #[test]
+    fn appended_tasks_are_parseable_by_parse_task_line() {
+        // This is the core property of the fix: tasks written by append_ungroomed_tasks
+        // must be parseable by parse_task_line so they show up in the UI.
+        let dir = tempfile::tempdir().unwrap();
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec!["Fix the login bug".into(), "Add dark mode".into()],
+        ).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        let parsed: Vec<TaskEntry> = content.lines()
+            .filter_map(|line| parse_task_line(line))
+            .collect();
+
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].slug, "fix-the-login-bug");
+        assert_eq!(parsed[0].description, "Fix the login bug");
+        assert!(!parsed[0].checked);
+        assert_eq!(parsed[1].slug, "add-dark-mode");
+        assert_eq!(parsed[1].description, "Add dark mode");
+        assert!(!parsed[1].checked);
+    }
+
+    #[test]
+    fn appended_tasks_are_counted_by_count_tasks_in_file() {
+        // Verify the end-to-end: append tasks -> count_tasks_in_file sees them as ungroomed.
+        let dir = tempfile::tempdir().unwrap();
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec!["Task one".into(), "Task two".into(), "Task three".into()],
+        ).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        let (ungroomed, groomed, active) = count_tasks_in_file(&content);
+
+        assert_eq!(ungroomed, 3);
+        assert_eq!(groomed, 0);
+        assert_eq!(active, 0);
+    }
+
+    #[test]
+    fn appended_task_with_colon_in_description_is_parseable() {
+        // Tasks whose descriptions contain colons must still parse correctly.
+        // The slug (derived from to_kebab_case) won't contain a colon, so
+        // parse_task_line's first-colon split still works.
+        let dir = tempfile::tempdir().unwrap();
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec!["Fix: the auth flow".into()],
+        ).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        let parsed: Vec<TaskEntry> = content.lines()
+            .filter_map(|line| parse_task_line(line))
+            .collect();
+
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].slug, "fix-the-auth-flow");
+        // Description is everything after the first colon, which is " the auth flow"
+        // Wait -- the written line is "- [ ] fix-the-auth-flow: Fix: the auth flow"
+        // parse_task_line: rest = "fix-the-auth-flow: Fix: the auth flow"
+        //   colon_pos = 17 (after "fix-the-auth-flow")
+        //   after_colon = " Fix: the auth flow"
+        //   description = "Fix: the auth flow"
+        assert_eq!(parsed[0].description, "Fix: the auth flow");
+    }
+
+    #[test]
+    fn appended_tasks_into_existing_file_are_counted_correctly() {
+        // Append into an existing file that already has groomed tasks, then verify counts.
+        let dir = tempfile::tempdir().unwrap();
+        let existing = "\
+# Tasks
+
+## Backlog
+
+### Groomed
+
+- [ ] existing-task: An existing groomed task [P1] [planned]
+
+### Ungroomed
+";
+        std::fs::write(dir.path().join("TASKS.md"), existing).unwrap();
+
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec!["New ungroomed task".into()],
+        ).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        let (ungroomed, groomed, active) = count_tasks_in_file(&content);
+
+        assert_eq!(ungroomed, 1);
+        assert_eq!(groomed, 1);
+        assert_eq!(active, 0);
+    }
+}

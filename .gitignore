@@ -1,24 +1,62 @@
-.DS_Store
-*.swp
-*.swo
-*~
-articles/
+# Dependencies
+node_modules/
 
-.claude/
-capability-manifest.yaml
-mcp-registry.local.yaml
-skills-registry.local.yaml
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Environment and secrets
 .env
 .env.*
 !.env.example
+
+# SQLite databases
+*.db
+*.db-journal
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# Logs
 *.log
+
+# Test coverage
+coverage/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Pipeline and worktrees
+.pipeline/
+.worktree/
+
+# Build artifacts
+*.dmg
+*.app
+*.msi
+*.AppImage
+*.deb
+
+# Temp files
 tmp/
 temp/
 *.tmp
 *.bak
 *.orig
 *.rej
-.pipeline/
-.worktree/
+*~
+
+# Reggie local configs
+.claude/
+capability-manifest.yaml
+mcp-registry.local.yaml
+skills-registry.local.yaml
+articles/

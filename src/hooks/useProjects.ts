@@ -1,0 +1,210 @@
+import { useState, useEffect, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import type { Project, DirectoryEntry, AllProjectsFolder, ScanResultEntry } from "../types/project";
+import {
+  getAllProjects,
+  addProject,
+  updateLastOpened,
+  removeProject,
+  getAllWorkspaces,
+  addWorkspace,
+  removeWorkspace,
+  getAllProjectsFolder,
+  setAllProjectsFolder,
+  removeAllProjectsFolder,
+  clearProjectsAndWorkspaces,
+  type Workspace,
+} from "../services/database-service";
+import { open } from "@tauri-apps/plugin-dialog";
+
+export function useProjects() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [allProjectsFolder, setAllProjectsFolderState] = useState<AllProjectsFolder | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
+  const loadAll = useCallback(async () => {
+    try {
+      const [p, w, apf] = await Promise.all([
+        getAllProjects(),
+        getAllWorkspaces(),
+        getAllProjectsFolder(),
+      ]);
+      setProjects(p);
+      setWorkspaces(w);
+      setAllProjectsFolderState(apf);
+    } catch (err) {
+      console.error("Failed to load:", err);
+    }
+  }, []);
+
+  // Populate workspaces and projects from 2-level scan results
+  const populateFromScanResults = useCallback(async (entries: ScanResultEntry[]) => {
+    for (const entry of entries) {
+      if (entry.isWorkspace) {
+        const wsId = crypto.randomUUID();
+        await addWorkspace(wsId, entry.name, entry.path);
+        for (const child of entry.children) {
+          const pid = crypto.randomUUID();
+          await addProject(pid, child.name, child.path, entry.path);
+        }
+      } else {
+        const pid = crypto.randomUUID();
+        await addProject(pid, entry.name, entry.path);
+      }
+    }
+  }, []);
+
+  // Sync the All Projects folder: 2-level scan detecting workspaces vs repos
+  const syncAllProjectsFolder = useCallback(async (folder: AllProjectsFolder) => {
+    try {
+      const entries = await invoke<ScanResultEntry[]>("scan_all_projects", {
+        folderPath: folder.path,
+      });
+      // Clear stale entries before re-populating to prune deleted repos
+      await clearProjectsAndWorkspaces();
+      await populateFromScanResults(entries);
+    } catch (err) {
+      console.error("Failed to sync all projects folder:", err);
+    }
+  }, [populateFromScanResults]);
+
+  // Sync a single workspace: scan its directory and add new project subdirs
+  const syncWorkspace = useCallback(async (ws: Workspace) => {
+    try {
+      const entries = await invoke<DirectoryEntry[]>("scan_workspace", {
+        workspacePath: ws.path,
+      });
+      for (const entry of entries) {
+        const id = crypto.randomUUID();
+        await addProject(id, entry.name, entry.path, ws.path);
+      }
+    } catch (err) {
+      console.error("Failed to sync workspace:", err);
+    }
+  }, []);
+
+  // On mount: load everything, sync based on mode
+  useEffect(() => {
+    (async () => {
+      const apf = await getAllProjectsFolder();
+      setAllProjectsFolderState(apf);
+
+      if (apf) {
+        // 3-level mode: scan the All Projects folder
+        await syncAllProjectsFolder(apf);
+      } else {
+        // Legacy 2-level mode: sync individual workspaces
+        const w = await getAllWorkspaces();
+        setWorkspaces(w);
+        for (const ws of w) {
+          await syncWorkspace(ws);
+        }
+      }
+
+      const [p, w] = await Promise.all([getAllProjects(), getAllWorkspaces()]);
+      setProjects(p);
+      setWorkspaces(w);
+    })();
+  }, [syncAllProjectsFolder, syncWorkspace]);
+
+  const handleSetAllProjectsFolder = useCallback(async () => {
+    const selected = await open({ directory: true, multiple: false });
+    if (selected && typeof selected === "string") {
+      const name = selected.split(/[/\\]/).pop() || selected;
+      const id = crypto.randomUUID();
+      await setAllProjectsFolder(id, name, selected);
+
+      // Scan and populate
+      const entries = await invoke<ScanResultEntry[]>("scan_all_projects", {
+        folderPath: selected,
+      });
+      await populateFromScanResults(entries);
+
+      await loadAll();
+    }
+  }, [loadAll, populateFromScanResults]);
+
+  const handleRemoveAllProjectsFolder = useCallback(async () => {
+    await removeAllProjectsFolder();
+    setAllProjectsFolderState(null);
+    setProjects([]);
+    setWorkspaces([]);
+    setSelectedProject(null);
+  }, []);
+
+  const handleAddWorkspace = useCallback(async () => {
+    const selected = await open({ directory: true, multiple: false });
+    if (selected && typeof selected === "string") {
+      const name = selected.split(/[/\\]/).pop() || selected;
+      const id = crypto.randomUUID();
+      await addWorkspace(id, name, selected);
+
+      const entries = await invoke<DirectoryEntry[]>("scan_workspace", {
+        workspacePath: selected,
+      });
+      for (const entry of entries) {
+        const pid = crypto.randomUUID();
+        await addProject(pid, entry.name, entry.path, selected);
+      }
+
+      await loadAll();
+    }
+  }, [loadAll]);
+
+  const handleAddProject = useCallback(async () => {
+    const selected = await open({ directory: true, multiple: false });
+    if (selected && typeof selected === "string") {
+      const name = selected.split(/[/\\]/).pop() || selected;
+      const id = crypto.randomUUID();
+      const parentWorkspace = workspaces.find((ws) => {
+        const wsPrefix = ws.path.endsWith("/") || ws.path.endsWith("\\")
+          ? ws.path
+          : ws.path + "/";
+        return selected.startsWith(wsPrefix);
+      });
+      await addProject(id, name, selected, parentWorkspace?.path);
+      await loadAll();
+    }
+  }, [loadAll, workspaces]);
+
+  const handleSelectProject = useCallback(
+    async (project: Project) => {
+      setSelectedProject(project);
+      await updateLastOpened(project.id);
+    },
+    []
+  );
+
+  const handleRemoveProject = useCallback(
+    async (id: string) => {
+      await removeProject(id);
+      setSelectedProject((prev) => (prev?.id === id ? null : prev));
+      await loadAll();
+    },
+    [loadAll]
+  );
+
+  const handleRemoveWorkspace = useCallback(
+    async (id: string) => {
+      await removeWorkspace(id);
+      setSelectedProject(null);
+      await loadAll();
+    },
+    [loadAll]
+  );
+
+  return {
+    projects,
+    workspaces,
+    allProjectsFolder,
+    selectedProject,
+    addProject: handleAddProject,
+    addWorkspace: handleAddWorkspace,
+    setAllProjectsFolder: handleSetAllProjectsFolder,
+    removeAllProjectsFolder: handleRemoveAllProjectsFolder,
+    selectProject: handleSelectProject,
+    removeProject: handleRemoveProject,
+    removeWorkspace: handleRemoveWorkspace,
+  };
+}
