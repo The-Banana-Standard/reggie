@@ -2,34 +2,6 @@
 
 ## Active Tasks
 
-### prefix-rename-agents
-**Task**: Rename all 36 agent files to reggie- prefix, shorten pipeline manager names, add manager: frontmatter
-**Stage**: COMMIT
-**Pipeline**: code-workflow
-**Branch**: task/prefix-rename-agents
-**Worktree**: .worktree/prefix-rename-agents
-**Base**: release/v1.1.2
-**Started**: 2026-04-10
-**Attempts**: 0
-**Files**:
-- MOD: agents/*.md (36 RENAME+MOD)
-- MOD: commands/*.md (35 MOD)
-- MOD: docs/*.md, REGGIE.md, README.md
-- MOD: reggie_data.rs
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.26 | 2 | PASS |
-| WRITE-TESTS | SKIP | 0 | SKIP |
-| QUALITY-CHECK | SKIP | 0 | SKIP |
-| SIMPLIFY | 9.0+ | 2 | PASS |
-| VERIFY-APP | SKIP | 0 | SKIP |
-| REVIEW | 9.24 | 1 | PASS |
-| SECURITY-REVIEW | SKIP | 0 | SKIP |
-| SYNC-DOCS | 9.0+ | 1 | PASS |
-| UPDATE-CLAUDE | SKIP | 0 | SKIP |
-| REVIEW-WITH-USER | APPROVED | 0 | PASS |
-
 ---
 
 ## Backlog
@@ -53,5 +25,11 @@
   files: installer.rs (NEW), lib.rs (MOD), mod.rs (MOD), FirstLaunchSetup.tsx (NEW), App.tsx (MOD)
 - [ ] add-management-ui: Settings panel in ActivityBar with version info, reinstall, environment setup [P2] [depends: reggie-installer] [moderate] [tier: opus:medium] [code] [planned]
   files: SettingsPanel.tsx (NEW), ActivityBar.tsx (MOD), mod.rs (MOD), installer.rs (MOD), globals.css (MOD)
+
+### Ungroomed
+- [ ] update-forge-reggie-data: Update forge-reggie reggie_data.rs to use manager: frontmatter lookup instead of find_matching_manager heuristic [P2]
+  > Discovered during prefix-rename-agents. The Forge app in forge-reggie/src-tauri/src/commands/reggie_data.rs still uses substring heuristics to match pipeline commands to managers. Now that commands have manager: frontmatter, Forge should parse that field directly.
+- [ ] fix-install-sh-fallback: Fix install.sh fallback block missing Task, Skill, and ToolSearch matchers [P3]
+  > Discovered during prefix-rename-agents simplify stage. 4 pre-existing test failures in tests/test-installer-fixes.sh Fix 1.
 
 ---
