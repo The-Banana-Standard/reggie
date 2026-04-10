@@ -33,7 +33,7 @@ export function TitleBar({ onGoHome, summary }: TitleBarProps) {
         }}
         onDoubleClick={() => appWindow.toggleMaximize()}
       >
-        <span className="title-bar-text">Forge</span>
+        <span className="title-bar-text">Reggie</span>
         {hasActivity && (
           <span className="title-bar-status">
             {summary.totalRunning > 0 && (

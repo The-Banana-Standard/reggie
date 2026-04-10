@@ -242,7 +242,7 @@ Total: [N] tasks across [M] repos
 
 Next steps:
   - Run /reggie-init-tasks in each repo to refine these into implementation-ready tasks
-  - Or use the "Init Ungroomed Tasks" button in Forge to do this automatically
+  - Or use the "Init Ungroomed Tasks" button in the Reggie app to do this automatically
 ```
 
 ### Edge Cases

@@ -47,7 +47,7 @@ resources/
 
 ## Updates
 
-Updates are managed through Forge. Pull the latest changes from the repo and Forge will sync `resources/` into `~/.claude/`.
+Updates are managed through the Reggie app. Pull the latest changes from the repo and the app will sync `resources/` into `~/.claude/`.
 
 ---
 
@@ -96,7 +96,7 @@ Local/generated in `~/.claude/`:
 
 ## Uninstall
 
-Use Forge to remove Reggie files from `~/.claude/`. Alternatively, delete the Reggie agent and command files from `~/.claude/agents/` and `~/.claude/commands/` manually.
+Use the Reggie app to remove Reggie files from `~/.claude/`. Alternatively, delete the Reggie agent and command files from `~/.claude/agents/` and `~/.claude/commands/` manually.
 
 ## Documentation
 

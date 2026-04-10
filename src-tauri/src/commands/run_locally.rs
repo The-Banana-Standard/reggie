@@ -10,7 +10,7 @@ pub struct RunScriptInfo {
     pub port: u16,
 }
 
-/// Checks if a `.forge/run.sh` (macOS/Linux) or `.forge/run.ps1` (Windows)
+/// Checks if a `.reggie/run.sh` (macOS/Linux) or `.reggie/run.ps1` (Windows)
 /// script exists for the given project, and finds a free TCP port.
 #[tauri::command]
 pub fn check_run_script(project_path: String) -> Result<RunScriptInfo, String> {
@@ -20,7 +20,7 @@ pub fn check_run_script(project_path: String) -> Result<RunScriptInfo, String> {
         "run.sh"
     };
 
-    let script_path: PathBuf = [&project_path, ".forge", script_name].iter().collect();
+    let script_path: PathBuf = [&project_path, ".reggie", script_name].iter().collect();
     let exists = script_path.exists();
 
     let listener = TcpListener::bind("127.0.0.1:0")
@@ -62,25 +62,25 @@ mod tests {
     #[test]
     fn check_run_script_exists() {
         let dir = tempfile::tempdir().unwrap();
-        let forge_dir = dir.path().join(".forge");
-        std::fs::create_dir_all(&forge_dir).unwrap();
+        let reggie_dir = dir.path().join(".reggie");
+        std::fs::create_dir_all(&reggie_dir).unwrap();
 
         let script_name = if cfg!(target_os = "windows") { "run.ps1" } else { "run.sh" };
-        std::fs::write(forge_dir.join(script_name), "#!/bin/sh\necho hello").unwrap();
+        std::fs::write(reggie_dir.join(script_name), "#!/bin/sh\necho hello").unwrap();
 
         let result = check_run_script(dir.path().to_string_lossy().to_string());
         assert!(result.is_ok());
 
         let info = result.unwrap();
         assert!(info.exists);
-        assert!(info.script_path.ends_with(&format!(".forge{}{}", std::path::MAIN_SEPARATOR, script_name)));
+        assert!(info.script_path.ends_with(&format!(".reggie{}{}", std::path::MAIN_SEPARATOR, script_name)));
         assert!(info.port > 0);
     }
 
     #[test]
     fn check_run_script_missing() {
         let dir = tempfile::tempdir().unwrap();
-        // No .forge/ directory created
+        // No .reggie/ directory created
 
         let result = check_run_script(dir.path().to_string_lossy().to_string());
         assert!(result.is_ok());
@@ -98,7 +98,7 @@ mod tests {
         let info = check_run_script(project_path.clone()).unwrap();
 
         let script_name = if cfg!(target_os = "windows") { "run.ps1" } else { "run.sh" };
-        let expected: PathBuf = [&project_path, ".forge", script_name].iter().collect();
+        let expected: PathBuf = [&project_path, ".reggie", script_name].iter().collect();
         assert_eq!(info.script_path, expected.to_string_lossy().to_string());
     }
 

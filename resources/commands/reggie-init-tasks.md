@@ -470,12 +470,12 @@ organize them and compute metadata, not modify them.
    - `[complex]` — has a plan, 5+ files or architecture decisions
 
 7. **Assign execution tier**: Based on complexity classification, assign a
-   `[tier: model:effort]` tag that tells Forge what terminal configuration
+   `[tier: model:effort]` tag that tells the Reggie app what terminal configuration
    to use and tells code-workflow which tasks to pick up:
    - `[simple]` → `[tier: sonnet:medium]`
    - `[moderate]` → `[tier: opus:medium]`
    - `[complex]` → `[tier: opus:high]`
-   This enables parallel execution: Forge launches terminals at different
+   This enables parallel execution: The Reggie app launches terminals at different
    tiers and each code-workflow instance filters the backlog to matching tasks.
 
 8. **Assign pipeline mode**: Based on task nature:
@@ -600,7 +600,7 @@ TASKS.md is a lightweight coordination file. Each task is a slug line with rich 
 - `[depends: slug-a, slug-b]` — must complete first
 - `[conflicts: slug-c]` — shares files, avoid parallel execution
 - `[simple]` / `[moderate]` / `[complex]` — complexity
-- `[tier: model:effort]` — execution tier for terminal matching (`sonnet:medium`, `opus:medium`, `opus:high`). Derived from complexity. Used by Forge to launch terminals at the right level and by code-workflow `--tier` flag to filter pickup.
+- `[tier: model:effort]` — execution tier for terminal matching (`sonnet:medium`, `opus:medium`, `opus:high`). Derived from complexity. Used by the Reggie app to launch terminals at the right level and by code-workflow `--tier` flag to filter pickup.
 - `[code]` / `[design]` — pipeline mode
 - `[planned]` — has task.md with implementation plan (init-tasks always produces `[planned]`; code-workflow requires this)
 

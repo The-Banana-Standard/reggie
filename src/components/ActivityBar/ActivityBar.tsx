@@ -12,7 +12,7 @@ type ThemeMode = "dark" | "light";
 
 function getStoredTheme(): ThemeMode {
   try {
-    const stored = localStorage.getItem("forge-theme");
+    const stored = localStorage.getItem("reggie-theme");
     if (stored === "light" || stored === "dark") return stored;
   } catch { /* SSR or storage unavailable */ }
   return "dark";
@@ -21,7 +21,7 @@ function getStoredTheme(): ThemeMode {
 function applyTheme(theme: ThemeMode): void {
   document.documentElement.dataset.theme = theme;
   try {
-    localStorage.setItem("forge-theme", theme);
+    localStorage.setItem("reggie-theme", theme);
   } catch { /* storage unavailable */ }
 }
 

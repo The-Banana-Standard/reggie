@@ -75,7 +75,7 @@ describe("ActivityBar theme toggle", () => {
     // DOM attribute should be set to "light"
     expect(document.documentElement.dataset.theme).toBe("light");
     // localStorage should persist the choice
-    expect(localStorage.getItem("forge-theme")).toBe("light");
+    expect(localStorage.getItem("reggie-theme")).toBe("light");
   });
 
   it("after switching to light mode, toggle shows moon icon aria-label", () => {
@@ -98,14 +98,14 @@ describe("ActivityBar theme toggle", () => {
     // First click: dark -> light
     fireEvent.click(toggleBtn);
     expect(document.documentElement.dataset.theme).toBe("light");
-    expect(localStorage.getItem("forge-theme")).toBe("light");
+    expect(localStorage.getItem("reggie-theme")).toBe("light");
 
     // Second click: light -> dark
     const moonBtn = screen.getByRole("button", { name: "Switch to dark mode" });
     fireEvent.click(moonBtn);
 
     expect(document.documentElement.dataset.theme).toBe("dark");
-    expect(localStorage.getItem("forge-theme")).toBe("dark");
+    expect(localStorage.getItem("reggie-theme")).toBe("dark");
 
     // Button should be back to sun icon
     const sunBtn = screen.getByRole("button", { name: "Switch to light mode" });
@@ -113,7 +113,7 @@ describe("ActivityBar theme toggle", () => {
   });
 
   it("reads initial theme from localStorage (starts in light mode when stored)", () => {
-    localStorage.setItem("forge-theme", "light");
+    localStorage.setItem("reggie-theme", "light");
 
     render(<ActivityBar {...defaultProps} />);
 
@@ -123,7 +123,7 @@ describe("ActivityBar theme toggle", () => {
   });
 
   it("reads initial theme from localStorage (starts in dark mode when stored)", () => {
-    localStorage.setItem("forge-theme", "dark");
+    localStorage.setItem("reggie-theme", "dark");
 
     render(<ActivityBar {...defaultProps} />);
 
@@ -141,7 +141,7 @@ describe("ActivityBar theme toggle", () => {
   });
 
   it("defaults to dark mode when localStorage has an invalid value", () => {
-    localStorage.setItem("forge-theme", "sepia");
+    localStorage.setItem("reggie-theme", "sepia");
 
     render(<ActivityBar {...defaultProps} />);
 
@@ -310,7 +310,7 @@ describe("ActivityBar onThemeChange callback", () => {
 
   it("calls onThemeChange with 'dark' when toggling from light to dark", () => {
     const onThemeChange = vi.fn();
-    localStorage.setItem("forge-theme", "light");
+    localStorage.setItem("reggie-theme", "light");
     render(<ActivityBar {...defaultProps} onThemeChange={onThemeChange} />);
 
     const toggleBtn = screen.getByRole("button", { name: "Switch to dark mode" });

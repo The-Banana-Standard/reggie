@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Forge</title>
+    <title>Reggie</title>
   </head>
   <body>
     <script>
       // Apply persisted theme synchronously to prevent flash of wrong theme
       try {
-        var t = localStorage.getItem("forge-theme");
+        var t = localStorage.getItem("reggie-theme");
         if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
       } catch(e) {}
     </script>

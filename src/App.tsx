@@ -57,7 +57,7 @@ function App() {
   // Theme state — initialized from persisted value, updated via ActivityBar callback
   const [currentTheme, setCurrentTheme] = useState<"dark" | "light">(() => {
     try {
-      const stored = localStorage.getItem("forge-theme");
+      const stored = localStorage.getItem("reggie-theme");
       if (stored === "light" || stored === "dark") return stored;
     } catch { /* storage unavailable */ }
     return "dark";
@@ -70,7 +70,7 @@ function App() {
   // Apply persisted theme on mount (before first paint settles)
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("forge-theme");
+      const stored = localStorage.getItem("reggie-theme");
       if (stored === "light" || stored === "dark") {
         document.documentElement.dataset.theme = stored;
       }
@@ -321,7 +321,7 @@ function App() {
 
     if (hasScript) {
       // Script exists: spawn shell that runs it with PORT env var
-      const cmd = `PORT=${port} bash .forge/run.sh`;
+      const cmd = `PORT=${port} bash .reggie/run.sh`;
       const tabId = addTab(path, false, undefined, cmd);
       setRunLocallyTerminals((prev) => ({ ...prev, [path]: tabId }));
       setActiveTabId(SESSIONS_TAB_ID);
@@ -333,7 +333,7 @@ function App() {
       runLocallyTimerRef.current[path] = timer;
     } else {
       // No script: spawn Claude session to create it
-      const prompt = "Investigate this repo and create a .forge/run.sh script that starts the dev server on a free port passed via $PORT. The script should check for a free port if $PORT is not set.";
+      const prompt = "Investigate this repo and create a .reggie/run.sh script that starts the dev server on a free port passed via $PORT. The script should check for a free port if $PORT is not set.";
       const tabId = addTab(path, true, undefined, prompt);
       setRunLocallyTerminals((prev) => ({ ...prev, [path]: tabId }));
       setActiveTabId(SESSIONS_TAB_ID);
@@ -533,7 +533,7 @@ function App() {
           {isHomeActive && !hasContent && (
             <div className="no-project-selected">
               <div className="no-project-icon">&gt;_</div>
-              <h2>Forge</h2>
+              <h2>Reggie</h2>
               <p>Set a projects folder or add a workspace to get started.</p>
             </div>
           )}

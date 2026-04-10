@@ -651,7 +651,7 @@ describe("Run Locally button", () => {
     sessions: unknown[] = [],
     runScriptResult: { exists: boolean; scriptPath: string; port: number } = {
       exists: true,
-      scriptPath: "/test/.forge/run.sh",
+      scriptPath: "/test/.reggie/run.sh",
       port: 3001,
     }
   ) {
@@ -768,7 +768,7 @@ describe("Run Locally button", () => {
   it("calls onRunLocally with exists=false when script is missing", async () => {
     setupInvokeMockWithRunScript(defaultProjectInfo, [], {
       exists: false,
-      scriptPath: "/test/.forge/run.sh",
+      scriptPath: "/test/.reggie/run.sh",
       port: 4002,
     });
     const onRunLocally = vi.fn();

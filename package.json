@@ -1,15 +1,15 @@
 {
-  "name": "forge",
+  "name": "reggie",
   "version": "0.1.3",
   "description": "Desktop workspace manager and terminal multiplexer for Claude Code CLI sessions",
   "author": "Anthony Mazzola",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/The-Banana-Standard/forge"
+    "url": "https://github.com/The-Banana-Standard/reggie"
   },
   "keywords": [
-    "forge",
+    "reggie",
     "tauri",
     "terminal",
     "workspace",

@@ -549,7 +549,7 @@ Reggie is installed and managed by [Forge](https://github.com/The-Banana-Standar
 | `skills-registry.yaml` | `resources/registries/skills-registry.yaml` | Curated skills registry |
 
 **What gets configured automatically?**
-Forge adds stats tracking hooks to `~/.claude/settings.json` (idempotent — safe to run multiple times). These hooks track Task, Skill, and ToolSearch usage for pipeline stats. It also sets `ENABLE_TOOL_SEARCH=auto:5` in your shell profile — this defers MCP tool schemas so agents only load tools they need.
+The Reggie app adds stats tracking hooks to `~/.claude/settings.json` (idempotent — safe to run multiple times). These hooks track Task, Skill, and ToolSearch usage for pipeline stats. It also sets `ENABLE_TOOL_SEARCH=auto:5` in your shell profile — this defers MCP tool schemas so agents only load tools they need.
 
 **What stays local (NOT installed from repo)?**
 These files are user-specific and not part of the open-source repo:
@@ -571,16 +571,16 @@ These files are user-specific and not part of the open-source repo:
 When `/reggie-system-change` edits agents, commands, hooks, or docs, those changes happen in the `resources/` directory of the git repo. You can commit and push them. Changes to local-only files (settings.json, AGENT-IMPROVE.md, etc.) are not version-controlled.
 
 **How do I install?**
-Install [Forge](https://github.com/The-Banana-Standard/forge-reggie) and use it to install Reggie. Forge handles cloning the repo, copying `resources/` into `~/.claude/`, and configuring hooks.
+Install the [Reggie desktop app](https://github.com/The-Banana-Standard/reggie) and use it to install Reggie. The app handles cloning the repo, copying `resources/` into `~/.claude/`, and configuring hooks.
 
 **What do I do after installing?**
 Restart Claude Code and run: `/reggie-guide I just installed Reggie, what do I do now?`
 
 **How do I update?**
-Updates are managed through Forge. Pull the latest changes from the repo and Forge will sync `resources/` into `~/.claude/`.
+Updates are managed through the Reggie app. Pull the latest changes from the repo and the app will sync `resources/` into `~/.claude/`.
 
 **How do I uninstall?**
-Use Forge to remove Reggie files from `~/.claude/`. Alternatively, delete the Reggie agent and command files from `~/.claude/agents/` and `~/.claude/commands/` manually.
+Use the Reggie app to remove Reggie files from `~/.claude/`. Alternatively, delete the Reggie agent and command files from `~/.claude/agents/` and `~/.claude/commands/` manually.
 
 ---
 

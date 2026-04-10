@@ -32,9 +32,9 @@ All distributable content lives under `resources/` in the repo:
 
 ## Install
 
-Reggie is installed and managed by [Forge](https://github.com/The-Banana-Standard/forge-reggie), the desktop companion app. Forge copies the contents of `resources/` into `~/.claude/` and keeps them in sync.
+Reggie is installed and managed by the [Reggie desktop app](https://github.com/The-Banana-Standard/reggie). The app copies the contents of `resources/` into `~/.claude/` and keeps them in sync.
 
-Forge handles:
+The Reggie app handles:
 - Copying agents, commands, hooks, docs, and registries into `~/.claude/`
 - Preserving user-created files (additive install -- never deletes existing files)
 - Configuring stats tracking hooks in `settings.json`
@@ -88,20 +88,20 @@ Brain dump -> /reggie-init-tasks -> /reggie-code-workflow (xN in parallel)
 
 ## Update
 
-Updates are managed through Forge. Pull the latest changes from the repo and Forge will sync `resources/` into `~/.claude/`.
+Updates are managed through the Reggie app. Pull the latest changes from the repo and the app will sync `resources/` into `~/.claude/`.
 
 ---
 
 ## Uninstall
 
-Use Forge to remove Reggie files from `~/.claude/`. Alternatively, delete the Reggie agent and command files from `~/.claude/agents/` and `~/.claude/commands/` manually.
+Use the Reggie app to remove Reggie files from `~/.claude/`. Alternatively, delete the Reggie agent and command files from `~/.claude/agents/` and `~/.claude/commands/` manually.
 
 ---
 
 ## Troubleshooting
 
 `/reggie-guide` shows nothing:
-- Ensure Forge has synced Reggie into `~/.claude/`
+- Ensure the Reggie app has synced into `~/.claude/`
 - Restart Claude Code
 
 GitHub operations fail:

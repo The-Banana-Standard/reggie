@@ -404,7 +404,7 @@ Brief description.
 What to do when `/my-command` is invoked.
 ```
 
-The `type: pipeline` frontmatter is optional — add it for multi-stage workflow commands so tools like Forge can classify them. Omit it for single-action commands.
+The `type: pipeline` frontmatter is optional — add it for multi-stage workflow commands so tools like the Reggie app can classify them. Omit it for single-action commands.
 
 ### Voice Profile
 

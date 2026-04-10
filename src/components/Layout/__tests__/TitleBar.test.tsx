@@ -21,9 +21,9 @@ beforeEach(() => {
 });
 
 describe("TitleBar", () => {
-  it("renders the Forge title text", () => {
+  it("renders the Reggie title text", () => {
     render(<TitleBar {...defaultProps} />);
-    expect(screen.getByText("Forge")).toBeTruthy();
+    expect(screen.getByText("Reggie")).toBeTruthy();
   });
 
   it("does not render status badge when no summary is provided", () => {

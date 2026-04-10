@@ -82,7 +82,7 @@ These terms have specific meanings inside Reggie:
 
 ## Completion Markers
 
-Every pipeline command emits a machine-readable marker as its very last output line. External tools (like Forge) pattern-match on this to detect when a pipeline finishes.
+Every pipeline command emits a machine-readable marker as its very last output line. External tools (like the Reggie desktop app) pattern-match on this to detect when a pipeline finishes.
 
 **Format**: `~~REGGIE:DONE:command-name:status~~`
 
