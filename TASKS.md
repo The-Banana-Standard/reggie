@@ -2,13 +2,37 @@
 
 ## Active Tasks
 
+### integrate-app-code
+**Task**: Copy forge-reggie Tauri app into reggie repo, verify build
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/integrate-app-code
+**Worktree**: .worktree/integrate-app-code
+**Base**: release/v1.1.2
+**Started**: 2026-04-10
+**Attempts**: 0
+**Files**:
+- NEW: src-tauri/, src/, package.json, configs
+- MOD: .gitignore
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+| WRITE-TESTS | - | 0 | - |
+| QUALITY-CHECK | - | 0 | - |
+| SIMPLIFY | - | 0 | - |
+| VERIFY-APP | - | 0 | - |
+| REVIEW | - | 0 | - |
+| SECURITY-REVIEW | - | 0 | - |
+| SYNC-DOCS | - | 0 | - |
+| UPDATE-CLAUDE | - | 0 | - |
+| REVIEW-WITH-USER | - | 0 | - |
+
 ---
 
 ## Backlog
 
 ### App Integration
-- [ ] integrate-app-code: Copy forge-reggie Tauri app into reggie repo, verify build [P1] [depends: reorganize-reggie-repo] [conflicts: reorganize-reggie-repo] [moderate] [tier: opus:medium] [code] [planned]
-  files: src-tauri/ (NEW), src/ (NEW), package.json (NEW), configs (NEW), .gitignore (MOD)
 - [ ] rename-app-to-reggie: Rename app from Forge to Reggie across all configs, source, and tests [P1] [depends: integrate-app-code] [conflicts: bundle-resources-in-app] [moderate] [tier: opus:medium] [code] [planned]
   files: tauri.conf.json (MOD), Cargo.toml (MOD), package.json (MOD), index.html (MOD), 6 source files (MOD), 5 test files (MOD)
 - [ ] merge-ci-workflows: Consolidate CI into ci.yml + release.yml with yamllint and dependency-review jobs [P2] [depends: integrate-app-code] [simple] [tier: sonnet:medium] [code] [planned]
