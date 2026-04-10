@@ -2,13 +2,38 @@
 
 ## Active Tasks
 
+### reorganize-reggie-repo
+**Task**: Move agents/commands/hooks into resources/, remove install scripts
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/reorganize-reggie-repo
+**Worktree**: .worktree/reorganize-reggie-repo
+**Base**: release/v1.1.2
+**Started**: 2026-04-10
+**Attempts**: 0
+**Files**:
+- MOV: agents/, commands/, hooks/ → resources/
+- MOV: REGGIE.md, docs/*.md → resources/docs/
+- MOV: mcp-registry.yaml, skills-registry.yaml → resources/registries/
+- DEL: install.sh, install.ps1, uninstall.sh, uninstall.ps1
+- MOD: README.md, CONTRIBUTING.md, SECURITY.md
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+| WRITE-TESTS | - | 0 | - |
+| QUALITY-CHECK | - | 0 | - |
+| SIMPLIFY | - | 0 | - |
+| VERIFY-APP | - | 0 | - |
+| REVIEW | - | 0 | - |
+| SECURITY-REVIEW | - | 0 | - |
+| SYNC-DOCS | - | 0 | - |
+| UPDATE-CLAUDE | - | 0 | - |
+| REVIEW-WITH-USER | - | 0 | - |
+
 ---
 
 ## Backlog
-
-### Agent System Restructuring
-- [ ] reorganize-reggie-repo: Move agents/commands/hooks into resources/, remove install scripts [P1] [depends: prefix-rename-agents] [moderate] [tier: opus:medium] [code] [planned]
-  files: agents/ (MOV), commands/ (MOV), hooks/ (MOV), docs/ (MOV), registries (MOV), install scripts (DEL), .gitignore (MOD)
 
 ### App Integration
 - [ ] integrate-app-code: Copy forge-reggie Tauri app into reggie repo, verify build [P1] [depends: reorganize-reggie-repo] [conflicts: reorganize-reggie-repo] [moderate] [tier: opus:medium] [code] [planned]
