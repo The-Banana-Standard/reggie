@@ -2,35 +2,6 @@
 
 ## Active Tasks
 
-### reorganize-reggie-repo
-**Task**: Move agents/commands/hooks into resources/, remove install scripts
-**Stage**: COMMIT
-**Pipeline**: code-workflow
-**Branch**: task/reorganize-reggie-repo
-**Worktree**: .worktree/reorganize-reggie-repo
-**Base**: release/v1.1.2
-**Started**: 2026-04-10
-**Attempts**: 0
-**Files**:
-- MOV: agents/, commands/, hooks/ → resources/
-- MOV: REGGIE.md, docs/*.md → resources/docs/
-- MOV: mcp-registry.yaml, skills-registry.yaml → resources/registries/
-- DEL: install.sh, install.ps1, uninstall.sh, uninstall.ps1
-- MOD: README.md, CONTRIBUTING.md, SECURITY.md
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.26 | 2 | PASS |
-| WRITE-TESTS | SKIP | 0 | SKIP |
-| QUALITY-CHECK | SKIP | 0 | SKIP |
-| SIMPLIFY | 9.5 | 1 | PASS |
-| VERIFY-APP | SKIP | 0 | SKIP |
-| REVIEW | 9.5 | 1 | PASS |
-| SECURITY-REVIEW | SKIP | 0 | SKIP |
-| SYNC-DOCS | 9.0+ | 1 | PASS |
-| UPDATE-CLAUDE | SKIP | 0 | SKIP |
-| REVIEW-WITH-USER | APPROVED | 0 | PASS |
-
 ---
 
 ## Backlog

@@ -12,3 +12,4 @@
 - [x] rework-install-and-namespace: Prefix all commands with reggie- and switch to per-file additive install -- 2026-04-06
 - [x] add-pipeline-frontmatter: Add `type: pipeline` YAML frontmatter to 12 pipeline commands [P2] [simple] [tier: sonnet:medium] [code] [planned] -- 2026-04-10
 - [x] prefix-rename-agents: Rename all 36 agent files to reggie- prefix, shorten pipeline manager names, add manager: frontmatter -- 2026-04-10
+- [x] reorganize-reggie-repo: Move agents/commands/hooks into resources/, remove install scripts -- 2026-04-10
