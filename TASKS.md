@@ -2,6 +2,32 @@
 
 ## Active Tasks
 
+### bundle-resources-in-app
+**Task**: Configure Tauri to bundle resources/ and add Rust path resolver
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/bundle-resources-in-app
+**Worktree**: .worktree/bundle-resources-in-app
+**Base**: release/v1.1.2
+**Started**: 2026-04-10
+**Attempts**: 1
+**Files**:
+- MOD: src-tauri/tauri.conf.json
+- NEW: src-tauri/src/commands/resources.rs
+- MOD: src-tauri/src/commands/mod.rs
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+| WRITE-TESTS | - | 0 | - |
+| QUALITY-CHECK | - | 0 | - |
+| SIMPLIFY | - | 0 | - |
+| VERIFY-APP | - | 0 | - |
+| REVIEW | - | 0 | - |
+| SECURITY-REVIEW | - | 0 | - |
+| SYNC-DOCS | - | 0 | - |
+| REVIEW-WITH-USER | - | 0 | - |
+
 ---
 
 ## Backlog
@@ -11,8 +37,6 @@
   files: .github/workflows/ (NEW+DEL)
 
 ### Resource Bundling & Installation
-- [ ] bundle-resources-in-app: Configure Tauri to bundle resources/ and add Rust path resolver [P1] [depends: reorganize-reggie-repo, integrate-app-code] [conflicts: rename-app-to-reggie] [moderate] [tier: opus:medium] [code] [planned]
-  files: tauri.conf.json (MOD), resources.rs (NEW), mod.rs (MOD)
 - [ ] reggie-installer: Rust install lifecycle — copy/symlink to ~/.claude/, version tracking, settings merge, first-launch setup UI [P1] [depends: bundle-resources-in-app, rename-app-to-reggie] [complex] [tier: opus:high] [code] [planned]
   files: installer.rs (NEW), lib.rs (MOD), mod.rs (MOD), FirstLaunchSetup.tsx (NEW), App.tsx (MOD)
 - [ ] add-management-ui: Settings panel in ActivityBar with version info, reinstall, environment setup [P2] [depends: reggie-installer] [moderate] [tier: opus:medium] [code] [planned]

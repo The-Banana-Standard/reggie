@@ -60,3 +60,5 @@ capability-manifest.yaml
 mcp-registry.local.yaml
 skills-registry.local.yaml
 articles/
+.pipeline/
+.worktree/
