@@ -2,13 +2,39 @@
 
 ## Active Tasks
 
+### prefix-rename-agents
+**Task**: Rename all 36 agent files to reggie- prefix, shorten pipeline manager names, add manager: frontmatter
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/prefix-rename-agents
+**Worktree**: .worktree/prefix-rename-agents
+**Base**: release/v1.1.2
+**Started**: 2026-04-10
+**Attempts**: 0
+**Files**:
+- MOD: agents/*.md (36 RENAME+MOD)
+- MOD: commands/*.md (35 MOD)
+- MOD: docs/*.md, REGGIE.md, README.md
+- MOD: reggie_data.rs
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+| WRITE-TESTS | - | 0 | - |
+| QUALITY-CHECK | - | 0 | - |
+| SIMPLIFY | - | 0 | - |
+| VERIFY-APP | - | 0 | - |
+| REVIEW | - | 0 | - |
+| SECURITY-REVIEW | - | 0 | - |
+| SYNC-DOCS | - | 0 | - |
+| UPDATE-CLAUDE | - | 0 | - |
+| REVIEW-WITH-USER | - | 0 | - |
+
 ---
 
 ## Backlog
 
 ### Agent System Restructuring
-- [ ] prefix-rename-agents: Rename all 36 agent files to reggie- prefix, shorten pipeline manager names, add manager: frontmatter [P1] [complex] [tier: opus:high] [code] [planned]
-  files: agents/*.md (36 RENAME+MOD), commands/*.md (35 MOD), docs/*.md (MOD), REGGIE.md (MOD), README.md (MOD), reggie_data.rs (MOD)
 - [ ] reorganize-reggie-repo: Move agents/commands/hooks into resources/, remove install scripts [P1] [depends: prefix-rename-agents] [moderate] [tier: opus:medium] [code] [planned]
   files: agents/ (MOV), commands/ (MOV), hooks/ (MOV), docs/ (MOV), registries (MOV), install scripts (DEL), .gitignore (MOD)
 
