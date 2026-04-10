@@ -4,7 +4,7 @@
 
 ### integrate-app-code
 **Task**: Copy forge-reggie Tauri app into reggie repo, verify build
-**Stage**: REVIEW
+**Stage**: COMMIT
 **Pipeline**: code-workflow
 **Branch**: task/integrate-app-code
 **Worktree**: .worktree/integrate-app-code
@@ -22,11 +22,11 @@
 | QUALITY-CHECK | SKIP | 0 | SKIP |
 | SIMPLIFY | SKIP | 0 | SKIP |
 | VERIFY-APP | 9.0+ | 1 | PASS |
-| REVIEW | - | 0 | CURRENT |
+| REVIEW | 9.5 | 1 | PASS |
 | SECURITY-REVIEW | SKIP | 0 | SKIP |
 | SYNC-DOCS | SKIP | 0 | SKIP |
-| UPDATE-CLAUDE | - | 0 | - |
-| REVIEW-WITH-USER | - | 0 | - |
+| UPDATE-CLAUDE | SKIP | 0 | SKIP |
+| REVIEW-WITH-USER | APPROVED | 0 | PASS |
 
 ---
 
