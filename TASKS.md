@@ -2,13 +2,31 @@
 
 ## Active Tasks
 
+### rename-app-to-reggie
+**Task**: Rename app from Forge to Reggie across all configs, source, and tests
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/rename-app-to-reggie
+**Worktree**: .worktree/rename-app-to-reggie
+**Base**: release/v1.1.2
+**Started**: 2026-04-10
+**Attempts**: 0
+**Files**:
+- MOD: tauri.conf.json, Cargo.toml, package.json, index.html, 6 source files, 5 test files
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+| SIMPLIFY | - | 0 | - |
+| VERIFY-APP | - | 0 | - |
+| REVIEW | - | 0 | - |
+| REVIEW-WITH-USER | - | 0 | - |
+
 ---
 
 ## Backlog
 
 ### App Integration
-- [ ] rename-app-to-reggie: Rename app from Forge to Reggie across all configs, source, and tests [P1] [depends: integrate-app-code] [conflicts: bundle-resources-in-app] [moderate] [tier: opus:medium] [code] [planned]
-  files: tauri.conf.json (MOD), Cargo.toml (MOD), package.json (MOD), index.html (MOD), 6 source files (MOD), 5 test files (MOD)
 - [ ] merge-ci-workflows: Consolidate CI into ci.yml + release.yml with yamllint and dependency-review jobs [P2] [depends: integrate-app-code] [simple] [tier: sonnet:medium] [code] [planned]
   files: .github/workflows/ (NEW+DEL)
 
