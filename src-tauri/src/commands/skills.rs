@@ -3,6 +3,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+use super::frontmatter::split_frontmatter;
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Skill {
@@ -28,20 +30,9 @@ pub struct InstalledSkillStatus {
     pub installed: bool,
 }
 
-fn skip_yaml_frontmatter(content: &str) -> &str {
-    if let Some(rest) = content.strip_prefix("---") {
-        // Find the closing ---
-        if let Some(end) = rest.find("\n---") {
-            let after = &rest[end + 4..];
-            return after.trim_start_matches('\n');
-        }
-    }
-    content
-}
-
 fn parse_skill_file(path: &PathBuf, source: &str) -> Option<Skill> {
     let content = fs::read_to_string(path).ok()?;
-    let content = skip_yaml_frontmatter(&content);
+    let (_, content) = split_frontmatter(&content);
 
     let name = if source == "skill" {
         // For skills in ~/.claude/skills/<id>/SKILL.md, use the directory name
@@ -288,35 +279,6 @@ pub fn check_skills_installed(skill_ids: Vec<(String, String)>) -> Vec<Installed
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn skip_yaml_frontmatter_with_frontmatter() {
-        let input = "---\ntitle: My Skill\nauthor: test\n---\n# Hello\nThis is content.";
-        let result = skip_yaml_frontmatter(input);
-        assert_eq!(result, "# Hello\nThis is content.");
-    }
-
-    #[test]
-    fn skip_yaml_frontmatter_without_frontmatter() {
-        let input = "# Hello\nThis is content.";
-        let result = skip_yaml_frontmatter(input);
-        assert_eq!(result, input);
-    }
-
-    #[test]
-    fn skip_yaml_frontmatter_unclosed_returns_as_is() {
-        let input = "---\ntitle: Unclosed\nNo closing delimiter here";
-        let result = skip_yaml_frontmatter(input);
-        assert_eq!(result, input);
-    }
-
-    #[test]
-    fn skip_yaml_frontmatter_empty_string() {
-        let result = skip_yaml_frontmatter("");
-        assert_eq!(result, "");
-    }
-
-    // --- parse_skill_file ---
 
     #[test]
     fn parse_skill_file_basic() {

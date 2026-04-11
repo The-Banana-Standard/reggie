@@ -2,6 +2,8 @@ use serde::Serialize;
 use std::fs;
 use std::path::PathBuf;
 
+use super::frontmatter::{split_frontmatter, strip_quotes};
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentInfo {
@@ -12,28 +14,6 @@ pub struct AgentInfo {
     pub memory: Option<String>,
     pub file_path: String,
     pub is_pipeline_manager: bool,
-}
-
-/// Extracts YAML frontmatter from markdown content.
-///
-/// Returns `None` if the content has no valid frontmatter (no opening/closing `---`).
-/// Otherwise returns the raw frontmatter string between the delimiters.
-fn extract_frontmatter(content: &str) -> Option<&str> {
-    let rest = content.strip_prefix("---")?;
-    let end = rest.find("\n---")?;
-    Some(&rest[..end])
-}
-
-/// Strips surrounding double or single quotes from a string value.
-fn strip_quotes(value: &str) -> &str {
-    let trimmed = value.trim();
-    if (trimmed.starts_with('"') && trimmed.ends_with('"'))
-        || (trimmed.starts_with('\'') && trimmed.ends_with('\''))
-    {
-        &trimmed[1..trimmed.len() - 1]
-    } else {
-        trimmed
-    }
 }
 
 #[derive(Debug, Serialize)]
@@ -64,7 +44,7 @@ fn parse_command_file(path: &PathBuf, source: &str) -> Option<CommandInfo> {
     let mut command_type = "utility".to_string();
 
     // If frontmatter exists, try to extract type from it
-    if let Some(frontmatter) = extract_frontmatter(&content) {
+    if let Some(frontmatter) = split_frontmatter(&content).0 {
         for line in frontmatter.lines() {
             if let Some((key, value)) = line.split_once(':') {
                 let key = key.trim();
@@ -175,7 +155,7 @@ pub fn get_commands(project_path: Option<String>) -> Result<Vec<CommandInfo>, St
 /// Returns `None` if the file cannot be read or has no valid frontmatter.
 fn parse_agent_file(path: &PathBuf) -> Option<AgentInfo> {
     let content = fs::read_to_string(path).ok()?;
-    let frontmatter = extract_frontmatter(&content)?;
+    let frontmatter = split_frontmatter(&content).0?;
 
     let mut name: Option<String> = None;
     let mut description: Option<String> = None;
@@ -260,7 +240,7 @@ pub fn get_agents() -> Result<Vec<AgentInfo>, String> {
             }
             let agent = parse_agent_file(&path)?;
             // Filter out pipeline managers
-            if agent.description.contains("REFERENCE DOCUMENT for the main Claude orchestrator") {
+            if agent.is_pipeline_manager {
                 return None;
             }
             Some(agent)
@@ -393,51 +373,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn extract_frontmatter_valid() {
-        let content = "---\nname: test\ndescription: hello\n---\n# Body";
-        let fm = extract_frontmatter(content);
-        assert!(fm.is_some());
-        assert_eq!(fm.unwrap(), "\nname: test\ndescription: hello");
-    }
-
-    #[test]
-    fn extract_frontmatter_missing_opening() {
-        let content = "name: test\n---\n# Body";
-        assert!(extract_frontmatter(content).is_none());
-    }
-
-    #[test]
-    fn extract_frontmatter_missing_closing() {
-        let content = "---\nname: test\n# Body";
-        assert!(extract_frontmatter(content).is_none());
-    }
-
-    #[test]
-    fn extract_frontmatter_empty() {
-        assert!(extract_frontmatter("").is_none());
-    }
-
-    #[test]
-    fn strip_quotes_double() {
-        assert_eq!(strip_quotes("\"hello world\""), "hello world");
-    }
-
-    #[test]
-    fn strip_quotes_single() {
-        assert_eq!(strip_quotes("'hello'"), "hello");
-    }
-
-    #[test]
-    fn strip_quotes_none() {
-        assert_eq!(strip_quotes("hello"), "hello");
-    }
-
-    #[test]
-    fn strip_quotes_mismatched() {
-        assert_eq!(strip_quotes("\"hello'"), "\"hello'");
-    }
-
-    #[test]
     fn parse_agent_file_full() {
         let dir = tempfile::tempdir().unwrap();
         let file_path = dir.path().join("code-reviewer.md");
@@ -536,8 +471,8 @@ mod tests {
         let worker = parse_agent_file(&agents_dir.join("worker.md")).unwrap();
         let pm = parse_agent_file(&agents_dir.join("pm.md")).unwrap();
 
-        assert!(!worker.description.contains("REFERENCE DOCUMENT for the main Claude orchestrator"));
-        assert!(pm.description.contains("REFERENCE DOCUMENT for the main Claude orchestrator"));
+        assert!(!worker.is_pipeline_manager);
+        assert!(pm.is_pipeline_manager);
     }
 
     #[test]
@@ -602,17 +537,6 @@ mod tests {
     fn parse_agent_file_nonexistent_file() {
         let path = PathBuf::from("/nonexistent/path/agent.md");
         assert!(parse_agent_file(&path).is_none());
-    }
-
-    #[test]
-    fn extract_frontmatter_crlf_line_endings() {
-        let content = "---\r\nname: test\r\ndescription: hello\r\n---\r\n# Body";
-        let fm = extract_frontmatter(content);
-        assert!(fm.is_some());
-        // The \r will be included in the frontmatter; lines() handles \r\n
-        let fm_str = fm.unwrap();
-        assert!(fm_str.contains("name"));
-        assert!(fm_str.contains("description"));
     }
 
     #[test]
