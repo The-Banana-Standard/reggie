@@ -24,6 +24,7 @@ pub struct CommandInfo {
     pub command_type: String,
     pub source: String,
     pub file_path: String,
+    pub manager: Option<String>,
 }
 
 /// Parses a command markdown file into a `CommandInfo`.
@@ -42,8 +43,9 @@ fn parse_command_file(path: &PathBuf, source: &str) -> Option<CommandInfo> {
         .unwrap_or_default();
 
     let mut command_type = "utility".to_string();
+    let mut manager: Option<String> = None;
 
-    // If frontmatter exists, try to extract type from it
+    // If frontmatter exists, try to extract type and manager from it
     if let Some(frontmatter) = split_frontmatter(&content).0 {
         for line in frontmatter.lines() {
             if let Some((key, value)) = line.split_once(':') {
@@ -54,7 +56,9 @@ fn parse_command_file(path: &PathBuf, source: &str) -> Option<CommandInfo> {
                 }
                 if key == "type" {
                     command_type = strip_quotes(value).to_string();
-                    break;
+                }
+                if key == "manager" {
+                    manager = Some(strip_quotes(value).to_string());
                 }
             }
         }
@@ -90,6 +94,7 @@ fn parse_command_file(path: &PathBuf, source: &str) -> Option<CommandInfo> {
         command_type,
         source: source.to_string(),
         file_path: path.to_string_lossy().to_string(),
+        manager,
     })
 }
 
@@ -262,45 +267,12 @@ pub struct PipelineInfo {
     pub manager_file_path: Option<String>,
 }
 
-/// Attempts to match a pipeline command to its pipeline manager agent.
-///
-/// The naming convention between commands and managers is inconsistent, so we
-/// use a heuristic: strip common suffixes (`-workflow`) from the command name
-/// to get a base, then check if any manager name contains that base or vice
-/// versa. Returns the index of the best-matching manager, if any.
-fn find_matching_manager(command_name: &str, managers: &[AgentInfo]) -> Option<usize> {
-    // Hardcoded exception: code-workflow maps to pipeline-manager (no name overlap)
-    if command_name == "code-workflow" {
-        return managers.iter().position(|m| m.name == "pipeline-manager");
-    }
-
-    let base = command_name
-        .trim_end_matches("-workflow")
-        .trim_end_matches("-tasks");
-
-    for (i, manager) in managers.iter().enumerate() {
-        let mgr_name = &manager.name;
-        // Check if the command base is contained in the manager name
-        if mgr_name.contains(base) {
-            return Some(i);
-        }
-        // Check if the manager name (minus common suffixes) is contained in the base
-        let mgr_base = mgr_name
-            .trim_end_matches("-pipeline-manager")
-            .trim_end_matches("-manager");
-        if !mgr_base.is_empty() && base.contains(mgr_base) {
-            return Some(i);
-        }
-    }
-    None
-}
-
 /// Returns metadata for all pipeline commands paired with their pipeline manager agents.
 ///
 /// Pipeline commands have `type: pipeline` in their frontmatter. Pipeline managers
 /// are agents whose description contains "REFERENCE DOCUMENT for the main Claude
-/// orchestrator". Each command is matched to its manager by name heuristic.
-/// Results are sorted alphabetically by command name.
+/// orchestrator". Each command is matched to its manager via the `manager:` field
+/// in its frontmatter. Results are sorted alphabetically by command name.
 #[tauri::command]
 pub fn get_pipelines() -> Result<Vec<PipelineInfo>, String> {
     let home = dirs::home_dir()
@@ -348,17 +320,19 @@ pub fn get_pipelines() -> Result<Vec<PipelineInfo>, String> {
         }
     }
 
-    // Pair commands with managers
+    // Pair commands with managers via frontmatter `manager:` field
     let mut pipelines: Vec<PipelineInfo> = pipeline_commands
         .into_iter()
         .map(|cmd| {
-            let matched = find_matching_manager(&cmd.name, &managers);
+            let matched = cmd.manager.as_ref().and_then(|mgr_name| {
+                managers.iter().find(|m| &m.name == mgr_name)
+            });
             PipelineInfo {
                 name: cmd.name,
                 description: cmd.description,
                 command_file_path: cmd.file_path,
-                manager_name: matched.map(|i| managers[i].name.clone()),
-                manager_file_path: matched.map(|i| managers[i].file_path.clone()),
+                manager_name: matched.map(|m| m.name.clone()),
+                manager_file_path: matched.map(|m| m.file_path.clone()),
             }
         })
         .collect();
@@ -603,6 +577,7 @@ mod tests {
         assert_eq!(cmd.command_type, "utility");
         assert_eq!(cmd.source, "global");
         assert_eq!(cmd.file_path, file_path.to_string_lossy().to_string());
+        assert_eq!(cmd.manager, None);
     }
 
     #[test]
@@ -620,6 +595,7 @@ mod tests {
         assert_eq!(cmd.description, "Deploy the app.");
         assert_eq!(cmd.command_type, "stage");
         assert_eq!(cmd.source, "global");
+        assert_eq!(cmd.manager, None);
     }
 
     #[test]
@@ -634,6 +610,7 @@ mod tests {
 
         let cmd = parse_command_file(&PathBuf::from(&file_path), "global").unwrap();
         assert_eq!(cmd.command_type, "pipeline");
+        assert_eq!(cmd.manager, None);
     }
 
     #[test]
@@ -649,6 +626,7 @@ mod tests {
         let cmd = parse_command_file(&PathBuf::from(&file_path), "global").unwrap();
         assert_eq!(cmd.name, "empty");
         assert_eq!(cmd.description, "");
+        assert_eq!(cmd.manager, None);
     }
 
     #[test]
@@ -664,6 +642,7 @@ mod tests {
         let cmd = parse_command_file(&PathBuf::from(&file_path), "global").unwrap();
         assert_eq!(cmd.name, "bare");
         assert_eq!(cmd.description, "");
+        assert_eq!(cmd.manager, None);
     }
 
     #[test]
@@ -684,6 +663,7 @@ mod tests {
 
         let cmd = parse_command_file(&PathBuf::from(&file_path), "global").unwrap();
         assert_eq!(cmd.description, "Use the thought-partner agent as a thinking partner.");
+        assert_eq!(cmd.manager, None);
     }
 
     #[test]
@@ -702,6 +682,7 @@ mod tests {
         assert_eq!(cmd.command_type, "utility");
         assert_eq!(cmd.source, "project");
         assert_eq!(cmd.file_path, file_path.to_string_lossy().to_string());
+        assert_eq!(cmd.manager, None);
     }
 
     #[test]
@@ -713,71 +694,83 @@ mod tests {
 
         let cmd = parse_command_file(&PathBuf::from(&file_path), "workspace").unwrap();
         assert_eq!(cmd.source, "workspace");
+        assert_eq!(cmd.manager, None);
     }
 
-    // ── Pipeline matching tests ──
+    // ── Manager frontmatter tests ──
 
     #[test]
-    fn find_matching_manager_code_workflow() {
-        // "code-workflow" → "pipeline-manager" is a hardcoded exception (no substring overlap).
-        let managers = vec![
-            make_test_manager("pipeline-manager", "/agents/pipeline-manager.md"),
-            make_test_manager("audit-pipeline-manager", "/agents/audit-pipeline-manager.md"),
-        ];
-        let result = find_matching_manager("code-workflow", &managers);
-        assert_eq!(result, Some(0));
-    }
+    fn parse_command_file_with_manager_frontmatter() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("code-pipeline.md");
+        std::fs::write(
+            &file_path,
+            "---\ntype: pipeline\nmanager: reggie-code-manager\n---\n# Code Pipeline\n\nRuns the code pipeline.\n",
+        )
+        .unwrap();
 
-    #[test]
-    fn find_matching_manager_audit_workflow() {
-        let managers = vec![
-            make_test_manager("pipeline-manager", "/agents/pipeline-manager.md"),
-            make_test_manager("audit-pipeline-manager", "/agents/audit-pipeline-manager.md"),
-        ];
-        let result = find_matching_manager("audit-workflow", &managers);
-        // base = "audit", manager[1] name "audit-pipeline-manager" contains "audit" → match
-        assert_eq!(result, Some(1));
+        let cmd = parse_command_file(&PathBuf::from(&file_path), "global").unwrap();
+        assert_eq!(cmd.command_type, "pipeline");
+        assert_eq!(cmd.manager, Some("reggie-code-manager".to_string()));
     }
 
     #[test]
-    fn find_matching_manager_improve() {
-        let managers = vec![
-            make_test_manager("improve-pipeline-manager", "/agents/improve-pipeline-manager.md"),
-        ];
-        let result = find_matching_manager("improve", &managers);
-        // base = "improve", manager[0] name "improve-pipeline-manager" contains "improve" → match
-        assert_eq!(result, Some(0));
+    fn parse_command_file_with_manager_and_type() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("audit.md");
+        std::fs::write(
+            &file_path,
+            "---\ntype: stage\nmanager: reggie-audit-manager\n---\n# Audit\n\nRun audit checks.\n",
+        )
+        .unwrap();
+
+        let cmd = parse_command_file(&PathBuf::from(&file_path), "global").unwrap();
+        assert_eq!(cmd.command_type, "stage");
+        assert_eq!(cmd.manager, Some("reggie-audit-manager".to_string()));
     }
 
     #[test]
-    fn find_matching_manager_no_match() {
-        let managers = vec![
-            make_test_manager("audit-pipeline-manager", "/agents/audit-pipeline-manager.md"),
-        ];
-        let result = find_matching_manager("deploy", &managers);
-        assert!(result.is_none());
+    fn parse_command_file_manager_without_type() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("orphan.md");
+        std::fs::write(
+            &file_path,
+            "---\nmanager: reggie-orphan-manager\n---\n# Orphan\n\nCommand with manager but no type.\n",
+        )
+        .unwrap();
+
+        let cmd = parse_command_file(&PathBuf::from(&file_path), "global").unwrap();
+        assert_eq!(cmd.command_type, "utility");
+        assert_eq!(cmd.manager, Some("reggie-orphan-manager".to_string()));
     }
 
     #[test]
-    fn find_matching_manager_debug_workflow() {
-        let managers = vec![
-            make_test_manager("debug-pipeline-manager", "/agents/debug-pipeline-manager.md"),
-        ];
-        let result = find_matching_manager("debug-workflow", &managers);
-        // base = "debug", manager name contains "debug" → match
-        assert_eq!(result, Some(0));
+    fn parse_command_file_manager_quoted() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("quoted-mgr.md");
+        std::fs::write(
+            &file_path,
+            "---\ntype: pipeline\nmanager: \"reggie-audit-manager\"\n---\n# Quoted\n\nManager value has quotes.\n",
+        )
+        .unwrap();
+
+        let cmd = parse_command_file(&PathBuf::from(&file_path), "global").unwrap();
+        assert_eq!(cmd.manager, Some("reggie-audit-manager".to_string()));
     }
 
-    /// Helper to create a minimal AgentInfo for matching tests.
-    fn make_test_manager(name: &str, path: &str) -> AgentInfo {
-        AgentInfo {
-            name: name.to_string(),
-            description: "REFERENCE DOCUMENT for the main Claude orchestrator".to_string(),
-            model: None,
-            tools: Vec::new(),
-            memory: None,
-            file_path: path.to_string(),
-            is_pipeline_manager: true,
-        }
+    #[test]
+    fn parse_command_file_manager_empty_value() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("empty-mgr.md");
+        std::fs::write(
+            &file_path,
+            "---\ntype: pipeline\nmanager:\n---\n# Empty Manager\n\nManager field is empty.\n",
+        )
+        .unwrap();
+
+        let cmd = parse_command_file(&PathBuf::from(&file_path), "global").unwrap();
+        assert_eq!(cmd.command_type, "pipeline");
+        assert_eq!(cmd.manager, None);
     }
+
 }

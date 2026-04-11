@@ -14,6 +14,7 @@ export interface CommandInfo {
   commandType: string;
   source: string;
   filePath: string;
+  manager: string | null;
 }
 
 export interface PipelineInfo {
