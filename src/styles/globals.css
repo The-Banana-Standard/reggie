@@ -4049,3 +4049,231 @@ html, body, #root {
   background: var(--bg-hover);
 }
 
+/* ── Settings Panel ── */
+
+.settings-panel {
+  padding: 16px 14px;
+  overflow-y: auto;
+}
+
+.settings-panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent-orange);
+  margin-bottom: 16px;
+}
+
+.settings-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 20px 0;
+}
+
+.settings-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.settings-section-header {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.settings-info-grid {
+  margin-bottom: 12px;
+}
+
+.settings-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.settings-info-label {
+  color: var(--text-secondary);
+}
+
+.settings-info-value {
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-update-badge {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-orange);
+  background: var(--accent-bg-subtle);
+  border: 1px solid var(--accent-border-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.settings-counts {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.settings-count-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.settings-count-number {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-count-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.settings-btn {
+  width: 100%;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.settings-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.settings-btn.primary {
+  background: var(--accent-orange);
+  color: var(--btn-primary-text);
+  border-color: var(--accent-orange);
+}
+
+.settings-btn.primary:hover:not(:disabled) {
+  background: var(--accent-highlight);
+}
+
+.settings-btn.secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.settings-btn.secondary:hover:not(:disabled) {
+  border-color: var(--accent-border-medium);
+  background: var(--bg-hover);
+}
+
+.settings-message {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+}
+
+.settings-message.success {
+  color: var(--accent-orange);
+  background: var(--accent-bg-subtle);
+}
+
+.settings-message.error {
+  color: var(--danger);
+  background: rgba(255, 85, 85, 0.08);
+}
+
+.settings-env-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.settings-env-indicator {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.settings-env-indicator.configured {
+  color: var(--accent-orange);
+  background: var(--accent-bg-subtle);
+}
+
+.settings-env-indicator.not-configured {
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+}
+
+.settings-env-description {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.settings-env-description code {
+  font-size: 10px;
+  background: var(--bg-primary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: var(--accent-orange);
+}
+
+.settings-env-code {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+
+.settings-env-code code {
+  font-size: 11px;
+  color: var(--accent-orange);
+  word-break: break-all;
+}
+
+.settings-env-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.settings-env-actions .settings-btn {
+  flex: 1;
+}
+

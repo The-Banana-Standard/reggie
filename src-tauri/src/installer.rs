@@ -58,6 +58,26 @@ pub struct InstallStatus {
     pub needs_setup: bool,
 }
 
+/// Extended install status with file counts and environment info.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DetailedInstallStatus {
+    /// The currently installed version (empty string if none).
+    pub version: String,
+    /// The version bundled with this build of the app.
+    pub bundled_version: String,
+    /// Whether the first-launch setup UI should be shown.
+    pub needs_setup: bool,
+    /// Number of agent files in `~/.claude/agents/`.
+    pub agent_count: usize,
+    /// Number of command files in `~/.claude/commands/`.
+    pub command_count: usize,
+    /// Number of hook files in `~/.claude/hooks/`.
+    pub hook_count: usize,
+    /// Whether `ENABLE_TOOL_SEARCH` is set in the current environment.
+    pub tool_search_configured: bool,
+}
+
 // ── Main entry point ──────────────────────────────────────────────────────
 
 /// Run the full install flow. Called from `setup()` in `lib.rs`.
@@ -210,6 +230,87 @@ pub fn get_shell_export_line() -> String {
     SHELL_EXPORT_LINE.to_string()
 }
 
+/// Returns detailed install status including file counts and environment info.
+#[tauri::command]
+pub fn get_detailed_install_status() -> Result<DetailedInstallStatus, String> {
+    let claude_dir = get_claude_dir()?;
+    let version = read_installed_version(&claude_dir).unwrap_or_default();
+    let needs_setup = !setup_complete_flag(&claude_dir).exists();
+
+    let agent_count = count_files_in_dir(&claude_dir.join("agents"));
+    let command_count = count_files_in_dir(&claude_dir.join("commands"));
+    let hook_count = count_files_in_dir(&claude_dir.join("hooks"));
+    let tool_search_configured = std::env::var("ENABLE_TOOL_SEARCH").is_ok();
+
+    Ok(DetailedInstallStatus {
+        version,
+        bundled_version: BUNDLED_VERSION.to_string(),
+        needs_setup,
+        agent_count,
+        command_count,
+        hook_count,
+        tool_search_configured,
+    })
+}
+
+/// Forces a reinstall regardless of version match. Returns the install result.
+#[tauri::command]
+pub fn force_reinstall(app: AppHandle) -> Result<InstallResult, String> {
+    let claude_dir = get_claude_dir()?;
+    let is_dev = cfg!(debug_assertions);
+
+    ensure_dirs(&claude_dir)?;
+
+    let resource_base = get_resource_base(&app)?;
+    let mut warnings: Vec<String> = Vec::new();
+
+    if let Err(e) = install_resources(&resource_base, &claude_dir, is_dev) {
+        warnings.push(format!("agents/commands: {e}"));
+    }
+    if let Err(e) = install_hooks(&resource_base, &claude_dir, is_dev) {
+        warnings.push(format!("hooks: {e}"));
+    }
+    if let Err(e) = install_docs(&resource_base, &claude_dir, is_dev) {
+        warnings.push(format!("docs: {e}"));
+    }
+    if let Err(e) = install_registries(&resource_base, &claude_dir, is_dev) {
+        warnings.push(format!("registries: {e}"));
+    }
+    if let Err(e) = install_standalone(&resource_base, &claude_dir, is_dev) {
+        warnings.push(format!("standalone: {e}"));
+    }
+    if let Err(e) = create_overlay_files(&claude_dir) {
+        warnings.push(format!("overlays: {e}"));
+    }
+    if let Err(e) = configure_settings(&claude_dir) {
+        warnings.push(format!("settings: {e}"));
+    }
+
+    write_version(&claude_dir, BUNDLED_VERSION)?;
+
+    for w in &warnings {
+        eprintln!("[reggie-installer] warning: {w}");
+    }
+
+    let message = if warnings.is_empty() {
+        format!("Reinstalled Reggie v{BUNDLED_VERSION}")
+    } else {
+        format!(
+            "Reinstalled Reggie v{BUNDLED_VERSION} with {} warning(s)",
+            warnings.len()
+        )
+    };
+
+    let needs_setup = !setup_complete_flag(&claude_dir).exists();
+
+    Ok(InstallResult {
+        installed: true,
+        version: BUNDLED_VERSION.to_string(),
+        needs_setup,
+        message,
+    })
+}
+
 // ── Internal helpers ──────────────────────────────────────────────────────
 
 /// Returns `~/.claude/`.
@@ -262,6 +363,18 @@ fn write_version(claude_dir: &Path, version: &str) -> Result<(), String> {
 /// Path to the `~/.claude/.reggie-setup-complete` flag file.
 fn setup_complete_flag(claude_dir: &Path) -> PathBuf {
     claude_dir.join(".reggie-setup-complete")
+}
+
+/// Counts the number of regular files in a directory. Returns 0 if the
+/// directory does not exist or is unreadable.
+fn count_files_in_dir(dir: &Path) -> usize {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return 0;
+    };
+    entries
+        .flatten()
+        .filter(|e| e.path().is_file())
+        .count()
 }
 
 /// Installs `reggie-*` prefixed files from `agents/` and `commands/`.
@@ -1335,5 +1448,49 @@ mod tests {
         let result = configure_settings(claude_dir);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("hooks is not an object"));
+    }
+
+    // ── count_files_in_dir ──
+
+    #[test]
+    fn count_files_in_dir_returns_zero_for_missing_dir() {
+        let tmp = TempDir::new().unwrap();
+        let missing = tmp.path().join("nonexistent");
+        assert_eq!(count_files_in_dir(&missing), 0);
+    }
+
+    #[test]
+    fn count_files_in_dir_returns_zero_for_empty_dir() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("empty");
+        fs::create_dir_all(&dir).unwrap();
+        assert_eq!(count_files_in_dir(&dir), 0);
+    }
+
+    #[test]
+    fn count_files_in_dir_counts_only_files() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("mixed");
+        fs::create_dir_all(&dir).unwrap();
+
+        File::create(dir.join("file1.md")).unwrap();
+        File::create(dir.join("file2.md")).unwrap();
+        fs::create_dir_all(dir.join("subdir")).unwrap();
+
+        assert_eq!(count_files_in_dir(&dir), 2);
+    }
+
+    #[test]
+    fn count_files_in_dir_does_not_recurse() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("nested");
+        let sub = dir.join("sub");
+        fs::create_dir_all(&sub).unwrap();
+
+        File::create(dir.join("top.md")).unwrap();
+        File::create(sub.join("nested.md")).unwrap();
+
+        // Only the top-level file should be counted.
+        assert_eq!(count_files_in_dir(&dir), 1);
     }
 }

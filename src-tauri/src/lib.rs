@@ -58,6 +58,8 @@ pub fn run() {
             commands::resources::get_resource_dir,
             commands::resources::list_resource_files,
             installer::get_install_status,
+            installer::get_detailed_install_status,
+            installer::force_reinstall,
             installer::complete_setup,
             installer::add_to_shell_profile,
             installer::get_shell_export_line,
