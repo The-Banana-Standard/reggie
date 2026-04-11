@@ -46,6 +46,8 @@ pub fn run() {
             commands::run_locally::check_run_script,
             commands::run_locally::open_in_browser,
             commands::git::get_git_log,
+            commands::resources::get_resource_dir,
+            commands::resources::list_resource_files,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
