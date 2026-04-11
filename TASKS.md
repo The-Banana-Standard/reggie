@@ -2,32 +2,6 @@
 
 ## Active Tasks
 
-### bundle-resources-in-app
-**Task**: Configure Tauri to bundle resources/ and add Rust path resolver
-**Stage**: UPDATE-CLAUDE
-**Pipeline**: code-workflow
-**Branch**: task/bundle-resources-in-app
-**Worktree**: .worktree/bundle-resources-in-app
-**Base**: release/v1.1.2
-**Started**: 2026-04-10
-**Attempts**: 1
-**Files**:
-- MOD: src-tauri/tauri.conf.json
-- NEW: src-tauri/src/commands/resources.rs
-- MOD: src-tauri/src/commands/mod.rs
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.35 | 2 | PASS |
-| WRITE-TESTS | 9.30 | 1 | PASS |
-| QUALITY-CHECK | 9.40 | 1 | PASS |
-| SIMPLIFY | 9.65 | 1 | PASS |
-| VERIFY-APP | 9.25 | 2 | PASS |
-| REVIEW | 9.38 | 2 | PASS |
-| SECURITY-REVIEW | 9.28 | 2 | PASS |
-| SYNC-DOCS | - | 0 | SKIP |
-| REVIEW-WITH-USER | - | 0 | - |
-
 ---
 
 ## Backlog
