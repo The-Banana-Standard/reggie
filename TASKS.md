@@ -4,7 +4,7 @@
 
 ### reggie-installer
 **Task**: Rust install lifecycle — copy/symlink to ~/.claude/, version tracking, settings merge, first-launch setup UI
-**Stage**: SECURITY-REVIEW
+**Stage**: SYNC-DOCS
 **Pipeline**: code-workflow
 **Branch**: task/reggie-installer
 **Worktree**: .worktree/reggie-installer
@@ -26,8 +26,8 @@
 | SIMPLIFY | 9.4 | 1 | PASS |
 | VERIFY-APP | 9.5 | 1 | PASS |
 | REVIEW | 9.0 | 2 | PASS |
-| SECURITY-REVIEW | - | 0 | CURRENT |
-| SYNC-DOCS | - | 0 | - |
+| SECURITY-REVIEW | 9.3 | 1 | PASS |
+| SYNC-DOCS | - | 0 | CURRENT |
 | UPDATE-CLAUDE | - | 0 | - |
 | REVIEW-WITH-USER | - | 0 | - |
 
