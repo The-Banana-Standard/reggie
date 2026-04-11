@@ -19,3 +19,4 @@
 - [x] reggie-installer: Rust install lifecycle — copy/symlink to ~/.claude/, version tracking, settings merge, first-launch setup UI -- 2026-04-11
 - [x] merge-ci-workflows: Consolidate CI into ci.yml + release.yml with yamllint and dependency-review jobs -- 2026-04-11
 - [x] add-management-ui: Settings panel in ActivityBar with version info, reinstall, environment setup -- 2026-04-11
+- [x] consolidate-frontmatter-parsing: Consolidate duplicate YAML frontmatter parsing into shared utility -- 2026-04-11
