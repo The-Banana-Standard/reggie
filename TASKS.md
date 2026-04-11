@@ -2,6 +2,35 @@
 
 ## Active Tasks
 
+### reggie-installer
+**Task**: Rust install lifecycle — copy/symlink to ~/.claude/, version tracking, settings merge, first-launch setup UI
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/reggie-installer
+**Worktree**: .worktree/reggie-installer
+**Base**: release/v1.1.2
+**Started**: 2026-04-11
+**Attempts**: 0
+**Files**:
+- NEW: src-tauri/src/installer.rs
+- MOD: src-tauri/src/lib.rs
+- MOD: src-tauri/src/commands/mod.rs
+- NEW: src/components/Setup/FirstLaunchSetup.tsx
+- MOD: src/App.tsx
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+| WRITE-TESTS | - | 0 | - |
+| QUALITY-CHECK | - | 0 | - |
+| SIMPLIFY | - | 0 | - |
+| VERIFY-APP | - | 0 | - |
+| REVIEW | - | 0 | - |
+| SECURITY-REVIEW | - | 0 | - |
+| SYNC-DOCS | - | 0 | - |
+| UPDATE-CLAUDE | - | 0 | - |
+| REVIEW-WITH-USER | - | 0 | - |
+
 ---
 
 ## Backlog
@@ -11,8 +40,6 @@
   files: .github/workflows/ (NEW+DEL)
 
 ### Resource Bundling & Installation
-- [ ] reggie-installer: Rust install lifecycle — copy/symlink to ~/.claude/, version tracking, settings merge, first-launch setup UI [P1] [depends: bundle-resources-in-app, rename-app-to-reggie] [complex] [tier: opus:high] [code] [planned]
-  files: installer.rs (NEW), lib.rs (MOD), mod.rs (MOD), FirstLaunchSetup.tsx (NEW), App.tsx (MOD)
 - [ ] add-management-ui: Settings panel in ActivityBar with version info, reinstall, environment setup [P2] [depends: reggie-installer] [moderate] [tier: opus:medium] [code] [planned]
   files: SettingsPanel.tsx (NEW), ActivityBar.tsx (MOD), mod.rs (MOD), installer.rs (MOD), globals.css (MOD)
 

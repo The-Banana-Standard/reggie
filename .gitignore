@@ -62,3 +62,7 @@ skills-registry.local.yaml
 articles/
 .pipeline/
 .worktree/
+
+# Pipeline
+.pipeline/
+.worktree/
