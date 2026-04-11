@@ -2,13 +2,40 @@
 
 ## Active Tasks
 
+### merge-ci-workflows
+**Task**: Consolidate CI into ci.yml + release.yml with yamllint and dependency-review jobs
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/merge-ci-workflows
+**Worktree**: .worktree/merge-ci-workflows
+**Base**: release/v1.1.2
+**Started**: 2026-04-11
+**Attempts**: 0
+**Files**:
+- DEL: .github/workflows/shellcheck.yml
+- DEL: .github/workflows/yaml-lint.yml
+- DEL: .github/workflows/dependency-review.yml
+- NEW: .github/workflows/ci.yml
+- NEW: .github/workflows/release.yml
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+| WRITE-TESTS | - | 0 | - |
+| QUALITY-CHECK | - | 0 | - |
+| SIMPLIFY | - | 0 | - |
+| VERIFY-APP | - | 0 | - |
+| REVIEW | - | 0 | - |
+| SECURITY-REVIEW | - | 0 | - |
+| SYNC-DOCS | - | 0 | - |
+| UPDATE-CLAUDE | - | 0 | - |
+| REVIEW-WITH-USER | - | 0 | - |
+
 ---
 
 ## Backlog
 
 ### App Integration
-- [ ] merge-ci-workflows: Consolidate CI into ci.yml + release.yml with yamllint and dependency-review jobs [P2] [depends: integrate-app-code] [simple] [tier: sonnet:medium] [code] [planned]
-  files: .github/workflows/ (NEW+DEL)
 
 ### Resource Bundling & Installation
 - [ ] add-management-ui: Settings panel in ActivityBar with version info, reinstall, environment setup [P2] [depends: reggie-installer] [moderate] [tier: opus:medium] [code] [planned]
