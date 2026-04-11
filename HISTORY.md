@@ -16,3 +16,4 @@
 - [x] integrate-app-code: Copy forge-reggie Tauri app into reggie repo, verify build -- 2026-04-10
 - [x] rename-app-to-reggie: Rename app from Forge to Reggie across all configs, source, and tests -- 2026-04-10
 - [x] bundle-resources-in-app: Configure Tauri to bundle resources/ and add Rust path resolver -- 2026-04-10
+- [x] reggie-installer: Rust install lifecycle — copy/symlink to ~/.claude/, version tracking, settings merge, first-launch setup UI -- 2026-04-11

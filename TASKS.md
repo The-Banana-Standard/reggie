@@ -2,35 +2,6 @@
 
 ## Active Tasks
 
-### reggie-installer
-**Task**: Rust install lifecycle — copy/symlink to ~/.claude/, version tracking, settings merge, first-launch setup UI
-**Stage**: COMMIT
-**Pipeline**: code-workflow
-**Branch**: task/reggie-installer
-**Worktree**: .worktree/reggie-installer
-**Base**: release/v1.1.2
-**Started**: 2026-04-11
-**Attempts**: 0
-**Files**:
-- NEW: src-tauri/src/installer.rs
-- MOD: src-tauri/src/lib.rs
-- MOD: src-tauri/src/commands/mod.rs
-- NEW: src/components/Setup/FirstLaunchSetup.tsx
-- MOD: src/App.tsx
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.25 | 1 | PASS |
-| WRITE-TESTS | 9.35 | 1 | PASS |
-| QUALITY-CHECK | 9.0 | 1 | PASS |
-| SIMPLIFY | 9.4 | 1 | PASS |
-| VERIFY-APP | 9.5 | 1 | PASS |
-| REVIEW | 9.0 | 2 | PASS |
-| SECURITY-REVIEW | 9.3 | 1 | PASS |
-| SYNC-DOCS | 9.2 | 1 | PASS |
-| UPDATE-CLAUDE | SKIP | 0 | SKIP |
-| REVIEW-WITH-USER | APPROVED | 0 | PASS |
-
 ---
 
 ## Backlog
