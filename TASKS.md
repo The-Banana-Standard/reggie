@@ -4,7 +4,7 @@
 
 ### consolidate-frontmatter-parsing
 **Task**: Consolidate duplicate YAML frontmatter parsing into shared utility
-**Stage**: QUALITY-CHECK
+**Stage**: SIMPLIFY
 **Pipeline**: code-workflow
 **Branch**: task/consolidate-frontmatter-parsing
 **Worktree**: .worktree/consolidate-frontmatter-parsing
@@ -21,8 +21,8 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | 9.38 | 1 | PASS |
 | WRITE-TESTS | 9.20 | 1 | PASS |
-| QUALITY-CHECK | - | 0 | CURRENT |
-| SIMPLIFY | - | 0 | - |
+| QUALITY-CHECK | 9.28 | 1 | PASS |
+| SIMPLIFY | - | 0 | CURRENT |
 | VERIFY-APP | - | 0 | - |
 | REVIEW | - | 0 | - |
 | SECURITY-REVIEW | - | 0 | - |
