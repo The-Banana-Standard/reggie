@@ -1,0 +1,1339 @@
+//! Reggie resource installer.
+//!
+//! Copies (production) or symlinks (dev) bundled `reggie-resources/` into
+//! `~/.claude/` on app startup. Tracks an installed version in
+//! `~/.claude/.reggie-version` and only re-installs when the bundled version
+//! is newer.
+
+use serde::Serialize;
+use serde_json::Value;
+use std::fs;
+use std::path::{Path, PathBuf};
+use tauri::{AppHandle, Manager};
+
+/// Bundled version derived from `Cargo.toml` — matches `tauri.conf.json` and
+/// the GitHub release tag.
+const BUNDLED_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Subdirectories under `~/.claude/` that Reggie manages.
+const CLAUDE_SUBDIRS: &[&str] = &["agents", "commands", "hooks", "docs"];
+
+/// Subdirectories containing `reggie-*` prefixed files where we must not
+/// touch user files.
+const PREFIXED_DIRS: &[&str] = &["agents", "commands"];
+
+/// The stats hook entry injected into `settings.json`.
+const STATS_HOOK_COMMAND: &str =
+    "bash ~/.claude/hooks/track-stats.sh \"$TOOL_NAME\" \"$TOOL_INPUT\"";
+
+/// The shell export line for ENABLE_TOOL_SEARCH (bash/zsh).
+const SHELL_EXPORT_LINE: &str = "export ENABLE_TOOL_SEARCH=auto:5";
+
+/// The fish shell equivalent.
+const FISH_EXPORT_LINE: &str = "set -gx ENABLE_TOOL_SEARCH auto:5";
+
+// ── Public types ──────────────────────────────────────────────────────────
+
+/// Returned from `run_install` to summarize what happened.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallResult {
+    /// Whether files were actually installed (false when already up-to-date).
+    pub installed: bool,
+    /// The version string that is now installed.
+    pub version: String,
+    /// Whether the first-launch setup UI should be shown.
+    pub needs_setup: bool,
+    /// Human-readable summary of what happened.
+    pub message: String,
+}
+
+/// Returned to the frontend by the `get_install_status` command.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallStatus {
+    /// The currently installed version (empty string if none).
+    pub version: String,
+    /// Whether the first-launch setup UI should be shown.
+    pub needs_setup: bool,
+}
+
+// ── Main entry point ──────────────────────────────────────────────────────
+
+/// Run the full install flow. Called from `setup()` in `lib.rs`.
+///
+/// 1. Ensure `~/.claude/` directory structure exists.
+/// 2. Check if the bundled version is newer than what is installed.
+/// 3. If newer (or dev mode): install resources.
+/// 4. Write `.reggie-version`.
+///
+/// This function is intentionally infallible from the caller's perspective —
+/// install failures are logged but must not prevent the app from launching.
+pub fn run_install(app: &AppHandle) -> Result<InstallResult, String> {
+    let claude_dir = get_claude_dir()?;
+    let is_dev = cfg!(debug_assertions);
+
+    ensure_dirs(&claude_dir)?;
+
+    let needs_install = is_dev || check_version(&claude_dir);
+
+    let (installed, message) = if needs_install {
+        let resource_base = get_resource_base(app)?;
+
+        // Install all resource categories. Collect warnings but don't abort.
+        let mut warnings: Vec<String> = Vec::new();
+
+        if let Err(e) = install_resources(&resource_base, &claude_dir, is_dev) {
+            warnings.push(format!("agents/commands: {e}"));
+        }
+        if let Err(e) = install_hooks(&resource_base, &claude_dir, is_dev) {
+            warnings.push(format!("hooks: {e}"));
+        }
+        if let Err(e) = install_docs(&resource_base, &claude_dir, is_dev) {
+            warnings.push(format!("docs: {e}"));
+        }
+        if let Err(e) = install_registries(&resource_base, &claude_dir, is_dev) {
+            warnings.push(format!("registries: {e}"));
+        }
+        if let Err(e) = install_standalone(&resource_base, &claude_dir, is_dev) {
+            warnings.push(format!("standalone: {e}"));
+        }
+        if let Err(e) = create_overlay_files(&claude_dir) {
+            warnings.push(format!("overlays: {e}"));
+        }
+        if let Err(e) = configure_settings(&claude_dir) {
+            warnings.push(format!("settings: {e}"));
+        }
+
+        write_version(&claude_dir, BUNDLED_VERSION)?;
+
+        for w in &warnings {
+            eprintln!("[reggie-installer] warning: {w}");
+        }
+
+        let msg = if warnings.is_empty() {
+            format!("Installed Reggie v{BUNDLED_VERSION}")
+        } else {
+            format!(
+                "Installed Reggie v{BUNDLED_VERSION} with {} warning(s)",
+                warnings.len()
+            )
+        };
+
+        (true, msg)
+    } else {
+        (false, format!("Reggie v{BUNDLED_VERSION} already installed"))
+    };
+
+    let needs_setup = !setup_complete_flag(&claude_dir).exists();
+
+    Ok(InstallResult {
+        installed,
+        version: BUNDLED_VERSION.to_string(),
+        needs_setup,
+        message,
+    })
+}
+
+// ── Tauri commands ────────────────────────────────────────────────────────
+
+/// Returns the current install status for the frontend.
+#[tauri::command]
+pub fn get_install_status() -> Result<InstallStatus, String> {
+    let claude_dir = get_claude_dir()?;
+    let version = read_installed_version(&claude_dir).unwrap_or_default();
+    let needs_setup = !setup_complete_flag(&claude_dir).exists();
+    Ok(InstallStatus {
+        version,
+        needs_setup,
+    })
+}
+
+/// Marks first-launch setup as complete so the UI is not shown again.
+#[tauri::command]
+pub fn complete_setup() -> Result<(), String> {
+    let claude_dir = get_claude_dir()?;
+    let flag = setup_complete_flag(&claude_dir);
+    fs::write(&flag, BUNDLED_VERSION)
+        .map_err(|e| format!("Failed to write setup flag: {e}"))?;
+    Ok(())
+}
+
+/// Appends the appropriate `ENABLE_TOOL_SEARCH` export to the detected shell profile.
+///
+/// Uses `set -gx` syntax for fish, `export` for bash/zsh. Returns the path that was modified.
+#[tauri::command]
+pub fn add_to_shell_profile() -> Result<String, String> {
+    let profile_path = detect_shell_profile()?;
+    let is_fish = profile_path.to_string_lossy().contains("fish");
+    let export_line = if is_fish { FISH_EXPORT_LINE } else { SHELL_EXPORT_LINE };
+
+    // Read existing content to check for duplicates.
+    let existing = fs::read_to_string(&profile_path).unwrap_or_default();
+    if existing.contains("ENABLE_TOOL_SEARCH") {
+        return Ok(format!(
+            "ENABLE_TOOL_SEARCH already present in {}",
+            profile_path.display()
+        ));
+    }
+
+    // Append with a blank line separator.
+    let mut content = String::new();
+    if !existing.ends_with('\n') && !existing.is_empty() {
+        content.push('\n');
+    }
+    content.push('\n');
+    content.push_str("# Added by Reggie — enables Claude Code auto tool search\n");
+    content.push_str(export_line);
+    content.push('\n');
+
+    fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&profile_path)
+        .and_then(|mut f| {
+            use std::io::Write;
+            f.write_all(content.as_bytes())
+        })
+        .map_err(|e| format!("Failed to write to {}: {e}", profile_path.display()))?;
+
+    // Also mark setup as complete.
+    let claude_dir = get_claude_dir()?;
+    let _ = fs::write(setup_complete_flag(&claude_dir), BUNDLED_VERSION);
+
+    Ok(format!("Added to {}", profile_path.display()))
+}
+
+/// Returns the export line for the user to copy to clipboard.
+#[tauri::command]
+pub fn get_shell_export_line() -> String {
+    SHELL_EXPORT_LINE.to_string()
+}
+
+// ── Internal helpers ──────────────────────────────────────────────────────
+
+/// Returns `~/.claude/`.
+fn get_claude_dir() -> Result<PathBuf, String> {
+    let home = dirs::home_dir().ok_or("Could not determine home directory")?;
+    Ok(home.join(".claude"))
+}
+
+/// Returns the base path to bundled resources: `<resource_dir>/reggie-resources/`.
+fn get_resource_base(app: &AppHandle) -> Result<PathBuf, String> {
+    let base = app
+        .path()
+        .resource_dir()
+        .map_err(|e| format!("Failed to resolve resource directory: {e}"))?;
+    Ok(base.join("reggie-resources"))
+}
+
+/// Creates `~/.claude/` and all required subdirectories.
+fn ensure_dirs(claude_dir: &Path) -> Result<(), String> {
+    for subdir in CLAUDE_SUBDIRS {
+        let dir = claude_dir.join(subdir);
+        fs::create_dir_all(&dir)
+            .map_err(|e| format!("Failed to create {}: {e}", dir.display()))?;
+    }
+    Ok(())
+}
+
+/// Returns `true` if a (re-)install is needed: no version file, or bundled
+/// version is different from the installed one.
+fn check_version(claude_dir: &Path) -> bool {
+    match read_installed_version(claude_dir) {
+        Some(installed) => installed.trim() != BUNDLED_VERSION,
+        None => true,
+    }
+}
+
+/// Reads `~/.claude/.reggie-version`, returning `None` if missing or unreadable.
+fn read_installed_version(claude_dir: &Path) -> Option<String> {
+    let path = claude_dir.join(".reggie-version");
+    fs::read_to_string(path).ok().map(|s| s.trim().to_string())
+}
+
+/// Writes the version string to `~/.claude/.reggie-version`.
+fn write_version(claude_dir: &Path, version: &str) -> Result<(), String> {
+    let path = claude_dir.join(".reggie-version");
+    fs::write(&path, version)
+        .map_err(|e| format!("Failed to write {}: {e}", path.display()))
+}
+
+/// Path to the `~/.claude/.reggie-setup-complete` flag file.
+fn setup_complete_flag(claude_dir: &Path) -> PathBuf {
+    claude_dir.join(".reggie-setup-complete")
+}
+
+/// Installs `reggie-*` prefixed files from `agents/` and `commands/`.
+///
+/// Only touches files starting with `reggie-` — user files are left alone.
+fn install_resources(
+    resource_base: &Path,
+    claude_dir: &Path,
+    is_dev: bool,
+) -> Result<(), String> {
+    for subdir in PREFIXED_DIRS {
+        let src_dir = resource_base.join(subdir);
+        let dst_dir = claude_dir.join(subdir);
+
+        if !src_dir.is_dir() {
+            eprintln!(
+                "[reggie-installer] skipping {subdir}: {} not found",
+                src_dir.display()
+            );
+            continue;
+        }
+
+        let entries = fs::read_dir(&src_dir)
+            .map_err(|e| format!("Failed to read {}: {e}", src_dir.display()))?;
+
+        for entry in entries.flatten() {
+            let file_name = entry.file_name();
+            let name = file_name.to_string_lossy();
+
+            // Only touch reggie-* prefixed files.
+            if !name.starts_with("reggie-") {
+                continue;
+            }
+
+            let src = entry.path();
+            if !src.is_file() {
+                continue;
+            }
+
+            let dst = dst_dir.join(&*name);
+            install_file(&src, &dst, is_dev)?;
+        }
+    }
+    Ok(())
+}
+
+/// Installs all files from `hooks/` (Reggie-owned directory).
+fn install_hooks(
+    resource_base: &Path,
+    claude_dir: &Path,
+    is_dev: bool,
+) -> Result<(), String> {
+    install_all_files_in_dir(resource_base, claude_dir, "hooks", is_dev)
+}
+
+/// Installs all files from `docs/` into `~/.claude/docs/`.
+fn install_docs(
+    resource_base: &Path,
+    claude_dir: &Path,
+    is_dev: bool,
+) -> Result<(), String> {
+    install_all_files_in_dir(resource_base, claude_dir, "docs", is_dev)
+}
+
+/// Installs registry files from `registries/` into `~/.claude/` root.
+fn install_registries(
+    resource_base: &Path,
+    claude_dir: &Path,
+    is_dev: bool,
+) -> Result<(), String> {
+    let src_dir = resource_base.join("registries");
+    if !src_dir.is_dir() {
+        eprintln!(
+            "[reggie-installer] skipping registries: {} not found",
+            src_dir.display()
+        );
+        return Ok(());
+    }
+
+    let entries = fs::read_dir(&src_dir)
+        .map_err(|e| format!("Failed to read {}: {e}", src_dir.display()))?;
+
+    for entry in entries.flatten() {
+        let src = entry.path();
+        if !src.is_file() {
+            continue;
+        }
+        let file_name = entry.file_name();
+        let dst = claude_dir.join(&file_name);
+        install_file(&src, &dst, is_dev)?;
+    }
+    Ok(())
+}
+
+/// Installs standalone files (REGGIE.md) into `~/.claude/` root.
+fn install_standalone(
+    resource_base: &Path,
+    claude_dir: &Path,
+    is_dev: bool,
+) -> Result<(), String> {
+    // REGGIE.md lives in docs/ in the bundle but goes to ~/.claude/ root.
+    let src = resource_base.join("docs").join("REGGIE.md");
+    if src.is_file() {
+        let dst = claude_dir.join("REGGIE.md");
+        install_file(&src, &dst, is_dev)?;
+    }
+    Ok(())
+}
+
+/// Creates local overlay files if they don't already exist.
+///
+/// These files are user-editable and never overwritten by the installer.
+fn create_overlay_files(claude_dir: &Path) -> Result<(), String> {
+    let overlays = [
+        (
+            "mcp-registry.local.yaml",
+            "# Local MCP registry overrides — this file is yours to edit.\n# Entries here are merged with the Reggie-managed mcp-registry.yaml.\n",
+        ),
+        (
+            "skills-registry.local.yaml",
+            "# Local skills registry overrides — this file is yours to edit.\n# Entries here are merged with the Reggie-managed skills-registry.yaml.\n",
+        ),
+    ];
+
+    for (name, template) in &overlays {
+        let path = claude_dir.join(name);
+        if !path.exists() {
+            fs::write(&path, template)
+                .map_err(|e| format!("Failed to create {name}: {e}"))?;
+        }
+    }
+    Ok(())
+}
+
+/// Reads, merges, and writes `~/.claude/settings.json`.
+///
+/// Ensures `hooks.PostToolUse` contains the stats hook entry. If the file is
+/// malformed, it is backed up and a fresh default is used.
+fn configure_settings(claude_dir: &Path) -> Result<(), String> {
+    let settings_path = claude_dir.join("settings.json");
+
+    let mut settings: Value = if settings_path.is_file() {
+        let raw = fs::read_to_string(&settings_path)
+            .map_err(|e| format!("Failed to read settings.json: {e}"))?;
+
+        match serde_json::from_str(&raw) {
+            Ok(v) => v,
+            Err(e) => {
+                // Malformed JSON — backup and warn.
+                let backup = claude_dir.join("settings.json.bak");
+                eprintln!(
+                    "[reggie-installer] settings.json is malformed ({e}), backing up to {}",
+                    backup.display()
+                );
+                let _ = fs::copy(&settings_path, &backup);
+                Value::Object(serde_json::Map::new())
+            }
+        }
+    } else {
+        Value::Object(serde_json::Map::new())
+    };
+
+    // Ensure `settings` is an object.
+    if !settings.is_object() {
+        let backup = claude_dir.join("settings.json.bak");
+        eprintln!(
+            "[reggie-installer] settings.json root is not an object, backing up to {}",
+            backup.display()
+        );
+        let _ = fs::write(
+            &backup,
+            serde_json::to_string_pretty(&settings).unwrap_or_default(),
+        );
+        settings = Value::Object(serde_json::Map::new());
+    }
+
+    let obj = settings.as_object_mut().ok_or("settings is not an object")?;
+
+    // Ensure `hooks` key exists.
+    if !obj.contains_key("hooks") {
+        obj.insert("hooks".to_string(), Value::Object(serde_json::Map::new()));
+    }
+
+    let hooks = obj
+        .get_mut("hooks")
+        .and_then(|v| v.as_object_mut())
+        .ok_or("hooks is not an object")?;
+
+    // Ensure `PostToolUse` key exists as an array.
+    if !hooks.contains_key("PostToolUse") {
+        hooks.insert("PostToolUse".to_string(), Value::Array(Vec::new()));
+    }
+
+    let post_tool_use = hooks
+        .get_mut("PostToolUse")
+        .and_then(|v| v.as_array_mut())
+        .ok_or("PostToolUse is not an array")?;
+
+    // Build the stats hook entry.
+    let stats_entry = serde_json::json!({
+        "type": "command",
+        "command": STATS_HOOK_COMMAND,
+    });
+
+    // Only add if not already present.
+    let already_present = post_tool_use.iter().any(|entry| {
+        entry.get("command").and_then(|c| c.as_str()) == Some(STATS_HOOK_COMMAND)
+    });
+
+    if !already_present {
+        post_tool_use.push(stats_entry);
+    }
+
+    // Write back with pretty printing.
+    let formatted = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("Failed to serialize settings.json: {e}"))?;
+
+    fs::write(&settings_path, formatted)
+        .map_err(|e| format!("Failed to write settings.json: {e}"))?;
+
+    Ok(())
+}
+
+/// Copies or symlinks a single file from `src` to `dst`.
+///
+/// In dev mode: creates a symlink (removing an existing file/link first).
+/// In prod mode: copies the file (overwriting if present).
+fn install_file(src: &Path, dst: &Path, is_dev: bool) -> Result<(), String> {
+    if is_dev {
+        // Remove existing file or symlink so we can create a fresh symlink.
+        if dst.exists() || dst.symlink_metadata().is_ok() {
+            fs::remove_file(dst)
+                .map_err(|e| format!("Failed to remove {}: {e}", dst.display()))?;
+        }
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(src, dst)
+                .map_err(|e| format!("Failed to symlink {} -> {}: {e}", dst.display(), src.display()))?;
+        }
+        #[cfg(not(unix))]
+        {
+            // Fallback for non-Unix (Windows): just copy.
+            fs::copy(src, dst)
+                .map_err(|e| format!("Failed to copy {} -> {}: {e}", src.display(), dst.display()))?;
+        }
+    } else {
+        fs::copy(src, dst)
+            .map_err(|e| format!("Failed to copy {} -> {}: {e}", src.display(), dst.display()))?;
+    }
+    Ok(())
+}
+
+/// Installs all files from `resource_base/<subdir>/` into `claude_dir/<subdir>/`.
+fn install_all_files_in_dir(
+    resource_base: &Path,
+    claude_dir: &Path,
+    subdir: &str,
+    is_dev: bool,
+) -> Result<(), String> {
+    let src_dir = resource_base.join(subdir);
+    let dst_dir = claude_dir.join(subdir);
+
+    if !src_dir.is_dir() {
+        eprintln!(
+            "[reggie-installer] skipping {subdir}: {} not found",
+            src_dir.display()
+        );
+        return Ok(());
+    }
+
+    fs::create_dir_all(&dst_dir)
+        .map_err(|e| format!("Failed to create {}: {e}", dst_dir.display()))?;
+
+    let entries = fs::read_dir(&src_dir)
+        .map_err(|e| format!("Failed to read {}: {e}", src_dir.display()))?;
+
+    for entry in entries.flatten() {
+        let src = entry.path();
+        if !src.is_file() {
+            continue;
+        }
+        let file_name = entry.file_name();
+        let dst = dst_dir.join(&file_name);
+        install_file(&src, &dst, is_dev)?;
+    }
+    Ok(())
+}
+
+/// Detects the user's shell profile file.
+///
+/// Checks `$SHELL` first, then falls back to common paths.
+fn detect_shell_profile() -> Result<PathBuf, String> {
+    let home = dirs::home_dir().ok_or("Could not determine home directory")?;
+
+    // Check $SHELL env var.
+    if let Ok(shell) = std::env::var("SHELL") {
+        if shell.contains("zsh") {
+            return Ok(home.join(".zshrc"));
+        }
+        if shell.contains("bash") {
+            // Prefer .bash_profile on macOS, .bashrc on Linux.
+            let bash_profile = home.join(".bash_profile");
+            if bash_profile.exists() {
+                return Ok(bash_profile);
+            }
+            return Ok(home.join(".bashrc"));
+        }
+        if shell.contains("fish") {
+            return Ok(home.join(".config/fish/config.fish"));
+        }
+    }
+
+    // Fallback: try common paths.
+    let zshrc = home.join(".zshrc");
+    if zshrc.exists() {
+        return Ok(zshrc);
+    }
+
+    let bash_profile = home.join(".bash_profile");
+    if bash_profile.exists() {
+        return Ok(bash_profile);
+    }
+
+    let bashrc = home.join(".bashrc");
+    if bashrc.exists() {
+        return Ok(bashrc);
+    }
+
+    // Default to .zshrc (macOS default shell).
+    Ok(home.join(".zshrc"))
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::TempDir;
+
+    // ── ensure_dirs ──
+
+    #[test]
+    fn ensure_dirs_creates_all_subdirectories() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path().join(".claude");
+
+        ensure_dirs(&claude_dir).unwrap();
+
+        for subdir in CLAUDE_SUBDIRS {
+            assert!(
+                claude_dir.join(subdir).is_dir(),
+                "{subdir} should be created"
+            );
+        }
+    }
+
+    #[test]
+    fn ensure_dirs_is_idempotent() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path().join(".claude");
+
+        ensure_dirs(&claude_dir).unwrap();
+        ensure_dirs(&claude_dir).unwrap();
+
+        for subdir in CLAUDE_SUBDIRS {
+            assert!(claude_dir.join(subdir).is_dir());
+        }
+    }
+
+    // ── check_version ──
+
+    #[test]
+    fn check_version_returns_true_when_no_version_file() {
+        let tmp = TempDir::new().unwrap();
+        assert!(check_version(tmp.path()));
+    }
+
+    #[test]
+    fn check_version_returns_true_when_version_differs() {
+        let tmp = TempDir::new().unwrap();
+        fs::write(tmp.path().join(".reggie-version"), "0.0.0").unwrap();
+        assert!(check_version(tmp.path()));
+    }
+
+    #[test]
+    fn check_version_returns_false_when_version_matches() {
+        let tmp = TempDir::new().unwrap();
+        fs::write(tmp.path().join(".reggie-version"), BUNDLED_VERSION).unwrap();
+        assert!(!check_version(tmp.path()));
+    }
+
+    #[test]
+    fn check_version_handles_trailing_whitespace() {
+        let tmp = TempDir::new().unwrap();
+        fs::write(
+            tmp.path().join(".reggie-version"),
+            format!("{BUNDLED_VERSION}\n"),
+        )
+        .unwrap();
+        assert!(!check_version(tmp.path()));
+    }
+
+    // ── write_version ──
+
+    #[test]
+    fn write_version_creates_file() {
+        let tmp = TempDir::new().unwrap();
+        write_version(tmp.path(), "1.2.3").unwrap();
+        let content = fs::read_to_string(tmp.path().join(".reggie-version")).unwrap();
+        assert_eq!(content, "1.2.3");
+    }
+
+    // ── install_resources (prefixed dirs) ──
+
+    #[test]
+    fn install_resources_copies_only_reggie_prefixed_files() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+
+        // Set up source files.
+        let agents_src = resource_base.join("agents");
+        fs::create_dir_all(&agents_src).unwrap();
+        File::create(agents_src.join("reggie-test.md")).unwrap();
+        File::create(agents_src.join("user-custom.md")).unwrap();
+
+        // Set up destination.
+        let agents_dst = claude_dir.join("agents");
+        fs::create_dir_all(&agents_dst).unwrap();
+
+        install_resources(&resource_base, &claude_dir, false).unwrap();
+
+        assert!(agents_dst.join("reggie-test.md").exists());
+        assert!(!agents_dst.join("user-custom.md").exists());
+    }
+
+    #[test]
+    fn install_resources_does_not_remove_user_files() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+
+        let agents_src = resource_base.join("agents");
+        fs::create_dir_all(&agents_src).unwrap();
+        File::create(agents_src.join("reggie-agent.md")).unwrap();
+
+        let agents_dst = claude_dir.join("agents");
+        fs::create_dir_all(&agents_dst).unwrap();
+        // Pre-existing user file.
+        let mut user_file = File::create(agents_dst.join("my-agent.md")).unwrap();
+        write!(user_file, "user content").unwrap();
+
+        install_resources(&resource_base, &claude_dir, false).unwrap();
+
+        // User file must still exist.
+        let content = fs::read_to_string(agents_dst.join("my-agent.md")).unwrap();
+        assert_eq!(content, "user content");
+    }
+
+    // ── install_hooks ──
+
+    #[test]
+    fn install_hooks_copies_all_files() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+
+        let hooks_src = resource_base.join("hooks");
+        fs::create_dir_all(&hooks_src).unwrap();
+        File::create(hooks_src.join("track-stats.sh")).unwrap();
+
+        fs::create_dir_all(claude_dir.join("hooks")).unwrap();
+
+        install_hooks(&resource_base, &claude_dir, false).unwrap();
+
+        assert!(claude_dir.join("hooks").join("track-stats.sh").exists());
+    }
+
+    // ── install_registries ──
+
+    #[test]
+    fn install_registries_copies_to_claude_root() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+        fs::create_dir_all(&claude_dir).unwrap();
+
+        let reg_src = resource_base.join("registries");
+        fs::create_dir_all(&reg_src).unwrap();
+        File::create(reg_src.join("mcp-registry.yaml")).unwrap();
+        File::create(reg_src.join("skills-registry.yaml")).unwrap();
+
+        install_registries(&resource_base, &claude_dir, false).unwrap();
+
+        assert!(claude_dir.join("mcp-registry.yaml").exists());
+        assert!(claude_dir.join("skills-registry.yaml").exists());
+    }
+
+    // ── create_overlay_files ──
+
+    #[test]
+    fn create_overlay_files_creates_when_missing() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        create_overlay_files(claude_dir).unwrap();
+
+        assert!(claude_dir.join("mcp-registry.local.yaml").exists());
+        assert!(claude_dir.join("skills-registry.local.yaml").exists());
+    }
+
+    #[test]
+    fn create_overlay_files_does_not_overwrite_existing() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        let overlay = claude_dir.join("mcp-registry.local.yaml");
+        fs::write(&overlay, "user content").unwrap();
+
+        create_overlay_files(claude_dir).unwrap();
+
+        let content = fs::read_to_string(&overlay).unwrap();
+        assert_eq!(content, "user content");
+    }
+
+    // ── configure_settings ──
+
+    #[test]
+    fn configure_settings_creates_settings_from_scratch() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        configure_settings(claude_dir).unwrap();
+
+        let content = fs::read_to_string(claude_dir.join("settings.json")).unwrap();
+        let parsed: Value = serde_json::from_str(&content).unwrap();
+
+        let hooks = parsed.get("hooks").unwrap().as_object().unwrap();
+        let post_tool_use = hooks.get("PostToolUse").unwrap().as_array().unwrap();
+        assert_eq!(post_tool_use.len(), 1);
+        assert_eq!(
+            post_tool_use[0].get("command").unwrap().as_str().unwrap(),
+            STATS_HOOK_COMMAND
+        );
+    }
+
+    #[test]
+    fn configure_settings_preserves_existing_config() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        let existing = serde_json::json!({
+            "userSetting": "keep-me",
+            "hooks": {
+                "PreToolUse": [{"type": "command", "command": "echo pre"}]
+            }
+        });
+        fs::write(
+            claude_dir.join("settings.json"),
+            serde_json::to_string_pretty(&existing).unwrap(),
+        )
+        .unwrap();
+
+        configure_settings(claude_dir).unwrap();
+
+        let content = fs::read_to_string(claude_dir.join("settings.json")).unwrap();
+        let parsed: Value = serde_json::from_str(&content).unwrap();
+
+        assert_eq!(
+            parsed.get("userSetting").unwrap().as_str().unwrap(),
+            "keep-me"
+        );
+        let hooks = parsed.get("hooks").unwrap().as_object().unwrap();
+        assert!(hooks.contains_key("PreToolUse"));
+        assert!(hooks.contains_key("PostToolUse"));
+    }
+
+    #[test]
+    fn configure_settings_does_not_duplicate_hook() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        // Run twice.
+        configure_settings(claude_dir).unwrap();
+        configure_settings(claude_dir).unwrap();
+
+        let content = fs::read_to_string(claude_dir.join("settings.json")).unwrap();
+        let parsed: Value = serde_json::from_str(&content).unwrap();
+        let post_tool_use = parsed["hooks"]["PostToolUse"].as_array().unwrap();
+        assert_eq!(post_tool_use.len(), 1, "hook should not be duplicated");
+    }
+
+    #[test]
+    fn configure_settings_handles_malformed_json() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        fs::write(claude_dir.join("settings.json"), "not valid json {{{").unwrap();
+
+        configure_settings(claude_dir).unwrap();
+
+        // Should have created a backup.
+        assert!(claude_dir.join("settings.json.bak").exists());
+
+        // Should have written valid settings.
+        let content = fs::read_to_string(claude_dir.join("settings.json")).unwrap();
+        let parsed: Value = serde_json::from_str(&content).unwrap();
+        assert!(parsed.get("hooks").is_some());
+    }
+
+    // ── install_file (dev mode symlinks) ──
+
+    #[cfg(unix)]
+    #[test]
+    fn install_file_creates_symlink_in_dev_mode() {
+        let tmp = TempDir::new().unwrap();
+        let src = tmp.path().join("source.md");
+        let dst = tmp.path().join("dest.md");
+
+        fs::write(&src, "content").unwrap();
+
+        install_file(&src, &dst, true).unwrap();
+
+        assert!(dst.symlink_metadata().unwrap().file_type().is_symlink());
+        let target = fs::read_link(&dst).unwrap();
+        assert_eq!(target, src);
+    }
+
+    #[test]
+    fn install_file_copies_in_prod_mode() {
+        let tmp = TempDir::new().unwrap();
+        let src = tmp.path().join("source.md");
+        let dst = tmp.path().join("dest.md");
+
+        fs::write(&src, "content").unwrap();
+
+        install_file(&src, &dst, false).unwrap();
+
+        assert!(dst.is_file());
+        assert_eq!(fs::read_to_string(&dst).unwrap(), "content");
+    }
+
+    // ── standalone files ──
+
+    #[test]
+    fn install_standalone_copies_reggie_md_to_root() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+        fs::create_dir_all(&claude_dir).unwrap();
+
+        let docs_src = resource_base.join("docs");
+        fs::create_dir_all(&docs_src).unwrap();
+        fs::write(docs_src.join("REGGIE.md"), "# Reggie").unwrap();
+
+        install_standalone(&resource_base, &claude_dir, false).unwrap();
+
+        let content = fs::read_to_string(claude_dir.join("REGGIE.md")).unwrap();
+        assert_eq!(content, "# Reggie");
+    }
+
+    // ── setup flag ──
+
+    #[test]
+    fn setup_complete_flag_returns_expected_path() {
+        let tmp = TempDir::new().unwrap();
+        let flag = setup_complete_flag(tmp.path());
+        assert!(flag.ends_with(".reggie-setup-complete"));
+    }
+
+    // ── get_shell_export_line ──
+
+    #[test]
+    fn export_line_contains_enable_tool_search() {
+        assert!(SHELL_EXPORT_LINE.contains("ENABLE_TOOL_SEARCH"));
+        assert!(SHELL_EXPORT_LINE.starts_with("export "));
+    }
+
+    // ── detect_shell_profile ──
+
+    #[test]
+    fn detect_shell_profile_returns_a_path() {
+        // This test just verifies the function doesn't error — the actual
+        // path depends on the host system.
+        let result = detect_shell_profile();
+        assert!(result.is_ok());
+    }
+
+    // ── read_installed_version ──
+
+    #[test]
+    fn read_installed_version_returns_none_when_no_file() {
+        let tmp = TempDir::new().unwrap();
+        let result = read_installed_version(tmp.path());
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn read_installed_version_returns_some_when_file_exists() {
+        let tmp = TempDir::new().unwrap();
+        fs::write(tmp.path().join(".reggie-version"), "1.2.3").unwrap();
+        let result = read_installed_version(tmp.path());
+        assert_eq!(result, Some("1.2.3".to_string()));
+    }
+
+    #[test]
+    fn read_installed_version_trims_whitespace() {
+        let tmp = TempDir::new().unwrap();
+        fs::write(tmp.path().join(".reggie-version"), "  1.2.3\n  ").unwrap();
+        let result = read_installed_version(tmp.path());
+        assert_eq!(result, Some("1.2.3".to_string()));
+    }
+
+    // ── configure_settings: hooks key as non-object ──
+
+    #[test]
+    fn configure_settings_errors_when_hooks_is_non_object() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        // "hooks" is a string instead of an object.
+        let settings = serde_json::json!({
+            "hooks": "not an object"
+        });
+        fs::write(
+            claude_dir.join("settings.json"),
+            serde_json::to_string_pretty(&settings).unwrap(),
+        )
+        .unwrap();
+
+        let result = configure_settings(claude_dir);
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("hooks is not an object"),
+            "should report hooks is not an object"
+        );
+    }
+
+    #[test]
+    fn configure_settings_errors_when_hooks_is_number() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        let settings = serde_json::json!({
+            "hooks": 42
+        });
+        fs::write(
+            claude_dir.join("settings.json"),
+            serde_json::to_string_pretty(&settings).unwrap(),
+        )
+        .unwrap();
+
+        let result = configure_settings(claude_dir);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("hooks is not an object"));
+    }
+
+    // ── configure_settings: root is not an object ──
+
+    #[test]
+    fn configure_settings_handles_json_array_root() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        // Root is a JSON array, not an object.
+        fs::write(claude_dir.join("settings.json"), "[1, 2, 3]").unwrap();
+
+        configure_settings(claude_dir).unwrap();
+
+        // Should have backed up the malformed root.
+        assert!(claude_dir.join("settings.json.bak").exists());
+        let backup = fs::read_to_string(claude_dir.join("settings.json.bak")).unwrap();
+        assert!(backup.contains("["), "backup should contain the original array");
+
+        // Should have written valid settings with the hook.
+        let content = fs::read_to_string(claude_dir.join("settings.json")).unwrap();
+        let parsed: Value = serde_json::from_str(&content).unwrap();
+        assert!(parsed.is_object());
+        assert!(parsed.get("hooks").is_some());
+    }
+
+    #[test]
+    fn configure_settings_handles_json_string_root() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        // Root is a JSON string literal.
+        fs::write(claude_dir.join("settings.json"), "\"just a string\"").unwrap();
+
+        configure_settings(claude_dir).unwrap();
+
+        assert!(claude_dir.join("settings.json.bak").exists());
+
+        let content = fs::read_to_string(claude_dir.join("settings.json")).unwrap();
+        let parsed: Value = serde_json::from_str(&content).unwrap();
+        assert!(parsed.is_object());
+        let hooks = parsed.get("hooks").unwrap().as_object().unwrap();
+        assert!(hooks.contains_key("PostToolUse"));
+    }
+
+    #[test]
+    fn configure_settings_preserves_existing_post_tool_use_entries() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        let existing = serde_json::json!({
+            "hooks": {
+                "PostToolUse": [
+                    {"type": "command", "command": "echo user-hook"}
+                ]
+            }
+        });
+        fs::write(
+            claude_dir.join("settings.json"),
+            serde_json::to_string_pretty(&existing).unwrap(),
+        )
+        .unwrap();
+
+        configure_settings(claude_dir).unwrap();
+
+        let content = fs::read_to_string(claude_dir.join("settings.json")).unwrap();
+        let parsed: Value = serde_json::from_str(&content).unwrap();
+        let post_tool_use = parsed["hooks"]["PostToolUse"].as_array().unwrap();
+        assert_eq!(post_tool_use.len(), 2, "should have user hook + stats hook");
+        let commands: Vec<&str> = post_tool_use
+            .iter()
+            .filter_map(|e| e.get("command").and_then(|c| c.as_str()))
+            .collect();
+        assert!(commands.contains(&"echo user-hook"), "user hook preserved");
+        assert!(commands.contains(&STATS_HOOK_COMMAND), "stats hook added");
+    }
+
+    #[test]
+    fn configure_settings_errors_when_post_tool_use_is_non_array() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        let existing = serde_json::json!({
+            "hooks": {
+                "PostToolUse": "not an array"
+            }
+        });
+        fs::write(
+            claude_dir.join("settings.json"),
+            serde_json::to_string_pretty(&existing).unwrap(),
+        )
+        .unwrap();
+
+        let result = configure_settings(claude_dir);
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("PostToolUse is not an array"),
+            "error should mention PostToolUse"
+        );
+    }
+
+    // ── install_standalone: REGGIE.md missing from resources ──
+
+    #[test]
+    fn install_standalone_succeeds_when_reggie_md_missing() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+        fs::create_dir_all(&claude_dir).unwrap();
+
+        // docs/ dir exists but REGGIE.md does not.
+        fs::create_dir_all(resource_base.join("docs")).unwrap();
+
+        let result = install_standalone(&resource_base, &claude_dir, false);
+        assert!(result.is_ok(), "should succeed gracefully when REGGIE.md is absent");
+        assert!(!claude_dir.join("REGGIE.md").exists());
+    }
+
+    #[test]
+    fn install_standalone_succeeds_when_docs_dir_missing() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+        fs::create_dir_all(&claude_dir).unwrap();
+
+        // resource_base exists but docs/ subdirectory does not.
+        fs::create_dir_all(&resource_base).unwrap();
+
+        let result = install_standalone(&resource_base, &claude_dir, false);
+        assert!(result.is_ok(), "should succeed gracefully when docs/ dir is absent");
+        assert!(!claude_dir.join("REGGIE.md").exists());
+    }
+
+    // ── install_all_files_in_dir: source directory missing ──
+
+    #[test]
+    fn install_all_files_in_dir_succeeds_when_source_missing() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+
+        // Neither resource_base nor its subdir exist.
+        let result = install_all_files_in_dir(&resource_base, &claude_dir, "docs", false);
+        assert!(
+            result.is_ok(),
+            "should return Ok when source directory does not exist"
+        );
+        // Destination should not be created either.
+        assert!(!claude_dir.join("docs").exists());
+    }
+
+    // ── install_docs ──
+
+    #[test]
+    fn install_docs_copies_all_doc_files() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+
+        let docs_src = resource_base.join("docs");
+        fs::create_dir_all(&docs_src).unwrap();
+        fs::write(docs_src.join("patterns.md"), "# Patterns").unwrap();
+        fs::write(docs_src.join("data-models.md"), "# Data Models").unwrap();
+
+        install_docs(&resource_base, &claude_dir, false).unwrap();
+
+        assert!(claude_dir.join("docs").join("patterns.md").exists());
+        assert!(claude_dir.join("docs").join("data-models.md").exists());
+
+        let content = fs::read_to_string(claude_dir.join("docs").join("patterns.md")).unwrap();
+        assert_eq!(content, "# Patterns");
+    }
+
+    #[test]
+    fn install_docs_succeeds_when_docs_dir_missing() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+
+        // No docs/ directory in resources.
+        fs::create_dir_all(&resource_base).unwrap();
+
+        let result = install_docs(&resource_base, &claude_dir, false);
+        assert!(result.is_ok());
+    }
+
+    // ── install_file: overwrite in prod mode ──
+
+    #[test]
+    fn install_file_overwrites_existing_in_prod_mode() {
+        let tmp = TempDir::new().unwrap();
+        let src = tmp.path().join("source.md");
+        let dst = tmp.path().join("dest.md");
+
+        fs::write(&dst, "old content").unwrap();
+        fs::write(&src, "new content").unwrap();
+
+        install_file(&src, &dst, false).unwrap();
+
+        let content = fs::read_to_string(&dst).unwrap();
+        assert_eq!(content, "new content", "prod mode should overwrite existing file");
+    }
+
+    // ── install_file: dev mode replaces existing symlink ──
+
+    #[cfg(unix)]
+    #[test]
+    fn install_file_replaces_existing_symlink_in_dev_mode() {
+        let tmp = TempDir::new().unwrap();
+        let src_old = tmp.path().join("old_source.md");
+        let src_new = tmp.path().join("new_source.md");
+        let dst = tmp.path().join("dest.md");
+
+        fs::write(&src_old, "old").unwrap();
+        fs::write(&src_new, "new").unwrap();
+
+        // Create initial symlink.
+        install_file(&src_old, &dst, true).unwrap();
+        assert_eq!(fs::read_link(&dst).unwrap(), src_old);
+
+        // Replace with new symlink.
+        install_file(&src_new, &dst, true).unwrap();
+        assert_eq!(fs::read_link(&dst).unwrap(), src_new);
+        assert_eq!(fs::read_to_string(&dst).unwrap(), "new");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn install_file_replaces_regular_file_with_symlink_in_dev_mode() {
+        let tmp = TempDir::new().unwrap();
+        let src = tmp.path().join("source.md");
+        let dst = tmp.path().join("dest.md");
+
+        fs::write(&src, "source content").unwrap();
+        fs::write(&dst, "regular file content").unwrap();
+
+        // Destination is a regular file; dev mode should replace it with a symlink.
+        install_file(&src, &dst, true).unwrap();
+
+        assert!(dst.symlink_metadata().unwrap().file_type().is_symlink());
+        assert_eq!(fs::read_link(&dst).unwrap(), src);
+    }
+
+    // ── install_resources: both agents and commands ──
+
+    #[test]
+    fn install_resources_processes_both_agents_and_commands() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+
+        // Set up agents and commands source directories.
+        let agents_src = resource_base.join("agents");
+        let commands_src = resource_base.join("commands");
+        fs::create_dir_all(&agents_src).unwrap();
+        fs::create_dir_all(&commands_src).unwrap();
+        fs::write(agents_src.join("reggie-agent.md"), "agent").unwrap();
+        fs::write(commands_src.join("reggie-cmd.md"), "command").unwrap();
+
+        // Set up destination directories.
+        fs::create_dir_all(claude_dir.join("agents")).unwrap();
+        fs::create_dir_all(claude_dir.join("commands")).unwrap();
+
+        install_resources(&resource_base, &claude_dir, false).unwrap();
+
+        assert!(claude_dir.join("agents").join("reggie-agent.md").exists());
+        assert!(claude_dir.join("commands").join("reggie-cmd.md").exists());
+    }
+
+    // ── install_resources: source dir missing is not an error ──
+
+    #[test]
+    fn install_resources_skips_missing_source_dirs() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+
+        // resource_base doesn't even exist — agents/ and commands/ are missing.
+        fs::create_dir_all(&claude_dir).unwrap();
+
+        let result = install_resources(&resource_base, &claude_dir, false);
+        assert!(result.is_ok(), "should skip missing source dirs gracefully");
+    }
+
+    // ── install_registries: source dir missing ──
+
+    #[test]
+    fn install_registries_skips_when_source_missing() {
+        let tmp = TempDir::new().unwrap();
+        let resource_base = tmp.path().join("resources");
+        let claude_dir = tmp.path().join("claude");
+        fs::create_dir_all(&claude_dir).unwrap();
+
+        let result = install_registries(&resource_base, &claude_dir, false);
+        assert!(result.is_ok(), "should skip gracefully when registries dir is missing");
+    }
+
+    // ── configure_settings: hooks as array ──
+
+    #[test]
+    fn configure_settings_errors_when_hooks_is_array() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        let settings = serde_json::json!({
+            "hooks": [1, 2, 3]
+        });
+        fs::write(
+            claude_dir.join("settings.json"),
+            serde_json::to_string_pretty(&settings).unwrap(),
+        )
+        .unwrap();
+
+        let result = configure_settings(claude_dir);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("hooks is not an object"));
+    }
+}

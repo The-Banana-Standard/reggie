@@ -30,7 +30,16 @@ For a new project, run `/reggie-new-repo` first. For an existing project, run `/
 
 ## Install
 
-Reggie is installed and managed by [Forge](https://github.com/The-Banana-Standard/forge-reggie), the desktop companion app. Forge copies `resources/` contents into `~/.claude/` and keeps them up to date.
+Reggie is installed and managed by the [Reggie desktop app](https://github.com/The-Banana-Standard/forge-reggie). On launch, the app automatically copies bundled resources into `~/.claude/` and keeps them up to date across versions.
+
+**What happens on startup:**
+- Creates `~/.claude/{agents,commands,hooks,docs}` if missing
+- Copies `reggie-*` prefixed files (your custom agents/commands are never touched)
+- Merges PostToolUse stats hook into `settings.json` (preserves existing config)
+- Creates local overlay files (`mcp-registry.local.yaml`, `skills-registry.local.yaml`) if missing
+- First launch: offers to configure `ENABLE_TOOL_SEARCH=auto:5` in your shell profile
+
+**Dev mode** (`cargo tauri dev`): uses symlinks instead of copies for live editing.
 
 All distributable content lives under `resources/`:
 
@@ -47,7 +56,7 @@ resources/
 
 ## Updates
 
-Updates are managed through the Reggie app. Pull the latest changes from the repo and the app will sync `resources/` into `~/.claude/`.
+On each launch, the app compares its bundled version against `~/.claude/.reggie-version`. If the bundled version is newer, all resources are re-installed automatically.
 
 ---
 

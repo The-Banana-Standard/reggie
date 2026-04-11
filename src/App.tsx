@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import { checkClaudeCli, writeToTerminal, openInBrowser } from "./services/terminal-service";
 import { AppLayout } from "./components/Layout/AppLayout";
 import { Sidebar } from "./components/Sidebar/Sidebar";
@@ -8,6 +9,7 @@ import { ProjectSummaryPanel } from "./components/ProjectSummary/ProjectSummaryP
 import { TerminalTabBar } from "./components/Terminal/TerminalTabBar";
 import { TerminalView } from "./components/Terminal/TerminalView";
 import { HiddenSessionsList } from "./components/Terminal/HiddenSessionsList";
+import { FirstLaunchSetup } from "./components/Setup/FirstLaunchSetup";
 import { useProjects } from "./hooks/useProjects";
 import { useTerminal, HOME_TAB_ID, SESSIONS_TAB_ID } from "./hooks/useTerminal";
 import { useSessionTracking } from "./hooks/useSessionTracking";
@@ -53,6 +55,25 @@ function App() {
     hiddenSessions,
     totalSessionCount,
   } = useTerminal();
+
+  // First-launch setup modal
+  const [showSetup, setShowSetup] = useState(false);
+
+  useEffect(() => {
+    invoke<{ version: string; needsSetup: boolean }>("get_install_status")
+      .then((status) => {
+        if (status.needsSetup) {
+          setShowSetup(true);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to check install status:", err);
+      });
+  }, []);
+
+  const handleSetupComplete = useCallback(() => {
+    setShowSetup(false);
+  }, []);
 
   // Theme state — initialized from persisted value, updated via ActivityBar callback
   const [currentTheme, setCurrentTheme] = useState<"dark" | "light">(() => {
@@ -454,6 +475,8 @@ function App() {
     : "sessions-4-plus";
 
   return (
+    <>
+    {showSetup && <FirstLaunchSetup onComplete={handleSetupComplete} />}
     <AppLayout
       projectPath={activeTab ? activeTab.projectPath : null}
       onRunSkill={handleRunSkill}
@@ -649,6 +672,7 @@ function App() {
         </div>
       }
     />
+    </>
   );
 }
 

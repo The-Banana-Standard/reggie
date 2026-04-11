@@ -1,4 +1,5 @@
 mod commands;
+mod installer;
 mod state;
 
 use state::AppState;
@@ -8,12 +9,20 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(
-            tauri_plugin_sql::Builder::default()
-                .build(),
-        )
+        .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_shell::init())
         .manage(AppState::new())
+        .setup(|app| {
+            match installer::run_install(app.handle()) {
+                Ok(result) => {
+                    eprintln!("[reggie-installer] {}", result.message);
+                }
+                Err(e) => {
+                    eprintln!("[reggie-installer] install failed (non-fatal): {e}");
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::terminal::spawn_terminal,
             commands::terminal::write_to_terminal,
@@ -48,6 +57,10 @@ pub fn run() {
             commands::git::get_git_log,
             commands::resources::get_resource_dir,
             commands::resources::list_resource_files,
+            installer::get_install_status,
+            installer::complete_setup,
+            installer::add_to_shell_profile,
+            installer::get_shell_export_line,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {

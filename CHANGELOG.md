@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Built-in installer: Tauri app copies/symlinks bundled resources to `~/.claude/` on startup
+- Version tracking via `~/.claude/.reggie-version` — re-installs only when bundled version is newer
+- Dev mode symlinks (`cfg!(debug_assertions)`) for live editing; production mode copies files
+- Settings.json merge: injects PostToolUse stats hook without clobbering existing user config
+- Local overlay files: creates `mcp-registry.local.yaml` and `skills-registry.local.yaml` if missing
+- First-launch setup UI: explains `ENABLE_TOOL_SEARCH=auto:5`, offers shell profile integration
+- Fish shell support in shell profile export
+
 ### Changed
 - Renamed all 36 agent files to `reggie-` prefix (e.g., `ios-developer.md` -> `reggie-ios-developer.md`)
 - Shortened pipeline manager names from `*-pipeline-manager` to `reggie-*-manager` (e.g., `audit-pipeline-manager.md` -> `reggie-audit-manager.md`)
