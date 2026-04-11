@@ -4,7 +4,7 @@
 
 ### update-forge-reggie-data
 **Task**: Update reggie_data.rs to use manager: frontmatter lookup
-**Stage**: REVIEW
+**Stage**: REVIEW-WITH-USER
 **Pipeline**: code-workflow
 **Branch**: task/update-forge-reggie-data
 **Worktree**: .worktree/update-forge-reggie-data
@@ -21,11 +21,11 @@
 | QUALITY-CHECK | PASS | 1 | PASS |
 | SIMPLIFY | PASS | 1 | PASS |
 | VERIFY-APP | PASS | 1 | PASS |
-| REVIEW | - | 0 | CURRENT |
-| SECURITY-REVIEW | - | 0 | - |
-| SYNC-DOCS | - | 0 | - |
-| UPDATE-CLAUDE | - | 0 | - |
-| REVIEW-WITH-USER | - | 0 | - |
+| REVIEW | PASS | 1 | PASS |
+| SECURITY-REVIEW | PASS | 1 | PASS |
+| SYNC-DOCS | - | 0 | SKIP |
+| UPDATE-CLAUDE | - | 0 | SKIP |
+| REVIEW-WITH-USER | - | 0 | CURRENT |
 
 ---
 
