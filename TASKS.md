@@ -4,7 +4,7 @@
 
 ### merge-ci-workflows
 **Task**: Consolidate CI into ci.yml + release.yml with yamllint and dependency-review jobs
-**Stage**: VERIFY-APP
+**Stage**: REVIEW
 **Pipeline**: code-workflow
 **Branch**: task/merge-ci-workflows
 **Worktree**: .worktree/merge-ci-workflows
@@ -24,8 +24,8 @@
 | WRITE-TESTS | SKIP | 0 | SKIP |
 | QUALITY-CHECK | SKIP | 0 | SKIP |
 | SIMPLIFY | SKIP | 0 | SKIP |
-| VERIFY-APP | - | 0 | CURRENT |
-| REVIEW | - | 0 | - |
+| VERIFY-APP | 9.5 | 1 | PASS |
+| REVIEW | - | 0 | CURRENT |
 | SECURITY-REVIEW | - | 0 | - |
 | SYNC-DOCS | - | 0 | - |
 | UPDATE-CLAUDE | - | 0 | - |
