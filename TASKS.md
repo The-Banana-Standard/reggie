@@ -4,7 +4,7 @@
 
 ### bundle-resources-in-app
 **Task**: Configure Tauri to bundle resources/ and add Rust path resolver
-**Stage**: VERIFY-APP
+**Stage**: REVIEW
 **Pipeline**: code-workflow
 **Branch**: task/bundle-resources-in-app
 **Worktree**: .worktree/bundle-resources-in-app
@@ -22,8 +22,8 @@
 | WRITE-TESTS | 9.30 | 1 | PASS |
 | QUALITY-CHECK | 9.40 | 1 | PASS |
 | SIMPLIFY | 9.65 | 1 | PASS |
-| VERIFY-APP | - | 0 | CURRENT |
-| REVIEW | - | 0 | - |
+| VERIFY-APP | 9.25 | 2 | PASS |
+| REVIEW | - | 0 | CURRENT |
 | SECURITY-REVIEW | - | 0 | - |
 | SYNC-DOCS | - | 0 | - |
 | REVIEW-WITH-USER | - | 0 | - |
