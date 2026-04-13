@@ -1,5 +1,6 @@
 # Completed Tasks
 
+- [x] code-split-main-bundle Split 773kB main JS chunk via Vite manualChunks -- 2026-04-12
 - [x] fix-doc-counts Fix documentation counts across README.md, REGGIE.md, agents-is-all-you-need.md, PORTABLE-PACKAGE.md -- 2026-03-04
 - [x] gitignore-sensitive-files Add .env* to .gitignore -- 2026-03-04
 - [~] fix-readme-pipeline: Update README.md pipeline description -- pruned 2026-03-05 (already correct)

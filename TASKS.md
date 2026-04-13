@@ -2,30 +2,6 @@
 
 ## Active Tasks
 
-### code-split-main-bundle
-**Task**: Split 773kB main JS chunk via Vite manualChunks
-**Stage**: UPDATE-CLAUDE
-**Pipeline**: code-workflow
-**Branch**: task/code-split-main-bundle
-**Worktree**: .worktree/code-split-main-bundle
-**Base**: release/v1.1.2
-**Started**: 2026-04-12
-**Attempts**: 1
-**Files**:
-- MOD: vite.config.ts
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.2 | 1 | PASS |
-| WRITE-TESTS | SKIP | - | SKIP |
-| QUALITY-CHECK | SKIP | - | SKIP |
-| SIMPLIFY | 9.5 | 1 | PASS |
-| VERIFY-APP | PASS | 1 | PASS |
-| REVIEW | 9.2 | 1 | PASS |
-| SECURITY-REVIEW | 9.8 | 1 | PASS |
-| SYNC-DOCS | 9.5 | 1 | PASS |
-| UPDATE-CLAUDE | - | 0 | CURRENT |
-
 ### update-docs-tauri-rebrand
 **Task**: Rewrite README + docs to reflect Reggie as Tauri app with bundled subagent system
 **Stage**: IMPLEMENT
