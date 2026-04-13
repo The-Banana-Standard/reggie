@@ -63,5 +63,5 @@
   files: reggie-logo-2.png (DEL), logo.svg (DEL)
 
 ### Testing & Build Quality
-- [ ] code-split-main-bundle: Split 773kB main JS chunk via Vite manualChunks [P3] [simple] [tier: sonnet:medium] [code] [planned]
-  files: vite.config.ts (MOD)
+
+_(none)_
