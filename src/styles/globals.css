@@ -285,7 +285,18 @@ html, body, #root {
 }
 
 .sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 16px;
+}
+
+.sidebar-logo {
+  width: 24px;
+  height: 24px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
 }
 
 .sidebar-title {

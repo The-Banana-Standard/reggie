@@ -33,6 +33,14 @@ const defaultProps = {
 };
 
 describe("Sidebar", () => {
+  it("renders the Reggie logo in the sidebar header", () => {
+    render(<Sidebar {...defaultProps} />);
+    const logo = screen.getByAltText("Reggie") as HTMLImageElement;
+    expect(logo).toBeTruthy();
+    expect(logo.getAttribute("src")).toBe("/reggie-logo.png");
+    expect(logo.className).toBe("sidebar-logo");
+  });
+
   it("renders 3-level tree: folder header, workspace groups, and repos", () => {
     const folder: AllProjectsFolder = { id: "apf1", name: "Projects", path: "/home/Projects", added_at: "" };
     const ws: Workspace = { id: "w1", name: "my-workspace", path: "/home/Projects/my-workspace", added_at: "" };

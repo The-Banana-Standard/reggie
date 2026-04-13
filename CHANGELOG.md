@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Pixel-art Reggie branding: new app icon (macOS dock/`.icns`, Windows `.ico`, 32x32 hand-crafted nearest-neighbor), favicon in the Tauri webview, and logo in the sidebar header. CSS uses `image-rendering: pixelated` to keep edges crisp at any DPR.
 - Built-in installer: Tauri app copies/symlinks bundled resources to `~/.claude/` on startup
 - Version tracking via `~/.claude/.reggie-version` — re-installs only when bundled version is newer
 - Dev mode symlinks (`cfg!(debug_assertions)`) for live editing; production mode copies files
@@ -27,6 +28,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Removed
 - Deleted install.sh, install.ps1, uninstall.sh, uninstall.ps1 (replaced by Forge app installer)
 - Deleted tests/test-installer-fixes.sh (tested deleted scripts)
+- Deleted unreferenced `src-tauri/icons/reggie-logo.svg` placeholder
 
 ## [1.1.2] - 2026-03-09
 

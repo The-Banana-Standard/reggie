@@ -87,6 +87,7 @@ export function Sidebar({
   return (
     <div className="sidebar">
       <div className="sidebar-header" onClick={allProjectsFolder ? onSelectAllProjects : onGoHome} style={{ cursor: "pointer" }}>
+        <img src="/reggie-logo.png" alt="Reggie" className="sidebar-logo" />
         <h2 className="sidebar-title">
           {allProjectsFolder ? allProjectsFolder.name : "Projects"}
         </h2>
