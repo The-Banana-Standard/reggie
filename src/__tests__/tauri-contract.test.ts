@@ -69,6 +69,14 @@ const RUST_COMMANDS: Record<string, string[]> = {
   install_skill: ["id", "sourceUrl", "format"],
   uninstall_skill: ["id", "format"],
   check_skills_installed: ["skillIds"],
+
+  // installer.rs — src-tauri/src/installer.rs
+  get_install_status: [],
+  get_detailed_install_status: [],
+  get_shell_export_line: [],
+  force_reinstall: [],
+  add_to_shell_profile: [],
+  complete_setup: [],
 };
 
 /**

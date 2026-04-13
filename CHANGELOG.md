@@ -25,6 +25,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Reorganized repo: moved agents, commands, hooks, docs, and registries into `resources/`
 - Rewrote installation docs for Forge-based installation (replacing install.sh scripts)
 
+### Fixed
+- Tauri contract test now covers all 6 installer commands (`get_install_status`, `get_detailed_install_status`, `get_shell_export_line`, `force_reinstall`, `add_to_shell_profile`, `complete_setup`) — previously flagged as unknown by the contract test
+
 ### Removed
 - Deleted install.sh, install.ps1, uninstall.sh, uninstall.ps1 (replaced by Forge app installer)
 - Deleted tests/test-installer-fixes.sh (tested deleted scripts)
