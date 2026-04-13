@@ -21,3 +21,4 @@
 - [x] add-management-ui: Settings panel in ActivityBar with version info, reinstall, environment setup -- 2026-04-11
 - [x] consolidate-frontmatter-parsing: Consolidate duplicate YAML frontmatter parsing into shared utility -- 2026-04-11
 - [x] update-forge-reggie-data: Replace manager heuristic with frontmatter-based lookup -- 2026-04-11
+- [x] brand-reggie-with-pixel-logo: Add pixel-art Reggie branding (Tauri icons, favicon, sidebar logo) -- 2026-04-12
