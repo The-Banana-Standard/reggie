@@ -26,3 +26,4 @@
 - [x] fix-useterminal-headless-test Rewrite broken promoted-tabs test to use correct code path -- 2026-04-12
 - [x] fix-tauri-contract-test Add missing installer commands to contract test RUST_COMMANDS map -- 2026-04-12
 - [x] cleanup-orphan-logo-assets Delete unreferenced reggie-logo-2.png and logo.svg from repo root -- 2026-04-12
+- [x] update-docs-tauri-rebrand Rewrite README + docs to reflect Reggie as Tauri app with bundled subagent system -- 2026-04-12

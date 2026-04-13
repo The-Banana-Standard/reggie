@@ -2,38 +2,7 @@
 
 ## Active Tasks
 
-### update-docs-tauri-rebrand
-**Task**: Rewrite README + docs to reflect Reggie as Tauri app with bundled subagent system
-**Stage**: REVIEW-WITH-USER
-**Pipeline**: code-workflow
-**Branch**: task/update-docs-tauri-rebrand
-**Worktree**: .worktree/update-docs-tauri-rebrand
-**Base**: release/v1.1.2
-**Started**: 2026-04-12
-**Attempts**: 1
-**Mode**: --yes
-**Tier**: opus:high
-**Files**:
-- MOD: README.md
-- MOD: CONTRIBUTING.md
-- MOD: CHANGELOG.md
-- MOD: SECURITY.md
-- MOD: resources/commands/reggie-guide.md
-- MOD: resources/docs/PORTABLE-PACKAGE.md
-- MOD: docs/open-source-release-checklist.md (audit only — no changes)
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.6 | 1 | PASS |
-| WRITE-TESTS | SKIP | - | SKIP |
-| QUALITY-CHECK | SKIP | - | SKIP |
-| SIMPLIFY | SKIP | - | SKIP |
-| VERIFY-APP | SKIP | - | SKIP |
-| REVIEW | 9.6 | 1 | PASS |
-| SECURITY-REVIEW | SKIP | - | SKIP |
-| SYNC-DOCS | SKIP | - | SKIP |
-| UPDATE-CLAUDE | SKIP | - | SKIP |
-| REVIEW-WITH-USER | APPROVED | - | PASS |
+_(none)_
 
 ---
 
