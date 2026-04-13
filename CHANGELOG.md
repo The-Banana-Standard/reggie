@@ -20,19 +20,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Fish shell support in shell profile export
 
 ### Changed
+- Merged `forge-reggie` Tauri desktop app into `reggie` repo. Reggie is now a single Tauri v2 desktop app that bundles the 36-agent system as installable `resources/`. The `forge-reggie` repo is archived.
 - Renamed all 36 agent files to `reggie-` prefix (e.g., `ios-developer.md` -> `reggie-ios-developer.md`)
 - Shortened pipeline manager names from `*-pipeline-manager` to `reggie-*-manager` (e.g., `audit-pipeline-manager.md` -> `reggie-audit-manager.md`)
 - Added `manager:` frontmatter to pipeline commands linking each to its pipeline manager agent
 - Added `type: pipeline` frontmatter to 12 pipeline commands
 - Updated cross-references across 74+ files to use new agent names
 - Reorganized repo: moved agents, commands, hooks, docs, and registries into `resources/`
-- Rewrote installation docs for Forge-based installation (replacing install.sh scripts)
+- Rewrote installation docs to reflect the built-in Reggie installer (replacing install.sh scripts)
 
 ### Fixed
 - Tauri contract test now covers all 6 installer commands (`get_install_status`, `get_detailed_install_status`, `get_shell_export_line`, `force_reinstall`, `add_to_shell_profile`, `complete_setup`) — previously flagged as unknown by the contract test
 
 ### Removed
-- Deleted install.sh, install.ps1, uninstall.sh, uninstall.ps1 (replaced by Forge app installer)
+- Deleted install.sh, install.ps1, uninstall.sh, uninstall.ps1 (replaced by the built-in Reggie installer)
 - Deleted tests/test-installer-fixes.sh (tested deleted scripts)
 - Deleted unreferenced `src-tauri/icons/reggie-logo.svg` placeholder
 

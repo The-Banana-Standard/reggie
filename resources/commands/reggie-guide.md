@@ -532,7 +532,7 @@ Yes. Section headers are optional. A backlog with no `### ` headers works exactl
 ### Topic: Installation & File Structure
 
 **How is Reggie installed?**
-Reggie is installed and managed by [Forge](https://github.com/The-Banana-Standard/forge-reggie), the desktop companion app. Forge copies the contents of `resources/` into `~/.claude/` and keeps them in sync. All distributable content lives under `resources/` in the repo: `resources/agents/`, `resources/commands/`, `resources/hooks/`, `resources/docs/`, and `resources/registries/`.
+Reggie is a Tauri desktop app that bundles the agent system. On first launch, its built-in installer copies (or, in dev mode, symlinks) the contents of `resources/` into `~/.claude/`. Updates install automatically when you launch a newer version — Reggie compares the bundled version against `~/.claude/.reggie-version` and re-installs if newer. Dev mode (`npm run tauri dev`) uses symlinks for live editing. All distributable content lives under `resources/` in the repo: `resources/agents/`, `resources/commands/`, `resources/hooks/`, `resources/docs/`, and `resources/registries/`.
 
 **What gets installed where?**
 

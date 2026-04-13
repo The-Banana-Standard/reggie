@@ -1,16 +1,16 @@
 # Claude Code Agent System — Transfer Package
 
-A complete agent and pipeline system for software development, design, and content production using Claude Code.
+A complete agent and pipeline system for software development, design, and content production, bundled with the Reggie Tauri desktop app for Claude Code.
 
 ## Quick Setup (5 minutes)
 
 ### Prerequisites
 - Claude Code CLI installed and authenticated
-- `~/.claude/` directory exists (created automatically on first run)
+- Reggie desktop app (installs the agent system on first launch)
 
 ### Install
 
-Reggie is installed and managed by [Forge](https://github.com/The-Banana-Standard/forge-reggie), the desktop companion app. Forge copies the contents of `resources/` into `~/.claude/` and keeps them in sync. User-created files are preserved. Restart Claude Code to pick up the new commands.
+Download the Reggie desktop app from [Releases](https://github.com/The-Banana-Standard/reggie/releases). Launch it — on first run, the built-in installer copies the bundled `resources/` into `~/.claude/`. User-created files are preserved. Restart Claude Code to pick up the new commands.
 
 ### Verify
 

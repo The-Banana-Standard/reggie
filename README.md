@@ -4,13 +4,11 @@
   <img src="reggie-logo.png" alt="Reggie" width="200">
 </p>
 
-**Reggie turns your backlog into a parallel build queue.**
+**Tauri v2 desktop app for Claude Code, powered by a 36-agent subagent system.**
 
-A structured collaboration system between a human and Claude: 36 agents, 35 commands, and a pipeline architecture with quality gates on [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+Reggie is a desktop workspace manager and terminal multiplexer for Claude Code CLI sessions, bundled with a 36-agent pipeline system with quality gates and memory. Everything runs locally — no external APIs, no cloud dependencies.
 
-Reggie extends Claude Code from a single-agent tool into a coordinated multi-agent system with memory, self-improvement, and enforced quality standards.
-
-See [resources/docs/REGGIE.md](resources/docs/REGGIE.md) for philosophy and principles.
+See [resources/docs/REGGIE.md](resources/docs/REGGIE.md) for the agent-system philosophy and principles.
 
 ---
 
@@ -28,20 +26,77 @@ For a new project, run `/reggie-new-repo` first. For an existing project, run `/
 
 ---
 
-## Install
+## Features
 
-Reggie is installed and managed by the [Reggie desktop app](https://github.com/The-Banana-Standard/forge-reggie). On launch, the app automatically copies bundled resources into `~/.claude/` and keeps them up to date across versions.
+- **Workspace management** — group projects into workspaces and switch between them
+- **Terminal multiplexer** — run multiple Claude Code sessions and shell terminals side by side with split view
+- **Session history** — browse past Claude Code sessions per project
+- **Skills manager** — install, uninstall, and browse Claude Code slash-command skills
+- **Daily planner** — built-in task management
+- **GitHub dashboard** — view issues and PRs via the GitHub CLI
+- **Light & dark themes**
+- **Bundled 36-agent pipeline system** — installed to `~/.claude/` on first launch, with quality gates and memory
 
-**What happens on startup:**
-- Creates `~/.claude/{agents,commands,hooks,docs}` if missing
-- Copies `reggie-*` prefixed files (your custom agents/commands are never touched)
-- Merges PostToolUse stats hook into `settings.json` (preserves existing config)
-- Creates local overlay files (`mcp-registry.local.yaml`, `skills-registry.local.yaml`) if missing
-- First launch: offers to configure `ENABLE_TOOL_SEARCH=auto:5` in your shell profile
+---
 
-**Dev mode** (`cargo tauri dev`): uses symlinks instead of copies for live editing.
+## Installation
 
-All distributable content lives under `resources/`:
+### Pre-built releases
+
+Download from [Releases](https://github.com/The-Banana-Standard/reggie/releases).
+
+| Platform | File |
+|----------|------|
+| macOS (Apple Silicon) | `Reggie_x.x.x_aarch64.dmg` |
+| macOS (Intel)         | `Reggie_x.x.x_x64.dmg`     |
+| Windows               | `Reggie_x.x.x_x64-setup.exe` |
+| Linux (Debian/Ubuntu) | `Reggie_x.x.x_amd64.deb`   |
+| Linux (other)         | `Reggie_x.x.x_amd64.AppImage` |
+
+> **macOS users**: If macOS shows "Reggie is damaged and can't be opened", run:
+> ```bash
+> xattr -cr /Applications/Reggie.app
+> ```
+
+### Build from source
+
+**Prerequisites:**
+- [Rust](https://rustup.rs/) (stable toolchain)
+- [Node.js](https://nodejs.org/) v18+
+- [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/)
+
+```bash
+git clone https://github.com/The-Banana-Standard/reggie.git
+cd reggie
+npm install
+npm run tauri build
+```
+
+---
+
+## Development
+
+```bash
+# Run in development mode (hot reload)
+npm run tauri dev
+
+# Run frontend tests
+npm test
+
+# Run Rust tests
+cargo test --manifest-path src-tauri/Cargo.toml
+
+# Frontend-only dev server (no Tauri shell, limited use)
+npm run dev
+```
+
+The Vite dev server runs on port 1420 with HMR enabled.
+
+---
+
+## What's bundled: the agent system
+
+Reggie ships with a 36-agent pipeline system that installs to `~/.claude/` on first launch:
 
 ```
 resources/
@@ -52,11 +107,37 @@ resources/
   registries/  MCP and skills registries
 ```
 
+On each launch, Reggie compares its bundled version against `~/.claude/.reggie-version`. If the bundled version is newer, all resources are re-installed automatically. In dev mode (`npm run tauri dev`), symlinks are used instead of copies for live editing.
+
+**What happens on first launch:**
+- Creates `~/.claude/{agents,commands,hooks,docs}` if missing
+- Copies `reggie-*` prefixed files (your custom agents/commands are never touched)
+- Merges PostToolUse stats hook into `settings.json` (preserves existing config)
+- Creates local overlay files (`mcp-registry.local.yaml`, `skills-registry.local.yaml`) if missing
+- Offers to configure `ENABLE_TOOL_SEARCH=auto:5` in your shell profile
+
+See [resources/docs/REGGIE.md](resources/docs/REGGIE.md) for agent-system philosophy.
+
 ---
 
-## Updates
+## Key Commands
 
-On each launch, the app compares its bundled version against `~/.claude/.reggie-version`. If the bundled version is newer, all resources are re-installed automatically.
+| Command | What it does |
+|---------|-------------|
+| `/reggie-guide` | Help and command map |
+| `/reggie-init-tasks` | Turn raw backlog notes into implementation-ready tasks |
+| `/reggie-code-workflow` | Run full implementation pipeline with quality gates |
+| `/reggie-find-tools` | Scan project and optionally configure MCP servers |
+| `/reggie-status` | Show current task and pipeline stage |
+
+---
+
+## Architecture
+
+- **Backend:** Rust (Tauri v2, portable-pty, tokio)
+- **Frontend:** React 19 + TypeScript (strict), xterm.js v6
+- **Storage:** SQLite via `tauri-plugin-sql`
+- **Build:** Vite 7, Cargo
 
 ---
 
@@ -75,50 +156,22 @@ Local/generated in `~/.claude/`:
 
 ---
 
-## What You Get
-
-### 36 Agents
-
-- Developers: reggie-ios-developer, reggie-android-developer, reggie-web-developer, reggie-typescript-developer, reggie-go-developer, reggie-python-developer, reggie-rust-developer, reggie-cloud-engineer, reggie-firebase-debugger
-- Quality: reggie-code-architect, reggie-judge, reggie-qa-engineer, reggie-app-tester, reggie-refactorer, reggie-code-reviewer, reggie-security-reviewer
-- Research: reggie-researcher, reggie-thought-partner, reggie-claude-architect, reggie-codebase-debugger
-- Design: reggie-design-innovator, reggie-visual-architect
-- Content: reggie-content-producer, reggie-social-media-strategist, reggie-article-editor, reggie-technical-writer
-- Pipeline managers: orchestration docs for each workflow
-- Utilities: reggie-repo-advisor
-
-### 35 Commands
-
-- Workflows: `/reggie-code-workflow`, `/reggie-audit-workflow`, `/reggie-article-workflow`, `/reggie-new-repo`, `/reggie-onboard`, `/reggie-debug-workflow`, plus supporting workflow commands
-- Stages: `/reggie-plan`, `/reggie-write-tests`, `/reggie-code-review`, `/reggie-review-security`, `/reggie-commit`
-- Utilities/System: `/reggie-brainstorm`, `/reggie-research`, `/reggie-debug`, `/reggie-audit`, `/reggie-diagram`, `/reggie-status`, `/reggie-guide`, `/reggie-improve`, `/reggie-evaluation-system`, `/reggie-system-change`
-
-## Key Commands
-
-| Command | What it does |
-|---------|-------------|
-| `/reggie-guide` | Help and command map |
-| `/reggie-init-tasks` | Turn raw backlog notes into implementation-ready tasks |
-| `/reggie-code-workflow` | Run full implementation pipeline with quality gates |
-| `/reggie-find-tools` | Scan project and optionally configure MCP servers |
-| `/reggie-status` | Show current task and pipeline stage |
-
-## Uninstall
-
-Use the Reggie app to remove Reggie files from `~/.claude/`. Alternatively, delete the Reggie agent and command files from `~/.claude/agents/` and `~/.claude/commands/` manually.
-
 ## Documentation
 
-- [resources/docs/REGGIE.md](resources/docs/REGGIE.md) - Philosophy and principles
-- [resources/docs/PORTABLE-PACKAGE.md](resources/docs/PORTABLE-PACKAGE.md) - Full system reference
-- [resources/docs/reggie-quickstart.md](resources/docs/reggie-quickstart.md) - Quickstart and install/update paths
-- [docs/open-source-release-checklist.md](docs/open-source-release-checklist.md) - Release and history-purge operations
-- [resources/docs/agents-is-all-you-need.md](resources/docs/agents-is-all-you-need.md) - Why agents over tools
+- [resources/docs/REGGIE.md](resources/docs/REGGIE.md) — Philosophy and principles
+- [resources/docs/PORTABLE-PACKAGE.md](resources/docs/PORTABLE-PACKAGE.md) — Full system reference
+- [resources/docs/reggie-quickstart.md](resources/docs/reggie-quickstart.md) — Quickstart and install/update paths
+- [resources/docs/agents-is-all-you-need.md](resources/docs/agents-is-all-you-need.md) — Why agents over tools
+- [docs/open-source-release-checklist.md](docs/open-source-release-checklist.md) — Release operations
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Security
+
+See [SECURITY.md](SECURITY.md) to report vulnerabilities.
+
 ## License
 
-MIT - see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

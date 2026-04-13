@@ -32,6 +32,8 @@ In scope:
 - Hooks and automation scripts (`resources/hooks/`)
 - Registry files and capability plumbing (`resources/registries/mcp-registry.yaml`, `resources/registries/skills-registry.yaml`, capability refresh flows)
 - Agent/command definitions that can affect execution safety
+- Tauri app Rust code under `src-tauri/src/` — in particular `installer.rs` (writes to `~/.claude/` and shell profile), `commands/terminal.rs` (PTY spawning with user PATH), and `commands/skills.rs` (path traversal validation for skill IDs)
+- Tauri command surface generally — file system, process, and shell profile access exposed to the webview
 
 Out of scope:
 - Third-party services and external MCP providers themselves
