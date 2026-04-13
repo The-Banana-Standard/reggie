@@ -46,23 +46,6 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | - | 0 | CURRENT |
 
-### cleanup-orphan-logo-assets
-**Task**: Delete unreferenced `reggie-logo-2.png` and `logo.svg` from repo root
-**Stage**: IMPLEMENT
-**Pipeline**: code-workflow
-**Branch**: task/cleanup-orphan-logo-assets
-**Worktree**: .worktree/cleanup-orphan-logo-assets
-**Base**: release/v1.1.2
-**Started**: 2026-04-12
-**Attempts**: 1
-**Files**:
-- DEL: reggie-logo-2.png
-- DEL: logo.svg
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
-
 ---
 
 ## Backlog
