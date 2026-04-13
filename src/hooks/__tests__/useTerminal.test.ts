@@ -1610,35 +1610,44 @@ describe("useTerminal", () => {
   describe("headless status listener updates promoted tabs", () => {
     it("updates headlessCompleted on promoted tab when status event has completed=true", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
-      vi.mocked(spawnHeadlessTerminal).mockResolvedValueOnce("vis-ht-10");
+      vi.mocked(spawnHeadlessTerminal)
+        .mockResolvedValueOnce("headless-term-1")
+        .mockResolvedValueOnce("headless-term-2");
       const { result } = renderHook(() => useTerminal());
 
       await act(async () => {
-        await result.current.spawnVisibleHeadlessSession(
-          "/home/user/proj",
-          "/init-tasks",
-          "init-tasks -- proj"
-        );
+        await result.current.addHeadlessSession("/proj", "claude", "Session 1");
+      });
+      await act(async () => {
+        await result.current.addHeadlessSession("/proj", "claude", "Session 2");
       });
 
-      expect(result.current.tabs).toHaveLength(1);
-      expect(result.current.tabs[0].headlessCompleted).toBe(false);
+      expect(result.current.headlessSessions).toHaveLength(2);
 
       // Advance past the 1s deferral to register the listen callback
       await act(async () => { vi.advanceTimersByTime(1100); });
       vi.useRealTimers();
 
-      // Mark ht-1 as completed
+      // Mark headless-term-1 as completed via listen event
       act(() => {
-        listenCallback!({ payload: { terminalId: "ht-1", needsAttention: false, exited: false, exitCode: null, bufferSize: 100, completed: true } });
+        listenCallback!({
+          payload: {
+            terminalId: "headless-term-1",
+            needsAttention: false,
+            exited: false,
+            exitCode: null,
+            bufferSize: 100,
+            completed: true,
+          },
+        });
       });
 
       // Promote both
       act(() => {
-        result.current.promoteHeadlessSession("ht-1");
+        result.current.promoteHeadlessSession("headless-term-1");
       });
       act(() => {
-        result.current.promoteHeadlessSession("ht-2");
+        result.current.promoteHeadlessSession("headless-term-2");
       });
 
       expect(result.current.promotedHeadlessIds.size).toBe(2);
@@ -1647,10 +1656,10 @@ describe("useTerminal", () => {
         result.current.trashCompletedSessions();
       });
 
-      // ht-1 was completed, so it should be removed from promotedHeadlessIds
-      // ht-2 is still active, so it stays
-      expect(result.current.promotedHeadlessIds.has("ht-1")).toBe(false);
-      expect(result.current.promotedHeadlessIds.has("ht-2")).toBe(true);
+      // headless-term-1 was completed, so it should be removed from promotedHeadlessIds
+      // headless-term-2 is still active, so it stays
+      expect(result.current.promotedHeadlessIds.has("headless-term-1")).toBe(false);
+      expect(result.current.promotedHeadlessIds.has("headless-term-2")).toBe(true);
       expect(result.current.promotedHeadlessIds.size).toBe(1);
     });
 
