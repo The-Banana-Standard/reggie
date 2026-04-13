@@ -4,7 +4,7 @@
 
 ### update-docs-tauri-rebrand
 **Task**: Rewrite README + docs to reflect Reggie as Tauri app with bundled subagent system
-**Stage**: REVIEW
+**Stage**: UPDATE-CLAUDE
 **Pipeline**: code-workflow
 **Branch**: task/update-docs-tauri-rebrand
 **Worktree**: .worktree/update-docs-tauri-rebrand
@@ -29,7 +29,10 @@
 | QUALITY-CHECK | SKIP | - | SKIP |
 | SIMPLIFY | SKIP | - | SKIP |
 | VERIFY-APP | SKIP | - | SKIP |
-| REVIEW | - | 0 | CURRENT |
+| REVIEW | 9.6 | 1 | PASS |
+| SECURITY-REVIEW | SKIP | - | SKIP |
+| SYNC-DOCS | SKIP | - | SKIP |
+| UPDATE-CLAUDE | - | 0 | CURRENT |
 
 ---
 
@@ -52,3 +55,7 @@ _(none)_
   > surfaced during update-docs-tauri-rebrand
 - [ ] tighten-reggie-guide-installation-topic: `resources/commands/reggie-guide.md` L535 rewritten installation paragraph is dense; consider converting to bullet list for scannability
   > surfaced during update-docs-tauri-rebrand (cosmetic, low priority)
+- [ ] rename-dev-bundle-identifier: `src-tauri/tauri.conf.json` identifier `com.reggie-app.dev` has `.dev` suffix that looks like pre-release leftover — decide pre-1.2.0 whether to drop it
+  > surfaced during update-docs-tauri-rebrand code review
+- [ ] consolidate-unreleased-changelog: Two CHANGELOG `[Unreleased]` entries ("Built-in installer…" under Added + new "Merged forge-reggie…" under Changed) describe related work; consider consolidating before cutting release
+  > surfaced during update-docs-tauri-rebrand code review
