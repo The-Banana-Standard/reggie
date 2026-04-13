@@ -2,16 +2,34 @@
 
 ## Active Tasks
 
-_(none)_
+### code-split-main-bundle
+**Task**: Split 773kB main JS chunk via Vite manualChunks
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/code-split-main-bundle
+**Worktree**: .worktree/code-split-main-bundle
+**Base**: release/v1.1.2
+**Started**: 2026-04-12
+**Attempts**: 1
+**Files**:
+- MOD: vite.config.ts
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
 
 ---
 
 ## Backlog
 
-### Ungroomed
-- [ ] fix-tauri-contract-test: `src/__tests__/tauri-contract.test.ts` fails — 6 TS invoke commands have no Rust counterparts (`get_install_status`, `get_detailed_install_status`, `get_shell_export_line`, `force_reinstall`, `add_to_shell_profile`, `complete_setup`). Contract test correctly flags drift — either remove the unused invoke sites or restore the Rust handlers. [P2] [needs-grooming]
-- [ ] fix-useterminal-headless-test: `src/hooks/__tests__/useTerminal.test.ts:1644` — `headless status listener updates promoted tabs` expects `promotedHeadlessIds.size === 2`, receives `0`. Pre-existing broken test unrelated to branding work. [P3] [needs-grooming]
-- [ ] code-split-main-bundle: `vite build` emits chunk-size warning — `index-*.js` is 773kB. Candidate for dynamic import / manual chunks split. [P3] [needs-grooming]
-- [ ] cleanup-orphan-logo-assets: Two unreferenced logo files tracked at repo root — `reggie-logo.png` (1024x1024 legacy) and `logo.svg` (1420 bytes, no longer referenced by `index.html`). Decide whether to delete or document. [P3] [needs-grooming]
+### Documentation & Repo Hygiene
+- [ ] update-docs-tauri-rebrand: Rewrite README + docs to reflect Reggie as Tauri app with bundled subagent system [P1] [complex] [tier: opus:high] [code] [planned]
+  files: README.md (MOD), CONTRIBUTING.md (MOD), CHANGELOG.md (MOD), SECURITY.md (MOD), resources/commands/reggie-guide.md (MOD), resources/docs/PORTABLE-PACKAGE.md (MOD), docs/open-source-release-checklist.md (MOD)
+- [ ] cleanup-orphan-logo-assets: Delete unreferenced `reggie-logo-2.png` and `logo.svg` from repo root [P3] [simple] [tier: sonnet:medium] [code] [planned]
+  files: reggie-logo-2.png (DEL), logo.svg (DEL)
 
----
+### Testing & Build Quality
+- [ ] fix-tauri-contract-test: Add missing installer commands to contract test RUST_COMMANDS map [P2] [simple] [tier: sonnet:medium] [code] [planned]
+  files: src/__tests__/tauri-contract.test.ts (MOD)
+- [ ] fix-useterminal-headless-test: Rewrite broken promoted-tabs test to use correct code path [P3] [moderate] [tier: opus:medium] [code] [planned]
+  files: src/hooks/__tests__/useTerminal.test.ts (MOD)
