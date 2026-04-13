@@ -4,7 +4,7 @@
 
 ### brand-reggie-with-pixel-logo
 **Task**: Replace placeholder icons and add in-app branding using reggie-logo-2.png
-**Stage**: SIMPLIFY
+**Stage**: VERIFY-APP
 **Pipeline**: code-workflow
 **Branch**: task/brand-reggie-with-pixel-logo
 **Worktree**: .worktree/brand-reggie-with-pixel-logo
@@ -29,7 +29,8 @@
 | IMPLEMENT | 9.4 | 1 | PASS |
 | WRITE-TESTS | 9.4 | 1 | PASS |
 | QUALITY-CHECK | 9.3 | 1 | PASS |
-| SIMPLIFY | - | 0 | CURRENT |
+| SIMPLIFY | 9.2 | 1 | PASS |
+| VERIFY-APP | - | 0 | CURRENT |
 
 ---
 
