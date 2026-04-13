@@ -18,24 +18,6 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | - | 0 | CURRENT |
 
-### fix-useterminal-headless-test
-**Task**: Rewrite broken promoted-tabs test to use correct code path
-**Stage**: QUALITY-CHECK
-**Pipeline**: code-workflow
-**Branch**: task/fix-useterminal-headless-test
-**Worktree**: .worktree/fix-useterminal-headless-test
-**Base**: release/v1.1.2
-**Started**: 2026-04-12
-**Attempts**: 1
-**Files**:
-- MOD: src/hooks/__tests__/useTerminal.test.ts
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.3 | 1 | PASS |
-| WRITE-TESTS | - | 0 | SKIP |
-| QUALITY-CHECK | - | 0 | CURRENT |
-
 ### fix-tauri-contract-test
 **Task**: Add missing installer commands to contract test RUST_COMMANDS map
 **Stage**: IMPLEMENT
