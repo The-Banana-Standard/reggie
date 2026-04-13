@@ -4,7 +4,7 @@
 
 ### update-docs-tauri-rebrand
 **Task**: Rewrite README + docs to reflect Reggie as Tauri app with bundled subagent system
-**Stage**: UPDATE-CLAUDE
+**Stage**: REVIEW-WITH-USER
 **Pipeline**: code-workflow
 **Branch**: task/update-docs-tauri-rebrand
 **Worktree**: .worktree/update-docs-tauri-rebrand
@@ -32,7 +32,8 @@
 | REVIEW | 9.6 | 1 | PASS |
 | SECURITY-REVIEW | SKIP | - | SKIP |
 | SYNC-DOCS | SKIP | - | SKIP |
-| UPDATE-CLAUDE | - | 0 | CURRENT |
+| UPDATE-CLAUDE | SKIP | - | SKIP |
+| REVIEW-WITH-USER | APPROVED | - | PASS |
 
 ---
 
