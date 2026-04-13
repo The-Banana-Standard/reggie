@@ -22,25 +22,6 @@
 | SIMPLIFY | 9.5 | 1 | PASS |
 | VERIFY-APP | - | 0 | CURRENT |
 
-### fix-tauri-contract-test
-**Task**: Add missing installer commands to contract test RUST_COMMANDS map
-**Stage**: SIMPLIFY
-**Pipeline**: code-workflow
-**Branch**: task/fix-tauri-contract-test
-**Worktree**: .worktree/fix-tauri-contract-test
-**Base**: release/v1.1.2
-**Started**: 2026-04-12
-**Attempts**: 1
-**Files**:
-- MOD: src/__tests__/tauri-contract.test.ts
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.5 | 1 | PASS |
-| WRITE-TESTS | - | 0 | SKIP |
-| QUALITY-CHECK | - | 0 | SKIP |
-| SIMPLIFY | - | 0 | CURRENT |
-
 ### update-docs-tauri-rebrand
 **Task**: Rewrite README + docs to reflect Reggie as Tauri app with bundled subagent system
 **Stage**: IMPLEMENT
@@ -65,13 +46,28 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | - | 0 | CURRENT |
 
+### cleanup-orphan-logo-assets
+**Task**: Delete unreferenced `reggie-logo-2.png` and `logo.svg` from repo root
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/cleanup-orphan-logo-assets
+**Worktree**: .worktree/cleanup-orphan-logo-assets
+**Base**: release/v1.1.2
+**Started**: 2026-04-12
+**Attempts**: 1
+**Files**:
+- DEL: reggie-logo-2.png
+- DEL: logo.svg
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+
 ---
 
 ## Backlog
 
 ### Documentation & Repo Hygiene
-- [ ] cleanup-orphan-logo-assets: Delete unreferenced `reggie-logo-2.png` and `logo.svg` from repo root [P3] [simple] [tier: sonnet:medium] [code] [planned]
-  files: reggie-logo-2.png (DEL), logo.svg (DEL)
 
 ### Testing & Build Quality
 
