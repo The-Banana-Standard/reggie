@@ -4,7 +4,7 @@
 
 ### brand-reggie-with-pixel-logo
 **Task**: Replace placeholder icons and add in-app branding using reggie-logo-2.png
-**Stage**: IMPLEMENT
+**Stage**: WRITE-TESTS
 **Pipeline**: code-workflow
 **Branch**: task/brand-reggie-with-pixel-logo
 **Worktree**: .worktree/brand-reggie-with-pixel-logo
@@ -26,12 +26,16 @@
 **Quality Scores**:
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
+| IMPLEMENT | 9.4 | 1 | PASS |
+| WRITE-TESTS | - | 0 | CURRENT |
 
 ---
 
 ## Backlog
 
-_(empty)_
+### Ungroomed
+- [ ] fix-tauri-contract-test: `src/__tests__/tauri-contract.test.ts` fails — 6 TS invoke commands have no Rust counterparts (`get_install_status`, `get_detailed_install_status`, `get_shell_export_line`, `force_reinstall`, `add_to_shell_profile`, `complete_setup`). Contract test correctly flags drift — either remove the unused invoke sites or restore the Rust handlers. [P2] [needs-grooming]
+- [ ] fix-useterminal-headless-test: `src/hooks/__tests__/useTerminal.test.ts:1644` — `headless status listener updates promoted tabs` expects `promotedHeadlessIds.size === 2`, receives `0`. Pre-existing broken test unrelated to branding work. [P3] [needs-grooming]
+- [ ] code-split-main-bundle: `vite build` emits chunk-size warning — `index-*.js` is 773kB. Candidate for dynamic import / manual chunks split. [P3] [needs-grooming]
 
 ---
