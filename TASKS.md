@@ -20,7 +20,7 @@
 
 ### fix-tauri-contract-test
 **Task**: Add missing installer commands to contract test RUST_COMMANDS map
-**Stage**: IMPLEMENT
+**Stage**: SIMPLIFY
 **Pipeline**: code-workflow
 **Branch**: task/fix-tauri-contract-test
 **Worktree**: .worktree/fix-tauri-contract-test
@@ -32,7 +32,10 @@
 **Quality Scores**:
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
+| IMPLEMENT | 9.5 | 1 | PASS |
+| WRITE-TESTS | - | 0 | SKIP |
+| QUALITY-CHECK | - | 0 | SKIP |
+| SIMPLIFY | - | 0 | CURRENT |
 
 ### update-docs-tauri-rebrand
 **Task**: Rewrite README + docs to reflect Reggie as Tauri app with bundled subagent system
