@@ -19,7 +19,8 @@
 | IMPLEMENT | 9.2 | 1 | PASS |
 | WRITE-TESTS | SKIP | - | SKIP |
 | QUALITY-CHECK | SKIP | - | SKIP |
-| SIMPLIFY | - | 0 | CURRENT |
+| SIMPLIFY | 9.5 | 1 | PASS |
+| VERIFY-APP | - | 0 | CURRENT |
 
 ### fix-tauri-contract-test
 **Task**: Add missing installer commands to contract test RUST_COMMANDS map
