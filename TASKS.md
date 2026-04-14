@@ -2,33 +2,6 @@
 
 ## Active Tasks
 
-### fix-reggie-guide-installation-topic
-**Task**: Fix 4 targeted inaccuracies in reggie-guide.md Installation topic
-**Stage**: IMPLEMENT
-**Pipeline**: code-workflow
-**Branch**: task/fix-reggie-guide-installation-topic
-**Worktree**: .worktree/fix-reggie-guide-installation-topic
-**Base**: release/v1.1.2
-**Started**: 2026-04-14
-**Attempts**: 1
-**Files**:
-- MOD: resources/commands/reggie-guide.md
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| PICKUP | - | 1 | PASS |
-| IMPLEMENT | 9.5 | 1 | PASS |
-| WRITE-TESTS | SKIP | - | - |
-| QUALITY-CHECK | SKIP | - | - |
-| SIMPLIFY | SKIP | - | - |
-| VERIFY-APP | SKIP | - | - |
-| REVIEW | 9.3 | 1 | PASS |
-| SECURITY-REVIEW | SKIP | - | - |
-| SYNC-DOCS | 9.3 | 1 | PASS |
-| UPDATE-CLAUDE | - | 1 | PASS (no learnings) |
-| REVIEW-WITH-USER | APPROVED | 1 | PASS (--yes) |
-| COMMIT | - | 0 | CURRENT |
-
 ## Backlog
 
 ### v2.0.0 Release

@@ -1,5 +1,6 @@
 # Completed Tasks
 
+- [x] fix-reggie-guide-installation-topic Fix 4 targeted inaccuracies in reggie-guide.md Installation topic -- 2026-04-14
 - [x] code-split-main-bundle Split 773kB main JS chunk via Vite manualChunks -- 2026-04-12
 - [x] fix-doc-counts Fix documentation counts across README.md, REGGIE.md, agents-is-all-you-need.md, PORTABLE-PACKAGE.md -- 2026-03-04
 - [x] gitignore-sensitive-files Add .env* to .gitignore -- 2026-03-04
