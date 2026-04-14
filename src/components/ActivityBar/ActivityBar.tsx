@@ -16,7 +16,7 @@ function getStoredTheme(): ThemeMode {
     const stored = localStorage.getItem("reggie-theme");
     if (stored === "light" || stored === "dark") return stored;
   } catch { /* SSR or storage unavailable */ }
-  return "dark";
+  return "light";
 }
 
 function applyTheme(theme: ThemeMode): void {

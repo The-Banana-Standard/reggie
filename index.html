@@ -11,8 +11,10 @@
       // Apply persisted theme synchronously to prevent flash of wrong theme
       try {
         var t = localStorage.getItem("reggie-theme");
-        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
-      } catch(e) {}
+        document.documentElement.dataset.theme = (t === "light" || t === "dark") ? t : "light";
+      } catch(e) {
+        document.documentElement.dataset.theme = "light";
+      }
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

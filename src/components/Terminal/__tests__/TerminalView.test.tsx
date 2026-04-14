@@ -645,15 +645,15 @@ describe("TerminalView theme-aware terminal creation", () => {
     delete document.documentElement.dataset.theme;
   });
 
-  it("creates terminal with dark theme when data-theme is not set", () => {
-    // No theme set on document -- defaults to dark
+  it("creates terminal with light theme when data-theme is not set", () => {
+    // No theme set on document -- defaults to light
     render(<TerminalView {...defaultProps} isVisible={true} />);
 
     expect(MockedTerminal).toHaveBeenCalledTimes(1);
     const constructorArgs = MockedTerminal.mock.calls[0][0];
-    expect(constructorArgs.theme.background).toBe("#0D0D0D");
-    expect(constructorArgs.theme.foreground).toBe("#E0E0E0");
-    expect(constructorArgs.theme.cursor).toBe("#FF6B00");
+    expect(constructorArgs.theme.background).toBe("#fefdf2");
+    expect(constructorArgs.theme.foreground).toBe("#1a1a1a");
+    expect(constructorArgs.theme.cursor).toBe("#05c250");
   });
 
   it("creates terminal with dark theme when data-theme is 'dark'", () => {

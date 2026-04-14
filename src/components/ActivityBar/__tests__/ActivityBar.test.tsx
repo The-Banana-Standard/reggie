@@ -52,64 +52,64 @@ afterEach(() => {
 });
 
 describe("ActivityBar theme toggle", () => {
-  it("renders theme toggle button with sun icon aria-label by default (dark mode)", () => {
+  it("renders theme toggle button with moon icon aria-label by default (light mode)", () => {
     render(<ActivityBar {...defaultProps} />);
 
-    const toggleBtn = screen.getByRole("button", { name: "Switch to light mode" });
+    const toggleBtn = screen.getByRole("button", { name: "Switch to dark mode" });
     expect(toggleBtn).toBeTruthy();
   });
 
-  it("toggle button has correct aria-label for dark mode (default)", () => {
+  it("toggle button has correct aria-label for light mode (default)", () => {
     render(<ActivityBar {...defaultProps} />);
 
-    const toggleBtn = screen.getByRole("button", { name: "Switch to light mode" });
-    expect(toggleBtn.getAttribute("aria-label")).toBe("Switch to light mode");
+    const toggleBtn = screen.getByRole("button", { name: "Switch to dark mode" });
+    expect(toggleBtn.getAttribute("aria-label")).toBe("Switch to dark mode");
   });
 
-  it("clicking toggle switches from dark to light mode", () => {
+  it("clicking toggle switches from light to dark mode", () => {
     render(<ActivityBar {...defaultProps} />);
 
-    const toggleBtn = screen.getByRole("button", { name: "Switch to light mode" });
+    const toggleBtn = screen.getByRole("button", { name: "Switch to dark mode" });
     fireEvent.click(toggleBtn);
 
-    // DOM attribute should be set to "light"
-    expect(document.documentElement.dataset.theme).toBe("light");
+    // DOM attribute should be set to "dark"
+    expect(document.documentElement.dataset.theme).toBe("dark");
     // localStorage should persist the choice
-    expect(localStorage.getItem("reggie-theme")).toBe("light");
+    expect(localStorage.getItem("reggie-theme")).toBe("dark");
   });
 
-  it("after switching to light mode, toggle shows moon icon aria-label", () => {
+  it("after switching to dark mode, toggle shows sun icon aria-label", () => {
     render(<ActivityBar {...defaultProps} />);
 
-    const toggleBtn = screen.getByRole("button", { name: "Switch to light mode" });
+    const toggleBtn = screen.getByRole("button", { name: "Switch to dark mode" });
     fireEvent.click(toggleBtn);
 
-    // After toggle, the button should now offer to switch back to dark
-    const moonBtn = screen.getByRole("button", { name: "Switch to dark mode" });
-    expect(moonBtn).toBeTruthy();
-    expect(moonBtn.getAttribute("aria-label")).toBe("Switch to dark mode");
+    // After toggle, the button should now offer to switch back to light
+    const sunBtn = screen.getByRole("button", { name: "Switch to light mode" });
+    expect(sunBtn).toBeTruthy();
+    expect(sunBtn.getAttribute("aria-label")).toBe("Switch to light mode");
   });
 
-  it("clicking toggle twice returns to dark mode", () => {
+  it("clicking toggle twice returns to light mode", () => {
     render(<ActivityBar {...defaultProps} />);
 
-    const toggleBtn = screen.getByRole("button", { name: "Switch to light mode" });
+    const toggleBtn = screen.getByRole("button", { name: "Switch to dark mode" });
 
-    // First click: dark -> light
+    // First click: light -> dark
     fireEvent.click(toggleBtn);
-    expect(document.documentElement.dataset.theme).toBe("light");
-    expect(localStorage.getItem("reggie-theme")).toBe("light");
-
-    // Second click: light -> dark
-    const moonBtn = screen.getByRole("button", { name: "Switch to dark mode" });
-    fireEvent.click(moonBtn);
-
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(localStorage.getItem("reggie-theme")).toBe("dark");
 
-    // Button should be back to sun icon
+    // Second click: dark -> light
     const sunBtn = screen.getByRole("button", { name: "Switch to light mode" });
-    expect(sunBtn).toBeTruthy();
+    fireEvent.click(sunBtn);
+
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(localStorage.getItem("reggie-theme")).toBe("light");
+
+    // Button should be back to moon icon
+    const moonBtn = screen.getByRole("button", { name: "Switch to dark mode" });
+    expect(moonBtn).toBeTruthy();
   });
 
   it("reads initial theme from localStorage (starts in light mode when stored)", () => {
@@ -132,22 +132,22 @@ describe("ActivityBar theme toggle", () => {
     expect(sunBtn).toBeTruthy();
   });
 
-  it("defaults to dark mode when localStorage has no theme stored", () => {
+  it("defaults to light mode when localStorage has no theme stored", () => {
     // localStorage is already clear from beforeEach
     render(<ActivityBar {...defaultProps} />);
 
-    const sunBtn = screen.getByRole("button", { name: "Switch to light mode" });
-    expect(sunBtn).toBeTruthy();
+    const moonBtn = screen.getByRole("button", { name: "Switch to dark mode" });
+    expect(moonBtn).toBeTruthy();
   });
 
-  it("defaults to dark mode when localStorage has an invalid value", () => {
+  it("defaults to light mode when localStorage has an invalid value", () => {
     localStorage.setItem("reggie-theme", "sepia");
 
     render(<ActivityBar {...defaultProps} />);
 
-    // Invalid value should fall back to dark mode
-    const sunBtn = screen.getByRole("button", { name: "Switch to light mode" });
-    expect(sunBtn).toBeTruthy();
+    // Invalid value should fall back to light mode
+    const moonBtn = screen.getByRole("button", { name: "Switch to dark mode" });
+    expect(moonBtn).toBeTruthy();
   });
 
   it("toggle button has the theme-toggle CSS class", () => {
@@ -161,7 +161,7 @@ describe("ActivityBar theme toggle", () => {
     render(<ActivityBar {...defaultProps} />);
 
     // Click theme toggle
-    const themeBtn = screen.getByRole("button", { name: "Switch to light mode" });
+    const themeBtn = screen.getByRole("button", { name: "Switch to dark mode" });
     fireEvent.click(themeBtn);
 
     // Click a panel button (Usage Stats)
@@ -171,8 +171,8 @@ describe("ActivityBar theme toggle", () => {
     // Panel should open
     expect(screen.getByTestId("usage-panel")).toBeTruthy();
 
-    // Theme should still be light
-    expect(document.documentElement.dataset.theme).toBe("light");
+    // Theme should still be dark
+    expect(document.documentElement.dataset.theme).toBe("dark");
   });
 
   it("handles localStorage.getItem throwing an error gracefully", () => {
@@ -180,11 +180,11 @@ describe("ActivityBar theme toggle", () => {
       throw new Error("Storage unavailable");
     });
 
-    // Should not throw, should default to dark
+    // Should not throw, should default to light
     render(<ActivityBar {...defaultProps} />);
 
-    const sunBtn = screen.getByRole("button", { name: "Switch to light mode" });
-    expect(sunBtn).toBeTruthy();
+    const moonBtn = screen.getByRole("button", { name: "Switch to dark mode" });
+    expect(moonBtn).toBeTruthy();
 
     getItemSpy.mockRestore();
   });
@@ -196,14 +196,14 @@ describe("ActivityBar theme toggle", () => {
 
     render(<ActivityBar {...defaultProps} />);
 
-    const toggleBtn = screen.getByRole("button", { name: "Switch to light mode" });
+    const toggleBtn = screen.getByRole("button", { name: "Switch to dark mode" });
 
     // Should not throw even when localStorage.setItem fails
     expect(() => fireEvent.click(toggleBtn)).not.toThrow();
 
     // Theme should still toggle in-memory despite storage failure
-    const moonBtn = screen.getByRole("button", { name: "Switch to dark mode" });
-    expect(moonBtn).toBeTruthy();
+    const sunBtn = screen.getByRole("button", { name: "Switch to light mode" });
+    expect(sunBtn).toBeTruthy();
 
     setItemSpy.mockRestore();
   });
@@ -297,20 +297,8 @@ describe("ActivityBar click-outside-to-close", () => {
 });
 
 describe("ActivityBar onThemeChange callback", () => {
-  it("calls onThemeChange with 'light' when toggling from dark to light", () => {
-    const onThemeChange = vi.fn();
-    render(<ActivityBar {...defaultProps} onThemeChange={onThemeChange} />);
-
-    const toggleBtn = screen.getByRole("button", { name: "Switch to light mode" });
-    fireEvent.click(toggleBtn);
-
-    expect(onThemeChange).toHaveBeenCalledTimes(1);
-    expect(onThemeChange).toHaveBeenCalledWith("light");
-  });
-
   it("calls onThemeChange with 'dark' when toggling from light to dark", () => {
     const onThemeChange = vi.fn();
-    localStorage.setItem("reggie-theme", "light");
     render(<ActivityBar {...defaultProps} onThemeChange={onThemeChange} />);
 
     const toggleBtn = screen.getByRole("button", { name: "Switch to dark mode" });
@@ -320,17 +308,29 @@ describe("ActivityBar onThemeChange callback", () => {
     expect(onThemeChange).toHaveBeenCalledWith("dark");
   });
 
+  it("calls onThemeChange with 'light' when toggling from dark to light", () => {
+    const onThemeChange = vi.fn();
+    localStorage.setItem("reggie-theme", "dark");
+    render(<ActivityBar {...defaultProps} onThemeChange={onThemeChange} />);
+
+    const toggleBtn = screen.getByRole("button", { name: "Switch to light mode" });
+    fireEvent.click(toggleBtn);
+
+    expect(onThemeChange).toHaveBeenCalledTimes(1);
+    expect(onThemeChange).toHaveBeenCalledWith("light");
+  });
+
   it("calls onThemeChange on each toggle in sequence", () => {
     const onThemeChange = vi.fn();
     render(<ActivityBar {...defaultProps} onThemeChange={onThemeChange} />);
 
-    // dark -> light
-    fireEvent.click(screen.getByRole("button", { name: "Switch to light mode" }));
-    expect(onThemeChange).toHaveBeenCalledWith("light");
-
     // light -> dark
     fireEvent.click(screen.getByRole("button", { name: "Switch to dark mode" }));
     expect(onThemeChange).toHaveBeenCalledWith("dark");
+
+    // dark -> light
+    fireEvent.click(screen.getByRole("button", { name: "Switch to light mode" }));
+    expect(onThemeChange).toHaveBeenCalledWith("light");
 
     expect(onThemeChange).toHaveBeenCalledTimes(2);
   });
@@ -339,12 +339,12 @@ describe("ActivityBar onThemeChange callback", () => {
     // defaultProps does not include onThemeChange
     render(<ActivityBar {...defaultProps} />);
 
-    const toggleBtn = screen.getByRole("button", { name: "Switch to light mode" });
+    const toggleBtn = screen.getByRole("button", { name: "Switch to dark mode" });
 
     // Should toggle without error even without the callback
     expect(() => fireEvent.click(toggleBtn)).not.toThrow();
 
     // Theme should still toggle in the DOM
-    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.dataset.theme).toBe("dark");
   });
 });

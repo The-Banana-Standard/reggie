@@ -101,7 +101,7 @@ export function TerminalView({
 
     const container = containerRef.current;
 
-    const isDarkTheme = document.documentElement.dataset.theme !== "light";
+    const isDarkTheme = document.documentElement.dataset.theme === "dark";
 
     const xterm = new Terminal({
       cursorBlink: true,

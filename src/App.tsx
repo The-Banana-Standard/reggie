@@ -81,7 +81,7 @@ function App() {
       const stored = localStorage.getItem("reggie-theme");
       if (stored === "light" || stored === "dark") return stored;
     } catch { /* storage unavailable */ }
-    return "dark";
+    return "light";
   });
 
   const handleThemeChange = useCallback((theme: "dark" | "light") => {
@@ -92,9 +92,8 @@ function App() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem("reggie-theme");
-      if (stored === "light" || stored === "dark") {
-        document.documentElement.dataset.theme = stored;
-      }
+      const theme = stored === "light" || stored === "dark" ? stored : "light";
+      document.documentElement.dataset.theme = theme;
     } catch { /* storage unavailable */ }
   }, []);
 
