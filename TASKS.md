@@ -2,12 +2,26 @@
 
 ## Active Tasks
 
+### fix-reggie-guide-installation-topic
+**Task**: Fix 4 targeted inaccuracies in reggie-guide.md Installation topic
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/fix-reggie-guide-installation-topic
+**Worktree**: .worktree/fix-reggie-guide-installation-topic
+**Base**: release/v1.1.2
+**Started**: 2026-04-14
+**Attempts**: 1
+**Files**:
+- MOD: resources/commands/reggie-guide.md
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| PICKUP | - | 1 | PASS |
+| IMPLEMENT | - | 0 | CURRENT |
+
 ## Backlog
 
 ### v2.0.0 Release
-
-- [ ] fix-reggie-guide-installation-topic: Fix 4 targeted inaccuracies in reggie-guide.md Installation topic (paragraph-to-bullets, clone→bundled-resources rewrite, git-pull→app-download rewrite, uninstall Q&A pointing at new Danger Zone) [P1] [moderate] [tier: opus:medium] [code] [planned] [depends: add-reggie-uninstaller]
-  files: resources/commands/reggie-guide.md
 
 - [ ] prepare-v2.0.0-release: Bump all 3 version manifests to 2.0.0, pivot README/REGGIE/CONTRIBUTING framing to "notes → groom → code" paradigm, rename bundle id to xyz.thebananastandard.reggie, cut CHANGELOG with Breaking section + narrative intro, verify npm+cargo builds [P1] [complex] [tier: opus:high] [code] [planned] [depends: audit-portable-package-accuracy, add-reggie-uninstaller, fix-reggie-guide-installation-topic]
   files: package.json, src-tauri/tauri.conf.json, src-tauri/Cargo.toml, README.md, resources/docs/REGGIE.md, CONTRIBUTING.md, CHANGELOG.md
