@@ -2,29 +2,6 @@
 
 ## Active Tasks
 
-### audit-portable-package-accuracy
-**Task**: Fix 11 stale facts in PORTABLE-PACKAGE.md
-**Stage**: REVIEW
-**Pipeline**: code-workflow (--yes)
-**Branch**: task/audit-portable-package-accuracy
-**Worktree**: .worktree/audit-portable-package-accuracy
-**Base**: release/v1.1.2
-**Started**: 2026-04-14
-**Attempts**: 1
-**Files**:
-- MOD: resources/docs/PORTABLE-PACKAGE.md
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | PASS | 1 | PASS |
-| WRITE-TESTS | SKIP | - | SKIP (no testable code) |
-| QUALITY-CHECK | SKIP | - | SKIP (no tests) |
-| SIMPLIFY | SKIP | - | SKIP (no code) |
-| VERIFY-APP | SKIP | - | SKIP (no app behavior change) |
-| REVIEW | - | 0 | CURRENT |
-
----
-
 ### add-reggie-uninstaller
 **Task**: Build in-app "Remove Reggie Files" Danger Zone (Rust command + React modal + tests)
 **Stage**: IMPLEMENT

@@ -27,3 +27,11 @@
 - [x] fix-tauri-contract-test Add missing installer commands to contract test RUST_COMMANDS map -- 2026-04-12
 - [x] cleanup-orphan-logo-assets Delete unreferenced reggie-logo-2.png and logo.svg from repo root -- 2026-04-12
 - [x] update-docs-tauri-rebrand Rewrite README + docs to reflect Reggie as Tauri app with bundled subagent system -- 2026-04-12
+- [~] audit-src-tauri-forge-strings: Sweep src-tauri/ for stale "Forge" strings post-rebrand -- pruned 2026-04-14 (stale: grep for "forge" in src-tauri/ returned zero hits; rebrand commit 7f1f219 handled it completely)
+- [~] readme-uninstall-section: Decide whether README needs an Uninstall section -- pruned 2026-04-14 (resolved by add-reggie-uninstaller: shipping an in-app Danger Zone "Remove Reggie Files" feature instead of documenting a manual cleanup)
+- [~] refresh-portable-package-body: Audit full PORTABLE-PACKAGE.md for stale content -- merged 2026-04-14 into audit-portable-package-accuracy
+- [~] v1.2.0-release-framing: Frame forge-reggie → reggie merge in release notes -- merged 2026-04-14 into prepare-v2.0.0-release (upgraded to major bump)
+- [~] tighten-reggie-guide-installation-topic: Convert L535 dense paragraph to bullet list -- merged 2026-04-14 into fix-reggie-guide-installation-topic (scope expanded to include 3 factual fixes)
+- [~] rename-dev-bundle-identifier: Drop .dev suffix from bundle identifier -- merged 2026-04-14 into prepare-v2.0.0-release (one-line edit not worth a standalone task)
+- [~] consolidate-unreleased-changelog: Consolidate related CHANGELOG [Unreleased] bullets -- merged 2026-04-14 into prepare-v2.0.0-release (the real work is writing a proper v2.0.0 changelog with narrative intro + Breaking section)
+- [x] audit-portable-package-accuracy Fix 11 stale facts in PORTABLE-PACKAGE.md -- 2026-04-14
