@@ -22,7 +22,9 @@
 | QUALITY-CHECK | SKIP | - | - |
 | SIMPLIFY | SKIP | - | - |
 | VERIFY-APP | SKIP | - | - |
-| REVIEW | - | 0 | CURRENT |
+| REVIEW | 9.3 | 1 | PASS |
+| SECURITY-REVIEW | SKIP | - | - |
+| SYNC-DOCS | - | 0 | CURRENT |
 
 ## Backlog
 
