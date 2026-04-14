@@ -17,7 +17,12 @@
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
 | PICKUP | - | 1 | PASS |
-| IMPLEMENT | - | 0 | CURRENT |
+| IMPLEMENT | 9.5 | 1 | PASS |
+| WRITE-TESTS | SKIP | - | - |
+| QUALITY-CHECK | SKIP | - | - |
+| SIMPLIFY | SKIP | - | - |
+| VERIFY-APP | SKIP | - | - |
+| REVIEW | - | 0 | CURRENT |
 
 ## Backlog
 
