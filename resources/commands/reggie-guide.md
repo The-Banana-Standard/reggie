@@ -532,7 +532,13 @@ Yes. Section headers are optional. A backlog with no `### ` headers works exactl
 ### Topic: Installation & File Structure
 
 **How is Reggie installed?**
-Reggie is a Tauri desktop app that bundles the agent system. On first launch, its built-in installer copies (or, in dev mode, symlinks) the contents of `resources/` into `~/.claude/`. Updates install automatically when you launch a newer version — Reggie compares the bundled version against `~/.claude/.reggie-version` and re-installs if newer. Dev mode (`npm run tauri dev`) uses symlinks for live editing. All distributable content lives under `resources/` in the repo: `resources/agents/`, `resources/commands/`, `resources/hooks/`, `resources/docs/`, and `resources/registries/`.
+Reggie is a Tauri desktop app that bundles the agent system. Its built-in installer runs automatically:
+
+- **First launch** — Reggie copies its bundled agent system into `~/.claude/` and writes `~/.claude/.reggie-version` to track the install.
+- **Subsequent launches** — Reggie compares its bundled version against `~/.claude/.reggie-version`; if the bundled version is newer, it re-runs the installer automatically.
+- **Dev mode** (`npm run tauri dev`) — the installer uses symlinks instead of copies so you can live-edit agents and commands.
+
+All distributable content lives under `resources/` in the repo. On install it lands under `~/.claude/{agents,commands,hooks}/`, alongside docs and registry YAMLs that sit at `~/.claude/` root (see the table below).
 
 **What gets installed where?**
 
@@ -571,16 +577,16 @@ These files are user-specific and not part of the open-source repo:
 When `/reggie-system-change` edits agents, commands, hooks, or docs, those changes happen in the `resources/` directory of the git repo. You can commit and push them. Changes to local-only files (settings.json, AGENT-IMPROVE.md, etc.) are not version-controlled.
 
 **How do I install?**
-Install the [Reggie desktop app](https://github.com/The-Banana-Standard/reggie) and use it to install Reggie. The app handles cloning the repo, copying `resources/` into `~/.claude/`, and configuring hooks.
+Download the [Reggie desktop app](https://github.com/The-Banana-Standard/reggie/releases) for your platform. Launch it — the built-in installer copies the bundled agent system into `~/.claude/` on first run and tracks the install via `~/.claude/.reggie-version`.
 
 **What do I do after installing?**
 Restart Claude Code and run: `/reggie-guide I just installed Reggie, what do I do now?`
 
 **How do I update?**
-Updates are managed through the Reggie app. Pull the latest changes from the repo and the app will sync `resources/` into `~/.claude/`.
+Download the latest Reggie app from [Releases](https://github.com/The-Banana-Standard/reggie/releases) and launch it. The bundled version is compared against `~/.claude/.reggie-version` and the installer re-runs automatically when the bundled version is newer — no manual steps required.
 
 **How do I uninstall?**
-Use the Reggie app to remove Reggie files from `~/.claude/`. Alternatively, delete the Reggie agent and command files from `~/.claude/agents/` and `~/.claude/commands/` manually.
+Open the Reggie app's **Settings** panel and click **Remove Reggie Files** in the Danger Zone section. This reverses everything the built-in installer did: removes `reggie-*` prefixed files from `~/.claude/`, cleans the stats hook entry from `settings.json` (with a `.bak` backup), optionally removes the shell profile line (opt-in), and deletes `~/.claude/.reggie-version`. Your own custom agents, commands, and `*.local.yaml` overlays are preserved.
 
 ---
 

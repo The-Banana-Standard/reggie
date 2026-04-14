@@ -31,6 +31,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Rewrote installation docs to reflect the built-in Reggie installer (replacing install.sh scripts)
 
 ### Fixed
+- `/reggie-guide` "Installation & File Structure" topic: replaced a dense 5-fact paragraph with a scannable bullet list, rewrote the stale "clones the repo" / "pull the latest changes from the repo" Q&A to reflect the Tauri app install/update flow, and updated the uninstall Q&A to point at the new Settings → Danger Zone → Remove Reggie Files button. Also corrected a layout sentence that implied `~/.claude/registries/` was a subdirectory when registry YAMLs actually install to `~/.claude/` root.
 - Tauri contract test now covers all 6 installer commands (`get_install_status`, `get_detailed_install_status`, `get_shell_export_line`, `force_reinstall`, `add_to_shell_profile`, `complete_setup`) — previously flagged as unknown by the contract test
 
 ### Removed
