@@ -563,6 +563,30 @@ fn create_overlay_files(claude_dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Returns true if `entry` is a pre-fix flat-shape stats hook entry, i.e.
+/// `{ "type": "command", "command": STATS_HOOK_COMMAND }` sitting directly
+/// in `PostToolUse`. This shape is invalid under Claude Code's current schema
+/// (each `PostToolUse` entry must have a `hooks` array) and is what older
+/// installer versions wrote.
+fn is_legacy_flat_stats_entry(entry: &Value) -> bool {
+    entry.get("hooks").is_none()
+        && entry.get("command").and_then(|c| c.as_str()) == Some(STATS_HOOK_COMMAND)
+}
+
+/// Returns true if `entry` is a wrapped-shape stats hook entry —
+/// `{ "matcher": ..., "hooks": [ { "command": STATS_HOOK_COMMAND, ... } ] }` —
+/// regardless of matcher value.
+fn is_wrapped_stats_entry(entry: &Value) -> bool {
+    entry
+        .get("hooks")
+        .and_then(|h| h.as_array())
+        .is_some_and(|arr| {
+            arr.iter().any(|h| {
+                h.get("command").and_then(|c| c.as_str()) == Some(STATS_HOOK_COMMAND)
+            })
+        })
+}
+
 /// Reads, merges, and writes `~/.claude/settings.json`.
 ///
 /// Ensures `hooks.PostToolUse` contains the stats hook entry. If the file is
@@ -627,16 +651,27 @@ fn configure_settings(claude_dir: &Path) -> Result<(), String> {
         .and_then(|v| v.as_array_mut())
         .ok_or("PostToolUse is not an array")?;
 
-    // Build the stats hook entry.
+    // Migrate: drop any legacy flat-shape entries written by pre-fix
+    // installer versions. Claude Code's current schema requires each
+    // PostToolUse entry to have the matcher-wrapped form.
+    post_tool_use.retain(|entry| !is_legacy_flat_stats_entry(entry));
+
+    // Build the stats hook entry in the current wrapped shape:
+    //   { "matcher": "", "hooks": [ { "type": "command", "command": "..." } ] }
     let stats_entry = serde_json::json!({
-        "type": "command",
-        "command": STATS_HOOK_COMMAND,
+        "matcher": "",
+        "hooks": [
+            {
+                "type": "command",
+                "command": STATS_HOOK_COMMAND,
+            }
+        ],
     });
 
-    // Only add if not already present.
-    let already_present = post_tool_use.iter().any(|entry| {
-        entry.get("command").and_then(|c| c.as_str()) == Some(STATS_HOOK_COMMAND)
-    });
+    // Only add if an equivalent wrapped entry isn't already present.
+    let already_present = post_tool_use
+        .iter()
+        .any(is_wrapped_stats_entry);
 
     if !already_present {
         post_tool_use.push(stats_entry);
@@ -846,7 +881,7 @@ fn remove_stats_hook_from_settings(settings_path: &Path) -> Result<bool, String>
 
     let before = post_arr.len();
     post_arr.retain(|entry| {
-        entry.get("command").and_then(|c| c.as_str()) != Some(STATS_HOOK_COMMAND)
+        !is_legacy_flat_stats_entry(entry) && !is_wrapped_stats_entry(entry)
     });
     let removed_any = post_arr.len() != before;
 
@@ -1251,9 +1286,89 @@ mod tests {
         let hooks = parsed.get("hooks").unwrap().as_object().unwrap();
         let post_tool_use = hooks.get("PostToolUse").unwrap().as_array().unwrap();
         assert_eq!(post_tool_use.len(), 1);
+
+        let entry = &post_tool_use[0];
+        assert_eq!(entry.get("matcher").unwrap().as_str().unwrap(), "");
+        let inner = entry.get("hooks").unwrap().as_array().unwrap();
+        assert_eq!(inner.len(), 1);
         assert_eq!(
-            post_tool_use[0].get("command").unwrap().as_str().unwrap(),
+            inner[0].get("command").unwrap().as_str().unwrap(),
             STATS_HOOK_COMMAND
+        );
+        assert_eq!(inner[0].get("type").unwrap().as_str().unwrap(), "command");
+    }
+
+    #[test]
+    fn configure_settings_migrates_legacy_flat_entry() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        // Seed settings.json with the broken flat-shape entry that older
+        // installer versions wrote. This is what triggered Claude Code's
+        // "Expected array, but received undefined" error at startup.
+        let existing = serde_json::json!({
+            "hooks": {
+                "PostToolUse": [
+                    {"type": "command", "command": STATS_HOOK_COMMAND}
+                ]
+            }
+        });
+        fs::write(
+            claude_dir.join("settings.json"),
+            serde_json::to_string_pretty(&existing).unwrap(),
+        )
+        .unwrap();
+
+        configure_settings(claude_dir).unwrap();
+
+        let content = fs::read_to_string(claude_dir.join("settings.json")).unwrap();
+        let parsed: Value = serde_json::from_str(&content).unwrap();
+        let post_tool_use = parsed["hooks"]["PostToolUse"].as_array().unwrap();
+
+        // Exactly one entry: the wrapped form. The legacy flat entry should
+        // have been dropped, not left alongside.
+        assert_eq!(post_tool_use.len(), 1);
+        assert!(post_tool_use[0].get("hooks").is_some());
+        assert_eq!(
+            post_tool_use[0].get("matcher").unwrap().as_str().unwrap(),
+            ""
+        );
+    }
+
+    #[test]
+    fn configure_settings_leaves_existing_wrapped_entry_untouched() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        // Simulate a user who already has Reggie's hook installed under
+        // a non-empty matcher — we should not duplicate it.
+        let existing = serde_json::json!({
+            "hooks": {
+                "PostToolUse": [
+                    {
+                        "matcher": "Bash",
+                        "hooks": [
+                            {"type": "command", "command": STATS_HOOK_COMMAND}
+                        ]
+                    }
+                ]
+            }
+        });
+        fs::write(
+            claude_dir.join("settings.json"),
+            serde_json::to_string_pretty(&existing).unwrap(),
+        )
+        .unwrap();
+
+        configure_settings(claude_dir).unwrap();
+
+        let content = fs::read_to_string(claude_dir.join("settings.json")).unwrap();
+        let parsed: Value = serde_json::from_str(&content).unwrap();
+        let post_tool_use = parsed["hooks"]["PostToolUse"].as_array().unwrap();
+        assert_eq!(post_tool_use.len(), 1, "existing wrapped hook should not duplicate");
+        assert_eq!(
+            post_tool_use[0].get("matcher").unwrap().as_str().unwrap(),
+            "Bash"
         );
     }
 
@@ -1535,12 +1650,17 @@ mod tests {
         let parsed: Value = serde_json::from_str(&content).unwrap();
         let post_tool_use = parsed["hooks"]["PostToolUse"].as_array().unwrap();
         assert_eq!(post_tool_use.len(), 2, "should have user hook + stats hook");
-        let commands: Vec<&str> = post_tool_use
-            .iter()
-            .filter_map(|e| e.get("command").and_then(|c| c.as_str()))
-            .collect();
-        assert!(commands.contains(&"echo user-hook"), "user hook preserved");
-        assert!(commands.contains(&STATS_HOOK_COMMAND), "stats hook added");
+
+        // The existing user hook is in the legacy flat shape; leave it alone.
+        let user_hook_preserved = post_tool_use.iter().any(|e| {
+            e.get("command").and_then(|c| c.as_str()) == Some("echo user-hook")
+        });
+        assert!(user_hook_preserved, "user hook preserved");
+
+        // The stats hook we write is wrapped; the command lives at
+        // entry.hooks[0].command.
+        let stats_hook_added = post_tool_use.iter().any(is_wrapped_stats_entry);
+        assert!(stats_hook_added, "stats hook added in wrapped shape");
     }
 
     #[test]
@@ -1962,6 +2082,40 @@ mod tests {
         let second = remove_stats_hook_from_settings(&settings_path).unwrap();
         assert!(first);
         assert!(!second, "second call should be a no-op");
+    }
+
+    #[test]
+    fn remove_stats_hook_removes_wrapped_entry() {
+        let tmp = TempDir::new().unwrap();
+        let settings_path = tmp.path().join("settings.json");
+
+        // Wrapped shape (current installer output).
+        let existing = serde_json::json!({
+            "hooks": {
+                "PostToolUse": [
+                    {
+                        "matcher": "",
+                        "hooks": [
+                            {"type": "command", "command": STATS_HOOK_COMMAND}
+                        ]
+                    },
+                    {"type": "command", "command": "echo user-hook"}
+                ]
+            }
+        });
+        fs::write(&settings_path, serde_json::to_string_pretty(&existing).unwrap()).unwrap();
+
+        let removed = remove_stats_hook_from_settings(&settings_path).unwrap();
+        assert!(removed);
+
+        let parsed: Value =
+            serde_json::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
+        let post_tool_use = parsed["hooks"]["PostToolUse"].as_array().unwrap();
+        assert_eq!(post_tool_use.len(), 1);
+        assert_eq!(
+            post_tool_use[0].get("command").unwrap().as_str().unwrap(),
+            "echo user-hook"
+        );
     }
 
     #[test]
