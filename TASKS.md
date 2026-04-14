@@ -31,7 +31,8 @@
 | REVIEW | 9.05 | 1 | PASS |
 | SECURITY-REVIEW | 9.19 | 1 | PASS |
 | SYNC-DOCS | SKIP | - | CHANGELOG/README ARE the work |
-| UPDATE-CLAUDE | - | 0 | CURRENT |
+| UPDATE-CLAUDE | SKIP | - | no learnings this run |
+| REVIEW-WITH-USER | APPROVED | 1 | auto (--yes) |
 
 ## Backlog
 
