@@ -1,4 +1,4 @@
-# Claude Code Agent System — Transfer Package
+# Reggie Agent System Reference
 
 A complete agent and pipeline system for software development, design, and content production, bundled with the Reggie Tauri desktop app for Claude Code.
 
@@ -109,7 +109,7 @@ Commands invoke pipelines or individual stages.
 
 | Command | What It Does |
 |---------|-------------|
-| `/reggie-code-workflow` | Full feature development pipeline (13 stages, tasks predefined). Requires `/reggie-init-tasks` first — RESEARCH+PLAN handled there. |
+| `/reggie-code-workflow` | Full feature development pipeline (14 stages, tasks predefined). Requires `/reggie-init-tasks` first — RESEARCH+PLAN handled there. |
 | `/reggie-audit-workflow` | Audit codebase, prioritize findings, fix them one by one |
 | `/reggie-article-workflow` | Article production pipeline (brainstorm → draft → edit → publish) |
 | `/reggie-social-workflow` | Adapt content into platform-specific social posts |
@@ -176,7 +176,8 @@ Every pipeline follows the same pattern:
 | Flag | Effect | Available On |
 |------|--------|-------------|
 | `--yes` | Skip all confirmation gates. Pipeline runs end-to-end without user input. Automated quality gates (9.0/10) still run. | All pipeline commands |
-| `--opus` | Force `model: "opus"` on every agent launch. | `/reggie-code-workflow` |
+| `--opus` | Force `model: "opus"` on every agent launch. Disables Sonnet optimizations. | `/reggie-code-workflow` |
+| `--tier <model:effort>` | Filter backlog pickup to tasks tagged with the matching tier (`opus:high`, `opus:medium`, `sonnet:medium`). Enables parallel execution across terminals. Exits cleanly when no matching tasks remain. | `/reggie-code-workflow` |
 
 ### Quality Gate Escalation
 
@@ -194,8 +195,11 @@ Attempt 4: Escalate to user for guidance
 ```
 PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY
   → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS
-  → UPDATE-CLAUDE → REVIEW-WITH-USER → COMMIT → COMPLETE
+  → UPDATE-CLAUDE → REVIEW-WITH-USER → CAPTURE-LEARNINGS
+  → COMMIT → COMPLETE
 ```
+
+**CAPTURE-LEARNINGS**: Before committing, captures any agent-level learnings from this pipeline run (quality gate failures, iteration loops, missed patterns) into `~/.claude/AGENT-IMPROVE.md`. Feeds the self-improvement loop — when entries accumulate past a threshold, `/reggie-improve` processes them into agent and command updates.
 
 **REVIEW-WITH-USER**: After all automated checks pass, walks the user through each acceptance criterion from the task, showing what was built and asking for confirmation. Mismatches loop back to IMPLEMENT with specific feedback. Skipped for legacy tasks without acceptance criteria.
 
@@ -206,7 +210,7 @@ Each `→` is a quality gate. The pipeline manager orchestrates which agent runs
 Multiple Claude sessions can work on different tasks in the same repo simultaneously using **git worktrees** — each task gets its own branch and working directory:
 
 1. **Git worktree isolation**: Each task gets `.worktree/[slug]/` (full working copy on branch `task/[slug]`) — eliminates interleaved commits between parallel sessions
-2. **Pipeline metadata isolation**: Each task gets `.pipeline/[slug]/` directory with its own `CONTEXT.md`, `HANDOFF.md`, and `DECISIONS.md` (stays in main repo)
+2. **Pipeline metadata isolation**: Each task gets `.pipeline/[slug]/` directory with its own `task.md` (from `/reggie-init-tasks`), `CONTEXT.md`, `HANDOFF.md`, and `DECISIONS.md` (stays in main repo)
 3. **Shared TASKS.md**: All active tasks tracked under `## Active Tasks` with `### [slug]` subsections (includes Branch, Worktree, Base fields)
 4. **Auto-pickup**: Running `/reggie-code-workflow` with no arguments auto-picks the next task from backlog and creates a worktree
 5. **Conflict detection**: After PLAN passes, file lists are compared across active tasks. Overlapping files trigger a warning (worktrees prevent immediate breakage but warn about merge conflicts at completion)
@@ -232,6 +236,7 @@ Agents report unrelated issues they find during work under a `## Discovered Issu
 | Social | `/reggie-social-workflow` | EXTRACT-SNIPPETS → ADAPT-PER-PLATFORM → REVIEW |
 | Repo Setup | `/reggie-new-repo` | PROJECT-VISION (loop) → SCAFFOLD → SEED-MEMORY → CONFIGURE-TOOLS → GIT-INIT → CLAUDE-MD → DOCS → INITIAL-COMMIT → PUSH |
 | Onboard | `/reggie-onboard` | DISCOVER → VALIDATE → ANALYZE → DOC-AUDIT → GENERATE → SEED-MEMORY → CONFIGURE-TOOLS → REFINE |
+| Debug | `/reggie-debug-workflow` | INTAKE → DEBUG-DIALOGUE (Socratic hypothesis-driven investigation) → HANDOFF |
 | Improve | `/reggie-improve` | TOOLING-CHECK → COLLECT → CLASSIFY → ANALYZE → PROPOSE → APPLY → VERIFY → CURATE |
 | Evaluate | `/reggie-evaluation-system` | SCAN → EVALUATE → BRAINSTORM → PROPOSE → [IMPLEMENT → VERIFY] |
 | System Change | `/reggie-system-change` | INTAKE → BRAINSTORM → PLAN → IMPLEMENT → VERIFY |
@@ -244,7 +249,7 @@ MCP (Model Context Protocol) servers extend agent capabilities with external too
 - **`skills-registry.yaml`** — Curated index of community Claude Code skills (SKILL.md-based playbooks) from Anthropic, awesome-claude-skills, and notable standalone repos (versioned)
 - **`~/.claude/mcp-registry.local.yaml`** — Optional local overlay for user-specific MCP entries
 - **`~/.claude/skills-registry.local.yaml`** — Optional local overlay for user-specific skill entries
-- **`~/.claude/capability-manifest.yaml`** — Local generated index of ~200 capabilities (official plugins, community plugins, community skills, Smithery servers, local MCP cross-reference). Pipeline PICKUP builds a capability snapshot; `/reggie-init-tasks` RESEARCH+PLAN phase consults it to recommend tools and skills
+- **`~/.claude/capability-manifest.yaml`** — Local generated index of 121 capabilities (official plugins, community plugins, community skills, Smithery servers, local MCP cross-reference). Pipeline PICKUP builds a capability snapshot; `/reggie-init-tasks` RESEARCH+PLAN phase consults it to recommend tools and skills
 - **`/reggie-find-tools`** — Scan a project and configure relevant MCP servers on demand
 - **`/reggie-refresh-capabilities`** — Update the capability manifest from all sources (plugin marketplaces, skills registry, Smithery API, community repos)
 - **CONFIGURE-TOOLS stage** — Automatically scan and configure during `/reggie-onboard` and `/reggie-new-repo`
@@ -352,14 +357,22 @@ The pipeline system tracks state in a `TASKS.md` file in your project root. Mult
 ---
 
 ## Backlog
-- [ ] Push notification support
-- [ ] Add leaderboard
 
-## Completed
-- [x] [setup-project] Set up project structure -- 2026-02-03
+### v2.0.0 Release
+
+- [ ] add-push-notifications: Wire APNs + FCM for daily reminder pushes, respecting per-user quiet hours and notification permissions [P1] [complex] [tier: opus:high] [code] [planned]
+  files: src/services/NotificationService.swift, src/models/User.swift
+
+- [ ] add-leaderboard: Global top-100 leaderboard backed by Firestore with daily reset [P2] [moderate] [tier: opus:medium] [code] [planned] [depends: add-push-notifications]
+  files: src/screens/LeaderboardView.swift, firestore.rules
+
+### Ungroomed
+
+- [ ] investigate-cold-start-latency: First launch takes ~4s on older devices
+  > context: noticed during TestFlight feedback, may be Firestore SDK init or asset loading
 ```
 
-Each active task gets an isolated `.pipeline/[slug]/` directory containing its `CONTEXT.md`, `HANDOFF.md`, and `DECISIONS.md`.
+Completed tasks migrate from `## Active Tasks` to a separate `HISTORY.md` file at COMPLETE stage — they are not kept in TASKS.md. Each active task gets an isolated `.pipeline/[slug]/` directory containing its `task.md` (from `/reggie-init-tasks`), `CONTEXT.md`, `HANDOFF.md`, and `DECISIONS.md`.
 
 ---
 
@@ -436,16 +449,3 @@ Add a `CLAUDE.md` to any project root. Agents read this file to understand proje
 **Commands not appearing** — Restart Claude Code. Commands load at startup.
 
 **Pipeline stuck** — Run `/reggie-status` to see where you are, or describe what's wrong to the orchestrator.
-
----
-
-## Version
-
-```
-Package version: 3.0.0
-Last updated: 2026-03-09
-Agents: 36
-Commands: 35
-Pipelines: 10 (code, audit, article, social, repo-setup, onboard, debug, improve, evaluate-reggie, reggie-system-change)
-Features: Git worktree isolation for parallel tasks, branch-per-task with merge strategies, cross-pipeline task sharing, conflict detection, discovered issues → backlog, reggie-researcher as context builder, always-loaded language patterns in developer agents, onboard workflow for existing repos, conversational debug workflow with Socratic diagnosis, MCP tool management with three-layer routing, capability manifest for plugin/skill awareness, self-improvement loop with agent learnings, workspace-level task distribution across repos
-```
