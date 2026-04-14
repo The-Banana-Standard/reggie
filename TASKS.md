@@ -25,7 +25,9 @@
 | REVIEW | 9.3 | 1 | PASS |
 | SECURITY-REVIEW | SKIP | - | - |
 | SYNC-DOCS | 9.3 | 1 | PASS |
-| UPDATE-CLAUDE | - | 0 | CURRENT |
+| UPDATE-CLAUDE | - | 1 | PASS (no learnings) |
+| REVIEW-WITH-USER | APPROVED | 1 | PASS (--yes) |
+| COMMIT | - | 0 | CURRENT |
 
 ## Backlog
 
