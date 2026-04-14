@@ -2,12 +2,33 @@
 
 ## Active Tasks
 
+### prepare-v2.0.0-release
+**Task**: Cut v2.0.0 major release — version manifests, framing pivot, bundle id rename, CHANGELOG cut
+**Stage**: PICKUP
+**Pipeline**: code-workflow (--yes, tier: opus:high)
+**Branch**: task/prepare-v2.0.0-release
+**Worktree**: .worktree/prepare-v2.0.0-release
+**Base**: release/v1.1.2
+**Started**: 2026-04-14
+**Attempts**: 1
+**Files**:
+- MOD: package.json
+- MOD: src-tauri/tauri.conf.json
+- MOD: src-tauri/Cargo.toml
+- MOD: README.md
+- MOD: resources/docs/REGGIE.md
+- MOD: CONTRIBUTING.md
+- MOD: CHANGELOG.md
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| PICKUP | - | 1 | CURRENT |
+
 ## Backlog
 
 ### v2.0.0 Release
 
-- [ ] prepare-v2.0.0-release: Bump all 3 version manifests to 2.0.0, pivot README/REGGIE/CONTRIBUTING framing to "notes → groom → code" paradigm, rename bundle id to xyz.thebananastandard.reggie, cut CHANGELOG with Breaking section + narrative intro, verify npm+cargo builds [P1] [complex] [tier: opus:high] [code] [planned] [depends: audit-portable-package-accuracy, add-reggie-uninstaller, fix-reggie-guide-installation-topic]
-  files: package.json, src-tauri/tauri.conf.json, src-tauri/Cargo.toml, README.md, resources/docs/REGGIE.md, CONTRIBUTING.md, CHANGELOG.md
+(all v2.0.0 release tasks complete or in progress)
 
 ### Ungroomed
 
