@@ -4,9 +4,9 @@
   <img src="reggie-logo.png" alt="Reggie" width="200">
 </p>
 
-**Tauri v2 desktop app for Claude Code, powered by a 36-agent subagent system.**
+**Brain-dump to merged PR. Reggie is a desktop app and agent system for Claude Code that turns messy notes into shipped code.**
 
-Reggie is a desktop workspace manager and terminal multiplexer for Claude Code CLI sessions, bundled with a 36-agent pipeline system with quality gates and memory. Everything runs locally — no external APIs, no cloud dependencies.
+Dump features, bugs, and half-formed ideas into `TASKS.md`. Run `/reggie-init-tasks` to groom them into implementation-ready plans. Run `/reggie-code-workflow` in as many terminals as you want — each session picks a different task and ships it through a pipeline with quality gates. Reggie is a Tauri v2 desktop app backed by a bundled 36-agent pipeline system with memory. Everything runs locally — no external APIs, no cloud dependencies.
 
 See [resources/docs/REGGIE.md](resources/docs/REGGIE.md) for the agent-system philosophy and principles.
 

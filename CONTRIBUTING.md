@@ -1,6 +1,6 @@
 # Contributing to Reggie
 
-Thanks for your interest in contributing. Reggie is a personal system shared openly — contributions that improve it for everyone are welcome. Reggie has two contribution tracks: (a) the Tauri desktop app itself (Rust + React) and (b) the bundled 36-agent system under `resources/`. Both are welcome.
+Thanks for your interest in contributing. Reggie is a brain-dump-to-merged-PR workflow for Claude Code — a desktop app and agent system that turns messy notes into shipped code — shared openly as a personal system, and contributions that improve it for everyone are welcome. There are two contribution tracks: (a) the Tauri desktop app itself (Rust + React) and (b) the bundled 36-agent system under `resources/`. Both are welcome.
 
 ## Setup
 

@@ -1,12 +1,12 @@
 # Reggie
 
-**Reggie turns your backlog into a parallel build queue.**
+**Brain-dump to merged PR. Reggie turns your backlog into a parallel build queue.**
 
 Dump everything you want built -- features, bugs, half-formed ideas. Reggie organizes them into structured tasks, then executes them in parallel across specialized agents. Each task flows through its own pipeline with quality gates. You review the results.
 
-36 agents. 35 commands. A pipeline architecture with quality gates. All living in `~/.claude/`, all portable across projects.
+Under the hood: 36 agents, 35 commands, a pipeline architecture with quality gates, agent memory, and self-improvement — all living in `~/.claude/`, all portable across projects.
 
-Built on Claude Code. Extends it from a single-agent tool into a coordinated multi-agent system with memory, self-improvement, and enforced quality standards.
+Built on Claude Code. Extends it from a single-agent tool into a coordinated multi-agent system with enforced quality standards.
 
 ---
 
