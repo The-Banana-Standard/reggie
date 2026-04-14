@@ -4,7 +4,7 @@
 
 ### add-reggie-uninstaller
 **Task**: Build in-app "Remove Reggie Files" Danger Zone (Rust command + React modal + tests)
-**Stage**: SYNC-DOCS
+**Stage**: UPDATE-CLAUDE
 **Pipeline**: code-workflow (--yes)
 **Branch**: task/add-reggie-uninstaller
 **Worktree**: .worktree/add-reggie-uninstaller
@@ -27,7 +27,8 @@
 | VERIFY-APP | 9.4 | 1 | PASS |
 | REVIEW | 9.4 | 2 | PASS |
 | SECURITY-REVIEW | 9.4 | 1 | PASS |
-| SYNC-DOCS | - | 0 | CURRENT |
+| SYNC-DOCS | SKIP | 1 | PASS |
+| UPDATE-CLAUDE | - | 0 | CURRENT |
 
 ---
 
