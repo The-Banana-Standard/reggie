@@ -63,6 +63,7 @@ pub fn run() {
             installer::complete_setup,
             installer::add_to_shell_profile,
             installer::get_shell_export_line,
+            installer::uninstall_reggie_files,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {

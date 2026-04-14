@@ -78,6 +78,22 @@ pub struct DetailedInstallStatus {
     pub tool_search_configured: bool,
 }
 
+/// Returned by `uninstall_reggie_files` to summarize what was removed.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UninstallReport {
+    /// Absolute paths of files that were removed, as display strings.
+    pub files_removed: Vec<String>,
+    /// Whether the stats hook entry was removed from `settings.json`.
+    pub settings_hook_removed: bool,
+    /// Whether the shell profile export line was removed.
+    pub shell_profile_removed: bool,
+    /// Whether any of `.reggie-version` / `.reggie-setup-complete` were removed.
+    pub version_file_removed: bool,
+    /// Absolute paths of user overlay files preserved (not removed).
+    pub overlays_preserved: Vec<String>,
+}
+
 // ── Main entry point ──────────────────────────────────────────────────────
 
 /// Run the full install flow. Called from `setup()` in `lib.rs`.
@@ -309,6 +325,44 @@ pub fn force_reinstall(app: AppHandle) -> Result<InstallResult, String> {
         needs_setup,
         message,
     })
+}
+
+/// Fully reverses every side effect produced by the installer.
+///
+/// Removes `reggie-*` prefixed files from managed subdirectories, deletes
+/// Reggie-owned registry and hook files, surgically removes the stats hook
+/// entry from `settings.json`, optionally strips the shell profile export,
+/// and drops the version/setup tracking files. Idempotent — running it twice
+/// is a no-op on the second call.
+///
+/// The `remove_shell_profile` flag is opt-in: when `false`, the user's shell
+/// profile is left untouched.
+#[tauri::command]
+pub fn uninstall_reggie_files(
+    app: AppHandle,
+    remove_shell_profile: bool,
+) -> Result<UninstallReport, String> {
+    let claude_dir = get_claude_dir()?;
+    let bundled_docs = list_bundled_doc_names(&app).unwrap_or_default();
+    run_uninstall(&claude_dir, remove_shell_profile, &bundled_docs)
+}
+
+/// Enumerates filenames under the bundled `docs/` resource directory.
+///
+/// Used by the uninstaller to know which non-prefixed files in
+/// `~/.claude/docs/` originated from the installer bundle, so they can be
+/// removed even though they do not carry the `reggie-` prefix.
+fn list_bundled_doc_names(app: &AppHandle) -> Result<Vec<String>, String> {
+    let base = get_resource_base(app)?;
+    let docs_dir = base.join("docs");
+    let Ok(entries) = fs::read_dir(&docs_dir) else {
+        return Ok(Vec::new());
+    };
+    Ok(entries
+        .flatten()
+        .filter(|e| e.path().is_file())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .collect())
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────
@@ -705,6 +759,286 @@ fn detect_shell_profile() -> Result<PathBuf, String> {
 
     // Default to .zshrc (macOS default shell).
     Ok(home.join(".zshrc"))
+}
+
+// ── Uninstall helpers ─────────────────────────────────────────────────────
+
+/// Removes files in `dir` whose file name begins with `prefix`.
+///
+/// Returns the list of removed paths. If `dir` does not exist, returns an
+/// empty vector — this keeps the uninstaller idempotent.
+fn remove_prefixed_files(dir: &Path, prefix: &str) -> Result<Vec<PathBuf>, String> {
+    if !dir.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let mut removed = Vec::new();
+    let entries = fs::read_dir(dir)
+        .map_err(|e| format!("Failed to read {}: {e}", dir.display()))?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+
+        // Accept regular files and symlinks; dev-mode installs symlinks in.
+        let is_file_or_symlink = path.is_file()
+            || path
+                .symlink_metadata()
+                .map(|m| m.file_type().is_symlink())
+                .unwrap_or(false);
+        if !is_file_or_symlink {
+            continue;
+        }
+
+        let file_name = entry.file_name();
+        let name = file_name.to_string_lossy();
+        if !name.starts_with(prefix) {
+            continue;
+        }
+
+        fs::remove_file(&path)
+            .map_err(|e| format!("Failed to remove {}: {e}", path.display()))?;
+        removed.push(path);
+    }
+
+    Ok(removed)
+}
+
+/// Removes the Reggie stats hook from `settings.json` in-place.
+///
+/// - If the file is missing or unparseable, returns `Ok(false)` (nothing to do).
+/// - Creates `settings.json.bak` with the original bytes before rewriting.
+/// - Removes the `PostToolUse` key entirely if the filter leaves it empty, and
+///   removes the `hooks` key if it becomes empty.
+/// - Returns `true` iff a Reggie entry was actually removed.
+fn remove_stats_hook_from_settings(settings_path: &Path) -> Result<bool, String> {
+    if !settings_path.is_file() {
+        return Ok(false);
+    }
+
+    let raw = fs::read_to_string(settings_path)
+        .map_err(|e| format!("Failed to read settings.json: {e}"))?;
+
+    let mut settings: Value = match serde_json::from_str(&raw) {
+        Ok(v) => v,
+        Err(_) => {
+            // Can't safely mutate malformed JSON; leave it alone.
+            return Ok(false);
+        }
+    };
+
+    let Some(obj) = settings.as_object_mut() else {
+        return Ok(false);
+    };
+
+    // Walk to hooks.PostToolUse without creating missing keys.
+    let Some(hooks_val) = obj.get_mut("hooks") else {
+        return Ok(false);
+    };
+    let Some(hooks) = hooks_val.as_object_mut() else {
+        return Ok(false);
+    };
+    let Some(post_val) = hooks.get_mut("PostToolUse") else {
+        return Ok(false);
+    };
+    let Some(post_arr) = post_val.as_array_mut() else {
+        return Ok(false);
+    };
+
+    let before = post_arr.len();
+    post_arr.retain(|entry| {
+        entry.get("command").and_then(|c| c.as_str()) != Some(STATS_HOOK_COMMAND)
+    });
+    let removed_any = post_arr.len() != before;
+
+    if !removed_any {
+        return Ok(false);
+    }
+
+    // Clean up empty containers.
+    if post_arr.is_empty() {
+        hooks.remove("PostToolUse");
+    }
+    if hooks.is_empty() {
+        obj.remove("hooks");
+    }
+
+    // Backup the original before writing the mutated version.
+    let backup = settings_path.with_extension("json.bak");
+    fs::write(&backup, raw.as_bytes())
+        .map_err(|e| format!("Failed to write {}: {e}", backup.display()))?;
+
+    let formatted = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("Failed to serialize settings.json: {e}"))?;
+    fs::write(settings_path, formatted)
+        .map_err(|e| format!("Failed to write settings.json: {e}"))?;
+
+    Ok(true)
+}
+
+/// Removes the Reggie-injected shell export line (and its preceding comment
+/// line) from a shell profile file.
+///
+/// Matches both the bash/zsh form (`SHELL_EXPORT_LINE`) and the fish form
+/// (`FISH_EXPORT_LINE`). The installer always writes a
+/// `# Added by Reggie — enables Claude Code auto tool search` comment line
+/// immediately before the export; that comment is removed too.
+///
+/// Returns `Ok(false)` if the file is missing or contained no matching lines.
+fn remove_shell_profile_export(profile_path: &Path) -> Result<bool, String> {
+    if !profile_path.is_file() {
+        return Ok(false);
+    }
+
+    let raw = fs::read_to_string(profile_path)
+        .map_err(|e| format!("Failed to read {}: {e}", profile_path.display()))?;
+
+    let comment = "# Added by Reggie — enables Claude Code auto tool search";
+    let lines: Vec<&str> = raw.lines().collect();
+    let mut kept: Vec<&str> = Vec::with_capacity(lines.len());
+    let mut removed_any = false;
+
+    for line in &lines {
+        let trimmed = line.trim();
+        if trimmed == SHELL_EXPORT_LINE || trimmed == FISH_EXPORT_LINE {
+            removed_any = true;
+            // If the previous kept line is the Reggie comment, drop it too.
+            if kept.last().map(|l| l.trim()) == Some(comment) {
+                kept.pop();
+            }
+            continue;
+        }
+        kept.push(line);
+    }
+
+    if !removed_any {
+        return Ok(false);
+    }
+
+    // Preserve a trailing newline if the original had one.
+    let mut out = kept.join("\n");
+    if raw.ends_with('\n') {
+        out.push('\n');
+    }
+
+    fs::write(profile_path, out)
+        .map_err(|e| format!("Failed to write {}: {e}", profile_path.display()))?;
+
+    Ok(true)
+}
+
+/// Walks `claude_dir` and returns absolute paths of top-level files whose
+/// name ends in `.local.yaml` (user overlays that must never be removed).
+fn list_local_overlays(claude_dir: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = fs::read_dir(claude_dir) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|e| {
+            let path = e.path();
+            if !path.is_file() {
+                return None;
+            }
+            let name = e.file_name().to_string_lossy().to_string();
+            if name.ends_with(".local.yaml") {
+                Some(path)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+/// Removes `path` if it exists (as a file or symlink). Returns `true` if a
+/// file was actually removed. Idempotent — missing paths are not an error.
+fn remove_file_if_exists(path: &Path) -> Result<bool, String> {
+    if !path.is_file() && path.symlink_metadata().is_err() {
+        return Ok(false);
+    }
+    fs::remove_file(path)
+        .map_err(|e| format!("Failed to remove {}: {e}", path.display()))?;
+    Ok(true)
+}
+
+/// Orchestrates the full uninstall. Split out from the `#[tauri::command]`
+/// wrapper so that tests can drive it against a temp directory.
+///
+/// `bundled_docs` is the list of filenames under the installer's bundled
+/// `docs/` resource directory. These are removed from `~/.claude/docs/` in
+/// addition to any `reggie-*` prefixed files, because the installer copies
+/// them by content rather than by prefix.
+fn run_uninstall(
+    claude_dir: &Path,
+    remove_shell_profile: bool,
+    bundled_docs: &[String],
+) -> Result<UninstallReport, String> {
+    let overlays_preserved: Vec<String> = list_local_overlays(claude_dir)
+        .into_iter()
+        .map(|p| p.display().to_string())
+        .collect();
+
+    let mut report = UninstallReport {
+        files_removed: Vec::new(),
+        settings_hook_removed: false,
+        shell_profile_removed: false,
+        version_file_removed: false,
+        overlays_preserved,
+    };
+
+    // 1. Prefixed files in agents/, commands/, docs/.
+    for subdir in ["agents", "commands", "docs"] {
+        for p in remove_prefixed_files(&claude_dir.join(subdir), "reggie-")? {
+            report.files_removed.push(p.display().to_string());
+        }
+    }
+
+    // 2. Non-prefixed bundled docs copied by install_docs.
+    let docs_dir = claude_dir.join("docs");
+    for name in bundled_docs {
+        let path = docs_dir.join(name);
+        if remove_file_if_exists(&path)? {
+            report.files_removed.push(path.display().to_string());
+        }
+    }
+
+    // 3. Standalone Reggie-owned files (REGGIE.md, stats hook, registries).
+    let owned_files = [
+        claude_dir.join("REGGIE.md"),
+        claude_dir.join("hooks").join("track-stats.sh"),
+        claude_dir.join("mcp-registry.yaml"),
+        claude_dir.join("skills-registry.yaml"),
+    ];
+    for path in &owned_files {
+        if remove_file_if_exists(path)? {
+            report.files_removed.push(path.display().to_string());
+        }
+    }
+
+    // 4. Surgical settings.json hook removal.
+    report.settings_hook_removed =
+        remove_stats_hook_from_settings(&claude_dir.join("settings.json"))?;
+
+    // 5. Opt-in shell profile removal. Failing to detect the profile should
+    //    not abort the rest of the uninstall.
+    if remove_shell_profile {
+        report.shell_profile_removed = detect_shell_profile()
+            .and_then(|p| remove_shell_profile_export(&p))
+            .unwrap_or_else(|e| {
+                eprintln!("[reggie-uninstaller] shell profile: {e}");
+                false
+            });
+    }
+
+    // 6. Tracking files.
+    for name in [".reggie-version", ".reggie-setup-complete"] {
+        let path = claude_dir.join(name);
+        if remove_file_if_exists(&path)? {
+            report.version_file_removed = true;
+            report.files_removed.push(path.display().to_string());
+        }
+    }
+
+    Ok(report)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────
@@ -1492,5 +1826,323 @@ mod tests {
 
         // Only the top-level file should be counted.
         assert_eq!(count_files_in_dir(&dir), 1);
+    }
+
+    // ── remove_prefixed_files ──
+
+    #[test]
+    fn remove_prefixed_files_only_removes_matching_prefix() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path();
+        File::create(dir.join("reggie-a.md")).unwrap();
+        File::create(dir.join("reggie-b.md")).unwrap();
+        File::create(dir.join("user-custom.md")).unwrap();
+
+        let removed = remove_prefixed_files(dir, "reggie-").unwrap();
+        assert_eq!(removed.len(), 2, "should remove both reggie-* files");
+        assert!(!dir.join("reggie-a.md").exists());
+        assert!(!dir.join("reggie-b.md").exists());
+        assert!(
+            dir.join("user-custom.md").exists(),
+            "user file must be preserved"
+        );
+    }
+
+    #[test]
+    fn remove_prefixed_files_handles_missing_dir() {
+        let tmp = TempDir::new().unwrap();
+        let missing = tmp.path().join("nope");
+        let removed = remove_prefixed_files(&missing, "reggie-").unwrap();
+        assert!(removed.is_empty());
+    }
+
+    // ── remove_stats_hook_from_settings ──
+
+    #[test]
+    fn remove_stats_hook_preserves_other_hooks() {
+        let tmp = TempDir::new().unwrap();
+        let settings_path = tmp.path().join("settings.json");
+
+        let existing = serde_json::json!({
+            "hooks": {
+                "PostToolUse": [
+                    {"type": "command", "command": STATS_HOOK_COMMAND},
+                    {"type": "command", "command": "echo user-hook"}
+                ]
+            }
+        });
+        fs::write(&settings_path, serde_json::to_string_pretty(&existing).unwrap()).unwrap();
+
+        let removed = remove_stats_hook_from_settings(&settings_path).unwrap();
+        assert!(removed);
+
+        let parsed: Value =
+            serde_json::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
+        let post_tool_use = parsed["hooks"]["PostToolUse"].as_array().unwrap();
+        assert_eq!(post_tool_use.len(), 1);
+        assert_eq!(
+            post_tool_use[0].get("command").unwrap().as_str().unwrap(),
+            "echo user-hook"
+        );
+
+        assert!(
+            tmp.path().join("settings.json.bak").exists(),
+            "backup must be created"
+        );
+    }
+
+    #[test]
+    fn remove_stats_hook_removes_empty_posttooluse_key() {
+        let tmp = TempDir::new().unwrap();
+        let settings_path = tmp.path().join("settings.json");
+
+        let existing = serde_json::json!({
+            "hooks": {
+                "PostToolUse": [
+                    {"type": "command", "command": STATS_HOOK_COMMAND}
+                ]
+            }
+        });
+        fs::write(&settings_path, serde_json::to_string_pretty(&existing).unwrap()).unwrap();
+
+        let removed = remove_stats_hook_from_settings(&settings_path).unwrap();
+        assert!(removed);
+
+        let parsed: Value =
+            serde_json::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
+        let obj = parsed.as_object().unwrap();
+        // PostToolUse should be gone, and since hooks was the only key and
+        // it is now empty, hooks should also be gone.
+        assert!(
+            !obj.contains_key("hooks"),
+            "empty hooks object should be removed"
+        );
+    }
+
+    #[test]
+    fn remove_stats_hook_preserves_unrelated_top_level_keys() {
+        let tmp = TempDir::new().unwrap();
+        let settings_path = tmp.path().join("settings.json");
+
+        let existing = serde_json::json!({
+            "userSetting": "keep-me",
+            "hooks": {
+                "PostToolUse": [
+                    {"type": "command", "command": STATS_HOOK_COMMAND}
+                ]
+            }
+        });
+        fs::write(&settings_path, serde_json::to_string_pretty(&existing).unwrap()).unwrap();
+
+        remove_stats_hook_from_settings(&settings_path).unwrap();
+
+        let parsed: Value =
+            serde_json::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
+        assert_eq!(
+            parsed.get("userSetting").unwrap().as_str().unwrap(),
+            "keep-me"
+        );
+    }
+
+    #[test]
+    fn remove_stats_hook_idempotent() {
+        let tmp = TempDir::new().unwrap();
+        let settings_path = tmp.path().join("settings.json");
+
+        let existing = serde_json::json!({
+            "hooks": {
+                "PostToolUse": [
+                    {"type": "command", "command": STATS_HOOK_COMMAND}
+                ]
+            }
+        });
+        fs::write(&settings_path, serde_json::to_string_pretty(&existing).unwrap()).unwrap();
+
+        let first = remove_stats_hook_from_settings(&settings_path).unwrap();
+        let second = remove_stats_hook_from_settings(&settings_path).unwrap();
+        assert!(first);
+        assert!(!second, "second call should be a no-op");
+    }
+
+    #[test]
+    fn remove_stats_hook_missing_file() {
+        let tmp = TempDir::new().unwrap();
+        let missing = tmp.path().join("nope.json");
+        let result = remove_stats_hook_from_settings(&missing).unwrap();
+        assert!(!result);
+    }
+
+    // ── remove_shell_profile_export ──
+
+    #[test]
+    fn remove_shell_profile_export_removes_line_and_comment() {
+        let tmp = TempDir::new().unwrap();
+        let profile = tmp.path().join(".zshrc");
+        let original = "\
+export PATH=/usr/local/bin
+# Added by Reggie — enables Claude Code auto tool search
+export ENABLE_TOOL_SEARCH=auto:5
+";
+        fs::write(&profile, original).unwrap();
+
+        let removed = remove_shell_profile_export(&profile).unwrap();
+        assert!(removed);
+
+        let after = fs::read_to_string(&profile).unwrap();
+        assert!(after.contains("export PATH=/usr/local/bin"));
+        assert!(!after.contains("ENABLE_TOOL_SEARCH"));
+        assert!(
+            !after.contains("Added by Reggie"),
+            "preceding comment should be removed"
+        );
+    }
+
+    #[test]
+    fn remove_shell_profile_export_preserves_unrelated() {
+        let tmp = TempDir::new().unwrap();
+        let profile = tmp.path().join(".zshrc");
+        let original = "\
+export PATH=/usr/local/bin
+alias ll='ls -la'
+";
+        fs::write(&profile, original).unwrap();
+
+        let removed = remove_shell_profile_export(&profile).unwrap();
+        assert!(!removed);
+
+        let after = fs::read_to_string(&profile).unwrap();
+        assert_eq!(after, original);
+    }
+
+    #[test]
+    fn remove_shell_profile_export_handles_fish_line() {
+        let tmp = TempDir::new().unwrap();
+        let profile = tmp.path().join("config.fish");
+        let original = "\
+# Added by Reggie — enables Claude Code auto tool search
+set -gx ENABLE_TOOL_SEARCH auto:5
+";
+        fs::write(&profile, original).unwrap();
+
+        let removed = remove_shell_profile_export(&profile).unwrap();
+        assert!(removed);
+
+        let after = fs::read_to_string(&profile).unwrap();
+        assert!(!after.contains("ENABLE_TOOL_SEARCH"));
+        assert!(!after.contains("Added by Reggie"));
+    }
+
+    #[test]
+    fn remove_shell_profile_export_missing_file() {
+        let tmp = TempDir::new().unwrap();
+        let missing = tmp.path().join("nope.rc");
+        let removed = remove_shell_profile_export(&missing).unwrap();
+        assert!(!removed);
+    }
+
+    // ── run_uninstall orchestrator ──
+
+    #[test]
+    fn run_uninstall_removes_prefixed_files_and_preserves_overlays() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+
+        fs::create_dir_all(claude_dir.join("agents")).unwrap();
+        fs::create_dir_all(claude_dir.join("commands")).unwrap();
+        fs::create_dir_all(claude_dir.join("docs")).unwrap();
+        fs::create_dir_all(claude_dir.join("hooks")).unwrap();
+
+        File::create(claude_dir.join("agents").join("reggie-one.md")).unwrap();
+        File::create(claude_dir.join("agents").join("user-agent.md")).unwrap();
+        File::create(claude_dir.join("commands").join("reggie-cmd.md")).unwrap();
+        File::create(claude_dir.join("commands").join("user-cmd.md")).unwrap();
+        File::create(claude_dir.join("docs").join("reggie-doc.md")).unwrap();
+        File::create(claude_dir.join("docs").join("user-doc.md")).unwrap();
+        fs::write(claude_dir.join("REGGIE.md"), "# Reggie").unwrap();
+        fs::write(claude_dir.join("hooks").join("track-stats.sh"), "#!/bin/sh\n").unwrap();
+        fs::write(claude_dir.join("mcp-registry.yaml"), "registry").unwrap();
+        fs::write(claude_dir.join("skills-registry.yaml"), "registry").unwrap();
+        fs::write(claude_dir.join("mcp-registry.local.yaml"), "user overlay").unwrap();
+        fs::write(claude_dir.join("skills-registry.local.yaml"), "user overlay").unwrap();
+        fs::write(claude_dir.join(".reggie-version"), "1.0.0").unwrap();
+        fs::write(claude_dir.join(".reggie-setup-complete"), "1.0.0").unwrap();
+
+        let report = run_uninstall(claude_dir, false, &[]).unwrap();
+
+        // Prefixed files removed.
+        assert!(!claude_dir.join("agents").join("reggie-one.md").exists());
+        assert!(!claude_dir.join("commands").join("reggie-cmd.md").exists());
+        assert!(!claude_dir.join("docs").join("reggie-doc.md").exists());
+
+        // User files preserved.
+        assert!(claude_dir.join("agents").join("user-agent.md").exists());
+        assert!(claude_dir.join("commands").join("user-cmd.md").exists());
+        assert!(claude_dir.join("docs").join("user-doc.md").exists());
+
+        // Standalone and managed files removed.
+        assert!(!claude_dir.join("REGGIE.md").exists());
+        assert!(!claude_dir.join("hooks").join("track-stats.sh").exists());
+        assert!(!claude_dir.join("mcp-registry.yaml").exists());
+        assert!(!claude_dir.join("skills-registry.yaml").exists());
+
+        // Overlays preserved on disk AND reported.
+        assert!(claude_dir.join("mcp-registry.local.yaml").exists());
+        assert!(claude_dir.join("skills-registry.local.yaml").exists());
+        assert_eq!(report.overlays_preserved.len(), 2);
+
+        // Tracking files removed.
+        assert!(!claude_dir.join(".reggie-version").exists());
+        assert!(!claude_dir.join(".reggie-setup-complete").exists());
+        assert!(report.version_file_removed);
+
+        // Shell profile was NOT touched (opt-in flag was false).
+        assert!(!report.shell_profile_removed);
+    }
+
+    #[test]
+    fn run_uninstall_removes_bundled_non_prefixed_docs() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+        fs::create_dir_all(claude_dir.join("docs")).unwrap();
+
+        // Real filenames from resources/docs/ that the installer copies.
+        fs::write(claude_dir.join("docs").join("PORTABLE-PACKAGE.md"), "bundled").unwrap();
+        fs::write(claude_dir.join("docs").join("agents-is-all-you-need.md"), "bundled").unwrap();
+        fs::write(claude_dir.join("docs").join("reggie-quickstart.md"), "bundled").unwrap();
+        // A file the user wrote themselves — must survive.
+        fs::write(claude_dir.join("docs").join("my-notes.md"), "mine").unwrap();
+
+        let bundled = vec![
+            "PORTABLE-PACKAGE.md".to_string(),
+            "agents-is-all-you-need.md".to_string(),
+            "reggie-quickstart.md".to_string(),
+            "REGGIE.md".to_string(),
+        ];
+        let report = run_uninstall(claude_dir, false, &bundled).unwrap();
+
+        assert!(!claude_dir.join("docs").join("PORTABLE-PACKAGE.md").exists());
+        assert!(!claude_dir.join("docs").join("agents-is-all-you-need.md").exists());
+        assert!(!claude_dir.join("docs").join("reggie-quickstart.md").exists());
+        assert!(claude_dir.join("docs").join("my-notes.md").exists());
+        // REGGIE.md was in the bundled list but not on disk — must not error.
+        assert!(report
+            .files_removed
+            .iter()
+            .any(|p| p.ends_with("PORTABLE-PACKAGE.md")));
+    }
+
+    #[test]
+    fn run_uninstall_is_idempotent() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path();
+        fs::create_dir_all(claude_dir.join("agents")).unwrap();
+        File::create(claude_dir.join("agents").join("reggie-one.md")).unwrap();
+
+        run_uninstall(claude_dir, false, &[]).unwrap();
+        // Second call must not error even though nothing is left to remove.
+        let second = run_uninstall(claude_dir, false, &[]).unwrap();
+        assert!(second.files_removed.is_empty());
+        assert!(!second.settings_hook_removed);
+        assert!(!second.version_file_removed);
     }
 }

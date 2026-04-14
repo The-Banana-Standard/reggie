@@ -4288,3 +4288,140 @@ html, body, #root {
   flex: 1;
 }
 
+/* ── Danger Zone ── */
+.settings-section-danger {
+  border: 1px solid rgba(255, 85, 85, 0.25);
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.settings-section-header-danger {
+  color: var(--danger);
+}
+
+.settings-btn.danger {
+  background: rgba(255, 85, 85, 0.08);
+  color: var(--danger);
+  border-color: rgba(255, 85, 85, 0.4);
+}
+
+.settings-btn.danger:hover:not(:disabled) {
+  background: rgba(255, 85, 85, 0.16);
+  border-color: var(--danger);
+}
+
+/* ── Uninstall modal ── */
+.settings-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.settings-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 440px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.settings-modal-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.settings-modal-body {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 12px 0;
+}
+
+.settings-modal-body code,
+.settings-modal-list code {
+  font-size: 10px;
+  background: var(--bg-primary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: var(--accent-orange);
+}
+
+.settings-modal-section {
+  margin-bottom: 12px;
+}
+
+.settings-modal-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.settings-modal-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.settings-modal-list li {
+  margin-bottom: 2px;
+}
+
+.settings-modal-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 12px 0;
+  cursor: pointer;
+  line-height: 1.5;
+}
+
+.settings-modal-checkbox input {
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.settings-modal-checkbox code {
+  font-size: 10px;
+  background: var(--bg-primary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: var(--accent-orange);
+}
+
+.settings-modal-result {
+  margin: 12px 0;
+}
+
+.settings-modal-result > div {
+  margin-bottom: 2px;
+}
+
+.settings-modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.settings-modal-actions .settings-btn {
+  flex: 1;
+}
+

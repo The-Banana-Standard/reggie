@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Split 773kB main JS bundle into four vendor chunks (`vendor-react` 192kB, `vendor-xterm` 333kB, `vendor-tauri` 16kB, `vendor-markdown` 118kB) via Vite `manualChunks`; main app chunk reduced to 112kB. Clears Vite chunk-size warning and improves browser cache reuse on app updates.
 
 ### Added
+- Danger Zone in Settings: "Remove Reggie Files" uninstalls Reggie from `~/.claude/` without touching the app itself. Removes all Reggie-prefixed agents, commands, docs, registries, the stats hook, and version tracking — while preserving user-authored files, `*.local.yaml` overlays, and unrelated `settings.json` entries (a `.bak` is written before any mutation). Optional checkbox removes the `ENABLE_TOOL_SEARCH` line from the shell profile. Idempotent; next launch re-runs first-launch setup.
 - Pixel-art Reggie branding: new app icon (macOS dock/`.icns`, Windows `.ico`, 32x32 hand-crafted nearest-neighbor), favicon in the Tauri webview, and logo in the sidebar header. CSS uses `image-rendering: pixelated` to keep edges crisp at any DPR.
 - Built-in installer: Tauri app copies/symlinks bundled resources to `~/.claude/` on startup
 - Version tracking via `~/.claude/.reggie-version` — re-installs only when bundled version is newer
