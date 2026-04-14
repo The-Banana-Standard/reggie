@@ -2,30 +2,38 @@
 
 ## Active Tasks
 
-_(none)_
+### audit-portable-package-accuracy
+**Task**: Fix 11 stale facts in PORTABLE-PACKAGE.md
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow (--yes)
+**Branch**: task/audit-portable-package-accuracy
+**Worktree**: .worktree/audit-portable-package-accuracy
+**Base**: release/v1.1.2
+**Started**: 2026-04-14
+**Attempts**: 1
+**Files**:
+- MOD: resources/docs/PORTABLE-PACKAGE.md
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
 
 ---
 
 ## Backlog
 
-### Documentation & Repo Hygiene
+### v2.0.0 Release
 
-### Testing & Build Quality
+- [ ] add-reggie-uninstaller: Build in-app "Remove Reggie Files" Danger Zone feature as full reversal of the built-in installer (Rust command + React modal + tests) [P1] [complex] [tier: opus:high] [code] [planned]
+  files: src-tauri/src/installer.rs, src-tauri/src/lib.rs, src/components/ActivityBar/SettingsPanel.tsx, src/components/ActivityBar/__tests__/SettingsPanel.test.tsx
 
-_(none)_
+- [ ] fix-reggie-guide-installation-topic: Fix 4 targeted inaccuracies in reggie-guide.md Installation topic (paragraph-to-bullets, clone→bundled-resources rewrite, git-pull→app-download rewrite, uninstall Q&A pointing at new Danger Zone) [P1] [moderate] [tier: opus:medium] [code] [planned] [depends: add-reggie-uninstaller]
+  files: resources/commands/reggie-guide.md
+
+- [ ] prepare-v2.0.0-release: Bump all 3 version manifests to 2.0.0, pivot README/REGGIE/CONTRIBUTING framing to "notes → groom → code" paradigm, rename bundle id to xyz.thebananastandard.reggie, cut CHANGELOG with Breaking section + narrative intro, verify npm+cargo builds [P1] [complex] [tier: opus:high] [code] [planned] [depends: audit-portable-package-accuracy, add-reggie-uninstaller, fix-reggie-guide-installation-topic]
+  files: package.json, src-tauri/tauri.conf.json, src-tauri/Cargo.toml, README.md, resources/docs/REGGIE.md, CONTRIBUTING.md, CHANGELOG.md
 
 ### Ungroomed
-- [ ] audit-src-tauri-forge-strings: Sweep `src-tauri/` source (window titles, error messages, About dialog) for stale "Forge" strings post-rebrand
-  > surfaced during update-docs-tauri-rebrand — out of scope for docs task
-- [ ] refresh-portable-package-body: Audit full 451-line PORTABLE-PACKAGE.md beyond the rewritten Quick Setup block; may contain other stale installation-flow assumptions
-  > surfaced during update-docs-tauri-rebrand
-- [ ] readme-uninstall-section: Decide whether README needs an Uninstall section (previous version referenced "the Reggie app" removing files from `~/.claude/`; new README omits it)
-  > surfaced during update-docs-tauri-rebrand
-- [ ] v1.2.0-release-framing: When cutting next release, frame the forge-reggie → reggie merge prominently in release notes (CHANGELOG `[Unreleased]` compare URL still points to `v1.1.2...HEAD`)
-  > surfaced during update-docs-tauri-rebrand
-- [ ] tighten-reggie-guide-installation-topic: `resources/commands/reggie-guide.md` L535 rewritten installation paragraph is dense; consider converting to bullet list for scannability
-  > surfaced during update-docs-tauri-rebrand (cosmetic, low priority)
-- [ ] rename-dev-bundle-identifier: `src-tauri/tauri.conf.json` identifier `com.reggie-app.dev` has `.dev` suffix that looks like pre-release leftover — decide pre-1.2.0 whether to drop it
-  > surfaced during update-docs-tauri-rebrand code review
-- [ ] consolidate-unreleased-changelog: Two CHANGELOG `[Unreleased]` entries ("Built-in installer…" under Added + new "Merged forge-reggie…" under Changed) describe related work; consider consolidating before cutting release
-  > surfaced during update-docs-tauri-rebrand code review
+
+- [ ] replace-sqlite-with-json-bookmarks: Investigate replacing tauri-plugin-sql + database-service.ts with a single JSON bookmark file; DB only holds ~20 folder bookmarks with no JOINs or aggregations
+  > context: 3-table schema (projects, workspaces, all_projects), 175 lines of TS, tauri-plugin-sql Rust crate dep, all queries are single-table CRUD by id; serde JSON file in app_data_dir would replace everything with ~40 lines of code
