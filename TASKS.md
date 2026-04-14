@@ -29,7 +29,9 @@
 | SIMPLIFY | SKIP | - | mechanical + prose only |
 | VERIFY-APP | 9.4 | 1 | PASS |
 | REVIEW | 9.05 | 1 | PASS |
-| SECURITY-REVIEW | - | 0 | CURRENT |
+| SECURITY-REVIEW | 9.19 | 1 | PASS |
+| SYNC-DOCS | SKIP | - | CHANGELOG/README ARE the work |
+| UPDATE-CLAUDE | - | 0 | CURRENT |
 
 ## Backlog
 
