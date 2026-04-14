@@ -28,7 +28,8 @@
 | QUALITY-CHECK | SKIP | - | no tests added |
 | SIMPLIFY | SKIP | - | mechanical + prose only |
 | VERIFY-APP | 9.4 | 1 | PASS |
-| REVIEW | - | 0 | CURRENT |
+| REVIEW | 9.05 | 1 | PASS |
+| SECURITY-REVIEW | - | 0 | CURRENT |
 
 ## Backlog
 
