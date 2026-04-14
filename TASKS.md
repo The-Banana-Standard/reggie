@@ -20,12 +20,30 @@
 
 ---
 
+### add-reggie-uninstaller
+**Task**: Build in-app "Remove Reggie Files" Danger Zone (Rust command + React modal + tests)
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow (--yes)
+**Branch**: task/add-reggie-uninstaller
+**Worktree**: .worktree/add-reggie-uninstaller
+**Base**: release/v1.1.2
+**Started**: 2026-04-14
+**Attempts**: 1
+**Files**:
+- MOD: src-tauri/src/installer.rs
+- MOD: src-tauri/src/lib.rs
+- MOD: src/components/ActivityBar/SettingsPanel.tsx
+- NEW: src/components/ActivityBar/__tests__/SettingsPanel.test.tsx
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+
+---
+
 ## Backlog
 
 ### v2.0.0 Release
-
-- [ ] add-reggie-uninstaller: Build in-app "Remove Reggie Files" Danger Zone feature as full reversal of the built-in installer (Rust command + React modal + tests) [P1] [complex] [tier: opus:high] [code] [planned]
-  files: src-tauri/src/installer.rs, src-tauri/src/lib.rs, src/components/ActivityBar/SettingsPanel.tsx, src/components/ActivityBar/__tests__/SettingsPanel.test.tsx
 
 - [ ] fix-reggie-guide-installation-topic: Fix 4 targeted inaccuracies in reggie-guide.md Installation topic (paragraph-to-bullets, clone→bundled-resources rewrite, git-pull→app-download rewrite, uninstall Q&A pointing at new Danger Zone) [P1] [moderate] [tier: opus:medium] [code] [planned] [depends: add-reggie-uninstaller]
   files: resources/commands/reggie-guide.md
