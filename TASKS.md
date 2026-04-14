@@ -27,7 +27,8 @@
 | WRITE-TESTS | SKIP | - | no testable logic |
 | QUALITY-CHECK | SKIP | - | no tests added |
 | SIMPLIFY | SKIP | - | mechanical + prose only |
-| VERIFY-APP | - | 0 | CURRENT |
+| VERIFY-APP | 9.4 | 1 | PASS |
+| REVIEW | - | 0 | CURRENT |
 
 ## Backlog
 
