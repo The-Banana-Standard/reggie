@@ -24,7 +24,8 @@
 | VERIFY-APP | SKIP | - | - |
 | REVIEW | 9.3 | 1 | PASS |
 | SECURITY-REVIEW | SKIP | - | - |
-| SYNC-DOCS | - | 0 | CURRENT |
+| SYNC-DOCS | 9.3 | 1 | PASS |
+| UPDATE-CLAUDE | - | 0 | CURRENT |
 
 ## Backlog
 
