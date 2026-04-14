@@ -37,3 +37,4 @@
 - [~] consolidate-unreleased-changelog: Consolidate related CHANGELOG [Unreleased] bullets -- merged 2026-04-14 into prepare-v2.0.0-release (the real work is writing a proper v2.0.0 changelog with narrative intro + Breaking section)
 - [x] audit-portable-package-accuracy Fix 11 stale facts in PORTABLE-PACKAGE.md -- 2026-04-14
 - [x] add-reggie-uninstaller Build in-app "Remove Reggie Files" Danger Zone (Rust command + React modal + tests) -- 2026-04-14
+- [x] prepare-v2.0.0-release Cut v2.0.0 major release (version bumps, bundle id rename, framing pivot, CHANGELOG) -- 2026-04-14

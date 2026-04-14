@@ -2,38 +2,6 @@
 
 ## Active Tasks
 
-### prepare-v2.0.0-release
-**Task**: Cut v2.0.0 major release — version manifests, framing pivot, bundle id rename, CHANGELOG cut
-**Stage**: PICKUP
-**Pipeline**: code-workflow (--yes, tier: opus:high)
-**Branch**: task/prepare-v2.0.0-release
-**Worktree**: .worktree/prepare-v2.0.0-release
-**Base**: release/v1.1.2
-**Started**: 2026-04-14
-**Attempts**: 1
-**Files**:
-- MOD: package.json
-- MOD: src-tauri/tauri.conf.json
-- MOD: src-tauri/Cargo.toml
-- MOD: README.md
-- MOD: resources/docs/REGGIE.md
-- MOD: CONTRIBUTING.md
-- MOD: CHANGELOG.md
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| PICKUP | - | 1 | PASS |
-| IMPLEMENT | 9.4 | 1 | PASS |
-| WRITE-TESTS | SKIP | - | no testable logic |
-| QUALITY-CHECK | SKIP | - | no tests added |
-| SIMPLIFY | SKIP | - | mechanical + prose only |
-| VERIFY-APP | 9.4 | 1 | PASS |
-| REVIEW | 9.05 | 1 | PASS |
-| SECURITY-REVIEW | 9.19 | 1 | PASS |
-| SYNC-DOCS | SKIP | - | CHANGELOG/README ARE the work |
-| UPDATE-CLAUDE | SKIP | - | no learnings this run |
-| REVIEW-WITH-USER | APPROVED | 1 | auto (--yes) |
-
 ## Backlog
 
 ### v2.0.0 Release
