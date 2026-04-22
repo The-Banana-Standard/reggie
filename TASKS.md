@@ -9,6 +9,11 @@
 (all v2.0.0 release tasks complete or in progress)
 
 ### Ungroomed
+- [ ] code-code-workflow-session-needs-a-kill-button-for-completed-items: code code workflow session needs a kill button for completed items
+- [ ] need-to-have-a-manual-task-tag-that-doesn-t-go-through-code-workflow-but-is-designed-for-the-orchestration-agent-to-walk-the-user-through-the-steps-they-need-to-complete-to-complete-the-task: Need to have a manual task tag that doesn’t go through code workflow but is designed for the orchestration agent to walk the user through the steps they need to complete to complete the task
+- [ ] the-run-locally-button-should-check-if-something-exists-and-if-it-does-just-execute-the-script-in-a-terminal-rather-than-pulling-up-claude-code: The run locally button should check if something exists and if it does just execute the script in a terminal rather than pulling up claude code.
+- [ ] figure-out-how-to-attach-images-to-ungroomed-tasks: Figure out how to attach images to ungroomed tasks
+- [ ] swapping-away-from-and-back-to-the-sessions-tab-messes-up-the-view-of-the-claude-sessions-it-makes-it-so-the-text-is-the-width-of-only-a-fraction-of-the-entire-claude-window: swapping away from and back to the sessions tab messes up the view of the claude sessions. It makes it so the text is the width of only a fraction of the entire claude window.
 
 - [ ] replace-sqlite-with-json-bookmarks: Investigate replacing tauri-plugin-sql + database-service.ts with a single JSON bookmark file; DB only holds ~20 folder bookmarks with no JOINs or aggregations
   > context: 3-table schema (projects, workspaces, all_projects), 175 lines of TS, tauri-plugin-sql Rust crate dep, all queries are single-table CRUD by id; serde JSON file in app_data_dir would replace everything with ~40 lines of code

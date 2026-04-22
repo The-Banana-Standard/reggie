@@ -4,6 +4,11 @@ All notable changes to Reggie are documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.0.1] - 2026-04-22
+
+### Fixed
+- macOS release DMGs are now code-signed and notarized. The release workflow now passes `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, and `APPLE_TEAM_ID` through to `tauri-action`, so downloaded DMGs open cleanly without Gatekeeper "damaged / cannot verify" errors.
+
 ## [2.0.0] - 2026-04-14
 
 Reggie 2.0.0 merges the `forge-reggie` Tauri desktop app into the `reggie` repo. Reggie is now a single desktop application that bundles the 36-agent pipeline system as installable resources, with a built-in installer that replaces the legacy `install.sh` / `install.ps1` scripts. The daily driver loop — brain dump, `/reggie-init-tasks`, `/reggie-code-workflow` — is now one `npm install` + `npm run tauri build` away (or one download from Releases).
