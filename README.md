@@ -136,7 +136,7 @@ See [resources/docs/REGGIE.md](resources/docs/REGGIE.md) for agent-system philos
 
 - **Backend:** Rust (Tauri v2, portable-pty, tokio)
 - **Frontend:** React 19 + TypeScript (strict), xterm.js v6
-- **Storage:** SQLite via `tauri-plugin-sql`
+- **Storage:** JSON file (`app_data_dir/bookmarks.json`) via Tauri `read_bookmarks` / `write_bookmarks` commands
 - **Build:** Vite 7, Cargo
 
 ---

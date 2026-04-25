@@ -70,6 +70,10 @@ const RUST_COMMANDS: Record<string, string[]> = {
   uninstall_skill: ["id", "format"],
   check_skills_installed: ["skillIds"],
 
+  // bookmarks.rs
+  read_bookmarks: [],
+  write_bookmarks: ["bookmarks"],
+
   // installer.rs — src-tauri/src/installer.rs
   get_install_status: [],
   get_detailed_install_status: [],

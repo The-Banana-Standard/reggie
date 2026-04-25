@@ -6,8 +6,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Bookmarks now persist as JSON at `app_data_dir/bookmarks.json` using atomic temp+fsync+rename writes. Removed `tauri-plugin-sql` and `@tauri-apps/plugin-sql` dependencies.
+
 ### Fixed
 - Completed promoted sessions in CodeWorkflowTab now show a per-session **Trash** button alongside Open/Hide, matching the headless completed session behavior. Previously the only way to clear a completed promoted session was the "Trash All Completed" header button.
+
+### Removed
+- SQLite persistence (`tauri-plugin-sql`). The legacy `reggie.db` file in `app_data_dir` is no longer used and can be deleted manually.
+
+### Migration
+- First run of a new build: re-select your All Projects folder. The workspace scan rebuilds all projects automatically. No other data is affected.
 
 ## [2.0.1] - 2026-04-22
 

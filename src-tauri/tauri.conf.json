@@ -44,9 +44,5 @@
       "../resources/registries/*": "reggie-resources/registries"
     }
   },
-  "plugins": {
-    "sql": {
-      "preload": ["sqlite:reggie.db"]
-    }
-  }
+  "plugins": {}
 }

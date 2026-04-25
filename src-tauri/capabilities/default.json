@@ -15,10 +15,6 @@
     "core:window:allow-set-focus",
     "dialog:default",
     "dialog:allow-open",
-    "sql:default",
-    "sql:allow-load",
-    "sql:allow-execute",
-    "sql:allow-select",
     "shell:allow-open"
   ]
 }

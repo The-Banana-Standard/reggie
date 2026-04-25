@@ -1,81 +1,38 @@
-import Database from "@tauri-apps/plugin-sql";
+import { invoke } from "@tauri-apps/api/core";
 import type { Project, AllProjectsFolder } from "../types/project";
 
-let dbPromise: Promise<Awaited<ReturnType<typeof Database.load>>> | null = null;
-
-async function getDb() {
-  if (!dbPromise) {
-    dbPromise = initDb();
-  }
-  return dbPromise;
+export interface Workspace {
+  id: string;
+  name: string;
+  path: string;
+  added_at: string;
 }
 
-async function initDb() {
-  const db = await Database.load("sqlite:reggie.db");
-  await db.execute(`
-      CREATE TABLE IF NOT EXISTS projects (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        path TEXT NOT NULL UNIQUE,
-        added_at TEXT NOT NULL DEFAULT (datetime('now')),
-        last_opened TEXT,
-        workspace_path TEXT
-      )
-    `);
-    await db.execute(`
-      CREATE TABLE IF NOT EXISTS workspaces (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        path TEXT NOT NULL UNIQUE,
-        added_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )
-    `);
-    await db.execute(`
-      CREATE TABLE IF NOT EXISTS all_projects (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        path TEXT NOT NULL UNIQUE,
-        added_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )
-    `);
-
-    // Migration: if there are existing workspaces but no all_projects entry,
-    // create one from the first workspace's parent directory
-    await migrateToAllProjects(db);
-
-  return db;
+interface Bookmarks {
+  version: number;
+  allProjectsFolder: AllProjectsFolder | null;
+  workspaces: Workspace[];
+  projects: Project[];
 }
 
-async function migrateToAllProjects(db: Awaited<ReturnType<typeof Database.load>>) {
-  const existing = await db.select<AllProjectsFolder[]>("SELECT * FROM all_projects LIMIT 1");
-  if (existing.length > 0) {
-    return; // Already migrated
-  }
+async function read(): Promise<Bookmarks> {
+  return invoke<Bookmarks>("read_bookmarks");
+}
 
-  const workspaces = await db.select<Workspace[]>("SELECT * FROM workspaces ORDER BY added_at ASC LIMIT 1");
-  if (workspaces.length === 0) {
-    return; // No data to migrate
-  }
+async function write(bm: Bookmarks): Promise<void> {
+  await invoke("write_bookmarks", { bookmarks: bm });
+}
 
-  // Use the first workspace's parent directory as the All Projects folder
-  const ws = workspaces[0];
-  const parentPath = ws.path.split(/[/\\]/).slice(0, -1).join("/");
-  if (parentPath) {
-    const name = parentPath.split(/[/\\]/).pop() || "Projects";
-    const id = crypto.randomUUID();
-    await db.execute(
-      "INSERT OR IGNORE INTO all_projects (id, name, path) VALUES ($1, $2, $3)",
-      [id, name, parentPath]
-    );
-  }
+function nowIso(): string {
+  return new Date().toISOString();
 }
 
 // ── Projects ──
 
 export async function getAllProjects(): Promise<Project[]> {
-  const d = await getDb();
-  return await d.select<Project[]>(
-    "SELECT * FROM projects ORDER BY name COLLATE NOCASE ASC"
+  const bm = await read();
+  return [...bm.projects].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
   );
 }
 
@@ -85,90 +42,90 @@ export async function addProject(
   path: string,
   workspacePath?: string
 ): Promise<void> {
-  const d = await getDb();
-  await d.execute(
-    "INSERT OR IGNORE INTO projects (id, name, path, workspace_path) VALUES ($1, $2, $3, $4)",
-    [id, name, path, workspacePath || null]
-  );
+  const bm = await read();
+  if (bm.projects.some((p) => p.path === path)) return; // INSERT OR IGNORE on path
+  bm.projects.push({
+    id,
+    name,
+    path,
+    added_at: nowIso(),
+    last_opened: null,
+    workspace_path: workspacePath ?? null,
+  });
+  await write(bm);
 }
 
 export async function updateLastOpened(id: string): Promise<void> {
-  const d = await getDb();
-  await d.execute(
-    "UPDATE projects SET last_opened = datetime('now') WHERE id = $1",
-    [id]
-  );
+  const bm = await read();
+  const p = bm.projects.find((p) => p.id === id);
+  if (!p) return;
+  p.last_opened = nowIso();
+  await write(bm);
 }
 
 export async function removeProject(id: string): Promise<void> {
-  const d = await getDb();
-  await d.execute("DELETE FROM projects WHERE id = $1", [id]);
+  const bm = await read();
+  const next = bm.projects.filter((p) => p.id !== id);
+  if (next.length === bm.projects.length) return;
+  bm.projects = next;
+  await write(bm);
 }
 
 // ── Workspaces ──
 
-export interface Workspace {
-  id: string;
-  name: string;
-  path: string;
-  added_at: string;
-}
-
 export async function getAllWorkspaces(): Promise<Workspace[]> {
-  const d = await getDb();
-  return await d.select<Workspace[]>(
-    "SELECT * FROM workspaces ORDER BY added_at DESC"
-  );
+  const bm = await read();
+  // Original SQL: ORDER BY added_at DESC
+  return [...bm.workspaces].sort((a, b) => b.added_at.localeCompare(a.added_at));
 }
 
 export async function addWorkspace(id: string, name: string, path: string): Promise<void> {
-  const d = await getDb();
-  await d.execute(
-    "INSERT OR IGNORE INTO workspaces (id, name, path) VALUES ($1, $2, $3)",
-    [id, name, path]
-  );
+  const bm = await read();
+  if (bm.workspaces.some((w) => w.path === path)) return;
+  bm.workspaces.push({ id, name, path, added_at: nowIso() });
+  await write(bm);
 }
 
 export async function removeWorkspace(id: string): Promise<void> {
-  const d = await getDb();
-  const ws = await d.select<Workspace[]>("SELECT * FROM workspaces WHERE id = $1", [id]);
-  if (ws.length > 0) {
-    await d.execute("DELETE FROM projects WHERE workspace_path = $1", [ws[0].path]);
-    await d.execute("DELETE FROM workspaces WHERE id = $1", [id]);
-  }
+  const bm = await read();
+  const ws = bm.workspaces.find((w) => w.id === id);
+  if (!ws) return;
+  bm.projects = bm.projects.filter((p) => p.workspace_path !== ws.path);
+  bm.workspaces = bm.workspaces.filter((w) => w.id !== id);
+  await write(bm);
 }
 
 // ── All Projects Folder ──
 
 export async function getAllProjectsFolder(): Promise<AllProjectsFolder | null> {
-  const d = await getDb();
-  const rows = await d.select<AllProjectsFolder[]>("SELECT * FROM all_projects LIMIT 1");
-  return rows.length > 0 ? rows[0] : null;
+  const bm = await read();
+  return bm.allProjectsFolder;
 }
 
 export async function setAllProjectsFolder(id: string, name: string, path: string): Promise<void> {
-  const d = await getDb();
-  // Clear all existing data before setting new folder
-  await d.execute("DELETE FROM all_projects");
-  await d.execute("DELETE FROM workspaces");
-  await d.execute("DELETE FROM projects");
-  await d.execute(
-    "INSERT INTO all_projects (id, name, path) VALUES ($1, $2, $3)",
-    [id, name, path]
-  );
+  // Original behavior: wipes all_projects, workspaces, projects then sets new folder
+  const bm: Bookmarks = {
+    version: 1,
+    allProjectsFolder: { id, name, path, added_at: nowIso() },
+    workspaces: [],
+    projects: [],
+  };
+  await write(bm);
 }
 
 export async function removeAllProjectsFolder(): Promise<void> {
-  const d = await getDb();
-  await d.execute("DELETE FROM all_projects");
-  // Also clear workspaces and projects since they lived under the folder
-  await d.execute("DELETE FROM workspaces");
-  await d.execute("DELETE FROM projects");
+  const bm: Bookmarks = {
+    version: 1,
+    allProjectsFolder: null,
+    workspaces: [],
+    projects: [],
+  };
+  await write(bm);
 }
 
 export async function clearProjectsAndWorkspaces(): Promise<void> {
-  const d = await getDb();
-  await d.execute("DELETE FROM projects");
-  await d.execute("DELETE FROM workspaces");
+  const bm = await read();
+  bm.projects = [];
+  bm.workspaces = [];
+  await write(bm);
 }
-
