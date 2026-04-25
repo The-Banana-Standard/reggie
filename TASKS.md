@@ -44,33 +44,6 @@
 | WRITE-TESTS | - | 0 | CURRENT |
 
 
-### polish-uninstaller
-**Task**: Polish uninstaller — modal UX, error visibility, shared constant
-**Stage**: COMMIT
-**Pipeline**: code-workflow
-**Branch**: task/polish-uninstaller
-**Worktree**: .worktree/polish-uninstaller
-**Base**: main
-**Started**: 2026-04-25
-**Attempts**: 1
-**Files**:
-- MOD: src/components/ActivityBar/SettingsPanel.tsx
-- MOD: src/components/ActivityBar/__tests__/SettingsPanel.test.tsx
-- MOD: src-tauri/src/installer.rs
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.2 | 1 | PASS |
-| WRITE-TESTS | 9.2 | 1 | PASS |
-| QUALITY-CHECK | 9.2 | 1 | PASS (10 SettingsPanel + 65 installer tests pass) |
-| SIMPLIFY | - | 0 | SKIP (already minimal) |
-| VERIFY-APP | 9.0 | 1 | PASS (vitest + cargo test + clippy + tsc) |
-| REVIEW | - | 0 | SKIP (--yes mode) |
-| SECURITY-REVIEW | - | 0 | SKIP (--yes mode) |
-| SYNC-DOCS | - | 0 | SKIP (no public API change) |
-| REVIEW-WITH-USER | APPROVED | 0 | --yes auto-approve |
-| COMMIT | - | 0 | CURRENT |
-
 ---
 
 ## Backlog
@@ -115,3 +88,6 @@
 
 - [ ] judge-driven-pipeline-comparison: Use `reggie-judge` to compare two pipelines or two agents on a real task
   > context: lowest priority of the marketplace cluster. Differentiator vs. other marketplaces — Reggie has `reggie-judge` baked into its architecture, so the marketplace can offer "evaluate these candidates against your codebase" as a recommendation surface. Nobody else can easily copy this. Needs the install/substrate features to exist first to have anything meaningful to compare.
+
+- [ ] tauri-contract-test-missing-uninstall-reggie-files: tauri-contract.test.ts fails because scanner doesn't see `uninstall_reggie_files` in Rust
+  > context: discovered during polish-uninstaller (2026-04-25). The contract test (`src/__tests__/tauri-contract.test.ts`) reports "Unknown commands called from TS: uninstall_reggie_files" — the test passes on a clean main checkout too, so this is pre-existing, not regressed by the polish work. Likely the scanner glob/regex doesn't pick up the command's `#[tauri::command]` attribute in `src-tauri/src/installer.rs` (most other commands live under `src-tauri/src/commands/`). Fix is probably one line in the contract test's source-file enumeration.
