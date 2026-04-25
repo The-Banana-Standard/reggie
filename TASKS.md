@@ -44,6 +44,30 @@
 | WRITE-TESTS | - | 0 | CURRENT |
 
 
+### add-pipeline-mode-tags-manual-reggie-system-and-debug
+**Task**: Introduce [manual], [reggie-system], and [debug] pipeline-mode tags
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/add-pipeline-mode-tags-manual-reggie-system-and-debug
+**Worktree**: .worktree/add-pipeline-mode-tags-manual-reggie-system-and-debug
+**Base**: main
+**Started**: 2026-04-25
+**Attempts**: 1
+**Files**:
+- MOD: resources/commands/reggie-init-tasks.md
+- MOD: resources/agents/reggie-code-architect.md
+- MOD: resources/agents/reggie-code-manager.md
+- MOD: resources/commands/reggie-code-workflow.md
+- MOD: resources/commands/reggie-system-change.md
+- MOD: resources/agents/reggie-system-change-manager.md
+- MOD: resources/commands/reggie-debug-workflow.md
+- MOD: resources/agents/reggie-debug-manager.md
+- NEW: resources/commands/reggie-manual-task.md
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+
 ---
 
 ## Backlog
@@ -53,8 +77,7 @@
 (all v2.0.0 release tasks complete or in progress)
 
 ### Pipeline System Expansion
-- [ ] add-pipeline-mode-tags-manual-reggie-system-and-debug: Introduce [manual], [reggie-system], and [debug] pipeline-mode tags [P1] [complex] [tier: opus:high] [reggie-system] [planned]
-  files: resources/commands/reggie-init-tasks.md (MOD), resources/agents/reggie-code-architect.md (MOD), resources/agents/reggie-code-manager.md (MOD), resources/commands/reggie-code-workflow.md (MOD), resources/commands/reggie-system-change.md (MOD), resources/agents/reggie-system-change-manager.md (MOD), resources/commands/reggie-debug-workflow.md (MOD), resources/agents/reggie-debug-manager.md (MOD), resources/commands/reggie-manual-task.md (NEW)
+
 - [ ] wire-manual-reggie-system-and-debug-tags-runtime: Wire [manual], [reggie-system], and [debug] tags into Rust parser and UI [P1] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [conflicts: fix-clippy-projects-rs, attach-images-to-ungroomed-tasks, kill-button-completed-items, replace-sqlite-with-json-bookmarks] [complex] [tier: opus:high] [code] [planned]
   files: src-tauri/src/commands/projects.rs (MOD), src/types/terminal.ts (MOD), src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD), src/components/WorkspaceOverview/RepoTaskRow.tsx (MOD)
 
