@@ -16,7 +16,7 @@
 **Quality Scores**:
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
+| IMPLEMENT | 9.23 | 1 | PASS |
 
 ### replace-sqlite-with-json-bookmarks
 **Task**: Replace tauri-plugin-sql with a JSON bookmark file
@@ -40,25 +40,6 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | - | 0 | CURRENT |
 
-### kill-button-completed-items
-**Task**: Add Trash button to completed promoted sessions
-**Stage**: SIMPLIFY
-**Pipeline**: code-workflow
-**Branch**: task/kill-button-completed-items
-**Worktree**: .worktree/kill-button-completed-items
-**Base**: main
-**Started**: 2026-04-25
-**Attempts**: 1
-**Files**:
-- MOD: src/components/WorkspaceOverview/RepoTaskRow.tsx
-- MOD: src/components/WorkspaceOverview/__tests__/RepoTaskRow.test.tsx
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.35 | 1 | PASS |
-| WRITE-TESTS | 9.35 | 1 | PASS |
-| QUALITY-CHECK | 9.35 | 1 | PASS |
-| SIMPLIFY | - | 0 | CURRENT |
 
 ### polish-uninstaller
 **Task**: Polish uninstaller — modal UX, error visibility, shared constant

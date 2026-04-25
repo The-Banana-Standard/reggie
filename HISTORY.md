@@ -1,5 +1,7 @@
 # Completed Tasks
 
+- [~] run-locally-skip-claude-when-script-exists: Run-locally button should execute existing script in terminal instead of opening Claude — pruned 2026-04-25 (already implemented at src/App.tsx:335-363; check_run_script returns hasScript and the if-branch addTab(path, false, ...) spawns a shell terminal directly with `bash .reggie/run.sh`)
+- [~] tsconfig-test-exclude: Verify vite.config.ts setupFiles populated and exclude __tests__ from production tsc — pruned 2026-04-25 (tsconfig.json already excludes "src/**/__tests__/**" and "src/**/*.test.*" at line 18; setupFiles concern absorbed into vitest-env-hang-investigation acceptance criteria)
 - [x] fix-reggie-guide-installation-topic Fix 4 targeted inaccuracies in reggie-guide.md Installation topic -- 2026-04-14
 - [x] code-split-main-bundle Split 773kB main JS chunk via Vite manualChunks -- 2026-04-12
 - [x] fix-doc-counts Fix documentation counts across README.md, REGGIE.md, agents-is-all-you-need.md, PORTABLE-PACKAGE.md -- 2026-03-04
@@ -38,3 +40,4 @@
 - [x] audit-portable-package-accuracy Fix 11 stale facts in PORTABLE-PACKAGE.md -- 2026-04-14
 - [x] add-reggie-uninstaller Build in-app "Remove Reggie Files" Danger Zone (Rust command + React modal + tests) -- 2026-04-14
 - [x] prepare-v2.0.0-release Cut v2.0.0 major release (version bumps, bundle id rename, framing pivot, CHANGELOG) -- 2026-04-14
+- [x] kill-button-completed-items Add Trash button to completed promoted sessions -- 2026-04-25
