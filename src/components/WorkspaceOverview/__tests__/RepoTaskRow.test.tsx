@@ -1113,6 +1113,91 @@ describe("RepoTaskRow", () => {
       expect(screen.queryByTitle("Kill process")).toBeNull();
     });
 
+    it("shows Trash button for completed promoted session when onKillPromotedSession provided", () => {
+      const onKillPromotedSession = vi.fn();
+      const promoted = makePromotedTab({ headlessCompleted: true });
+      const { container } = render(
+        <RepoTaskRow
+          repo={makeRepo()}
+          mode="init"
+          headlessSessions={[]}
+          repoTabs={[promoted]}
+          {...defaultProps}
+          onKillPromotedSession={onKillPromotedSession}
+        />
+      );
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+      expect(screen.getByTitle("Trash completed session")).toBeTruthy();
+    });
+
+    it("shows Trash button for dead promoted session when onKillPromotedSession provided", () => {
+      const onKillPromotedSession = vi.fn();
+      const promoted = makePromotedTab({ dead: true });
+      const { container } = render(
+        <RepoTaskRow
+          repo={makeRepo()}
+          mode="init"
+          headlessSessions={[]}
+          repoTabs={[promoted]}
+          {...defaultProps}
+          onKillPromotedSession={onKillPromotedSession}
+        />
+      );
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+      expect(screen.getByTitle("Trash completed session")).toBeTruthy();
+    });
+
+    it("does not show Trash button for completed promoted session when onKillPromotedSession not provided", () => {
+      const promoted = makePromotedTab({ headlessCompleted: true });
+      const { container } = render(
+        <RepoTaskRow
+          repo={makeRepo()}
+          mode="init"
+          headlessSessions={[]}
+          repoTabs={[promoted]}
+          {...defaultProps}
+        />
+      );
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+      expect(screen.queryByTitle("Trash completed session")).toBeNull();
+    });
+
+    it("calls onKillPromotedSession with tab id when Trash is clicked on completed promoted session", () => {
+      const onKillPromotedSession = vi.fn();
+      const promoted = makePromotedTab({ id: "tab-trash-1", headlessCompleted: true });
+      const { container } = render(
+        <RepoTaskRow
+          repo={makeRepo()}
+          mode="init"
+          headlessSessions={[]}
+          repoTabs={[promoted]}
+          {...defaultProps}
+          onKillPromotedSession={onKillPromotedSession}
+        />
+      );
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+      fireEvent.click(screen.getByTitle("Trash completed session"));
+      expect(onKillPromotedSession).toHaveBeenCalledWith("tab-trash-1");
+    });
+
+    it("shows Trash not Kill for completed promoted session (mutually exclusive)", () => {
+      const onKillPromotedSession = vi.fn();
+      const promoted = makePromotedTab({ headlessCompleted: true });
+      const { container } = render(
+        <RepoTaskRow
+          repo={makeRepo()}
+          mode="init"
+          headlessSessions={[]}
+          repoTabs={[promoted]}
+          {...defaultProps}
+          onKillPromotedSession={onKillPromotedSession}
+        />
+      );
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+      expect(screen.getByTitle("Trash completed session")).toBeTruthy();
+      expect(screen.queryByTitle("Kill process")).toBeNull();
+    });
+
     it("counts promoted running sessions in aggregate badge", () => {
       const promoted = makePromotedTab({ dead: false, headlessCompleted: false });
       render(

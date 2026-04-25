@@ -4,6 +4,11 @@ All notable changes to Reggie are documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- Completed promoted sessions in CodeWorkflowTab now show a per-session **Trash** button alongside Open/Hide, matching the headless completed session behavior. Previously the only way to clear a completed promoted session was the "Trash All Completed" header button.
+
 ## [2.0.1] - 2026-04-22
 
 ### Fixed

@@ -314,6 +314,15 @@ export function RepoTaskRow({
                       Kill
                     </button>
                   )}
+                  {isDead && onKillPromotedSession && (
+                    <button
+                      className="repo-task-row-btn dismiss"
+                      onClick={() => onKillPromotedSession(tab.id)}
+                      title="Trash completed session"
+                    >
+                      Trash
+                    </button>
+                  )}
                 </div>
               </div>
             );
