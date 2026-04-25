@@ -57,6 +57,24 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | - | 0 | CURRENT |
 
+### polish-uninstaller
+**Task**: Polish uninstaller — modal UX, error visibility, shared constant
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/polish-uninstaller
+**Worktree**: .worktree/polish-uninstaller
+**Base**: main
+**Started**: 2026-04-25
+**Attempts**: 1
+**Files**:
+- MOD: src/components/ActivityBar/SettingsPanel.tsx
+- MOD: src/components/ActivityBar/__tests__/SettingsPanel.test.tsx
+- MOD: src-tauri/src/installer.rs
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+
 ---
 
 ## Backlog
@@ -78,8 +96,6 @@
   files: vite.config.ts (MOD), package.json (MOD)
 
 ### Settings & Uninstaller Polish
-- [ ] polish-uninstaller: Polish uninstaller — modal UX, error visibility, shared constant [P2] [conflicts: settings-panel-dead-state] [moderate] [tier: opus:medium] [code] [planned]
-  files: src/components/ActivityBar/SettingsPanel.tsx (MOD), src/components/ActivityBar/__tests__/SettingsPanel.test.tsx (MOD), src-tauri/src/installer.rs (MOD)
 - [ ] settings-panel-dead-state: Wire reinstall state reset and remove dead state in SettingsPanel [P3] [conflicts: polish-uninstaller] [simple] [tier: sonnet:medium] [code] [planned]
   files: src/components/ActivityBar/SettingsPanel.tsx (MOD), src/components/ActivityBar/__tests__/SettingsPanel.test.tsx (MOD)
 
