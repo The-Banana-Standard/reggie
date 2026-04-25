@@ -478,9 +478,25 @@ organize them and compute metadata, not modify them.
    This enables parallel execution: The Reggie app launches terminals at different
    tiers and each code-workflow instance filters the backlog to matching tasks.
 
-8. **Assign pipeline mode**: Based on task nature:
-   - `[code]` — default, standard code-workflow
+8. **Assign pipeline mode**: Based on task nature. Default is `[code]` — only assign another mode if the task clearly fits the criteria below.
+   - `[code]` — default, standard code-workflow (autonomous code changes against a codebase)
    - `[design]` — UI/UX focused, reggie-design-innovator agent leads IMPLEMENT
+   - `[manual]` — task is NOT autonomous code: requires the user to do something in the physical or external world (rotate a credential in a vendor console, install software on a device, take a photo, sign a document, configure something in a third-party UI). Walked interactively via `/reggie-manual-task <slug>`. Excluded from `--yes` batch sweeps.
+   - `[reggie-system]` — task modifies the Reggie agent system itself (files under `~/.claude/` or `resources/agents/`, `resources/commands/`, `resources/managers/`). Runs through `/reggie-system-change` (autonomous via `--yes <slug>`; serial in batch mode — runtime cap of 1 concurrent).
+   - `[debug]` — task is an investigation, not a planned change: hypothesis-driven debugging where the root cause is unknown. Runs through `/reggie-debug-workflow` (autonomous within stages via `--yes`; ends with HANDOFF summary + user checkpoint before continuing to the next debug task).
+
+   **Assignment criteria (positive examples):**
+   - "Rotate the OpenAI API key in production env" → `[manual]` (vendor console action)
+   - "Install Reggie on a fresh Mac and verify symlinks" → `[manual]` (physical-world setup)
+   - "Add a `[debug]` pipeline-mode tag to TASKS.md schema" → `[reggie-system]` (modifies agent system)
+   - "Replace reggie-judge with a stricter scoring rubric" → `[reggie-system]`
+   - "Investigate why pipeline stalls at SECURITY-REVIEW on Windows" → `[debug]` (unknown cause)
+   - "Find out why TASKS.md sometimes loses meta commits" → `[debug]`
+
+   **Negative examples (do NOT assign — these stay `[code]`):**
+   - "Add a new endpoint to the app" → `[code]`, NOT `[reggie-system]` (it's app code, not Reggie system code)
+   - "Fix the off-by-one in pagination logic" → `[code]`, NOT `[debug]` (root cause is known/obvious)
+   - "Update the README to mention the new flag" → `[code]`, NOT `[manual]` (it's a doc edit in the repo, not a real-world action)
 
 9. **Mark plan status**:
    - `[planned]` — has a full implementation plan in task.md
@@ -601,7 +617,7 @@ TASKS.md is a lightweight coordination file. Each task is a slug line with rich 
 - `[conflicts: slug-c]` — shares files, avoid parallel execution
 - `[simple]` / `[moderate]` / `[complex]` — complexity
 - `[tier: model:effort]` — execution tier for terminal matching (`sonnet:medium`, `opus:medium`, `opus:high`). Derived from complexity. Used by the Reggie app to launch terminals at the right level and by code-workflow `--tier` flag to filter pickup.
-- `[code]` / `[design]` — pipeline mode
+- `[code]` / `[design]` / `[manual]` / `[reggie-system]` / `[debug]` — pipeline mode (controls which workflow picks the task up; default is `[code]`)
 - `[planned]` — has task.md with implementation plan (init-tasks always produces `[planned]`; code-workflow requires this)
 
 **Files line** (indented under slug): `files: path (NEW/MOD), path (NEW/MOD)`

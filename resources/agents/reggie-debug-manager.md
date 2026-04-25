@@ -22,7 +22,39 @@ INTAKE → DEBUG-DIALOGUE → HANDOFF → [code-workflow at PLAN]
 
 ## --yes Flag Handling (Ralph Wiggum Mode)
 
-When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confirmation gates. INTAKE clarifications are skipped (proceed with available info), convergence checks auto-proceed, diagnosis confirmation auto-approved, handoff prompt auto-approved.
+When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves stage gates **within** a single debug session — INTAKE clarifications are skipped, convergence checks auto-proceed, diagnosis confirmation auto-approved. The end-of-slug HANDOFF checkpoint (the three-option "What next?" prompt) is **never** auto-approved — debug findings always warrant a human pause.
+
+### Slug-Mode Entry Path (`--yes <slug>`)
+
+When `--yes` is followed by a slug argument, the pipeline enters **slug-mode**.
+
+**Cross-pipeline guard (FIRST — before reading task.md):** Pattern-match the slug's TASKS.md line for its mode tag.
+- `[code]` / `[design]` → redirect to `/reggie-code-workflow [slug]`, exit.
+- `[manual]` → redirect to `/reggie-manual-task [slug]`, exit.
+- `[reggie-system]` → redirect to `/reggie-system-change --yes [slug]`, exit.
+- `[debug]` → proceed.
+- Slug not in TASKS.md → print "not found" and exit.
+
+**Stage handling**:
+- **Skip INTAKE clarifications**: read `.pipeline/<slug>/task.md` and use its Problem / Vision / Context / Acceptance Criteria sections as the symptom summary.
+- **DEBUG-DIALOGUE**: launch `reggie-codebase-debugger` with task.md content as context; auto-approve convergence checks.
+- **HANDOFF**: produce the structured Debug Summary (hypotheses tested / root cause / fix applied / confidence / open questions). Print in-session AND write to `.pipeline/<slug>/HANDOFF.md`.
+
+### End-of-Slug Checkpoint (mandatory, never auto-approved)
+
+After the HANDOFF summary, present these three options:
+```
+What next?
+  1. Continue investigating this bug
+  2. Move to next debug task
+  3. Done
+```
+
+- **1**: Re-enter DEBUG-DIALOGUE for the same slug, carrying prior hypotheses forward.
+- **2 / "Next" / "Move to next"**: Mark current slug `[x]` (move to HISTORY.md), scan backlog for next `[debug]` slug in document order, re-enter slug-mode. If none remain, exit.
+- **3**: Mark current slug `[x]`, exit.
+
+**The orchestrator MUST NOT auto-continue between debug slugs** without explicit user input. This is the critical difference from `/reggie-system-change --yes <slug>`'s serial auto-loop.
 
 ## Stage Reference
 

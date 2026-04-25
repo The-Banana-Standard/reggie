@@ -127,24 +127,48 @@ Execute each stage, waiting for completion and confirmation before proceeding. A
    - From remaining, pick highest priority: P1 > P2 > P3 (tasks without tags = P2)
    - Within same priority, pick first in document order (top-to-bottom)
    - If ALL tasks are blocked by dependencies, warn user and ask what to do
-3. Print: "Picking up: [task name] [P#]. Starting IMPLEMENT stage."
-4. Print active tasks as FYI: "Other active tasks: [list slugs + stages]"
-5. Record base branch: `git branch --show-current`
-6. Create worktree:
+3. **Pipeline-mode guard** (BEFORE creating any worktree or claiming the task): Read the raw TASKS.md line for the candidate slug and pattern-match the mode tag inside square brackets. If the line contains `[manual]`, `[reggie-system]`, or `[debug]`, this task does NOT belong to code-workflow. Leave the task in `## Backlog` (do not move to Active Tasks, do not create worktree, do not commit metadata), print the matching redirect below, and continue scanning the backlog for the next eligible task. If no eligible tasks remain, exit cleanly with `~~REGGIE:DONE:reggie-code-workflow:success~~`.
+
+   - `[manual]` → print:
+     ```
+     Skipping [slug] — this is a [manual] task. Run:
+       /reggie-manual-task [slug]
+     to walk through it interactively. Manual tasks are not autonomous and
+     are excluded from /reggie-code-workflow batch sweeps.
+     ```
+   - `[reggie-system]` → print:
+     ```
+     Skipping [slug] — this is a [reggie-system] task. Run:
+       /reggie-system-change --yes [slug]
+     to apply it through the system-change pipeline.
+     ```
+   - `[debug]` → print:
+     ```
+     Skipping [slug] — this is a [debug] task. Run:
+       /reggie-debug-workflow --yes [slug]
+     to investigate it through the debug pipeline.
+     ```
+
+   When a task slug is supplied as an explicit argument (`/reggie-code-workflow [slug]`) and that slug carries a non-code mode tag, do NOT silently skip — print the redirect and exit cleanly with `~~REGGIE:DONE:reggie-code-workflow:failed~~` (do not auto-pick a different task). The user clearly intended to act on that slug; auto-substitution would be surprising.
+
+4. Print: "Picking up: [task name] [P#]. Starting IMPLEMENT stage."
+5. Print active tasks as FYI: "Other active tasks: [list slugs + stages]"
+6. Record base branch: `git branch --show-current`
+7. Create worktree:
    ```bash
    git worktree prune
    git worktree remove --force .worktree/[slug] 2>/dev/null || true
    git branch -D task/[slug] 2>/dev/null || true
    git worktree add -b task/[slug] .worktree/[slug] [base-branch]
    ```
-7. Copy untracked essentials:
+8. Copy untracked essentials:
    ```bash
    for f in .env .env.local .env.development.local; do
        [ -f "$f" ] && cp "$f" ".worktree/[slug]/$f"
    done
    ```
-8. If project uses `node_modules/`, run install command in `.worktree/[slug]/`
-9. **Context Seeding from task.md**: Create `.pipeline/[slug]/` if it doesn't exist. Seed `CONTEXT.md`:
+9. If project uses `node_modules/`, run install command in `.worktree/[slug]/`
+10. **Context Seeding from task.md**: Create `.pipeline/[slug]/` if it doesn't exist. Seed `CONTEXT.md`:
    - **If `.pipeline/[slug]/task.md` exists** (from `/reggie-init-tasks`): Read the task.md file and write its contents into `CONTEXT.md` under `## Pre-existing Context`. The task.md contains Problem, Vision, Context, Affected Areas, Acceptance Criteria, and Implementation Plan — all preserved verbatim.
    - **If no task.md**: The task has not been planned. Print redirect message and stop:
      ```
@@ -154,17 +178,17 @@ Execute each stage, waiting for completion and confirmation before proceeding. A
      then run /reggie-code-workflow to pick it up.
      ```
      Move the task back to `## Backlog` in TASKS.md and remove it from `## Active Tasks`. Clean up the worktree. Stop the pipeline for this task.
-10. Ensure `.pipeline/` and `.worktree/` are in `.gitignore`
-11. Add to Active Tasks in TASKS.md (include **Branch**, **Worktree**, **Base** fields)
-12. Remove the picked-up task's `- [ ] slug: ...` entry from `## Backlog` in TASKS.md. Delete the entire entry including any indented `files:` or `>` context lines below it.
-13. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: pickup [slug]" --no-gpg-sign 2>/dev/null`
-14. **Staleness Validation**: If task.md has `## Implementation Plan` with a `### Files` section, validate that referenced files still exist in the codebase:
+11. Ensure `.pipeline/` and `.worktree/` are in `.gitignore`
+12. Add to Active Tasks in TASKS.md (include **Branch**, **Worktree**, **Base** fields)
+13. Remove the picked-up task's `- [ ] slug: ...` entry from `## Backlog` in TASKS.md. Delete the entire entry including any indented `files:` or `>` context lines below it.
+14. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: pickup [slug]" --no-gpg-sign 2>/dev/null`
+15. **Staleness Validation**: If task.md has `## Implementation Plan` with a `### Files` section, validate that referenced files still exist in the codebase:
     - For `MOD:` files: check they exist. If missing, warn: "File [path] from plan no longer exists."
     - For `NEW:` files: check they DON'T exist yet (if they do, the plan may be stale). If found, warn: "File [path] already exists — plan may be stale."
     - If any warnings: ask user to proceed (accept risk), re-plan via `/reggie-init-tasks`, or skip task.
     - If no warnings: proceed normally.
-15. **Conflict Detection**: Parse the file list from the task.md `### Files` section. Compare against all other active tasks' `**Files**` lists in TASKS.md. If overlap exists, show conflict warning and ask user to choose: Proceed / Wait / Rethink / Abort. If no overlap, proceed.
-16. **Skip List**: Evaluate which stages are categorically inapplicable (see reggie-code-manager.md → Skip List). Write `.pipeline/[slug]/SKIP` with stage names and reasons. If no stages should be skipped, skip this step.
+16. **Conflict Detection**: Parse the file list from the task.md `### Files` section. Compare against all other active tasks' `**Files**` lists in TASKS.md. If overlap exists, show conflict warning and ask user to choose: Proceed / Wait / Rethink / Abort. If no overlap, proceed.
+17. **Skip List**: Evaluate which stages are categorically inapplicable (see reggie-code-manager.md → Skip List). Write `.pipeline/[slug]/SKIP` with stage names and reasons. If no stages should be skipped, skip this step.
 
 **If no backlog items remain:**
 ```
