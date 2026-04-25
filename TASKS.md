@@ -70,23 +70,6 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | - | 0 | CURRENT |
 
-### settings-panel-dead-state
-**Task**: Wire reinstall state reset and remove dead state in SettingsPanel
-**Stage**: IMPLEMENT
-**Pipeline**: code-workflow
-**Branch**: task/settings-panel-dead-state
-**Worktree**: .worktree/settings-panel-dead-state
-**Base**: main
-**Started**: 2026-04-25
-**Attempts**: 1
-**Files**:
-- MOD: src/components/ActivityBar/SettingsPanel.tsx
-- MOD: src/components/ActivityBar/__tests__/SettingsPanel.test.tsx
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
-
 ---
 
 ## Backlog

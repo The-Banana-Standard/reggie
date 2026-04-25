@@ -42,3 +42,4 @@
 - [x] prepare-v2.0.0-release Cut v2.0.0 major release (version bumps, bundle id rename, framing pivot, CHANGELOG) -- 2026-04-14
 - [x] kill-button-completed-items Add Trash button to completed promoted sessions -- 2026-04-25
 - [x] polish-uninstaller Polish uninstaller — modal UX, error visibility, shared constant -- 2026-04-25
+- [x] settings-panel-dead-state Wire reinstall state reset and remove dead state in SettingsPanel -- 2026-04-25
