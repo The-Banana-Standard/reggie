@@ -117,6 +117,15 @@ export function SettingsPanel() {
     setUninstallModalOpen(false);
   }, [uninstallState]);
 
+  useEffect(() => {
+    if (!uninstallModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeUninstallModal();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [uninstallModalOpen, closeUninstallModal]);
+
   const handleConfirmUninstall = useCallback(async () => {
     setUninstallState("uninstalling");
     setUninstallError("");
@@ -305,8 +314,14 @@ export function SettingsPanel() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="uninstall-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeUninstallModal();
+          }}
         >
-          <div className="settings-modal">
+          <div
+            className="settings-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h4 id="uninstall-modal-title" className="settings-modal-title">
               Remove Reggie Files?
             </h4>
@@ -403,6 +418,7 @@ export function SettingsPanel() {
                   </button>
                   <button
                     className="settings-btn danger"
+                    aria-label="Confirm remove Reggie files"
                     onClick={handleConfirmUninstall}
                     disabled={uninstallState === "uninstalling"}
                   >

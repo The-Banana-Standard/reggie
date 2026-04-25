@@ -103,12 +103,9 @@ describe("SettingsPanel Danger Zone", () => {
       return Promise.reject(new Error(`Unexpected invoke: ${cmd}`));
     });
 
-    // Click the confirm button inside the modal (second one with this label).
-    const confirmButtons = screen.getAllByRole("button", {
-      name: "Remove Reggie Files",
-    });
-    // The modal's confirm button is the last one rendered.
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+    fireEvent.click(
+      screen.getByRole("button", { name: /confirm remove reggie files/i })
+    );
 
     await waitFor(() => {
       const uninstallCalls = mockInvoke.mock.calls.filter(
@@ -136,10 +133,9 @@ describe("SettingsPanel Danger Zone", () => {
       return Promise.reject(new Error(`Unexpected invoke: ${cmd}`));
     });
 
-    const confirmButtons = screen.getAllByRole("button", {
-      name: "Remove Reggie Files",
-    });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+    fireEvent.click(
+      screen.getByRole("button", { name: /confirm remove reggie files/i })
+    );
 
     await waitFor(() => {
       const uninstallCalls = mockInvoke.mock.calls.filter(
@@ -163,10 +159,9 @@ describe("SettingsPanel Danger Zone", () => {
       return Promise.reject(new Error(`Unexpected invoke: ${cmd}`));
     });
 
-    const confirmButtons = screen.getAllByRole("button", {
-      name: "Remove Reggie Files",
-    });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+    fireEvent.click(
+      screen.getByRole("button", { name: /confirm remove reggie files/i })
+    );
 
     expect(await screen.findByText(/Removed 3 files\./)).toBeTruthy();
     // Close button appears after success.
@@ -187,11 +182,75 @@ describe("SettingsPanel Danger Zone", () => {
       return Promise.reject(new Error(`Unexpected invoke: ${cmd}`));
     });
 
-    const confirmButtons = screen.getAllByRole("button", {
-      name: "Remove Reggie Files",
-    });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+    fireEvent.click(
+      screen.getByRole("button", { name: /confirm remove reggie files/i })
+    );
 
     expect(await screen.findByText(/Failed:.*permission denied/)).toBeTruthy();
+  });
+
+  it("closes modal when Escape is pressed", async () => {
+    render(<SettingsPanel />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Remove Reggie Files" })
+    );
+    expect(await screen.findByText("Remove Reggie Files?")).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Remove Reggie Files?")).toBeNull();
+    });
+  });
+
+  it("closes modal when overlay background is clicked", async () => {
+    render(<SettingsPanel />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Remove Reggie Files" })
+    );
+    const dialog = await screen.findByRole("dialog");
+
+    // Click the overlay itself (the dialog element).
+    fireEvent.click(dialog);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Remove Reggie Files?")).toBeNull();
+    });
+  });
+
+  it("Escape does not close modal mid-uninstall", async () => {
+    render(<SettingsPanel />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Remove Reggie Files" })
+    );
+    await screen.findByText("Remove Reggie Files?");
+
+    // Hold uninstall in flight so state stays "uninstalling".
+    let resolveUninstall: ((v: unknown) => void) | undefined;
+    mockInvoke.mockImplementationOnce(
+      (cmd: string) =>
+        new Promise((resolve, reject) => {
+          if (cmd === "uninstall_reggie_files") {
+            resolveUninstall = resolve;
+          } else {
+            reject(new Error(`Unexpected invoke: ${cmd}`));
+          }
+        })
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /confirm remove reggie files/i })
+    );
+    await screen.findByText("Removing...");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(screen.getByText("Remove Reggie Files?")).toBeTruthy();
+
+    // Cleanup so the pending promise doesn't leak.
+    resolveUninstall?.(fakeReport);
   });
 });
