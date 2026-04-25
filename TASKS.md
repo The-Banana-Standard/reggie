@@ -69,6 +69,23 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | - | 0 | CURRENT |
 
+### settings-panel-dead-state
+**Task**: Wire reinstall state reset and remove dead state in SettingsPanel
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/settings-panel-dead-state
+**Worktree**: .worktree/settings-panel-dead-state
+**Base**: main
+**Started**: 2026-04-25
+**Attempts**: 1
+**Files**:
+- MOD: src/components/ActivityBar/SettingsPanel.tsx
+- MOD: src/components/ActivityBar/__tests__/SettingsPanel.test.tsx
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+
 ---
 
 ## Backlog
@@ -87,10 +104,6 @@
   files: src/components/Terminal/TerminalView.tsx (MOD)
 - [ ] vitest-env-hang-investigation: Diagnose and fix vitest hanging at 0% CPU [P2] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [conflicts: replace-sqlite-with-json-bookmarks] [complex] [tier: opus:high] [debug] [planned]
   files: vite.config.ts (MOD), package.json (MOD)
-
-### Settings & Uninstaller Polish
-- [ ] settings-panel-dead-state: Wire reinstall state reset and remove dead state in SettingsPanel [P3] [conflicts: polish-uninstaller] [simple] [tier: sonnet:medium] [code] [planned]
-  files: src/components/ActivityBar/SettingsPanel.tsx (MOD), src/components/ActivityBar/__tests__/SettingsPanel.test.tsx (MOD)
 
 ### Other
 - [ ] attach-images-to-ungroomed-tasks: Paste/drop images into ungroomed task input, consumed during init-tasks [P3] [conflicts: wire-manual-reggie-system-and-debug-tags-runtime, fix-clippy-projects-rs, replace-sqlite-with-json-bookmarks, add-pipeline-mode-tags-manual-reggie-system-and-debug] [complex] [tier: opus:high] [code] [unplanned]
