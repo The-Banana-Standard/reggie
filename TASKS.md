@@ -46,7 +46,7 @@
 
 ### polish-uninstaller
 **Task**: Polish uninstaller — modal UX, error visibility, shared constant
-**Stage**: IMPLEMENT
+**Stage**: COMMIT
 **Pipeline**: code-workflow
 **Branch**: task/polish-uninstaller
 **Worktree**: .worktree/polish-uninstaller
@@ -60,7 +60,16 @@
 **Quality Scores**:
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
+| IMPLEMENT | 9.2 | 1 | PASS |
+| WRITE-TESTS | 9.2 | 1 | PASS |
+| QUALITY-CHECK | 9.2 | 1 | PASS (10 SettingsPanel + 65 installer tests pass) |
+| SIMPLIFY | - | 0 | SKIP (already minimal) |
+| VERIFY-APP | 9.0 | 1 | PASS (vitest + cargo test + clippy + tsc) |
+| REVIEW | - | 0 | SKIP (--yes mode) |
+| SECURITY-REVIEW | - | 0 | SKIP (--yes mode) |
+| SYNC-DOCS | - | 0 | SKIP (no public API change) |
+| REVIEW-WITH-USER | APPROVED | 0 | --yes auto-approve |
+| COMMIT | - | 0 | CURRENT |
 
 ---
 
