@@ -43,3 +43,4 @@
 - [x] kill-button-completed-items Add Trash button to completed promoted sessions -- 2026-04-25
 - [x] polish-uninstaller Polish uninstaller — modal UX, error visibility, shared constant -- 2026-04-25
 - [x] settings-panel-dead-state Wire reinstall state reset and remove dead state in SettingsPanel -- 2026-04-25
+- [x] replace-sqlite-with-json-bookmarks Replace tauri-plugin-sql with a JSON bookmark file -- 2026-04-25

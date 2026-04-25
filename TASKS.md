@@ -18,38 +18,6 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | 9.23 | 1 | PASS |
 
-### replace-sqlite-with-json-bookmarks
-**Task**: Replace tauri-plugin-sql with a JSON bookmark file
-**Stage**: SYNC-DOCS
-**Pipeline**: code-workflow
-**Branch**: task/replace-sqlite-with-json-bookmarks
-**Worktree**: .worktree/replace-sqlite-with-json-bookmarks
-**Base**: main
-**Started**: 2026-04-25
-**Attempts**: 1
-**Files**:
-- NEW: src-tauri/src/commands/bookmarks.rs
-- MOD: src/services/database-service.ts
-- MOD: src/services/__tests__/database-service.test.ts
-- MOD: src-tauri/src/commands/mod.rs
-- MOD: src-tauri/src/lib.rs
-- MOD: src-tauri/Cargo.toml
-- MOD: package.json
-- MOD: src-tauri/capabilities/default.json
-- MOD: src-tauri/tauri.conf.json
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.25 | 1 | PASS |
-| WRITE-TESTS | 9.35 | 1 | PASS |
-| QUALITY-CHECK | 9.2 | 1 | PASS |
-| SIMPLIFY | 9.0 | 1 | PASS |
-| VERIFY-APP | 9.0 | 2 | PASS |
-| REVIEW | 9.3 | 1 | PASS |
-| SECURITY-REVIEW | 9.0 | 1 | PASS |
-| SYNC-DOCS | - | 0 | CURRENT |
-
-
 ### add-pipeline-mode-tags-manual-reggie-system-and-debug
 **Task**: Introduce [manual], [reggie-system], and [debug] pipeline-mode tags
 **Stage**: IMPLEMENT
