@@ -2,22 +2,6 @@
 
 ## Active Tasks
 
-### fix-clippy-projects-rs
-**Task**: Fix pre-existing clippy errors in projects.rs
-**Stage**: IMPLEMENT
-**Pipeline**: code-workflow
-**Branch**: task/fix-clippy-projects-rs
-**Worktree**: .worktree/fix-clippy-projects-rs
-**Base**: main
-**Started**: 2026-04-25
-**Attempts**: 1
-**Files**:
-- MOD: src-tauri/src/commands/projects.rs
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.23 | 1 | PASS |
-
 ---
 
 ## Backlog

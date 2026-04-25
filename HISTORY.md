@@ -1,5 +1,7 @@
 # Completed Tasks
 
+- [x] fix-clippy-projects-rs Fix pre-existing clippy errors in projects.rs -- 2026-04-25
+
 - [~] run-locally-skip-claude-when-script-exists: Run-locally button should execute existing script in terminal instead of opening Claude — pruned 2026-04-25 (already implemented at src/App.tsx:335-363; check_run_script returns hasScript and the if-branch addTab(path, false, ...) spawns a shell terminal directly with `bash .reggie/run.sh`)
 - [~] tsconfig-test-exclude: Verify vite.config.ts setupFiles populated and exclude __tests__ from production tsc — pruned 2026-04-25 (tsconfig.json already excludes "src/**/__tests__/**" and "src/**/*.test.*" at line 18; setupFiles concern absorbed into vitest-env-hang-investigation acceptance criteria)
 - [x] fix-reggie-guide-installation-topic Fix 4 targeted inaccuracies in reggie-guide.md Installation topic -- 2026-04-14
