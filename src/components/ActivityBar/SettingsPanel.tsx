@@ -75,7 +75,20 @@ export function SettingsPanel() {
     };
   }, []);
 
+  const scheduleReinstallReset = useCallback(() => {
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    dismissTimer.current = setTimeout(() => {
+      setReinstallState("idle");
+      setReinstallMessage("");
+      dismissTimer.current = null;
+    }, 2500);
+  }, []);
+
   const handleReinstall = useCallback(async () => {
+    if (dismissTimer.current) {
+      clearTimeout(dismissTimer.current);
+      dismissTimer.current = null;
+    }
     setReinstallState("reinstalling");
     setReinstallMessage("");
     try {
@@ -88,7 +101,8 @@ export function SettingsPanel() {
       setReinstallState("error");
       setReinstallMessage(`Failed: ${err}`);
     }
-  }, [loadStatus]);
+    scheduleReinstallReset();
+  }, [loadStatus, scheduleReinstallReset]);
 
   const handleAddToProfile = useCallback(async () => {
     setEnvStatus("adding");
