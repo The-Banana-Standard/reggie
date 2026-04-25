@@ -25,7 +25,8 @@
 | SIMPLIFY | 9.30 | 1 | PASS |
 | VERIFY-APP | SKIP | - | SKIP |
 | REVIEW | 9.20 | 1 | PASS |
-| SECURITY-REVIEW | - | 0 | CURRENT |
+| SECURITY-REVIEW | 9.25 | 1 | PASS |
+| SYNC-DOCS | - | 0 | CURRENT |
 
 ---
 
