@@ -22,7 +22,9 @@
 | IMPLEMENT | 9.30 | 1 | PASS |
 | WRITE-TESTS | 9.22 | 1 | PASS |
 | QUALITY-CHECK | 9.22 | 1 | PASS |
-| SIMPLIFY | - | 0 | CURRENT |
+| SIMPLIFY | 9.30 | 1 | PASS |
+| VERIFY-APP | SKIP | - | SKIP |
+| REVIEW | - | 0 | CURRENT |
 
 ---
 
