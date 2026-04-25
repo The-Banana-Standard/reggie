@@ -42,7 +42,7 @@
 
 ### kill-button-completed-items
 **Task**: Add Trash button to completed promoted sessions
-**Stage**: IMPLEMENT
+**Stage**: SIMPLIFY
 **Pipeline**: code-workflow
 **Branch**: task/kill-button-completed-items
 **Worktree**: .worktree/kill-button-completed-items
@@ -55,7 +55,10 @@
 **Quality Scores**:
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
+| IMPLEMENT | 9.35 | 1 | PASS |
+| WRITE-TESTS | 9.35 | 1 | PASS |
+| QUALITY-CHECK | 9.35 | 1 | PASS |
+| SIMPLIFY | - | 0 | CURRENT |
 
 ### polish-uninstaller
 **Task**: Polish uninstaller — modal UX, error visibility, shared constant
