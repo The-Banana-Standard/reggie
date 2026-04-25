@@ -40,6 +40,25 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | - | 0 | CURRENT |
 
+### kill-button-completed-items
+**Task**: Add Trash button to completed promoted sessions
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/kill-button-completed-items
+**Worktree**: .worktree/kill-button-completed-items
+**Base**: main
+**Started**: 2026-04-25
+**Attempts**: 1
+**Files**:
+- MOD: src/components/WorkspaceOverview/RepoTaskRow.tsx
+- MOD: src/components/WorkspaceOverview/__tests__/RepoTaskRow.test.tsx
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+
+---
+
 ## Backlog
 
 ### v2.0.0 Release
@@ -57,8 +76,6 @@
   files: src/components/Terminal/TerminalView.tsx (MOD)
 - [ ] vitest-env-hang-investigation: Diagnose and fix vitest hanging at 0% CPU [P2] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [conflicts: replace-sqlite-with-json-bookmarks] [complex] [tier: opus:high] [debug] [planned]
   files: vite.config.ts (MOD), package.json (MOD)
-- [ ] kill-button-completed-items: Add Trash button to completed promoted sessions [P2] [conflicts: wire-manual-reggie-system-and-debug-tags-runtime] [simple] [tier: sonnet:medium] [code] [planned]
-  files: src/components/WorkspaceOverview/RepoTaskRow.tsx (MOD)
 
 ### Settings & Uninstaller Polish
 - [ ] polish-uninstaller: Polish uninstaller — modal UX, error visibility, shared constant [P2] [conflicts: settings-panel-dead-state] [moderate] [tier: opus:medium] [code] [planned]
