@@ -18,6 +18,28 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | - | 0 | CURRENT |
 
+### replace-sqlite-with-json-bookmarks
+**Task**: Replace tauri-plugin-sql with a JSON bookmark file
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/replace-sqlite-with-json-bookmarks
+**Worktree**: .worktree/replace-sqlite-with-json-bookmarks
+**Base**: main
+**Started**: 2026-04-25
+**Attempts**: 1
+**Files**:
+- NEW: src-tauri/src/commands/bookmarks.rs
+- MOD: src/services/database-service.ts
+- MOD: src/services/__tests__/database-service.test.ts
+- MOD: src-tauri/src/commands/mod.rs
+- MOD: src-tauri/src/lib.rs
+- MOD: src-tauri/Cargo.toml
+- MOD: package.json
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+
 ## Backlog
 
 ### v2.0.0 Release
@@ -45,8 +67,6 @@
   files: src/components/ActivityBar/SettingsPanel.tsx (MOD), src/components/ActivityBar/__tests__/SettingsPanel.test.tsx (MOD)
 
 ### Other
-- [ ] replace-sqlite-with-json-bookmarks: Replace tauri-plugin-sql with a JSON bookmark file [P2] [conflicts: wire-manual-reggie-system-and-debug-tags-runtime, vitest-env-hang-investigation, attach-images-to-ungroomed-tasks] [moderate] [tier: opus:medium] [code] [planned]
-  files: src/services/database-service.ts (MOD), src-tauri/src/commands/bookmarks.rs (NEW), src-tauri/src/commands/mod.rs (MOD), src-tauri/src/lib.rs (MOD), src-tauri/Cargo.toml (MOD), package.json (MOD)
 - [ ] attach-images-to-ungroomed-tasks: Paste/drop images into ungroomed task input, consumed during init-tasks [P3] [conflicts: wire-manual-reggie-system-and-debug-tags-runtime, fix-clippy-projects-rs, replace-sqlite-with-json-bookmarks, add-pipeline-mode-tags-manual-reggie-system-and-debug] [complex] [tier: opus:high] [code] [unplanned]
   files: src/components/ProjectSummary/ProjectSummaryPanel.tsx (MOD), src-tauri/src/commands/projects.rs (MOD), src-tauri/src/lib.rs (MOD), resources/commands/reggie-init-tasks.md (MOD), .gitignore (MOD)
 
