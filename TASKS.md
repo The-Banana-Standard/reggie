@@ -2,6 +2,25 @@
 
 ## Active Tasks
 
+### wire-manual-reggie-system-and-debug-tags-runtime
+**Task**: Wire [manual], [reggie-system], and [debug] tags into Rust parser and UI
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/wire-manual-reggie-system-and-debug-tags-runtime
+**Worktree**: .worktree/wire-manual-reggie-system-and-debug-tags-runtime
+**Base**: main
+**Started**: 2026-04-25
+**Attempts**: 1
+**Files**:
+- MOD: src-tauri/src/commands/projects.rs
+- MOD: src/types/terminal.ts
+- MOD: src/components/WorkspaceOverview/CodeWorkflowTab.tsx
+- MOD: src/components/WorkspaceOverview/RepoTaskRow.tsx
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+
 ---
 
 ## Backlog
@@ -12,8 +31,6 @@
 
 ### Pipeline System Expansion
 
-- [ ] wire-manual-reggie-system-and-debug-tags-runtime: Wire [manual], [reggie-system], and [debug] tags into Rust parser and UI [P1] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [conflicts: fix-clippy-projects-rs, attach-images-to-ungroomed-tasks, kill-button-completed-items, replace-sqlite-with-json-bookmarks] [complex] [tier: opus:high] [code] [planned]
-  files: src-tauri/src/commands/projects.rs (MOD), src/types/terminal.ts (MOD), src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD), src/components/WorkspaceOverview/RepoTaskRow.tsx (MOD)
 
 ### Bug Fixes & Tech Debt
 - [ ] fix-sessions-tab-width-on-return: Diagnose and fix Sessions tab terminal width shrinking on return [P2] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [complex] [tier: opus:high] [debug] [planned]
