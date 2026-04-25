@@ -20,7 +20,7 @@
 
 ### replace-sqlite-with-json-bookmarks
 **Task**: Replace tauri-plugin-sql with a JSON bookmark file
-**Stage**: QUALITY-CHECK
+**Stage**: SIMPLIFY
 **Pipeline**: code-workflow
 **Branch**: task/replace-sqlite-with-json-bookmarks
 **Worktree**: .worktree/replace-sqlite-with-json-bookmarks
@@ -42,7 +42,8 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | 9.25 | 1 | PASS |
 | WRITE-TESTS | 9.35 | 1 | PASS |
-| QUALITY-CHECK | - | 0 | CURRENT |
+| QUALITY-CHECK | 9.2 | 1 | PASS |
+| SIMPLIFY | - | 0 | CURRENT |
 
 
 ### add-pipeline-mode-tags-manual-reggie-system-and-debug
