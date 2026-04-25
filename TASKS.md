@@ -20,7 +20,9 @@
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
 | IMPLEMENT | 9.30 | 1 | PASS |
-| WRITE-TESTS | - | 0 | CURRENT |
+| WRITE-TESTS | 9.22 | 1 | PASS |
+| QUALITY-CHECK | 9.22 | 1 | PASS |
+| SIMPLIFY | - | 0 | CURRENT |
 
 ---
 
