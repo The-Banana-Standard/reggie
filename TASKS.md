@@ -18,30 +18,6 @@
 |-------|-------|----------|--------|
 | IMPLEMENT | 9.23 | 1 | PASS |
 
-### add-pipeline-mode-tags-manual-reggie-system-and-debug
-**Task**: Introduce [manual], [reggie-system], and [debug] pipeline-mode tags
-**Stage**: IMPLEMENT
-**Pipeline**: code-workflow
-**Branch**: task/add-pipeline-mode-tags-manual-reggie-system-and-debug
-**Worktree**: .worktree/add-pipeline-mode-tags-manual-reggie-system-and-debug
-**Base**: main
-**Started**: 2026-04-25
-**Attempts**: 1
-**Files**:
-- MOD: resources/commands/reggie-init-tasks.md
-- MOD: resources/agents/reggie-code-architect.md
-- MOD: resources/agents/reggie-code-manager.md
-- MOD: resources/commands/reggie-code-workflow.md
-- MOD: resources/commands/reggie-system-change.md
-- MOD: resources/agents/reggie-system-change-manager.md
-- MOD: resources/commands/reggie-debug-workflow.md
-- MOD: resources/agents/reggie-debug-manager.md
-- NEW: resources/commands/reggie-manual-task.md
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
-
 ---
 
 ## Backlog

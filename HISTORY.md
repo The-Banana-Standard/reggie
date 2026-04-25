@@ -44,3 +44,4 @@
 - [x] polish-uninstaller Polish uninstaller — modal UX, error visibility, shared constant -- 2026-04-25
 - [x] settings-panel-dead-state Wire reinstall state reset and remove dead state in SettingsPanel -- 2026-04-25
 - [x] replace-sqlite-with-json-bookmarks Replace tauri-plugin-sql with a JSON bookmark file -- 2026-04-25
+- [x] add-pipeline-mode-tags-manual-reggie-system-and-debug Introduce [manual], [reggie-system], and [debug] pipeline-mode tags -- 2026-04-25
