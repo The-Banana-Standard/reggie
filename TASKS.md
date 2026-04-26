@@ -2,33 +2,6 @@
 
 ## Active Tasks
 
-### fix-sessions-tab-width-on-return
-**Task**: Fix Sessions tab terminal width shrinking on return
-**Stage**: IMPLEMENT
-**Pipeline**: code-workflow
-**Branch**: task/fix-sessions-tab-width-on-return
-**Worktree**: .worktree/fix-sessions-tab-width-on-return
-**Base**: main
-**Started**: 2026-04-26
-**Attempts**: 1
-**Files**:
-- MOD: src/components/Terminal/TerminalView.tsx
-- MOD: src-tauri/src/commands/terminal.rs
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.6 | 1 | PASS |
-| WRITE-TESTS | SKIP | - | SKIP |
-| QUALITY-CHECK | SKIP | - | SKIP |
-| SIMPLIFY | 9.0 | 1 | PASS |
-| VERIFY-APP | 9.5 | 2 | PASS |
-| REVIEW | 9.5 | 1 | PASS |
-| SECURITY-REVIEW | 9.5 | 1 | PASS |
-| SYNC-DOCS | 9.0 | 1 | PASS |
-| UPDATE-CLAUDE | 9.0 | 1 | PASS |
-| REVIEW-WITH-USER | APPROVED | 1 | PASS |
-| COMMIT | - | 0 | CURRENT |
-
 ---
 
 ## Backlog
