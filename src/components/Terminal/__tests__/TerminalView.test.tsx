@@ -118,6 +118,53 @@ function uninstallSchedulingMocks() {
   globalThis.clearTimeout = originalClearTimeout;
 }
 
+// jsdom returns null for offsetParent and 0×0 for getBoundingClientRect on
+// elements not laid out by a real browser. Production code uses both via
+// isContainerVisible() to guard fitAddon.fit() against the display:none
+// percentage-string trap (see TerminalView.tsx). Stub both so test renders
+// appear visible — the real visibility behavior is exercised by the manual
+// repro at REVIEW-WITH-USER, which jsdom can't simulate anyway.
+let originalOffsetParentDesc: PropertyDescriptor | undefined;
+let originalGetBoundingClientRect: typeof HTMLElement.prototype.getBoundingClientRect;
+
+function installVisibilityStubs() {
+  originalOffsetParentDesc = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "offsetParent"
+  );
+  Object.defineProperty(HTMLElement.prototype, "offsetParent", {
+    configurable: true,
+    get() {
+      return document.body;
+    },
+  });
+  originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+  HTMLElement.prototype.getBoundingClientRect = function () {
+    return {
+      width: 800,
+      height: 600,
+      top: 0,
+      left: 0,
+      right: 800,
+      bottom: 600,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect;
+  };
+}
+
+function uninstallVisibilityStubs() {
+  if (originalOffsetParentDesc) {
+    Object.defineProperty(
+      HTMLElement.prototype,
+      "offsetParent",
+      originalOffsetParentDesc
+    );
+  }
+  HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+}
+
 /** Flush all pending rAF callbacks (one round). */
 function flushRafs() {
   const cbs = Array.from(rafCallbacks.entries());
@@ -198,6 +245,7 @@ async function renderAndInit(
 describe("TerminalView resize effect", () => {
   beforeEach(() => {
     installSchedulingMocks();
+    installVisibilityStubs();
     mockFit.mockClear();
     mockXtermWrite.mockClear();
     mockXtermOpen.mockClear();
@@ -212,6 +260,7 @@ describe("TerminalView resize effect", () => {
 
   afterEach(() => {
     uninstallSchedulingMocks();
+    uninstallVisibilityStubs();
   });
 
   describe("double-rAF + setTimeout timing", () => {
