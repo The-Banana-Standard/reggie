@@ -2,41 +2,6 @@
 
 ## Active Tasks
 
-### attach-images-to-ungroomed-tasks
-**Task**: Paste/drop images into ungroomed task input, consumed during init-tasks
-**Stage**: PICKUP
-**Pipeline**: code-workflow
-**Mode**: --yes
-**Branch**: task/attach-images-to-ungroomed-tasks
-**Worktree**: .worktree/attach-images-to-ungroomed-tasks
-**Base**: main
-**Started**: 2026-04-26
-**Attempts**: 1
-**Files**:
-- MOD: src/components/ProjectSummary/ProjectSummaryPanel.tsx
-- MOD: src/components/ProjectSummary/__tests__/ProjectSummaryPanel.test.tsx
-- MOD: src/components/ProjectSummary/__tests__/parseTaskInput.test.ts
-- MOD: src/__tests__/tauri-contract.test.ts
-- MOD: src-tauri/src/commands/projects.rs
-- MOD: src-tauri/src/commands/mod.rs
-- MOD: src-tauri/src/lib.rs
-- MOD: resources/commands/reggie-init-tasks.md
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| PICKUP | - | 1 | DONE |
-| IMPLEMENT | 9.10 | 1 | PASS |
-| WRITE-TESTS | 9.28 | 1 | PASS |
-| QUALITY-CHECK | 9.28 | 1 | PASS |
-| SIMPLIFY | 9.40 | 1 | PASS |
-| VERIFY-APP | PASS | 1 | PASS |
-| REVIEW | PASS | 2 | PASS |
-| SECURITY-REVIEW | PASS | 2 | PASS |
-| SYNC-DOCS | PASS | 1 | PASS |
-| UPDATE-CLAUDE | PASS | 1 | PASS |
-| REVIEW-WITH-USER | AUTO | - | SKIPPED (--yes) |
-| COMMIT | - | 0 | CURRENT |
-
 ---
 
 ## Backlog
