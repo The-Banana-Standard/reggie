@@ -50,7 +50,7 @@ export default defineConfig(async () => ({
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: [],
+    setupFiles: ["./src/__test-utils__/tauri-mock.ts"],
     coverage: {
       include: ["src/**/*.{ts,tsx}"],
       exclude: ["src/**/*.test.{ts,tsx}", "src/main.tsx"],

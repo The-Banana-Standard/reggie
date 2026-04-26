@@ -22,6 +22,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - Completed promoted sessions in CodeWorkflowTab now show a per-session **Trash** button alongside Open/Hide, matching the headless completed session behavior. Previously the only way to clear a completed promoted session was the "Trash All Completed" header button.
 - Sessions tab terminal width no longer shrinks to ~10 columns after switching to another tab and back. Previously, switching away from Sessions caused the terminal to re-render at a very narrow width, producing hard-wrapped output that could not be reflowed on return.
+- Test-infra: vitest now auto-applies the Tauri mock via global `setupFiles` (no per-test import required), and the Tauri command contract test correctly recognizes `uninstall_reggie_files`. Resolves the lone failure in the test suite.
 
 ### Removed
 - SQLite persistence (`tauri-plugin-sql`). The legacy `reggie.db` file in `app_data_dir` is no longer used and can be deleted manually.

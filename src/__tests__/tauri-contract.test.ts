@@ -81,6 +81,7 @@ const RUST_COMMANDS: Record<string, string[]> = {
   force_reinstall: [],
   add_to_shell_profile: [],
   complete_setup: [],
+  uninstall_reggie_files: ["removeShellProfile"],
 };
 
 /**
