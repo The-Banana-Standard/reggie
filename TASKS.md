@@ -2,6 +2,31 @@
 
 ## Active Tasks
 
+### attach-images-to-ungroomed-tasks
+**Task**: Paste/drop images into ungroomed task input, consumed during init-tasks
+**Stage**: PICKUP
+**Pipeline**: code-workflow
+**Mode**: --yes
+**Branch**: task/attach-images-to-ungroomed-tasks
+**Worktree**: .worktree/attach-images-to-ungroomed-tasks
+**Base**: main
+**Started**: 2026-04-26
+**Attempts**: 1
+**Files**:
+- MOD: src/components/ProjectSummary/ProjectSummaryPanel.tsx
+- MOD: src/components/ProjectSummary/__tests__/ProjectSummaryPanel.test.tsx
+- MOD: src/components/ProjectSummary/__tests__/parseTaskInput.test.ts
+- MOD: src/__tests__/tauri-contract.test.ts
+- MOD: src-tauri/src/commands/projects.rs
+- MOD: src-tauri/src/commands/mod.rs
+- MOD: src-tauri/src/lib.rs
+- MOD: resources/commands/reggie-init-tasks.md
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| PICKUP | - | 1 | DONE |
+| IMPLEMENT | - | 0 | CURRENT |
+
 ---
 
 ## Backlog
@@ -19,8 +44,6 @@
   > closed 2026-04-25: hang not reproducible — full suite runs 962 tests in 6.86s across 3 invocations. Diagnosis inconclusive (likely stale Vite dep-optimizer cache or sandbox-trapped stale processes, both since cleared). setupFiles AC item folded into vitest-setupfiles-and-contract-test-fixes. See .pipeline/vitest-env-hang-investigation/HANDOFF.md.
 
 ### Other
-- [ ] attach-images-to-ungroomed-tasks: Paste/drop images into ungroomed task input, consumed during init-tasks [P3] [conflicts: wire-manual-reggie-system-and-debug-tags-runtime, fix-clippy-projects-rs, replace-sqlite-with-json-bookmarks, add-pipeline-mode-tags-manual-reggie-system-and-debug] [complex] [tier: opus:high] [code] [unplanned]
-  files: src/components/ProjectSummary/ProjectSummaryPanel.tsx (MOD), src-tauri/src/commands/projects.rs (MOD), src-tauri/src/lib.rs (MOD), resources/commands/reggie-init-tasks.md (MOD), .gitignore (MOD)
 
 ### Ungroomed
 - [ ] the-batch-start-button-isn-t-working-for-debug-and-possibly-reggie-system-changes: the batch start button isn’t working for debug and possibly reggie system changes
