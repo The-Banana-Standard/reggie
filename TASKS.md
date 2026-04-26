@@ -27,7 +27,8 @@
 | PICKUP | - | 1 | DONE |
 | IMPLEMENT | 9.10 | 1 | PASS |
 | WRITE-TESTS | 9.28 | 1 | PASS |
-| QUALITY-CHECK | - | 0 | CURRENT |
+| QUALITY-CHECK | 9.28 | 1 | PASS |
+| SIMPLIFY | - | 0 | CURRENT |
 
 ---
 
