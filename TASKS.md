@@ -32,7 +32,10 @@
 | VERIFY-APP | PASS | 1 | PASS |
 | REVIEW | PASS | 2 | PASS |
 | SECURITY-REVIEW | PASS | 2 | PASS |
-| SYNC-DOCS | - | 0 | CURRENT |
+| SYNC-DOCS | PASS | 1 | PASS |
+| UPDATE-CLAUDE | PASS | 1 | PASS |
+| REVIEW-WITH-USER | AUTO | - | SKIPPED (--yes) |
+| COMMIT | - | 0 | CURRENT |
 
 ---
 
