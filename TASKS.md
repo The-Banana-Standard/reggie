@@ -24,7 +24,8 @@
 | VERIFY-APP | 9.5 | 2 | PASS |
 | REVIEW | 9.5 | 1 | PASS |
 | SECURITY-REVIEW | 9.5 | 1 | PASS |
-| SYNC-DOCS | - | 0 | CURRENT |
+| SYNC-DOCS | 9.0 | 1 | PASS |
+| UPDATE-CLAUDE | - | 0 | CURRENT |
 
 ---
 
