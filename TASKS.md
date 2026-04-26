@@ -20,7 +20,8 @@
 | IMPLEMENT | 9.6 | 1 | PASS |
 | WRITE-TESTS | SKIP | - | SKIP |
 | QUALITY-CHECK | SKIP | - | SKIP |
-| SIMPLIFY | - | 0 | CURRENT |
+| SIMPLIFY | 9.0 | 1 | PASS |
+| VERIFY-APP | - | 0 | CURRENT |
 
 ---
 
