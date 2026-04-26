@@ -2,6 +2,23 @@
 
 ## Active Tasks
 
+### fix-sessions-tab-width-on-return
+**Task**: Fix Sessions tab terminal width shrinking on return
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/fix-sessions-tab-width-on-return
+**Worktree**: .worktree/fix-sessions-tab-width-on-return
+**Base**: main
+**Started**: 2026-04-26
+**Attempts**: 1
+**Files**:
+- MOD: src/components/Terminal/TerminalView.tsx
+- MOD: src-tauri/src/commands/terminal.rs
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+
 ---
 
 ## Backlog
@@ -14,16 +31,22 @@
 
 
 ### Bug Fixes & Tech Debt
-- [ ] fix-sessions-tab-width-on-return: Diagnose and fix Sessions tab terminal width shrinking on return [P2] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [complex] [tier: opus:high] [debug] [planned]
-  files: src/components/Terminal/TerminalView.tsx (MOD)
-- [ ] vitest-env-hang-investigation: Diagnose and fix vitest hanging at 0% CPU [P2] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [conflicts: replace-sqlite-with-json-bookmarks] [complex] [tier: opus:high] [debug] [planned]
+- [x] vitest-env-hang-investigation: Diagnose and fix vitest hanging at 0% CPU [P2] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [conflicts: replace-sqlite-with-json-bookmarks] [complex] [tier: opus:high] [debug] [planned]
   files: vite.config.ts (MOD), package.json (MOD)
+  > closed 2026-04-25: hang not reproducible — full suite runs 962 tests in 6.86s across 3 invocations. Diagnosis inconclusive (likely stale Vite dep-optimizer cache or sandbox-trapped stale processes, both since cleared). setupFiles AC item folded into vitest-setupfiles-and-contract-test-fixes. See .pipeline/vitest-env-hang-investigation/HANDOFF.md.
+- [ ] vitest-setupfiles-and-contract-test-fixes: Populate vite test.setupFiles + fix stale RUST_COMMANDS entry for uninstall_reggie_files [P2] [depends: vitest-env-hang-investigation] [simple] [tier: sonnet:medium] [code] [planned]
+  files: vite.config.ts (MOD), src/__tests__/tauri-contract.test.ts (MOD)
 
 ### Other
 - [ ] attach-images-to-ungroomed-tasks: Paste/drop images into ungroomed task input, consumed during init-tasks [P3] [conflicts: wire-manual-reggie-system-and-debug-tags-runtime, fix-clippy-projects-rs, replace-sqlite-with-json-bookmarks, add-pipeline-mode-tags-manual-reggie-system-and-debug] [complex] [tier: opus:high] [code] [unplanned]
   files: src/components/ProjectSummary/ProjectSummaryPanel.tsx (MOD), src-tauri/src/commands/projects.rs (MOD), src-tauri/src/lib.rs (MOD), resources/commands/reggie-init-tasks.md (MOD), .gitignore (MOD)
 
 ### Ungroomed
+- [ ] the-batch-start-button-isn-t-working-for-debug-and-possibly-reggie-system-changes: the batch start button isn’t working for debug and possibly reggie system changes
+- [ ] tasks-viewer-mode-tag-gap: TasksViewer ignores [manual], [reggie-system], and [debug] mode tags
+  > context: discovered 2026-04-25 while running wire-manual-reggie-system-and-debug-tags-runtime locally. The Rust parser (src-tauri/src/commands/projects.rs) and CodeWorkflowTab/RepoTaskRow surface all five mode tags correctly, but TasksViewer/TaskCard uses a separate TS parser at src/types/task.ts whose PIPELINE_RE only matches /\[(code|design)\]/. Result: groomed [debug] tasks render no mode badge and a hardcoded "Start" button (TaskCard.tsx:49) — same problem will hit [manual] and [reggie-system]. Fix touches: src/types/task.ts (broaden TaskPipeline + regex), TaskCard.tsx (mode-aware button: Debug / Walk through / Start, plus dispatch routing). Open question for grooming: should TasksViewer dispatch directly to /reggie-debug-workflow and /reggie-system-change like CodeWorkflowTab does, or always go through the per-domain path?
+
+- [ ] clicking-a-link-on-the-sessions-tab-doesn-t-open-the-link-in-a-browser: clicking a link on the sessions tab doesn’t open the link in a browser
 
 - [ ] ui-pipeline-button-rebinding: Let users bind any auto-discovered pipeline (not just `reggie-code-workflow`) to UI workflow buttons
   > context: pipeline auto-discovery already works via frontmatter `type: pipeline` (PipelinesPanel.tsx + get_pipelines in reggie_data.rs). Substrate is small — just adding the rebinding layer on top. Open question for grooming: per-workspace or global persistence of the binding.
@@ -40,5 +63,5 @@
 - [ ] judge-driven-pipeline-comparison: Use `reggie-judge` to compare two pipelines or two agents on a real task
   > context: lowest priority of the marketplace cluster. Differentiator vs. other marketplaces — Reggie has `reggie-judge` baked into its architecture, so the marketplace can offer "evaluate these candidates against your codebase" as a recommendation surface. Nobody else can easily copy this. Needs the install/substrate features to exist first to have anything meaningful to compare.
 
-- [ ] tauri-contract-test-missing-uninstall-reggie-files: tauri-contract.test.ts fails because scanner doesn't see `uninstall_reggie_files` in Rust
-  > context: discovered during polish-uninstaller (2026-04-25). The contract test (`src/__tests__/tauri-contract.test.ts`) reports "Unknown commands called from TS: uninstall_reggie_files" — the test passes on a clean main checkout too, so this is pre-existing, not regressed by the polish work. Likely the scanner glob/regex doesn't pick up the command's `#[tauri::command]` attribute in `src-tauri/src/installer.rs` (most other commands live under `src-tauri/src/commands/`). Fix is probably one line in the contract test's source-file enumeration.
+<!-- folded into vitest-setupfiles-and-contract-test-fixes (2026-04-25). Original guess (scanner glob bug) was wrong — RUST_COMMANDS is a hand-maintained table; just needs the missing entry. -->
+
