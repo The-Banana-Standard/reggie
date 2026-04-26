@@ -29,7 +29,8 @@
 | WRITE-TESTS | 9.28 | 1 | PASS |
 | QUALITY-CHECK | 9.28 | 1 | PASS |
 | SIMPLIFY | 9.40 | 1 | PASS |
-| VERIFY-APP | - | 0 | CURRENT |
+| VERIFY-APP | PASS | 1 | PASS |
+| REVIEW | - | 0 | CURRENT |
 
 ---
 
