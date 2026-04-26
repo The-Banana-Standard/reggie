@@ -1,5 +1,6 @@
 # Completed Tasks
 
+- [x] vitest-setupfiles-and-contract-test-fixes Populate vite setupFiles and add uninstall_reggie_files to RUST_COMMANDS -- 2026-04-26
 - [x] fix-sessions-tab-width-on-return Fix Sessions tab terminal width shrinking on return -- 2026-04-26
 - [x] wire-manual-reggie-system-and-debug-tags-runtime Wire [manual], [reggie-system], and [debug] tags into Rust parser and UI -- 2026-04-25
 - [x] fix-clippy-projects-rs Fix pre-existing clippy errors in projects.rs -- 2026-04-25

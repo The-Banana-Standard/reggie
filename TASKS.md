@@ -2,23 +2,6 @@
 
 ## Active Tasks
 
-### vitest-setupfiles-and-contract-test-fixes
-**Task**: Populate vite test.setupFiles + fix stale RUST_COMMANDS for uninstall_reggie_files
-**Stage**: IMPLEMENT
-**Pipeline**: code-workflow
-**Branch**: task/vitest-setupfiles-and-contract-test-fixes
-**Worktree**: .worktree/vitest-setupfiles-and-contract-test-fixes
-**Base**: main
-**Started**: 2026-04-26
-**Attempts**: 1
-**Files**:
-- MOD: vite.config.ts
-- MOD: src/__tests__/tauri-contract.test.ts
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
-
 ---
 
 ## Backlog
