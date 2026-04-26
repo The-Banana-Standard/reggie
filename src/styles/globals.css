@@ -1028,6 +1028,16 @@ html, body, #root {
   gap: 10px;
 }
 
+.add-tasks-error {
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: #FF6B6B;
+  padding: 6px 8px;
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 4px;
+}
+
 .add-tasks-success {
   font-size: 11px;
   color: #50FA7B;

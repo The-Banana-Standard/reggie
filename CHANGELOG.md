@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Image attachments on ungroomed tasks.** The "Add Tasks" textarea on a project's summary panel now accepts pasted or drag-dropped images (PNG, JPG, JPEG, GIF, WebP):
+  - Each attached image inserts a `[Image N]` placeholder at the cursor; the image itself is held in browser memory until you submit.
+  - On submit, images are written under `.reggie/attachments/<slug>-<random>/` and the new task line in `TASKS.md` gets a sibling `> attachments: [Image 1]=<path>, ...` annotation.
+  - When `/reggie-init-tasks` grooms the task, RESEARCH+PLAN reads each attached image and transcribes the relevant detail into Problem, Vision, Context, and Acceptance Criteria. After FORMALIZE writes `task.md`, the attachment directory is cleaned up — images are treated as transient input, not durable artifacts.
+  - INTAKE sweeps orphan attachment directories (any folder under `.reggie/attachments/` not referenced by a `> attachments:` line) at the start of the run.
+  - Unsupported types (HEIC/HEIF and others) are rejected inline with a clear error.
+  - Path-safety guard: `> attachments:` paths must resolve inside `.reggie/attachments/` — paths with `..`, absolute paths, or symlink escapes are skipped.
 - **Mode-aware task dispatch in the CodeWorkflow tab.** Backlog tasks can carry a mode tag — `[code]`, `[design]`, `[manual]`, `[reggie-system]`, or `[debug]` — and Reggie now routes each task to the correct CLI command automatically:
   - `[code]` / `[design]` → `/reggie-code-workflow`
   - `[reggie-system]` → `/reggie-system-change`

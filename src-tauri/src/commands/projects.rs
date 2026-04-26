@@ -1,4 +1,5 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -855,11 +856,37 @@ fn to_kebab_case(input: &str) -> String {
     result.trim_matches('-').to_string()
 }
 
+/// A single attachment reference attached to an ungroomed task. The `path` is
+/// the relative path (from the project root) that was returned by
+/// `save_attachment_image`.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskAttachment {
+    pub label: String,
+    pub path: String,
+}
+
+/// An ungroomed task description plus any image attachments captured for it.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskWithAttachments {
+    pub description: String,
+    #[serde(default)]
+    pub attachments: Vec<TaskAttachment>,
+}
+
 /// Append ungroomed tasks to a project's TASKS.md file.
 /// Creates the file with basic structure if it doesn't exist.
 /// Creates the `### Ungroomed` section if it doesn't exist.
+///
+/// When a task has attachments, an indented `> attachments:` annotation line is
+/// emitted directly under its `- [ ]` line. The `- [ ]` line format is unchanged
+/// from the no-attachments case.
 #[tauri::command]
-pub fn append_ungroomed_tasks(project_path: String, tasks: Vec<String>) -> Result<(), String> {
+pub fn append_ungroomed_tasks(
+    project_path: String,
+    tasks: Vec<TaskWithAttachments>,
+) -> Result<(), String> {
     if tasks.is_empty() {
         return Ok(());
     }
@@ -878,13 +905,21 @@ pub fn append_ungroomed_tasks(project_path: String, tasks: Vec<String>) -> Resul
     // Build the new task lines
     let mut new_lines = String::new();
     for task in &tasks {
-        let trimmed = task.trim();
+        let trimmed = task.description.trim();
         if !trimmed.is_empty() {
             let slug = to_kebab_case(trimmed);
             if slug.is_empty() {
                 continue; // Skip tasks with no alphanumeric content
             }
             new_lines.push_str(&format!("- [ ] {}: {}\n", slug, trimmed));
+            if !task.attachments.is_empty() {
+                let parts: Vec<String> = task
+                    .attachments
+                    .iter()
+                    .map(|a| format!("[{}]={}", a.label, a.path))
+                    .collect();
+                new_lines.push_str(&format!("  > attachments: {}\n", parts.join(", ")));
+            }
         }
     }
 
@@ -942,6 +977,221 @@ pub fn append_ungroomed_tasks(project_path: String, tasks: Vec<String>) -> Resul
 
     fs::write(&tasks_file, updated)
         .map_err(|e| format!("Failed to write TASKS.md: {}", e))
+}
+
+/// Allowed image extensions for paste/drop attachments. HEIC/HEIF and other
+/// non-Read-tool-friendly formats are rejected at the boundary.
+const ALLOWED_IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp"];
+
+/// Validate that a directory name is safe to use as a single path component
+/// under `.reggie/attachments/`: non-empty, no path separators, no `..`, only
+/// `[a-zA-Z0-9_-]` characters.
+fn is_safe_attachment_dir_name(name: &str) -> bool {
+    if name.is_empty() || name == "." || name == ".." {
+        return false;
+    }
+    name.chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Idempotently ensure `.reggie/attachments/.gitignore` exists with the
+/// self-ignoring content `*\n!.gitignore`. Leaves an existing correct file
+/// alone.
+fn ensure_attachments_gitignore(attachments_root: &Path) -> Result<(), String> {
+    const GITIGNORE_CONTENT: &str = "*\n!.gitignore\n";
+    let gitignore = attachments_root.join(".gitignore");
+    if gitignore.exists() {
+        // Leave any existing file alone. We only auto-write when the file is
+        // missing — if a user has customized it, we don't second-guess them.
+        return Ok(());
+    }
+    fs::write(&gitignore, GITIGNORE_CONTENT)
+        .map_err(|e| format!("Failed to write .reggie/attachments/.gitignore: {}", e))
+}
+
+/// Result returned to the frontend after a successful image save.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveAttachmentResult {
+    pub label_index: u32,
+    pub path: String,
+}
+
+/// Save a pasted/dropped image into `.reggie/attachments/{dir_name}/{n}.{ext}`,
+/// where `n` = (max existing numeric filename in the dir) + 1.
+///
+/// The frontend owns `dir_name` (e.g. `fix-foo-a3b4c5`) so that grouping is
+/// stable per textarea-session without server-side state. On the first save
+/// into the parent `.reggie/attachments/`, a self-ignoring `.gitignore` is
+/// created.
+#[tauri::command]
+pub fn save_attachment_image(
+    project_path: String,
+    dir_name: String,
+    extension: String,
+    image_bytes: Vec<u8>,
+) -> Result<SaveAttachmentResult, String> {
+    let ext_lower = extension.to_lowercase();
+    if !ALLOWED_IMAGE_EXTENSIONS.contains(&ext_lower.as_str()) {
+        return Err(format!("unsupported image extension: {}", extension));
+    }
+
+    if !is_safe_attachment_dir_name(&dir_name) {
+        return Err(format!("invalid attachment dir name: {}", dir_name));
+    }
+
+    let project = PathBuf::from(&project_path);
+    let attachments_root = project.join(".reggie").join("attachments");
+    let attachment_dir = attachments_root.join(&dir_name);
+
+    fs::create_dir_all(&attachment_dir)
+        .map_err(|e| format!("Failed to create attachment dir: {}", e))?;
+
+    // Now that the parent .reggie/attachments/ exists, ensure the .gitignore.
+    ensure_attachments_gitignore(&attachments_root)?;
+
+    // Determine the next index by scanning existing `<n>.<ext>` filenames.
+    let mut max_index: u32 = 0;
+    let read_dir = fs::read_dir(&attachment_dir)
+        .map_err(|e| format!("Failed to read attachment dir: {}", e))?;
+    for entry in read_dir.flatten() {
+        let file_name = entry.file_name();
+        let name = match file_name.to_str() {
+            Some(n) => n,
+            None => continue,
+        };
+        // Parse leading digits before the first '.'.
+        let stem = match name.split('.').next() {
+            Some(s) => s,
+            None => continue,
+        };
+        if let Ok(n) = stem.parse::<u32>() {
+            if n > max_index {
+                max_index = n;
+            }
+        }
+    }
+    let next_index = max_index + 1;
+
+    let file_name = format!("{}.{}", next_index, ext_lower);
+    let file_path = attachment_dir.join(&file_name);
+    fs::write(&file_path, &image_bytes)
+        .map_err(|e| format!("Failed to write attachment file: {}", e))?;
+
+    // Build the relative path with forward slashes, regardless of host OS.
+    let relative_path = format!(".reggie/attachments/{}/{}", dir_name, file_name);
+
+    Ok(SaveAttachmentResult {
+        label_index: next_index,
+        path: relative_path,
+    })
+}
+
+/// Recursively delete the named attachment dirs under `.reggie/attachments/`.
+/// Idempotent: missing dirs are silent no-ops. Returns the number of dirs
+/// actually removed.
+#[tauri::command]
+pub fn cleanup_attachments(
+    project_path: String,
+    dir_names: Vec<String>,
+) -> Result<u32, String> {
+    let project = PathBuf::from(&project_path);
+    let attachments_root = project.join(".reggie").join("attachments");
+    let mut removed: u32 = 0;
+    for name in &dir_names {
+        if !is_safe_attachment_dir_name(name) {
+            return Err(format!("invalid attachment dir name: {}", name));
+        }
+        let target = attachments_root.join(name);
+        if target.exists() {
+            fs::remove_dir_all(&target)
+                .map_err(|e| format!("Failed to remove attachment dir {}: {}", name, e))?;
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
+/// Scan TASKS.md for `.reggie/attachments/<dir>/` references; collect dir names
+/// that appear under the attachments root on disk; return the set difference
+/// (i.e. dirs that exist on disk but aren't referenced in TASKS.md).
+#[tauri::command]
+pub fn list_orphan_attachments(project_path: String) -> Result<Vec<String>, String> {
+    let project = PathBuf::from(&project_path);
+    let attachments_root = project.join(".reggie").join("attachments");
+
+    if !attachments_root.exists() {
+        return Ok(Vec::new());
+    }
+
+    // Collect referenced dir names from TASKS.md (if it exists).
+    let mut referenced: HashSet<String> = HashSet::new();
+    let tasks_file = project.join("TASKS.md");
+    if tasks_file.exists() {
+        let content = fs::read_to_string(&tasks_file)
+            .map_err(|e| format!("Failed to read TASKS.md: {}", e))?;
+        extract_attachment_dir_refs(&content, &mut referenced);
+    }
+
+    // List subdirs under .reggie/attachments/.
+    let mut orphans: Vec<String> = Vec::new();
+    let read_dir = fs::read_dir(&attachments_root)
+        .map_err(|e| format!("Failed to read .reggie/attachments/: {}", e))?;
+    for entry in read_dir.flatten() {
+        let file_type = match entry.file_type() {
+            Ok(ft) => ft,
+            Err(_) => continue,
+        };
+        if !file_type.is_dir() {
+            continue;
+        }
+        let file_name = entry.file_name();
+        let name = match file_name.to_str() {
+            Some(n) => n.to_string(),
+            None => continue,
+        };
+        if !referenced.contains(&name) {
+            orphans.push(name);
+        }
+    }
+
+    orphans.sort();
+    Ok(orphans)
+}
+
+/// Extract attachment dir names from TASKS.md text.
+///
+/// Looks for the literal substring `.reggie/attachments/` and captures the
+/// following path component up to the next `/`. Stops on whitespace, commas,
+/// `]`, or `)` to avoid pulling in trailing markup. We intentionally avoid the
+/// `regex` crate to keep the dependency tree minimal — this is a manual scan.
+fn extract_attachment_dir_refs(content: &str, out: &mut HashSet<String>) {
+    const NEEDLE: &str = ".reggie/attachments/";
+    let mut start = 0usize;
+    while let Some(idx) = content[start..].find(NEEDLE) {
+        let after = start + idx + NEEDLE.len();
+        let tail = &content[after..];
+        let mut end = 0usize;
+        for (i, c) in tail.char_indices() {
+            if c == '/' || c.is_whitespace() || c == ',' || c == ']' || c == ')' {
+                end = i;
+                break;
+            }
+            end = i + c.len_utf8();
+        }
+        if end > 0 {
+            let name = &tail[..end];
+            // Only record if the path component looks like a directory: i.e.
+            // the character that terminated us is `/` (so it's
+            // `.reggie/attachments/<name>/...`). Otherwise it's a malformed or
+            // non-directory reference and we skip it.
+            let terminator = tail[end..].chars().next();
+            if terminator == Some('/') && is_safe_attachment_dir_name(name) {
+                out.insert(name.to_string());
+            }
+        }
+        start = after;
+    }
 }
 
 #[cfg(test)]
@@ -2873,12 +3123,22 @@ mod tests {
 
     // --- append_ungroomed_tasks tests ---
 
+    /// Build a `TaskWithAttachments` with no attachments — keeps the existing
+    /// tests focused on the description-handling behavior they were written to
+    /// exercise.
+    fn task(desc: &str) -> TaskWithAttachments {
+        TaskWithAttachments {
+            description: desc.to_string(),
+            attachments: Vec::new(),
+        }
+    }
+
     #[test]
     fn append_tasks_creates_file_when_missing() {
         let dir = tempfile::tempdir().unwrap();
         let project = dir.path().to_string_lossy().to_string();
 
-        append_ungroomed_tasks(project.clone(), vec!["Fix the bug".into()]).unwrap();
+        append_ungroomed_tasks(project.clone(), vec![task("Fix the bug")]).unwrap();
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
         assert!(content.contains("# Tasks"));
@@ -2895,7 +3155,7 @@ mod tests {
 
         append_ungroomed_tasks(
             dir.path().to_string_lossy().to_string(),
-            vec!["New task one".into(), "New task two".into()],
+            vec![task("New task one"), task("New task two")],
         ).unwrap();
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
@@ -2916,7 +3176,7 @@ mod tests {
 
         append_ungroomed_tasks(
             dir.path().to_string_lossy().to_string(),
-            vec!["Ungroomed item".into()],
+            vec![task("Ungroomed item")],
         ).unwrap();
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
@@ -2932,7 +3192,7 @@ mod tests {
 
         append_ungroomed_tasks(
             dir.path().to_string_lossy().to_string(),
-            vec!["My task".into()],
+            vec![task("My task")],
         ).unwrap();
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
@@ -2947,7 +3207,7 @@ mod tests {
 
         append_ungroomed_tasks(
             dir.path().to_string_lossy().to_string(),
-            vec!["  ".into(), "".into(), "Real task".into()],
+            vec![task("  "), task(""), task("Real task")],
         ).unwrap();
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
@@ -2963,7 +3223,7 @@ mod tests {
 
         append_ungroomed_tasks(
             dir.path().to_string_lossy().to_string(),
-            vec!["!@#$%".into(), "Real task".into()],
+            vec![task("!@#$%"), task("Real task")],
         ).unwrap();
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
@@ -3059,7 +3319,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         append_ungroomed_tasks(
             dir.path().to_string_lossy().to_string(),
-            vec!["Fix the login bug".into(), "Add dark mode".into()],
+            vec![task("Fix the login bug"), task("Add dark mode")],
         ).unwrap();
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
@@ -3082,7 +3342,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         append_ungroomed_tasks(
             dir.path().to_string_lossy().to_string(),
-            vec!["Task one".into(), "Task two".into(), "Task three".into()],
+            vec![task("Task one"), task("Task two"), task("Task three")],
         ).unwrap();
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
@@ -3101,7 +3361,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         append_ungroomed_tasks(
             dir.path().to_string_lossy().to_string(),
-            vec!["Fix: the auth flow".into()],
+            vec![task("Fix: the auth flow")],
         ).unwrap();
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
@@ -3139,7 +3399,7 @@ mod tests {
 
         append_ungroomed_tasks(
             dir.path().to_string_lossy().to_string(),
-            vec!["New ungroomed task".into()],
+            vec![task("New ungroomed task")],
         ).unwrap();
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
@@ -3148,5 +3408,509 @@ mod tests {
         assert_eq!(ungroomed, 1);
         assert_eq!(groomed, 1);
         assert_eq!(active, 0);
+    }
+
+    // --- save_attachment_image / cleanup_attachments / list_orphan_attachments tests ---
+
+    fn attachment(label: &str, path: &str) -> TaskAttachment {
+        TaskAttachment {
+            label: label.to_string(),
+            path: path.to_string(),
+        }
+    }
+
+    fn task_with(desc: &str, attachments: Vec<TaskAttachment>) -> TaskWithAttachments {
+        TaskWithAttachments {
+            description: desc.to_string(),
+            attachments,
+        }
+    }
+
+    // --- save_attachment_image ---
+
+    #[test]
+    fn save_attachment_image_writes_first_file_with_index_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+
+        let result = save_attachment_image(
+            project.clone(),
+            "fix-foo-a3b4c5".to_string(),
+            "png".to_string(),
+            vec![1, 2, 3, 4],
+        )
+        .unwrap();
+
+        assert_eq!(result.label_index, 1);
+        assert_eq!(result.path, ".reggie/attachments/fix-foo-a3b4c5/1.png");
+
+        let written = dir
+            .path()
+            .join(".reggie/attachments/fix-foo-a3b4c5/1.png");
+        assert!(written.exists());
+        let bytes = std::fs::read(&written).unwrap();
+        assert_eq!(bytes, vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn save_attachment_image_increments_index_on_second_call_same_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+
+        save_attachment_image(
+            project.clone(),
+            "task-abc123".to_string(),
+            "png".to_string(),
+            vec![0xAA],
+        )
+        .unwrap();
+        let second = save_attachment_image(
+            project.clone(),
+            "task-abc123".to_string(),
+            "png".to_string(),
+            vec![0xBB],
+        )
+        .unwrap();
+
+        assert_eq!(second.label_index, 2);
+        assert_eq!(second.path, ".reggie/attachments/task-abc123/2.png");
+        let bytes = std::fs::read(dir.path().join(".reggie/attachments/task-abc123/2.png")).unwrap();
+        assert_eq!(bytes, vec![0xBB]);
+    }
+
+    #[test]
+    fn save_attachment_image_creates_gitignore_on_first_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+
+        save_attachment_image(
+            project,
+            "task-xyz789".to_string(),
+            "jpg".to_string(),
+            vec![1],
+        )
+        .unwrap();
+
+        let gitignore = dir.path().join(".reggie/attachments/.gitignore");
+        assert!(gitignore.exists());
+        let content = std::fs::read_to_string(&gitignore).unwrap();
+        // Accept the implementation's chosen variant.
+        assert!(content == "*\n!.gitignore" || content == "*\n!.gitignore\n");
+    }
+
+    #[test]
+    fn save_attachment_image_preserves_existing_gitignore() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+        let attachments_root = dir.path().join(".reggie/attachments");
+        std::fs::create_dir_all(&attachments_root).unwrap();
+        let custom = "# user-customized\nfoo\n";
+        std::fs::write(attachments_root.join(".gitignore"), custom).unwrap();
+
+        save_attachment_image(
+            project,
+            "task-keep-mine".to_string(),
+            "png".to_string(),
+            vec![9],
+        )
+        .unwrap();
+
+        let after = std::fs::read_to_string(attachments_root.join(".gitignore")).unwrap();
+        assert_eq!(after, custom);
+    }
+
+    #[test]
+    fn save_attachment_image_creates_parent_dirs_when_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+        // Sanity: .reggie does not exist yet.
+        assert!(!dir.path().join(".reggie").exists());
+
+        save_attachment_image(project, "task-fresh".to_string(), "png".to_string(), vec![1])
+            .unwrap();
+
+        assert!(dir.path().join(".reggie/attachments/task-fresh/1.png").exists());
+    }
+
+    #[test]
+    fn save_attachment_image_rejects_heic_extension() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = save_attachment_image(
+            dir.path().to_string_lossy().to_string(),
+            "task-1".to_string(),
+            "heic".to_string(),
+            vec![1],
+        )
+        .unwrap_err();
+        assert!(err.to_lowercase().contains("heic") || err.to_lowercase().contains("unsupported"));
+        assert!(!dir.path().join(".reggie").exists(), "no dirs should be created on rejected ext");
+    }
+
+    #[test]
+    fn save_attachment_image_rejects_exe_extension() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = save_attachment_image(
+            dir.path().to_string_lossy().to_string(),
+            "task-1".to_string(),
+            "exe".to_string(),
+            vec![1],
+        )
+        .unwrap_err();
+        assert!(err.to_lowercase().contains("exe") || err.to_lowercase().contains("unsupported"));
+    }
+
+    #[test]
+    fn save_attachment_image_rejects_path_traversal_dir_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = save_attachment_image(
+            dir.path().to_string_lossy().to_string(),
+            "../foo".to_string(),
+            "png".to_string(),
+            vec![1],
+        )
+        .unwrap_err();
+        assert!(err.to_lowercase().contains("invalid") || err.to_lowercase().contains("dir name"));
+        // Confirm nothing was written outside the project dir.
+        assert!(!dir.path().parent().unwrap().join("foo").exists());
+    }
+
+    #[test]
+    fn save_attachment_image_rejects_path_separator_dir_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = save_attachment_image(
+            dir.path().to_string_lossy().to_string(),
+            "foo/bar".to_string(),
+            "png".to_string(),
+            vec![1],
+        )
+        .unwrap_err();
+        assert!(err.to_lowercase().contains("invalid") || err.to_lowercase().contains("dir name"));
+    }
+
+    #[test]
+    fn save_attachment_image_rejects_empty_dir_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = save_attachment_image(
+            dir.path().to_string_lossy().to_string(),
+            "".to_string(),
+            "png".to_string(),
+            vec![1],
+        )
+        .unwrap_err();
+        assert!(err.to_lowercase().contains("invalid") || err.to_lowercase().contains("dir name"));
+    }
+
+    #[test]
+    fn save_attachment_image_accepts_uppercase_extension_case_insensitively() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = save_attachment_image(
+            dir.path().to_string_lossy().to_string(),
+            "task-cap".to_string(),
+            "PNG".to_string(),
+            vec![7, 7, 7],
+        )
+        .unwrap();
+
+        // Stored extension should be lowercase.
+        assert_eq!(result.path, ".reggie/attachments/task-cap/1.png");
+        assert!(dir.path().join(".reggie/attachments/task-cap/1.png").exists());
+    }
+
+    #[test]
+    fn save_attachment_image_path_uses_forward_slashes() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = save_attachment_image(
+            dir.path().to_string_lossy().to_string(),
+            "task-slash".to_string(),
+            "png".to_string(),
+            vec![1],
+        )
+        .unwrap();
+
+        assert!(!result.path.contains('\\'), "path must not contain backslashes");
+        assert!(result.path.contains('/'));
+    }
+
+    // --- cleanup_attachments ---
+
+    #[test]
+    fn cleanup_attachments_deletes_existing_dirs_and_returns_count() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+        save_attachment_image(project.clone(), "a-aaa111".to_string(), "png".to_string(), vec![1])
+            .unwrap();
+        save_attachment_image(project.clone(), "b-bbb222".to_string(), "png".to_string(), vec![2])
+            .unwrap();
+
+        let removed = cleanup_attachments(
+            project,
+            vec!["a-aaa111".to_string(), "b-bbb222".to_string()],
+        )
+        .unwrap();
+
+        assert_eq!(removed, 2);
+        assert!(!dir.path().join(".reggie/attachments/a-aaa111").exists());
+        assert!(!dir.path().join(".reggie/attachments/b-bbb222").exists());
+    }
+
+    #[test]
+    fn cleanup_attachments_is_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+        save_attachment_image(project.clone(), "task-once".to_string(), "png".to_string(), vec![1])
+            .unwrap();
+
+        let first = cleanup_attachments(project.clone(), vec!["task-once".to_string()]).unwrap();
+        let second = cleanup_attachments(project, vec!["task-once".to_string()]).unwrap();
+
+        assert_eq!(first, 1);
+        assert_eq!(second, 0);
+    }
+
+    #[test]
+    fn cleanup_attachments_silent_on_missing_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+        // Attachments root does not exist yet — no error.
+        let removed =
+            cleanup_attachments(project, vec!["never-existed".to_string()]).unwrap();
+        assert_eq!(removed, 0);
+    }
+
+    #[test]
+    fn cleanup_attachments_rejects_unsafe_dir_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+        let err = cleanup_attachments(project, vec!["../escape".to_string()]).unwrap_err();
+        assert!(err.to_lowercase().contains("invalid") || err.to_lowercase().contains("dir name"));
+    }
+
+    // --- list_orphan_attachments ---
+
+    #[test]
+    fn list_orphan_attachments_empty_when_attachments_dir_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let orphans =
+            list_orphan_attachments(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(orphans.is_empty());
+    }
+
+    #[test]
+    fn list_orphan_attachments_empty_when_all_dirs_referenced() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+        save_attachment_image(project.clone(), "task-aaa111".to_string(), "png".to_string(), vec![1])
+            .unwrap();
+
+        // Reference the dir from TASKS.md.
+        std::fs::write(
+            dir.path().join("TASKS.md"),
+            "# Tasks\n\n## Backlog\n\n### Ungroomed\n\
+             - [ ] task-aaa111: do thing\n\
+             \x20\x20> attachments: [Image 1]=.reggie/attachments/task-aaa111/1.png\n",
+        )
+        .unwrap();
+
+        let orphans = list_orphan_attachments(project).unwrap();
+        assert!(orphans.is_empty(), "expected no orphans, got {:?}", orphans);
+    }
+
+    #[test]
+    fn list_orphan_attachments_returns_unreferenced_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+        save_attachment_image(project.clone(), "kept-aaa".to_string(), "png".to_string(), vec![1])
+            .unwrap();
+        save_attachment_image(project.clone(), "orphan-bbb".to_string(), "png".to_string(), vec![2])
+            .unwrap();
+
+        // Only reference `kept-aaa` in TASKS.md.
+        std::fs::write(
+            dir.path().join("TASKS.md"),
+            "### Ungroomed\n\
+             - [ ] kept-aaa: keep\n\
+             \x20\x20> attachments: [Image 1]=.reggie/attachments/kept-aaa/1.png\n",
+        )
+        .unwrap();
+
+        let orphans = list_orphan_attachments(project).unwrap();
+        assert_eq!(orphans, vec!["orphan-bbb".to_string()]);
+    }
+
+    #[test]
+    fn list_orphan_attachments_ignores_non_dir_entries_like_gitignore() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+        // Save creates `.gitignore` as a file under `.reggie/attachments/`.
+        save_attachment_image(project.clone(), "task-kept".to_string(), "png".to_string(), vec![1])
+            .unwrap();
+        // No TASKS.md → all dirs are orphans, but `.gitignore` (a file) must be excluded.
+        let orphans = list_orphan_attachments(project).unwrap();
+        assert_eq!(orphans, vec!["task-kept".to_string()]);
+        assert!(!orphans.contains(&".gitignore".to_string()));
+    }
+
+    #[test]
+    fn list_orphan_attachments_treats_all_as_orphan_when_tasks_md_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+        save_attachment_image(project.clone(), "lonely-1".to_string(), "png".to_string(), vec![1])
+            .unwrap();
+        save_attachment_image(project.clone(), "lonely-2".to_string(), "png".to_string(), vec![2])
+            .unwrap();
+        // Don't write TASKS.md.
+        let mut orphans = list_orphan_attachments(project).unwrap();
+        orphans.sort();
+        assert_eq!(orphans, vec!["lonely-1".to_string(), "lonely-2".to_string()]);
+    }
+
+    #[test]
+    fn list_orphan_attachments_handles_malformed_attachment_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy().to_string();
+        save_attachment_image(project.clone(), "real-dir".to_string(), "png".to_string(), vec![1])
+            .unwrap();
+        // Malformed lines: missing path, truncated mid-token, weird syntax. Must not panic.
+        std::fs::write(
+            dir.path().join("TASKS.md"),
+            "### Ungroomed\n\
+             - [ ] real-dir: ok\n\
+             \x20\x20> attachments: [Image 1]=\n\
+             \x20\x20> attachments: garbage line\n\
+             \x20\x20> attachments: .reggie/attachments/\n\
+             \x20\x20> attachments: [Image 2]=.reggie/attachments/real-dir/1.png\n",
+        )
+        .unwrap();
+
+        let orphans = list_orphan_attachments(project).unwrap();
+        assert!(orphans.is_empty(), "real-dir is referenced; got {:?}", orphans);
+    }
+
+    // --- append_ungroomed_tasks with attachments ---
+
+    #[test]
+    fn append_ungroomed_tasks_emits_attachments_annotation_for_single_image() {
+        let dir = tempfile::tempdir().unwrap();
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec![task_with(
+                "Fix login",
+                vec![attachment("Image 1", ".reggie/attachments/fix-login-abc123/1.png")],
+            )],
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        assert!(content.contains("- [ ] fix-login: Fix login\n"));
+        assert!(content.contains(
+            "  > attachments: [Image 1]=.reggie/attachments/fix-login-abc123/1.png\n"
+        ));
+    }
+
+    #[test]
+    fn append_ungroomed_tasks_omits_annotation_when_no_attachments() {
+        let dir = tempfile::tempdir().unwrap();
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec![task_with("Plain task", vec![])],
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        assert!(content.contains("- [ ] plain-task: Plain task"));
+        assert!(!content.contains("attachments:"), "no annotation expected, got:\n{}", content);
+    }
+
+    #[test]
+    fn append_ungroomed_tasks_comma_separates_multiple_attachments_on_one_line() {
+        let dir = tempfile::tempdir().unwrap();
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec![task_with(
+                "Two pics",
+                vec![
+                    attachment("Image 1", ".reggie/attachments/two-pics-zzz/1.png"),
+                    attachment("Image 2", ".reggie/attachments/two-pics-zzz/2.jpg"),
+                ],
+            )],
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        assert!(content.contains(
+            "  > attachments: [Image 1]=.reggie/attachments/two-pics-zzz/1.png, \
+             [Image 2]=.reggie/attachments/two-pics-zzz/2.jpg\n"
+        ));
+    }
+
+    #[test]
+    fn append_ungroomed_tasks_pairs_each_task_with_its_own_annotation() {
+        let dir = tempfile::tempdir().unwrap();
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec![
+                task_with(
+                    "Task A",
+                    vec![attachment("Image 1", ".reggie/attachments/task-a-aaa/1.png")],
+                ),
+                task_with("Task B", vec![]),
+                task_with(
+                    "Task C",
+                    vec![attachment("Image 2", ".reggie/attachments/task-c-ccc/1.png")],
+                ),
+            ],
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        // Find each task's line index; its annotation (if any) should be the next line.
+        let lines: Vec<&str> = content.lines().collect();
+        let task_a = lines.iter().position(|l| l.starts_with("- [ ] task-a:")).unwrap();
+        let task_b = lines.iter().position(|l| l.starts_with("- [ ] task-b:")).unwrap();
+        let task_c = lines.iter().position(|l| l.starts_with("- [ ] task-c:")).unwrap();
+
+        assert!(lines[task_a + 1].starts_with("  > attachments: [Image 1]="));
+        // Task B has no annotation; the next line is whatever follows (could be Task C).
+        assert!(!lines[task_b + 1].starts_with("  > attachments:"));
+        assert!(lines[task_c + 1].starts_with("  > attachments: [Image 2]="));
+    }
+
+    #[test]
+    fn append_ungroomed_tasks_skips_empty_descriptions_even_with_attachments() {
+        // If the description trims to empty, no task line and no annotation are emitted.
+        let dir = tempfile::tempdir().unwrap();
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec![
+                task_with(
+                    "   ",
+                    vec![attachment("Image 1", ".reggie/attachments/dropped/1.png")],
+                ),
+                task_with("Real one", vec![]),
+            ],
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        assert!(!content.contains("attachments:"));
+        assert_eq!(content.matches("- [ ]").count(), 1);
+        assert!(content.contains("- [ ] real-one: Real one"));
+    }
+
+    #[test]
+    fn append_ungroomed_tasks_no_regression_on_non_attachment_path() {
+        // The byte-for-byte output for a no-attachment task must match the legacy
+        // single-line format.
+        let dir = tempfile::tempdir().unwrap();
+        append_ungroomed_tasks(
+            dir.path().to_string_lossy().to_string(),
+            vec![task_with("Just words", vec![])],
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
+        // Exactly one `- [ ]` line and zero annotation lines.
+        assert_eq!(content.matches("- [ ]").count(), 1);
+        assert_eq!(content.matches("> attachments:").count(), 0);
     }
 }

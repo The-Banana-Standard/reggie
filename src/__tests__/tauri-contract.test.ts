@@ -51,6 +51,9 @@ const RUST_COMMANDS: Record<string, string[]> = {
   get_parallelizable_tasks: ["projectPath"],
   scan_tasks_across_repos: ["folderPath"],
   append_ungroomed_tasks: ["projectPath", "tasks"],
+  save_attachment_image: ["projectPath", "dirName", "extension", "imageBytes"],
+  cleanup_attachments: ["projectPath", "dirNames"],
+  list_orphan_attachments: ["projectPath"],
 
   // git.rs
   get_git_log: ["projectPath", "limit"],
@@ -83,6 +86,17 @@ const RUST_COMMANDS: Record<string, string[]> = {
   complete_setup: [],
   uninstall_reggie_files: ["removeShellProfile"],
 };
+
+/**
+ * Commands registered in Rust but invoked from outside the TypeScript frontend
+ * (e.g. by Claude Code via slash-command markdown like `reggie-init-tasks.md`,
+ * which calls Tauri commands at agent runtime). These are NOT bugs — the
+ * contract scanner only sees `invoke()` calls in `.ts/.tsx` source.
+ */
+const MARKDOWN_INVOKED_COMMANDS = new Set<string>([
+  "cleanup_attachments",
+  "list_orphan_attachments",
+]);
 
 /**
  * Extract all invoke("command_name", { ...args }) calls from TypeScript source files.
@@ -148,9 +162,10 @@ describe("Tauri command contract", () => {
     expect(unknownCommands, `Unknown commands called from TS: ${unknownCommands.join(", ")}`).toEqual([]);
   });
 
-  it("all Rust commands are called from TS", () => {
+  it("all Rust commands are called from TS (excluding markdown-invoked)", () => {
     const uncalledCommands: string[] = [];
     for (const command of Object.keys(RUST_COMMANDS)) {
+      if (MARKDOWN_INVOKED_COMMANDS.has(command)) continue;
       if (!tsCalls.has(command)) {
         uncalledCommands.push(command);
       }

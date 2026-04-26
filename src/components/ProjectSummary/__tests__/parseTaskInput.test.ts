@@ -122,4 +122,41 @@ describe("parseTaskInput", () => {
     const input = "-task one\n-task two";
     expect(parseTaskInput(input)).toEqual(["-task one -task two"]);
   });
+
+  // --- [Image N] placeholder preservation ---
+
+  it("preserves a single [Image N] placeholder in single-task input", () => {
+    expect(parseTaskInput("fix the layout [Image 1]")).toEqual([
+      "fix the layout [Image 1]",
+    ]);
+  });
+
+  it("preserves multiple [Image N] placeholders in a list-prefixed line", () => {
+    const input = "- check this [Image 1] vs [Image 2]";
+    expect(parseTaskInput(input)).toEqual(["check this [Image 1] vs [Image 2]"]);
+  });
+
+  it("preserves [Image N] placeholders across multiple list items", () => {
+    const input = "- task one [Image 1]\n- task two [Image 2]";
+    expect(parseTaskInput(input)).toEqual([
+      "task one [Image 1]",
+      "task two [Image 2]",
+    ]);
+  });
+
+  it("documents current truncation behavior: [Image N] inside a long single task may be split", () => {
+    // The 200-char truncation is naive char slicing. If a `[Image N]` straddles the
+    // boundary, it gets cut. This is the CURRENT behavior; we document rather than
+    // fix it here.
+    const prefix = "x".repeat(195);
+    const input = `${prefix} [Image 1]`; // total length 205
+    const result = parseTaskInput(input);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toHaveLength(200);
+    // The trailing `[Image 1]` is sliced — the closing `]` is gone.
+    expect(result[0].endsWith("]")).toBe(false);
+    // The token is split mid-bracket: we keep the `[` but lose `Image 1]`.
+    expect(result[0]).toContain("[");
+    expect(result[0]).not.toContain("[Image 1]");
+  });
 });
