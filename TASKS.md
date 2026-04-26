@@ -2,33 +2,6 @@
 
 ## Active Tasks
 
-### wire-manual-reggie-system-and-debug-tags-runtime
-**Task**: Wire [manual], [reggie-system], and [debug] tags into Rust parser and UI
-**Stage**: IMPLEMENT
-**Pipeline**: code-workflow
-**Branch**: task/wire-manual-reggie-system-and-debug-tags-runtime
-**Worktree**: .worktree/wire-manual-reggie-system-and-debug-tags-runtime
-**Base**: main
-**Started**: 2026-04-25
-**Attempts**: 1
-**Files**:
-- MOD: src-tauri/src/commands/projects.rs
-- MOD: src/types/terminal.ts
-- MOD: src/components/WorkspaceOverview/CodeWorkflowTab.tsx
-- MOD: src/components/WorkspaceOverview/RepoTaskRow.tsx
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | 9.30 | 1 | PASS |
-| WRITE-TESTS | 9.22 | 1 | PASS |
-| QUALITY-CHECK | 9.22 | 1 | PASS |
-| SIMPLIFY | 9.30 | 1 | PASS |
-| VERIFY-APP | SKIP | - | SKIP |
-| REVIEW | 9.20 | 1 | PASS |
-| SECURITY-REVIEW | 9.25 | 1 | PASS |
-| SYNC-DOCS | 9.0 | 1 | PASS |
-| REVIEW-WITH-USER | - | 0 | CURRENT |
-
 ---
 
 ## Backlog

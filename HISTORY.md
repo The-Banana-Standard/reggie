@@ -1,5 +1,6 @@
 # Completed Tasks
 
+- [x] wire-manual-reggie-system-and-debug-tags-runtime Wire [manual], [reggie-system], and [debug] tags into Rust parser and UI -- 2026-04-25
 - [x] fix-clippy-projects-rs Fix pre-existing clippy errors in projects.rs -- 2026-04-25
 
 - [~] run-locally-skip-claude-when-script-exists: Run-locally button should execute existing script in terminal instead of opening Claude — pruned 2026-04-25 (already implemented at src/App.tsx:335-363; check_run_script returns hasScript and the if-branch addTab(path, false, ...) spawns a shell terminal directly with `bash .reggie/run.sh`)
