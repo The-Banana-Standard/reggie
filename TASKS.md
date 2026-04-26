@@ -17,7 +17,10 @@
 **Quality Scores**:
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
+| IMPLEMENT | 9.6 | 1 | PASS |
+| WRITE-TESTS | SKIP | - | SKIP |
+| QUALITY-CHECK | SKIP | - | SKIP |
+| SIMPLIFY | - | 0 | CURRENT |
 
 ---
 
