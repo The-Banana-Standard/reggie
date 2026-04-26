@@ -2,6 +2,23 @@
 
 ## Active Tasks
 
+### vitest-setupfiles-and-contract-test-fixes
+**Task**: Populate vite test.setupFiles + fix stale RUST_COMMANDS for uninstall_reggie_files
+**Stage**: IMPLEMENT
+**Pipeline**: code-workflow
+**Branch**: task/vitest-setupfiles-and-contract-test-fixes
+**Worktree**: .worktree/vitest-setupfiles-and-contract-test-fixes
+**Base**: main
+**Started**: 2026-04-26
+**Attempts**: 1
+**Files**:
+- MOD: vite.config.ts
+- MOD: src/__tests__/tauri-contract.test.ts
+**Quality Scores**:
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+
 ---
 
 ## Backlog
@@ -17,8 +34,6 @@
 - [x] vitest-env-hang-investigation: Diagnose and fix vitest hanging at 0% CPU [P2] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [conflicts: replace-sqlite-with-json-bookmarks] [complex] [tier: opus:high] [debug] [planned]
   files: vite.config.ts (MOD), package.json (MOD)
   > closed 2026-04-25: hang not reproducible — full suite runs 962 tests in 6.86s across 3 invocations. Diagnosis inconclusive (likely stale Vite dep-optimizer cache or sandbox-trapped stale processes, both since cleared). setupFiles AC item folded into vitest-setupfiles-and-contract-test-fixes. See .pipeline/vitest-env-hang-investigation/HANDOFF.md.
-- [ ] vitest-setupfiles-and-contract-test-fixes: Populate vite test.setupFiles + fix stale RUST_COMMANDS entry for uninstall_reggie_files [P2] [depends: vitest-env-hang-investigation] [simple] [tier: sonnet:medium] [code] [planned]
-  files: vite.config.ts (MOD), src/__tests__/tauri-contract.test.ts (MOD)
 
 ### Other
 - [ ] attach-images-to-ungroomed-tasks: Paste/drop images into ungroomed task input, consumed during init-tasks [P3] [conflicts: wire-manual-reggie-system-and-debug-tags-runtime, fix-clippy-projects-rs, replace-sqlite-with-json-bookmarks, add-pipeline-mode-tags-manual-reggie-system-and-debug] [complex] [tier: opus:high] [code] [unplanned]
