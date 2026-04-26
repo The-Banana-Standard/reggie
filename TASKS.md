@@ -28,7 +28,8 @@
 | IMPLEMENT | 9.10 | 1 | PASS |
 | WRITE-TESTS | 9.28 | 1 | PASS |
 | QUALITY-CHECK | 9.28 | 1 | PASS |
-| SIMPLIFY | - | 0 | CURRENT |
+| SIMPLIFY | 9.40 | 1 | PASS |
+| VERIFY-APP | - | 0 | CURRENT |
 
 ---
 
