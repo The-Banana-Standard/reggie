@@ -23,7 +23,8 @@
 | SIMPLIFY | 9.0 | 1 | PASS |
 | VERIFY-APP | 9.5 | 2 | PASS |
 | REVIEW | 9.5 | 1 | PASS |
-| SECURITY-REVIEW | - | 0 | CURRENT |
+| SECURITY-REVIEW | 9.5 | 1 | PASS |
+| SYNC-DOCS | - | 0 | CURRENT |
 
 ---
 
