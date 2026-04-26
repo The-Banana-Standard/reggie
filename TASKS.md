@@ -30,7 +30,9 @@
 | QUALITY-CHECK | 9.28 | 1 | PASS |
 | SIMPLIFY | 9.40 | 1 | PASS |
 | VERIFY-APP | PASS | 1 | PASS |
-| REVIEW | - | 0 | CURRENT |
+| REVIEW | PASS | 2 | PASS |
+| SECURITY-REVIEW | PASS | 2 | PASS |
+| SYNC-DOCS | - | 0 | CURRENT |
 
 ---
 
