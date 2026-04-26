@@ -25,7 +25,8 @@
 | REVIEW | 9.5 | 1 | PASS |
 | SECURITY-REVIEW | 9.5 | 1 | PASS |
 | SYNC-DOCS | 9.0 | 1 | PASS |
-| UPDATE-CLAUDE | - | 0 | CURRENT |
+| UPDATE-CLAUDE | 9.0 | 1 | PASS |
+| REVIEW-WITH-USER | - | 0 | CURRENT |
 
 ---
 
