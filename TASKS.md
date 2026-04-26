@@ -25,7 +25,8 @@
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
 | PICKUP | - | 1 | DONE |
-| IMPLEMENT | - | 0 | CURRENT |
+| IMPLEMENT | 9.10 | 1 | PASS |
+| WRITE-TESTS | - | 0 | CURRENT |
 
 ---
 
