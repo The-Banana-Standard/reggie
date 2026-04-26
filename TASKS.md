@@ -21,7 +21,8 @@
 | WRITE-TESTS | SKIP | - | SKIP |
 | QUALITY-CHECK | SKIP | - | SKIP |
 | SIMPLIFY | 9.0 | 1 | PASS |
-| VERIFY-APP | - | 0 | CURRENT |
+| VERIFY-APP | 9.5 | 2 | PASS |
+| REVIEW | - | 0 | CURRENT |
 
 ---
 
