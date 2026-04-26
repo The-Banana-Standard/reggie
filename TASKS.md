@@ -26,7 +26,8 @@
 | VERIFY-APP | SKIP | - | SKIP |
 | REVIEW | 9.20 | 1 | PASS |
 | SECURITY-REVIEW | 9.25 | 1 | PASS |
-| SYNC-DOCS | - | 0 | CURRENT |
+| SYNC-DOCS | 9.0 | 1 | PASS |
+| REVIEW-WITH-USER | - | 0 | CURRENT |
 
 ---
 
