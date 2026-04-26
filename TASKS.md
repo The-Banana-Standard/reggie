@@ -22,7 +22,8 @@
 | QUALITY-CHECK | SKIP | - | SKIP |
 | SIMPLIFY | 9.0 | 1 | PASS |
 | VERIFY-APP | 9.5 | 2 | PASS |
-| REVIEW | - | 0 | CURRENT |
+| REVIEW | 9.5 | 1 | PASS |
+| SECURITY-REVIEW | - | 0 | CURRENT |
 
 ---
 
