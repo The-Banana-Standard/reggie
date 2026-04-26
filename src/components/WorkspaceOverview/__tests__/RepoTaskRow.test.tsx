@@ -295,7 +295,7 @@ describe("RepoTaskRow", () => {
           {...defaultProps}
         />
       );
-      expect(screen.getByText("1 running")).toBeTruthy();
+      expect(screen.getByText("1 code running")).toBeTruthy();
       expect(screen.getByText("1 attention")).toBeTruthy();
     });
 
@@ -870,7 +870,7 @@ describe("RepoTaskRow", () => {
           {...defaultProps}
         />
       );
-      expect(screen.getByText("1 running")).toBeTruthy();
+      expect(screen.getByText("1 code running")).toBeTruthy();
       expect(screen.getByText("2 completed")).toBeTruthy();
     });
 
@@ -1938,11 +1938,270 @@ describe("RepoTaskRow", () => {
       fireEvent.click(startBtn);
 
       expect(onStartTask).toHaveBeenCalledTimes(1);
+      // Signature now includes (tier, mode); both are undefined/null when the task has no [code]/[debug]/etc tag.
       expect(onStartTask).toHaveBeenCalledWith(
         "/home/user/my-project",
         "my-project",
         "add-feature",
+        undefined,
+        null,
       );
+    });
+  });
+
+  describe("per-task action buttons by mode", () => {
+    it("renders 'Walk through' button for [manual] tasks and calls onWalkThroughTask", () => {
+      const onWalkThroughTask = vi.fn();
+      const onStartTask = vi.fn();
+      const { container } = render(
+        <RepoTaskRow
+          repo={makeRepo({
+            groomedCount: 1,
+            groomedTasks: [
+              { slug: "shave-yak", description: "Shave the yak", mode: "manual" },
+            ],
+          })}
+          mode="code"
+          headlessSessions={[]}
+          {...defaultProps}
+          onStartTask={onStartTask}
+          onWalkThroughTask={onWalkThroughTask}
+        />
+      );
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+      const btn = container.querySelector(".repo-task-row-session.queued button")!;
+      expect(btn.textContent).toBe("Walk through");
+      fireEvent.click(btn);
+      expect(onWalkThroughTask).toHaveBeenCalledTimes(1);
+      expect(onWalkThroughTask).toHaveBeenCalledWith(
+        "/home/user/my-project",
+        "my-project",
+        "shave-yak",
+      );
+      expect(onStartTask).not.toHaveBeenCalled();
+    });
+
+    it("renders 'Debug' button for [debug] tasks and calls onStartTask with mode=debug", () => {
+      const onStartTask = vi.fn();
+      const { container } = render(
+        <RepoTaskRow
+          repo={makeRepo({
+            groomedCount: 1,
+            groomedTasks: [
+              { slug: "fix-flaky", description: "Fix flaky test", mode: "debug" },
+            ],
+          })}
+          mode="code"
+          headlessSessions={[]}
+          {...defaultProps}
+          onStartTask={onStartTask}
+        />
+      );
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+      const btn = container.querySelector(".repo-task-row-session.queued button")!;
+      expect(btn.textContent).toBe("Debug");
+      fireEvent.click(btn);
+      expect(onStartTask).toHaveBeenCalledWith(
+        "/home/user/my-project",
+        "my-project",
+        "fix-flaky",
+        undefined,
+        "debug",
+      );
+    });
+
+    it("renders 'Start' button for [reggie-system] tasks and calls onStartTask with mode=reggie-system", () => {
+      const onStartTask = vi.fn();
+      const { container } = render(
+        <RepoTaskRow
+          repo={makeRepo({
+            groomedCount: 1,
+            groomedTasks: [
+              { slug: "rotate-keys", description: "Rotate keys", mode: "reggie-system" },
+            ],
+          })}
+          mode="code"
+          headlessSessions={[]}
+          {...defaultProps}
+          onStartTask={onStartTask}
+        />
+      );
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+      const btn = container.querySelector(".repo-task-row-session.queued button")!;
+      expect(btn.textContent).toBe("Start");
+      fireEvent.click(btn);
+      expect(onStartTask).toHaveBeenCalledWith(
+        "/home/user/my-project",
+        "my-project",
+        "rotate-keys",
+        undefined,
+        "reggie-system",
+      );
+    });
+
+    it("renders 'Start' button for [code] tasks and calls onStartTask with mode=code", () => {
+      const onStartTask = vi.fn();
+      const { container } = render(
+        <RepoTaskRow
+          repo={makeRepo({
+            groomedCount: 1,
+            groomedTasks: [
+              { slug: "add-thing", description: "Add thing", mode: "code" },
+            ],
+          })}
+          mode="code"
+          headlessSessions={[]}
+          {...defaultProps}
+          onStartTask={onStartTask}
+        />
+      );
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+      const btn = container.querySelector(".repo-task-row-session.queued button")!;
+      expect(btn.textContent).toBe("Start");
+      fireEvent.click(btn);
+      expect(onStartTask).toHaveBeenCalledWith(
+        "/home/user/my-project",
+        "my-project",
+        "add-thing",
+        undefined,
+        "code",
+      );
+    });
+
+    it("does not render Walk-through button for manual task when onWalkThroughTask is missing", () => {
+      const { container } = render(
+        <RepoTaskRow
+          repo={makeRepo({
+            groomedCount: 1,
+            groomedTasks: [
+              { slug: "manual-only", description: "Manual only", mode: "manual" },
+            ],
+          })}
+          mode="code"
+          headlessSessions={[]}
+          {...defaultProps}
+          onStartTask={vi.fn()}
+        />
+      );
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+      const queued = container.querySelectorAll(".repo-task-row-session.queued");
+      expect(queued).toHaveLength(1);
+      expect(queued[0].querySelector("button")).toBeNull();
+    });
+  });
+
+  describe("per-domain aggregate badges", () => {
+    it("counts code, reggie-sys, and debug running sessions separately", () => {
+      const sessions = [
+        makeSession({ terminalId: "t1", label: "code -- my-project/task-a" }),
+        makeSession({ terminalId: "t2", label: "code -- my-project/task-b" }),
+        makeSession({ terminalId: "t3", label: "reggie-sys -- my-project/task-c" }),
+        makeSession({ terminalId: "t4", label: "debug -- my-project/task-d" }),
+        makeSession({ terminalId: "t5", label: "debug -- my-project/task-e" }),
+        makeSession({ terminalId: "t6", label: "debug -- my-project/task-f" }),
+        makeSession({ terminalId: "t7", label: "code -- my-project/task-g", completed: true }),
+      ];
+      render(
+        <RepoTaskRow
+          repo={makeRepo()}
+          mode="code"
+          headlessSessions={sessions}
+          {...defaultProps}
+        />
+      );
+      expect(screen.getByText("2 code running")).toBeTruthy();
+      expect(screen.getByText("1 reggie-sys running")).toBeTruthy();
+      expect(screen.getByText("3 debug running")).toBeTruthy();
+      expect(screen.getByText("1 completed")).toBeTruthy();
+    });
+
+    it("does not render a per-domain badge when the count is zero", () => {
+      const sessions = [
+        makeSession({ terminalId: "t1", label: "code -- my-project/task-a" }),
+      ];
+      render(
+        <RepoTaskRow
+          repo={makeRepo()}
+          mode="code"
+          headlessSessions={sessions}
+          {...defaultProps}
+        />
+      );
+      expect(screen.getByText("1 code running")).toBeTruthy();
+      expect(screen.queryByText(/reggie-sys running/)).toBeNull();
+      expect(screen.queryByText(/debug running/)).toBeNull();
+    });
+
+    it("init mode keeps a flat 'N running' badge (no per-domain split)", () => {
+      // In init mode session labels are "init-tasks --" and the badge stays flat.
+      const sessions = [
+        makeSession({ terminalId: "t1", label: "init-tasks -- my-project" }),
+        makeSession({ terminalId: "t2", label: "init-tasks -- my-project" }),
+      ];
+      render(
+        <RepoTaskRow
+          repo={makeRepo({ ungroomedCount: 5 })}
+          mode="init"
+          headlessSessions={sessions}
+          {...defaultProps}
+        />
+      );
+      expect(screen.getByText("2 running")).toBeTruthy();
+      expect(screen.queryByText(/code running/)).toBeNull();
+      expect(screen.queryByText(/reggie-sys running/)).toBeNull();
+      expect(screen.queryByText(/debug running/)).toBeNull();
+    });
+
+    it("counts promoted reggie-sys and debug tabs in their per-domain badges", () => {
+      // Promoted (visible) tabs with reggie-sys and debug labels must surface in the
+      // per-domain badges via the generalized promotedSessions filter (isWorkflowLabel),
+      // not just the unpromoted headless sessions list.
+      const promoted = [
+        makePromotedTab({
+          id: "tab-rsys",
+          label: "reggie-sys -- my-project/rotate-keys",
+          headlessTerminalId: "ht-rsys",
+        }),
+        makePromotedTab({
+          id: "tab-dbg",
+          label: "debug -- my-project/fix-flaky",
+          headlessTerminalId: "ht-dbg",
+        }),
+      ];
+      render(
+        <RepoTaskRow
+          repo={makeRepo()}
+          mode="code"
+          headlessSessions={[]}
+          repoTabs={promoted}
+          {...defaultProps}
+        />
+      );
+      expect(screen.getByText("1 reggie-sys running")).toBeTruthy();
+      expect(screen.getByText("1 debug running")).toBeTruthy();
+      expect(screen.queryByText(/code running/)).toBeNull();
+    });
+
+    it("counts dead promoted tabs as completed regardless of label domain", () => {
+      const promoted = [
+        makePromotedTab({
+          id: "tab-rsys-dead",
+          label: "reggie-sys -- my-project/rotate-keys",
+          headlessTerminalId: "ht-rsys-dead",
+          dead: true,
+        }),
+      ];
+      render(
+        <RepoTaskRow
+          repo={makeRepo()}
+          mode="code"
+          headlessSessions={[]}
+          repoTabs={promoted}
+          {...defaultProps}
+        />
+      );
+      expect(screen.getByText("1 completed")).toBeTruthy();
+      expect(screen.queryByText(/reggie-sys running/)).toBeNull();
     });
   });
 });

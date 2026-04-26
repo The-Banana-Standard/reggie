@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Mode-aware task dispatch in the CodeWorkflow tab.** Backlog tasks can carry a mode tag — `[code]`, `[design]`, `[manual]`, `[reggie-system]`, or `[debug]` — and Reggie now routes each task to the correct CLI command automatically:
+  - `[code]` / `[design]` → `/reggie-code-workflow`
+  - `[reggie-system]` → `/reggie-system-change`
+  - `[debug]` → `/reggie-debug-workflow`
+  - `[manual]` → `/reggie-manual-task`
+- **Per-domain concurrency caps** enforced on "Batch Start": 5 concurrent sessions for `code`/`design`, 3 for `debug`, 1 for `reggie-system`.
+- **Per-task action buttons** vary by mode: `[manual]` tasks show "Walk through", `[debug]` tasks show "Debug", all others show "Start".
+- **Per-domain aggregate badges** in the CodeWorkflow tab header show live counts (e.g., "2 code running, 1 reggie-sys running").
+
 ### Changed
 - Bookmarks now persist as JSON at `app_data_dir/bookmarks.json` using atomic temp+fsync+rename writes. Removed `tauri-plugin-sql` and `@tauri-apps/plugin-sql` dependencies.
 

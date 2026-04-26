@@ -410,6 +410,8 @@ pub struct TaskEntry {
     pub planned: bool,
     pub checked: bool,
     pub tier: Option<String>,
+    /// Mode tag: "code", "design", "manual", "reggie-system", "debug", or None.
+    pub mode: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -417,6 +419,8 @@ pub struct TaskEntry {
 pub struct ParallelizableTaskSlug {
     pub slug: String,
     pub tier: Option<String>,
+    /// Mode tag carried through from the parsed task; None for active-task slugs.
+    pub mode: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -469,6 +473,7 @@ fn parse_task_line(line: &str) -> Option<TaskEntry> {
     let mut conflicts: Vec<String> = Vec::new();
     let mut planned = false;
     let mut tier: Option<String> = None;
+    let mut mode: Option<String> = None;
 
     let mut search_from = 0usize;
     let tag_source = &tag_source_owned;
@@ -497,6 +502,9 @@ fn parse_task_line(line: &str) -> Option<TaskEntry> {
                         tier = Some(val.to_string());
                     }
                 }
+                "code" | "design" | "manual" | "reggie-system" | "debug" => {
+                    mode = Some(tag_content.to_string());
+                }
                 _ => {}
             }
 
@@ -515,6 +523,7 @@ fn parse_task_line(line: &str) -> Option<TaskEntry> {
         planned,
         checked,
         tier,
+        mode,
     })
 }
 
@@ -557,12 +566,12 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
                     active_slugs.push(ParallelizableTaskSlug {
                         slug,
                         tier: None,
+                        mode: None,
                     });
                 }
             }
         }
     }
-    active_slugs.truncate(5);
 
     // Find the backlog section and parse tasks from it
     let mut in_backlog = false;
@@ -588,10 +597,11 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
         }
     }
 
-    // Filter to planned, unchecked tasks
+    // Filter to planned, unchecked tasks. Exclude manual-mode tasks: they require
+    // human-in-the-loop walk-through and must not be auto-dispatched.
     let groomed: Vec<&TaskEntry> = backlog_tasks
         .iter()
-        .filter(|t| t.planned && !t.checked)
+        .filter(|t| t.planned && !t.checked && t.mode.as_deref() != Some("manual"))
         .collect();
     let total_groomed = groomed.len();
 
@@ -609,10 +619,6 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
     let mut selected_conflicts: HashSet<String> = HashSet::new();
 
     for task in &ready {
-        if selected.len() >= 5 {
-            break;
-        }
-
         // Check if this task's slug is in any already-selected task's conflicts
         if selected_conflicts.contains(&task.slug) {
             continue;
@@ -627,6 +633,7 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
         selected.push(ParallelizableTaskSlug {
             slug: task.slug.clone(),
             tier: task.tier.clone(),
+            mode: task.mode.clone(),
         });
         for c in &task.conflicts {
             selected_conflicts.insert(c.clone());
@@ -646,6 +653,9 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
 pub struct TaskItemSummary {
     pub slug: String,
     pub description: String,
+    /// Mode tag from the parsed task: "code" | "design" | "manual" | "reggie-system" | "debug" | None.
+    /// Always None for active tasks (parsed from `### header` lines, where tag info is absent).
+    pub mode: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -662,6 +672,7 @@ pub struct RepoTaskSummary {
     pub active_tasks: Vec<TaskItemSummary>,
 }
 
+#[derive(Default)]
 struct ParsedTasks {
     ungroomed_count: usize,
     groomed_count: usize,
@@ -717,6 +728,7 @@ fn parse_tasks_in_file(content: &str) -> ParsedTasks {
                     result.active_tasks.push(TaskItemSummary {
                         description: String::new(),
                         slug,
+                        mode: None,
                     });
                 }
             }
@@ -738,12 +750,14 @@ fn parse_tasks_in_file(content: &str) -> ParsedTasks {
                     result.ungroomed_tasks.push(TaskItemSummary {
                         slug: task.slug,
                         description: task.description,
+                        mode: task.mode,
                     });
                 } else {
                     result.groomed_count += 1;
                     result.groomed_tasks.push(TaskItemSummary {
                         slug: task.slug,
                         description: task.description,
+                        mode: task.mode,
                     });
                 }
             }
@@ -757,6 +771,7 @@ fn parse_tasks_in_file(content: &str) -> ParsedTasks {
                         result.ungroomed_tasks.push(TaskItemSummary {
                             slug,
                             description: text.to_string(),
+                            mode: None,
                         });
                     }
                 }
@@ -771,14 +786,7 @@ fn read_tasks(repo_path: &str) -> ParsedTasks {
     let tasks_path = PathBuf::from(repo_path).join("TASKS.md");
     match fs::read_to_string(&tasks_path) {
         Ok(content) => parse_tasks_in_file(&content),
-        Err(_) => ParsedTasks {
-            ungroomed_count: 0,
-            groomed_count: 0,
-            active_count: 0,
-            ungroomed_tasks: Vec::new(),
-            groomed_tasks: Vec::new(),
-            active_tasks: Vec::new(),
-        },
+        Err(_) => ParsedTasks::default(),
     }
 }
 
@@ -1874,6 +1882,7 @@ mod tests {
             planned: true,
             checked: false,
             tier: None,
+            mode: None,
         }));
     }
 
@@ -2126,14 +2135,15 @@ mod tests {
     }
 
     #[test]
-    fn get_parallelizable_tasks_max_five_returned() {
+    fn get_parallelizable_tasks_no_backend_cap() {
+        // Backend no longer caps — frontend applies per-domain caps after partitioning.
         let mut content = String::from("## Backlog\n");
         for i in 0..8 {
             content.push_str(&format!("- [ ] task-{}: Task {} [P1] [planned]\n", i, i));
         }
         let dir = create_tasks_md(&content);
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert_eq!(result.slugs.len(), 5);
+        assert_eq!(result.slugs.len(), 8);
         assert_eq!(result.total_groomed, 8);
     }
 
@@ -2352,7 +2362,8 @@ mod tests {
     }
 
     #[test]
-    fn get_parallelizable_tasks_active_fills_max_five() {
+    fn get_parallelizable_tasks_active_with_backlog_no_cap() {
+        // Backend cap removed: all five active slugs plus the backlog task come through.
         let dir = create_tasks_md(
             "## Active Tasks\n\
              ### a1\n\
@@ -2361,15 +2372,16 @@ mod tests {
              ### a4\n\
              ### a5\n\n\
              ## Backlog\n\
-             - [ ] backlog-task: Should not appear [P1] [planned]\n"
+             - [ ] backlog-task: Now also returned [P1] [planned]\n"
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert_eq!(slug_names(&result), vec!["a1", "a2", "a3", "a4", "a5"]);
-        assert_eq!(result.total_groomed, 1); // groomed still counts backlog
+        assert_eq!(slug_names(&result), vec!["a1", "a2", "a3", "a4", "a5", "backlog-task"]);
+        assert_eq!(result.total_groomed, 1);
     }
 
     #[test]
-    fn get_parallelizable_tasks_active_capped_at_five() {
+    fn get_parallelizable_tasks_active_no_backend_cap() {
+        // Backend no longer truncates active slugs — all seven come through.
         let dir = create_tasks_md(
             "## Active Tasks\n\
              ### a1\n\
@@ -2382,11 +2394,11 @@ mod tests {
              ## Backlog\n"
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert_eq!(slug_names(&result), vec!["a1", "a2", "a3", "a4", "a5"]);
+        assert_eq!(slug_names(&result), vec!["a1", "a2", "a3", "a4", "a5", "a6", "a7"]);
     }
 
     #[test]
-    fn get_parallelizable_tasks_active_plus_backlog_mixed() {
+    fn get_parallelizable_tasks_active_plus_backlog_full_passthrough() {
         let dir = create_tasks_md(
             "## Active Tasks\n\
              ### active-1\n\
@@ -2398,8 +2410,8 @@ mod tests {
              - [ ] b4: Fourth [P3] [planned]\n"
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        // 2 active + 3 backlog = 5 max
-        assert_eq!(slug_names(&result), vec!["active-1", "active-2", "b1", "b2", "b3"]);
+        // No backend cap — all 2 active + 4 backlog returned.
+        assert_eq!(slug_names(&result), vec!["active-1", "active-2", "b1", "b2", "b3", "b4"]);
         assert_eq!(result.total_groomed, 4);
     }
 
@@ -2438,6 +2450,122 @@ mod tests {
         assert!(names.contains(&"app"));
         assert!(names.contains(&"api"));
         assert!(names.contains(&"docs-site"));
+    }
+
+    // --- mode tag parsing ---
+
+    #[test]
+    fn parse_task_line_with_code_mode() {
+        let task = parse_task_line("- [ ] my-task: Description [P1] [planned] [code]").unwrap();
+        assert_eq!(task.mode, Some("code".to_string()));
+    }
+
+    #[test]
+    fn parse_task_line_with_design_mode() {
+        let task = parse_task_line("- [ ] my-task: Description [P1] [planned] [design]").unwrap();
+        assert_eq!(task.mode, Some("design".to_string()));
+    }
+
+    #[test]
+    fn parse_task_line_with_manual_mode() {
+        let task = parse_task_line("- [ ] my-task: Description [P1] [planned] [manual]").unwrap();
+        assert_eq!(task.mode, Some("manual".to_string()));
+    }
+
+    #[test]
+    fn parse_task_line_with_reggie_system_mode() {
+        let task =
+            parse_task_line("- [ ] my-task: Description [P1] [planned] [reggie-system]").unwrap();
+        assert_eq!(task.mode, Some("reggie-system".to_string()));
+    }
+
+    #[test]
+    fn parse_task_line_with_debug_mode() {
+        let task = parse_task_line("- [ ] my-task: Description [P1] [planned] [debug]").unwrap();
+        assert_eq!(task.mode, Some("debug".to_string()));
+    }
+
+    #[test]
+    fn parse_task_line_no_mode_tag_is_none() {
+        let task = parse_task_line("- [ ] my-task: Description [P1] [planned]").unwrap();
+        assert_eq!(task.mode, None);
+    }
+
+    #[test]
+    fn parse_task_line_unknown_bracket_does_not_set_mode() {
+        let task = parse_task_line("- [ ] my-task: Description [P1] [planned] [whatever]").unwrap();
+        assert_eq!(task.mode, None);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_excludes_manual_mode() {
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] code-task: A code task [P1] [planned] [code]\n\
+             - [ ] manual-task: A manual task [P1] [planned] [manual]\n\
+             - [ ] debug-task: A debug task [P1] [planned] [debug]\n\
+             - [ ] reggie-task: A reggie-system task [P1] [planned] [reggie-system]\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        let names = slug_names(&result);
+        assert!(names.contains(&"code-task".to_string()));
+        assert!(names.contains(&"debug-task".to_string()));
+        assert!(names.contains(&"reggie-task".to_string()));
+        assert!(!names.contains(&"manual-task".to_string()));
+        // total_groomed also excludes manual tasks
+        assert_eq!(result.total_groomed, 3);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_propagates_mode_to_slug() {
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] code-task: A [P1] [planned] [code]\n\
+             - [ ] debug-task: B [P1] [planned] [debug]\n\
+             - [ ] reggie-task: C [P1] [planned] [reggie-system]\n\
+             - [ ] no-mode: D [P1] [planned]\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        let by_slug: std::collections::HashMap<&str, Option<&str>> = result
+            .slugs
+            .iter()
+            .map(|s| (s.slug.as_str(), s.mode.as_deref()))
+            .collect();
+        assert_eq!(by_slug.get("code-task"), Some(&Some("code")));
+        assert_eq!(by_slug.get("debug-task"), Some(&Some("debug")));
+        assert_eq!(by_slug.get("reggie-task"), Some(&Some("reggie-system")));
+        assert_eq!(by_slug.get("no-mode"), Some(&None));
+    }
+
+    #[test]
+    fn parse_tasks_in_file_propagates_mode_on_groomed_items() {
+        let content = "## Backlog\n\
+             - [ ] code-task: A [P1] [planned] [code]\n\
+             - [ ] manual-task: B [P1] [planned] [manual]\n\
+             - [ ] debug-task: C [P1] [planned] [debug]\n";
+        let parsed = parse_tasks_in_file(content);
+        assert_eq!(parsed.groomed_tasks.len(), 3);
+        let by_slug: std::collections::HashMap<&str, Option<&str>> = parsed
+            .groomed_tasks
+            .iter()
+            .map(|t| (t.slug.as_str(), t.mode.as_deref()))
+            .collect();
+        assert_eq!(by_slug.get("code-task"), Some(&Some("code")));
+        assert_eq!(by_slug.get("manual-task"), Some(&Some("manual")));
+        assert_eq!(by_slug.get("debug-task"), Some(&Some("debug")));
+    }
+
+    #[test]
+    fn parse_tasks_in_file_active_tasks_have_no_mode() {
+        let content = "## Active Tasks\n\
+             ### active-1\n\
+             ### active-2\n\n\
+             ## Backlog\n";
+        let parsed = parse_tasks_in_file(content);
+        assert_eq!(parsed.active_tasks.len(), 2);
+        for t in &parsed.active_tasks {
+            assert_eq!(t.mode, None);
+        }
     }
 
     // --- count_tasks_in_file ---
