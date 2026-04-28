@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-04-28
+
 ### Added
 - **Image attachments on ungroomed tasks.** The "Add Tasks" textarea on a project's summary panel now accepts pasted or drag-dropped images (PNG, JPG, JPEG, GIF, WebP):
   - Each attached image inserts a `[Image N]` placeholder at the cursor; the image itself is held in browser memory until you submit.

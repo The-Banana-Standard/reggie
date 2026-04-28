@@ -1,6 +1,6 @@
 {
   "name": "reggie",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Brain-dump to merged PR — a desktop workspace and agent system that turns messy notes into shipped code with Claude Code.",
   "author": "Anthony Mazzola",
   "license": "MIT",
