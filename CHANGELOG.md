@@ -4,6 +4,41 @@ All notable changes to Reggie are documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [2.1.0] - 2026-04-28
+
+### Added
+- **Image attachments on ungroomed tasks.** The "Add Tasks" textarea on a project's summary panel now accepts pasted or drag-dropped images (PNG, JPG, JPEG, GIF, WebP):
+  - Each attached image inserts a `[Image N]` placeholder at the cursor; the image itself is held in browser memory until you submit.
+  - On submit, images are written under `.reggie/attachments/<slug>-<random>/` and the new task line in `TASKS.md` gets a sibling `> attachments: [Image 1]=<path>, ...` annotation.
+  - When `/reggie-init-tasks` grooms the task, RESEARCH+PLAN reads each attached image and transcribes the relevant detail into Problem, Vision, Context, and Acceptance Criteria. After FORMALIZE writes `task.md`, the attachment directory is cleaned up — images are treated as transient input, not durable artifacts.
+  - INTAKE sweeps orphan attachment directories (any folder under `.reggie/attachments/` not referenced by a `> attachments:` line) at the start of the run.
+  - Unsupported types (HEIC/HEIF and others) are rejected inline with a clear error.
+  - Path-safety guard: `> attachments:` paths must resolve inside `.reggie/attachments/` — paths with `..`, absolute paths, or symlink escapes are skipped.
+- **Mode-aware task dispatch in the CodeWorkflow tab.** Backlog tasks can carry a mode tag — `[code]`, `[design]`, `[manual]`, `[reggie-system]`, or `[debug]` — and Reggie now routes each task to the correct CLI command automatically:
+  - `[code]` / `[design]` → `/reggie-code-workflow`
+  - `[reggie-system]` → `/reggie-system-change`
+  - `[debug]` → `/reggie-debug-workflow`
+  - `[manual]` → `/reggie-manual-task`
+- **Per-domain concurrency caps** enforced on "Batch Start": 5 concurrent sessions for `code`/`design`, 3 for `debug`, 1 for `reggie-system`.
+- **Per-task action buttons** vary by mode: `[manual]` tasks show "Walk through", `[debug]` tasks show "Debug", all others show "Start".
+- **Per-domain aggregate badges** in the CodeWorkflow tab header show live counts (e.g., "2 code running, 1 reggie-sys running").
+
+### Changed
+- Bookmarks now persist as JSON at `app_data_dir/bookmarks.json` using atomic temp+fsync+rename writes. Removed `tauri-plugin-sql` and `@tauri-apps/plugin-sql` dependencies.
+
+### Fixed
+- Completed promoted sessions in CodeWorkflowTab now show a per-session **Trash** button alongside Open/Hide, matching the headless completed session behavior. Previously the only way to clear a completed promoted session was the "Trash All Completed" header button.
+- Sessions tab terminal width no longer shrinks to ~10 columns after switching to another tab and back. Previously, switching away from Sessions caused the terminal to re-render at a very narrow width, producing hard-wrapped output that could not be reflowed on return.
+- Test-infra: vitest now auto-applies the Tauri mock via global `setupFiles` (no per-test import required), and the Tauri command contract test correctly recognizes `uninstall_reggie_files`. Resolves the lone failure in the test suite.
+
+### Removed
+- SQLite persistence (`tauri-plugin-sql`). The legacy `reggie.db` file in `app_data_dir` is no longer used and can be deleted manually.
+
+### Migration
+- First run of a new build: re-select your All Projects folder. The workspace scan rebuilds all projects automatically. No other data is affected.
+
 ## [2.0.1] - 2026-04-22
 
 ### Fixed

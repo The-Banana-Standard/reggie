@@ -29,6 +29,22 @@ fn validate_effort(effort: &Option<String>) -> Result<(), String> {
     Ok(())
 }
 
+/// Reject implausibly small terminal dimensions. A real terminal is at least
+/// 20 cols × 5 rows; smaller values are almost always a frontend bug
+/// (e.g. fitAddon measuring a hidden container — see
+/// .pipeline/fix-sessions-tab-width-on-return/HANDOFF.md). Rejecting here
+/// prevents the PTY from being reflowed narrow, which causes permanent
+/// buffer corruption when the TUI redraws with hard newlines.
+fn validate_pty_size(rows: u16, cols: u16) -> Result<(), String> {
+    if cols < 20 || rows < 5 {
+        return Err(format!(
+            "Refusing implausibly small PTY size: rows={}, cols={}",
+            rows, cols
+        ));
+    }
+    Ok(())
+}
+
 fn configure_env(cmd: &mut CommandBuilder) {
     let full_path = ensure_full_path();
     cmd.env_clear();
@@ -297,6 +313,7 @@ pub fn resize_terminal(
     rows: u16,
     cols: u16,
 ) -> Result<(), String> {
+    validate_pty_size(rows, cols)?;
     let terminals = state.terminals.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
     if let Some(term) = terminals.get(&terminal_id) {
         term.master
@@ -689,6 +706,7 @@ pub fn resize_headless_terminal(
     rows: u16,
     cols: u16,
 ) -> Result<(), String> {
+    validate_pty_size(rows, cols)?;
     let headless = state
         .headless_terminals
         .lock()

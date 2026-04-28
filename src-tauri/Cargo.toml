@@ -1,6 +1,6 @@
 [package]
 name = "reggie"
-version = "2.0.1"
+version = "2.1.0"
 description = "Brain-dump to merged PR — a desktop workspace and agent system that turns messy notes into shipped code with Claude Code."
 authors = ["Jacob Press", "Anthony Mazzola"]
 license = "MIT"
@@ -16,7 +16,6 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
-tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

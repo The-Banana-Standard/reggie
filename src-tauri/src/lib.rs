@@ -9,7 +9,6 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_shell::init())
         .manage(AppState::new())
         .setup(|app| {
@@ -36,6 +35,8 @@ pub fn run() {
             commands::terminal::resize_headless_terminal,
             commands::terminal::close_headless_terminal,
             commands::terminal::get_all_headless_statuses,
+            commands::bookmarks::read_bookmarks,
+            commands::bookmarks::write_bookmarks,
             commands::claude_data::get_sessions_for_project,
             commands::claude_data::read_claude_md,
             commands::projects::scan_workspace,
@@ -49,6 +50,9 @@ pub fn run() {
             commands::projects::get_parallelizable_tasks,
             commands::projects::scan_tasks_across_repos,
             commands::projects::append_ungroomed_tasks,
+            commands::projects::save_attachment_image,
+            commands::projects::cleanup_attachments,
+            commands::projects::list_orphan_attachments,
             commands::reggie_data::get_agents,
             commands::reggie_data::get_commands,
             commands::reggie_data::get_pipelines,

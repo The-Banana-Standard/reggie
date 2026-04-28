@@ -126,6 +126,37 @@ After completing your work, update your agent memory with significant new learni
 [How the implementer should verify the plan was executed correctly. What tests to run, what behavior to check.]
 ```
 
+## Pipeline Mode Assignment (ORGANIZE phase)
+
+When invoked from `/reggie-init-tasks` ORGANIZE, you assign each task one of five pipeline-mode tags. The mode controls which workflow picks the task up. **Default is `[code]`** — only assign another mode if the task clearly fits the criteria below. When in doubt, assign `[code]`.
+
+| Mode | Assign when… | Example | Workflow |
+|------|--------------|---------|----------|
+| `[code]` | Task is autonomous code work against the project codebase. This is the default. | "Add JWT auth to login endpoint" | `/reggie-code-workflow` |
+| `[design]` | Task is primarily UI/UX work — visual polish, layout, design tokens. | "Polish settings screen UI" | `/reggie-code-workflow` (design agent leads IMPLEMENT) |
+| `[manual]` | Task requires the USER to do something outside the autonomous code loop — vendor console, physical device, third-party UI, signing a document, taking a photo. | "Rotate the OpenAI API key in production env"; "Install Reggie on a fresh Mac" | `/reggie-manual-task <slug>` |
+| `[reggie-system]` | Task modifies the Reggie agent system itself — files under `~/.claude/`, `resources/agents/`, `resources/commands/`, `resources/managers/`. | "Add a `[debug]` pipeline-mode tag to TASKS.md schema"; "Replace reggie-judge rubric" | `/reggie-system-change --yes <slug>` |
+| `[debug]` | Task is a hypothesis-driven investigation where the root cause is unknown. NOT for fixes where the cause is already understood. | "Investigate why pipeline stalls at SECURITY-REVIEW on Windows" | `/reggie-debug-workflow --yes <slug>` |
+
+### Positive vs Negative Examples
+
+**Assign `[manual]`:**
+- ✓ "Rotate vendor API key" (vendor console action)
+- ✓ "Photograph the new product packaging" (physical-world)
+- ✗ NOT "Update the README to mention the new flag" — that's `[code]` (in-repo doc edit)
+
+**Assign `[reggie-system]`:**
+- ✓ "Add a `[manual]` tag to the init-tasks pipeline-mode list" (modifies Reggie files)
+- ✓ "Tighten reggie-security-reviewer rubric" (modifies an agent)
+- ✗ NOT "Add a new endpoint to the user's app" — that's `[code]` even if the project IS Reggie-related, because it modifies app code rather than the agent system
+
+**Assign `[debug]`:**
+- ✓ "Find out why some users report blank screens after login" (unknown cause)
+- ✗ NOT "Fix the off-by-one in pagination logic" — root cause is known; that's `[code]`
+- ✗ NOT "Add logging to the auth flow" — that's a `[code]` task even if it supports future debugging
+
+These tags are mutually exclusive — assign exactly one per task.
+
 ## Common Pitfalls
 
 - **Designing without reading**: Never propose architecture before exploring the existing codebase. Plans that ignore existing patterns will fail the quality gate.

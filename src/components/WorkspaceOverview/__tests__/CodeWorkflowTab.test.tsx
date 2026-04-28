@@ -697,6 +697,147 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
     expect(onLaunchHeadless).not.toHaveBeenCalled();
   });
 
+  it("partitions slugs by domain and applies per-domain caps", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-x");
+    const trackedRepos = [makeRepo({ groomedCount: 20 })];
+
+    // Backend now returns all groomed slugs (no cap). Frontend caps:
+    // code/design → 5, reggie-system → 1, debug → 3.
+    const slugs = [
+      ...Array.from({ length: 7 }, (_, i) => ({ slug: `code-${i}`, tier: null, mode: "code" })),
+      ...Array.from({ length: 3 }, (_, i) => ({ slug: `design-${i}`, tier: null, mode: "design" })),
+      ...Array.from({ length: 4 }, (_, i) => ({ slug: `rsys-${i}`, tier: null, mode: "reggie-system" })),
+      ...Array.from({ length: 5 }, (_, i) => ({ slug: `dbg-${i}`, tier: null, mode: "debug" })),
+    ];
+    mockInvoke.mockResolvedValue({ slugs, totalGroomed: slugs.length });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Start"));
+
+    // 5 code/design + 1 reggie-system + 3 debug = 9 launches
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(9);
+    });
+
+    const calls = onLaunchHeadless.mock.calls.map((c) => ({ command: c[1], label: c[2] }));
+    const codeCalls = calls.filter((c) => c.command.startsWith("/reggie-code-workflow --yes"));
+    const reggieCalls = calls.filter((c) => c.command.startsWith("/reggie-system-change --yes"));
+    const debugCalls = calls.filter((c) => c.command.startsWith("/reggie-debug-workflow --yes"));
+    expect(codeCalls).toHaveLength(5);
+    expect(reggieCalls).toHaveLength(1);
+    expect(debugCalls).toHaveLength(3);
+
+    // Labels carry the right per-domain prefix.
+    expect(codeCalls[0].label.startsWith("code -- repo-a/")).toBe(true);
+    expect(reggieCalls[0].label.startsWith("reggie-sys -- repo-a/")).toBe(true);
+    expect(debugCalls[0].label.startsWith("debug -- repo-a/")).toBe(true);
+  });
+
+  it("dispatches reggie-system slugs with /reggie-system-change --yes", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-rsys");
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+    mockInvoke.mockResolvedValue({
+      slugs: [{ slug: "rotate-keys", tier: null, mode: "reggie-system" }],
+      totalGroomed: 1,
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Start"));
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+    });
+    expect(onLaunchHeadless).toHaveBeenCalledWith(
+      "/projects/repo-a",
+      "/reggie-system-change --yes rotate-keys",
+      "reggie-sys -- repo-a/rotate-keys",
+      undefined,
+      undefined,
+    );
+  });
+
+  it("dispatches debug slugs with /reggie-debug-workflow --yes", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-dbg");
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+    mockInvoke.mockResolvedValue({
+      slugs: [{ slug: "fix-flaky", tier: null, mode: "debug" }],
+      totalGroomed: 1,
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Start"));
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+    });
+    expect(onLaunchHeadless).toHaveBeenCalledWith(
+      "/projects/repo-a",
+      "/reggie-debug-workflow --yes fix-flaky",
+      "debug -- repo-a/fix-flaky",
+      undefined,
+      undefined,
+    );
+  });
+
+  it("batch start skips a repo whose existing running session is reggie-sys or debug", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-skip");
+    const trackedRepos = [makeRepo({ groomedCount: 3 })];
+
+    // Headless reggie-sys session running on the repo — batch should skip it.
+    const headless = {
+      terminalId: "ht-existing-rsys",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "reggie-sys -- repo-a/some-slug",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: false,
+    };
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        headlessSessions={[headless]}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Batch Start Coding"));
+
+    await vi.waitFor(() => {
+      expect(screen.getByText("Batch Start Coding")).toBeTruthy();
+    });
+    expect(onLaunchHeadless).not.toHaveBeenCalled();
+  });
+
   it("does not skip repos where the promoted session is dead", async () => {
     const onLaunchHeadless = vi.fn().mockResolvedValue("ht-batch-2");
     const trackedRepos = [makeRepo({ groomedCount: 2 })];
@@ -738,5 +879,140 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("treats slugs with null/missing mode as code workflow", async () => {
+    // Active-task slugs always have mode=null. Confirm they dispatch via /reggie-code-workflow.
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-null-mode");
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+    mockInvoke.mockResolvedValue({
+      slugs: [{ slug: "active-1", tier: null, mode: null }],
+      totalGroomed: 1,
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Start"));
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+    });
+    expect(onLaunchHeadless).toHaveBeenCalledWith(
+      "/projects/repo-a",
+      "/reggie-code-workflow --yes active-1",
+      "code -- repo-a/active-1",
+      undefined,
+      undefined,
+    );
+  });
+
+  it("does not launch when partitionAndCap drops every slug (only unknown modes)", async () => {
+    // partitionAndCap keeps only `null/code/design`, `reggie-system`, `debug` modes.
+    // Slugs with any other mode (defensive case) are filtered from all three buckets,
+    // leaving `toLaunch` empty — no launches should fire.
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-x");
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+    mockInvoke.mockResolvedValue({
+      slugs: [{ slug: "weird", tier: null, mode: "unknown-mode" }],
+      totalGroomed: 1,
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Start"));
+
+    // Wait a tick for the async handler. No launch should have occurred.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(onLaunchHeadless).not.toHaveBeenCalled();
+  });
+});
+
+describe("CodeWorkflowTab walk-through (manual) flow", () => {
+  it("Walk through button on a manual task launches /reggie-manual-task and promotes the session", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-manual-1");
+    const onPromoteHeadless = vi.fn();
+    const trackedRepos = [makeRepo({
+      groomedCount: 1,
+      groomedTasks: [
+        { slug: "shave-yak", description: "Shave the yak", mode: "manual" },
+      ],
+    })];
+
+    const { container } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        onPromoteHeadless={onPromoteHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    fireEvent.click(container.querySelector(".repo-task-row")!);
+    const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
+    const btn = queuedItems[0].querySelector("button")!;
+    expect(btn.textContent).toBe("Walk through");
+    fireEvent.click(btn);
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+    });
+    // Manual tasks dispatch via /reggie-manual-task (visible launch), with the standard
+    // "code -- <repo>/<slug>" label so de-dupe scans still match the slug.
+    expect(onLaunchHeadless).toHaveBeenCalledWith(
+      "/projects/repo-a",
+      "/reggie-manual-task shave-yak",
+      "code -- repo-a/shave-yak",
+      undefined,
+      undefined,
+    );
+    // After launch returns a terminal id, the session is promoted so the user sees it
+    // on the Sessions tab.
+    expect(onPromoteHeadless).toHaveBeenCalledWith("ht-manual-1");
+  });
+
+  it("does not call onPromoteHeadless when onLaunchHeadless returns no terminalId", async () => {
+    // Defensive: if launch fails or returns null, we must not crash trying to promote nothing.
+    const onLaunchHeadless = vi.fn().mockResolvedValue(null);
+    const onPromoteHeadless = vi.fn();
+    const trackedRepos = [makeRepo({
+      groomedCount: 1,
+      groomedTasks: [
+        { slug: "manual-x", description: "Manual X", mode: "manual" },
+      ],
+    })];
+
+    const { container } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        onPromoteHeadless={onPromoteHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    fireEvent.click(container.querySelector(".repo-task-row")!);
+    const btn = container.querySelector(".repo-task-row-session.queued button")!;
+    fireEvent.click(btn);
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+    });
+    expect(onPromoteHeadless).not.toHaveBeenCalled();
   });
 });

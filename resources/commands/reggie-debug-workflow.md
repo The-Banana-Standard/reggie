@@ -37,7 +37,79 @@ You are orchestrating a debug workflow. This is a conversational debugging proce
 
 **IMPORTANT**: You (the main Claude) run this workflow directly. Read `~/.claude/agents/reggie-debug-manager.md` for stage guidance, then launch the reggie-codebase-debugger agent via the Task tool during DEBUG-DIALOGUE. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
-**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. INTAKE clarifications, convergence checks, diagnosis confirmation, and handoff prompts are auto-approved.
+**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and auto-approve stage gates **within** a single debug session — INTAKE clarifications, convergence checks during DEBUG-DIALOGUE, and the diagnosis confirmation. The HANDOFF summary checkpoint at the end of each slug is **never** auto-approved; the user always reviews summaries before moving to the next debug task.
+
+**`--yes <slug>` mode (slug-mode entry)**: When `--yes` is followed by a slug argument (e.g., `/reggie-debug-workflow --yes investigate-stale-meta`), the pipeline enters **slug-mode**:
+
+1. **Cross-pipeline guard** (FIRST — before reading anything else): Read the slug's line in TASKS.md and pattern-match the mode tag inside square brackets.
+   - `[code]` / `[design]` → print:
+     ```
+     [slug] is a [code]/[design] task. Run:
+       /reggie-code-workflow [slug]
+     ```
+     Exit cleanly with `~~REGGIE:DONE:reggie-debug-workflow:failed~~`.
+   - `[manual]` → print:
+     ```
+     [slug] is a [manual] task. Run:
+       /reggie-manual-task [slug]
+     ```
+     Exit.
+   - `[reggie-system]` → print:
+     ```
+     [slug] is a [reggie-system] task. Run:
+       /reggie-system-change --yes [slug]
+     ```
+     Exit.
+   - `[debug]` → proceed.
+   - Slug not in TASKS.md → print "not found" and exit.
+
+2. **Slug-mode entry path**: Read `.pipeline/<slug>/task.md` and use its Problem / Vision / Context / Acceptance Criteria sections as the symptom + investigation context.
+   - **Skip Stage 1 (INTAKE)** clarification questions — task.md already documents the symptoms.
+   - **Enter at Stage 2 (DEBUG-DIALOGUE)**: launch `reggie-codebase-debugger` with task.md as the symptom summary, auto-approve all convergence checks (since `--yes` is active).
+   - **Run Stage 3 (HANDOFF)** with the structured summary format below.
+
+3. **HANDOFF summary** (printed in the session, not just a file): The HANDOFF stage MUST end every debug slug — including slug-mode runs — with a structured summary in this exact format:
+
+   ```
+   ## Debug Summary: [slug]
+
+   ### Hypotheses tested
+   - [hypothesis 1]: [confirmed / ruled out / inconclusive] — [1-line evidence]
+   - [hypothesis 2]: ...
+
+   ### Root cause identified
+   [Clear single-paragraph statement, OR "Inconclusive — see Open Questions"]
+
+   ### Fix applied (if any)
+   [Description of fix, or "No fix applied — diagnosis only"]
+
+   ### Confidence level
+   [High / Medium / Low] — [1-line justification]
+
+   ### Open questions
+   - [unresolved question 1]
+   - [unresolved question 2]
+   - [Or: "None"]
+   ```
+
+   This summary is also written to `.pipeline/<slug>/HANDOFF.md` for downstream pipelines.
+
+4. **End-of-slug checkpoint prompt** (always shown — never auto-approved by `--yes`): After printing the summary, present these three options exactly:
+
+   ```
+   What next?
+     1. Continue investigating this bug
+     2. Move to next debug task
+     3. Done
+
+   (Type 1 / 2 / 3, or "Next" as a synonym for option 2.)
+   ```
+
+   - **Option 1 ("Continue investigating this bug")**: Re-enter Stage 2 (DEBUG-DIALOGUE) for the same slug. Carry the prior hypotheses and evidence forward — don't restart from scratch.
+   - **Option 2 / "Next" / "Move to next"**: Mark the current slug `[x]` in TASKS.md, move to HISTORY.md with the standard meta-commit, then scan `## Backlog` for the next `[debug]` slug in document order. If one exists, re-enter slug-mode with that slug. If none remain, exit cleanly with `~~REGGIE:DONE:reggie-debug-workflow:success~~`.
+   - **Option 3 ("Done")**: Mark the current slug `[x]` (assuming the user is satisfied with the diagnosis), exit cleanly with `~~REGGIE:DONE:reggie-debug-workflow:success~~`.
+
+   **Auto-continue rule**: The orchestrator MUST NOT auto-continue to the next `[debug]` slug without an explicit "Next" / "Move to next" / "2" from the user. `--yes` accelerates work *within* a debug session but never bypasses this checkpoint between sessions. This is intentional — debug findings often warrant human pause.
 
 ### The Pipeline
 
@@ -55,7 +127,8 @@ INTAKE → DEBUG-DIALOGUE → HANDOFF → [code-workflow at PLAN]
 ```
 /reggie-debug-workflow                              # Prompts for symptom description
 /reggie-debug-workflow the app crashes on launch    # With initial symptoms
-/reggie-debug-workflow --yes                        # Auto-approve all gates (Ralph Wiggum mode)
+/reggie-debug-workflow --yes                        # Auto-approve in-session gates (still pauses at HANDOFF checkpoint)
+/reggie-debug-workflow --yes <slug>                 # Slug-mode: read .pipeline/<slug>/task.md as symptom context, run autonomously, end with HANDOFF summary + checkpoint
 /reggie-debug-workflow $ARGUMENTS                   # Captures all args as symptoms
 ```
 

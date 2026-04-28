@@ -45,6 +45,8 @@ export interface HeadlessTerminalStatus {
 export interface TaskItem {
   slug: string;
   description: string;
+  /** Mode tag from the parsed task: "code" | "design" | "manual" | "reggie-system" | "debug" | null. */
+  mode?: string | null;
 }
 
 export interface RepoTaskSummary {

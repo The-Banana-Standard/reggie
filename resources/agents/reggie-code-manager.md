@@ -46,10 +46,20 @@ When `--yes` is present in $ARGUMENTS (from `/reggie-code-workflow --yes`), the 
 
 The pipeline supports multiple modes that share all infrastructure (worktrees, TASKS.md, quality gates, context seeding, skip lists, conflict detection, merge strategies) but differ in stage sequence and agent routing.
 
-| Mode | Stage Sequence |
-|------|---------------|
-| code | PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER → COMMIT → COMPLETE |
-| brainstorm | BRAINSTORM → ... (creates task via /reggie-init-tasks, then continues as code mode) |
+| Mode | Stage Sequence | Picked up by |
+|------|---------------|--------------|
+| code | PICKUP → IMPLEMENT → WRITE-TESTS → QUALITY-CHECK → SIMPLIFY → VERIFY-APP → REVIEW → SECURITY-REVIEW → SYNC-DOCS → UPDATE-CLAUDE → REVIEW-WITH-USER → COMMIT → COMPLETE | `/reggie-code-workflow` |
+| design | Same as code, but reggie-design-innovator leads IMPLEMENT | `/reggie-code-workflow` |
+| brainstorm | BRAINSTORM → ... (creates task via /reggie-init-tasks, then continues as code mode) | `/reggie-brainstorm` |
+| manual | Interactive walk through `.pipeline/<slug>/task.md` acceptance criteria | `/reggie-manual-task <slug>` (NOT picked up by `/reggie-code-workflow`) |
+| reggie-system | INTAKE → BRAINSTORM → PLAN → IMPLEMENT → VERIFY (slug-mode skips INTAKE/BRAINSTORM) | `/reggie-system-change --yes <slug>` (NOT picked up by `/reggie-code-workflow`) |
+| debug | INTAKE → DEBUG-DIALOGUE → HANDOFF (slug-mode auto-approves stage gates) | `/reggie-debug-workflow --yes <slug>` (NOT picked up by `/reggie-code-workflow`) |
+
+**Cross-pipeline contract**: `[manual]`, `[reggie-system]`, and `[debug]` tasks are tagged in TASKS.md the same way as `[code]` and `[design]`, but they are **invisible** to `/reggie-code-workflow` — code-workflow's PICKUP stage filters them out and prints a redirect to the appropriate pipeline. Each non-code pipeline owns its own slug-mode entry and its own auto-continue (Wiggum) loop:
+
+- `/reggie-manual-task <slug>` — interactive only; never auto-continues across slugs.
+- `/reggie-system-change --yes <slug>` — autonomous; auto-continues to next `[reggie-system]` slug serially (cap=1 concurrent).
+- `/reggie-debug-workflow --yes <slug>` — autonomous within stages, but ends each slug with a HANDOFF summary + checkpoint prompt; only auto-continues to the next `[debug]` slug on explicit user "Next" / "Move to next".
 
 **Mode affects:**
 1. **Stage sequence**: Which stages run and in what order
@@ -647,7 +657,7 @@ Each task is a single metadata-rich line with an optional `files:` line. Full ta
 - **Dependencies**: `[depends: other-slug]` — blocked until other-slug completes
 - **Conflicts**: `[conflicts: other-slug]` — cannot run in parallel (touches same files)
 - **Complexity**: `[simple]` / `[moderate]` / `[complex]`
-- **Pipeline mode**: `[code]`
+- **Pipeline mode**: `[code]` (default) / `[design]` / `[manual]` / `[reggie-system]` / `[debug]`. Only `[code]` and `[design]` are picked up by `/reggie-code-workflow`. `[manual]` is picked up by `/reggie-manual-task`, `[reggie-system]` by `/reggie-system-change`, `[debug]` by `/reggie-debug-workflow`. PICKUP guards in each pipeline reject mismatched modes with a redirect.
 - **Plan status**: `[planned]` (has task.md with implementation plan) — required for code-workflow pickup
 - **Files**: `files:` line lists NEW/MOD files from the plan (helps conflict detection)
 

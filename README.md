@@ -126,7 +126,10 @@ See [resources/docs/REGGIE.md](resources/docs/REGGIE.md) for agent-system philos
 |---------|-------------|
 | `/reggie-guide` | Help and command map |
 | `/reggie-init-tasks` | Turn raw backlog notes into implementation-ready tasks |
-| `/reggie-code-workflow` | Run full implementation pipeline with quality gates |
+| `/reggie-code-workflow` | Run full implementation pipeline with quality gates (`[code]`, `[design]` tasks) |
+| `/reggie-debug-workflow` | Diagnose before fixing — Socratic debug dialogue (`[debug]` tasks) |
+| `/reggie-system-change` | Formalize changes to agent system components (`[reggie-system]` tasks) |
+| `/reggie-manual-task` | Walk through a manual task step-by-step (`[manual]` tasks) |
 | `/reggie-find-tools` | Scan project and optionally configure MCP servers |
 | `/reggie-status` | Show current task and pipeline stage |
 
@@ -136,7 +139,7 @@ See [resources/docs/REGGIE.md](resources/docs/REGGIE.md) for agent-system philos
 
 - **Backend:** Rust (Tauri v2, portable-pty, tokio)
 - **Frontend:** React 19 + TypeScript (strict), xterm.js v6
-- **Storage:** SQLite via `tauri-plugin-sql`
+- **Storage:** JSON file (`app_data_dir/bookmarks.json`) via Tauri `read_bookmarks` / `write_bookmarks` commands
 - **Build:** Vite 7, Cargo
 
 ---

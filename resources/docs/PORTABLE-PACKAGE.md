@@ -366,6 +366,14 @@ The pipeline system tracks state in a `TASKS.md` file in your project root. Mult
 - [ ] add-leaderboard: Global top-100 leaderboard backed by Firestore with daily reset [P2] [moderate] [tier: opus:medium] [code] [planned] [depends: add-push-notifications]
   files: src/screens/LeaderboardView.swift, firestore.rules
 
+- [ ] refresh-onboarding-screens: Redesign first-run flow to match new brand [P2] [moderate] [design] [planned]
+
+- [ ] update-agent-system-prompts: Revise system prompt for reggie-code-reviewer to tighten review criteria [P1] [simple] [reggie-system] [planned]
+
+- [ ] fix-auth-token-expiry: Users get silently logged out when access token expires mid-session [P1] [simple] [debug] [planned]
+
+- [ ] rotate-api-keys-in-prod: Manually rotate all Firebase service account keys [P1] [manual] [planned]
+
 ### Ungroomed
 
 - [ ] investigate-cold-start-latency: First launch takes ~4s on older devices
@@ -373,6 +381,20 @@ The pipeline system tracks state in a `TASKS.md` file in your project root. Mult
 ```
 
 Completed tasks migrate from `## Active Tasks` to a separate `HISTORY.md` file at COMPLETE stage — they are not kept in TASKS.md. Each active task gets an isolated `.pipeline/[slug]/` directory containing its `task.md` (from `/reggie-init-tasks`), `CONTEXT.md`, `HANDOFF.md`, and `DECISIONS.md`.
+
+### Mode Tags
+
+A mode tag on a backlog task controls which pipeline command runs and how the Reggie UI presents the task.
+
+| Tag | Command dispatched | UI button | Concurrent cap |
+|-----|--------------------|-----------|----------------|
+| `[code]` | `/reggie-code-workflow` | Start | 5 |
+| `[design]` | `/reggie-code-workflow` | Start | 5 (shared with code) |
+| `[debug]` | `/reggie-debug-workflow` | Debug | 3 |
+| `[reggie-system]` | `/reggie-system-change` | Start | 1 |
+| `[manual]` | `/reggie-manual-task` | Walk through | — |
+
+Tasks without a mode tag are treated as `[code]` by default. The Reggie app enforces the concurrent caps when "Batch Start" is clicked and shows per-domain aggregate badges (e.g., "2 code running, 1 reggie-sys running") in the CodeWorkflow tab header.
 
 ---
 

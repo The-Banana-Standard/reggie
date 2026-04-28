@@ -75,7 +75,20 @@ export function SettingsPanel() {
     };
   }, []);
 
+  const scheduleReinstallReset = useCallback(() => {
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    dismissTimer.current = setTimeout(() => {
+      setReinstallState("idle");
+      setReinstallMessage("");
+      dismissTimer.current = null;
+    }, 2500);
+  }, []);
+
   const handleReinstall = useCallback(async () => {
+    if (dismissTimer.current) {
+      clearTimeout(dismissTimer.current);
+      dismissTimer.current = null;
+    }
     setReinstallState("reinstalling");
     setReinstallMessage("");
     try {
@@ -88,7 +101,8 @@ export function SettingsPanel() {
       setReinstallState("error");
       setReinstallMessage(`Failed: ${err}`);
     }
-  }, [loadStatus]);
+    scheduleReinstallReset();
+  }, [loadStatus, scheduleReinstallReset]);
 
   const handleAddToProfile = useCallback(async () => {
     setEnvStatus("adding");
@@ -116,6 +130,15 @@ export function SettingsPanel() {
     if (uninstallState === "uninstalling") return;
     setUninstallModalOpen(false);
   }, [uninstallState]);
+
+  useEffect(() => {
+    if (!uninstallModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeUninstallModal();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [uninstallModalOpen, closeUninstallModal]);
 
   const handleConfirmUninstall = useCallback(async () => {
     setUninstallState("uninstalling");
@@ -305,8 +328,14 @@ export function SettingsPanel() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="uninstall-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeUninstallModal();
+          }}
         >
-          <div className="settings-modal">
+          <div
+            className="settings-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h4 id="uninstall-modal-title" className="settings-modal-title">
               Remove Reggie Files?
             </h4>
@@ -403,6 +432,7 @@ export function SettingsPanel() {
                   </button>
                   <button
                     className="settings-btn danger"
+                    aria-label="Confirm remove Reggie files"
                     onClick={handleConfirmUninstall}
                     disabled={uninstallState === "uninstalling"}
                   >

@@ -41,6 +41,32 @@ When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confir
 
 **Does NOT affect**: Judge scoring (9.0/10) on new-component plans, file validation checks, cross-reference verification.
 
+### Slug-Mode Entry Path (`--yes <slug>`)
+
+When `--yes` is followed by a slug argument, the pipeline enters **slug-mode**: it reads `.pipeline/<slug>/task.md` as the authoritative plan input and skips conversational stages.
+
+**Cross-pipeline guard (FIRST — before reading task.md):** Pattern-match the slug's TASKS.md line for its mode tag.
+- `[code]` / `[design]` → redirect to `/reggie-code-workflow [slug]`, exit.
+- `[manual]` → redirect to `/reggie-manual-task [slug]`, exit.
+- `[debug]` → redirect to `/reggie-debug-workflow --yes [slug]`, exit.
+- `[reggie-system]` → proceed.
+- Slug not in TASKS.md → print "not found" and exit.
+
+**Stage skipping**: With `--yes <slug>`:
+- **Skip Stage 1 (INTAKE)** — task.md already has WHAT/WHY/CONTEXT.
+- **Skip Stage 2 (BRAINSTORM)** — design was locked at init-tasks ORGANIZE time.
+- **Skip the PLAN judge gate** — the plan was already evaluated at init-tasks time and accepted by the user; re-judging is wasted work.
+- **Enter at Stage 3 (PLAN)**: present `.pipeline/<slug>/task.md`'s `## Implementation Plan` as the change plan, auto-approve, advance.
+- Run Stage 4 (IMPLEMENT) and Stage 5 (VERIFY) normally with auto-approval.
+
+**Auto-continue (serial Wiggum loop)**: After VERIFY passes:
+1. Mark the slug `[x]` in TASKS.md (move to HISTORY.md), commit metadata.
+2. Scan `## Backlog` for the next `[reggie-system]` slug in document order.
+3. If found: run `/compact` preserving `--yes` and slug-mode context, then re-enter the pipeline with that next slug.
+4. If none remain: exit cleanly.
+
+**Runtime cap = 1.** This pipeline is strictly serial. Every `[reggie-system]` change touches `~/.claude/` (or the resources/ source-of-truth tree); parallel edits would race. Never launch a second `/reggie-system-change` while one is active, even from a batch sweep.
+
 ### On-Demand Research
 
 BRAINSTORM and PLAN can dispatch the **reggie-researcher** agent when questions arise about current system state that require reading many files. This is not a sequential stage — it is a tool available to the orchestrator when the reggie-thought-partner needs information not already in context, or when dependency tracing during planning requires broad file exploration.

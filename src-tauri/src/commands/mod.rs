@@ -1,4 +1,5 @@
 pub mod terminal;
+pub mod bookmarks;
 pub mod claude_data;
 pub mod frontmatter;
 pub mod git;

@@ -12,6 +12,27 @@ import {
   resizeHeadlessTerminal,
 } from "../../services/terminal-service";
 
+/**
+ * Returns false when the element is not actually rendered (e.g. display:none).
+ * `offsetParent === null` is the canonical "not in the render tree" check —
+ * it returns null for display:none elements and their descendants. The
+ * rect.width belt-and-suspenders catches edge cases where layout exists but
+ * is implausibly small (e.g. a parent collapsed to near-zero mid-transition).
+ *
+ * Why this matters: calling fitAddon.fit() while hidden makes
+ * proposeDimensions() read `getComputedStyle(parent).width` as the literal
+ * string "100%" → parseInt("100%") === 100 → cols ≈ 10 → that narrow size
+ * is pushed to the PTY and Claude's TUI bakes hard newlines into the buffer
+ * that cannot be un-wrapped on re-show.
+ * See .pipeline/fix-sessions-tab-width-on-return/HANDOFF.md for the full chain.
+ */
+function isContainerVisible(el: HTMLElement | null): boolean {
+  if (!el) return false;
+  if (el.offsetParent === null) return false;
+  if (el.getBoundingClientRect().width < 50) return false;
+  return true;
+}
+
 const darkTheme = {
   background: "#0D0D0D",
   foreground: "#E0E0E0",
@@ -158,10 +179,9 @@ export function TerminalView({
           });
 
           const ro = new ResizeObserver(() => {
-            if (container) {
-              fitAddon.fit();
-              resizeHeadlessTerminal(headlessId, xterm.rows, xterm.cols).catch(console.error);
-            }
+            if (!isContainerVisible(container)) return;
+            fitAddon.fit();
+            resizeHeadlessTerminal(headlessId, xterm.rows, xterm.cols).catch(console.error);
           });
           ro.observe(container);
           roRef.current = ro;
@@ -199,10 +219,9 @@ export function TerminalView({
         });
 
         const ro = new ResizeObserver(() => {
-          if (container) {
-            fitAddon.fit();
-            resizeTerminal(termId, xterm.rows, xterm.cols).catch(console.error);
-          }
+          if (!isContainerVisible(container)) return;
+          fitAddon.fit();
+          resizeTerminal(termId, xterm.rows, xterm.cols).catch(console.error);
         });
         ro.observe(container);
         roRef.current = ro;
@@ -251,6 +270,7 @@ export function TerminalView({
 
       const doFit = () => {
         if (cancelled) return;
+        if (!isContainerVisible(containerRef.current)) return;
         fitAddonRef.current?.fit();
         if (terminalIdRef.current && xtermRef.current) {
           const resizeFn = tab.isHeadlessPromoted ? resizeHeadlessTerminal : resizeTerminal;

@@ -14,7 +14,28 @@ interface RepoTaskRowProps {
   onKillSession?: (terminalId: string) => void;
   onTrashSession?: (terminalId: string) => void;
   onKillPromotedSession?: (tabId: string) => void;
-  onStartTask?: (repoPath: string, repoName: string, slug: string, tier?: string) => void;
+  /** Headless dispatch of a single backlog task. `mode` selects the workflow command. */
+  onStartTask?: (
+    repoPath: string,
+    repoName: string,
+    slug: string,
+    tier?: string,
+    mode?: string | null,
+  ) => void;
+  /** Visible dispatch of a `[manual]` task — launches `/reggie-manual-task` and promotes the session. */
+  onWalkThroughTask?: (repoPath: string, repoName: string, slug: string) => void;
+}
+
+/** Map a session label prefix to the domain ("code", "reggieSystem", "debug") for per-domain badges. */
+function domainForLabel(label: string): "code" | "reggieSystem" | "debug" | null {
+  if (label.startsWith("code --")) return "code";
+  if (label.startsWith("reggie-sys --")) return "reggieSystem";
+  if (label.startsWith("debug --")) return "debug";
+  return null;
+}
+
+function isWorkflowLabel(label: string): boolean {
+  return domainForLabel(label) !== null;
 }
 
 function extractSlug(label: string): string {
@@ -45,18 +66,25 @@ export function RepoTaskRow({
   onTrashSession,
   onKillPromotedSession,
   onStartTask,
+  onWalkThroughTask,
 }: RepoTaskRowProps) {
   const [expanded, setExpanded] = useState(false);
 
   const count = mode === "init" ? repo.ungroomedCount : repo.groomedCount + repo.activeCount;
   const isDone = count === 0;
 
-  // Promoted sessions: tabs that were promoted from headless and match this mode
+  // Promoted sessions: tabs that were promoted from headless and match this mode.
+  // In code mode we accept any workflow domain (code, reggie-sys, debug). In init mode we
+  // still match only the "init-tasks" prefix.
   const promotedSessions = useMemo(() => {
     if (!repoTabs) return [];
-    const prefix = mode === "init" ? "init-tasks" : "code --";
+    if (mode === "init") {
+      return repoTabs.filter(
+        (s) => s.isHeadlessPromoted && s.label.startsWith("init-tasks"),
+      );
+    }
     return repoTabs.filter(
-      (s) => s.isHeadlessPromoted && s.label.startsWith(prefix)
+      (s) => s.isHeadlessPromoted && isWorkflowLabel(s.label),
     );
   }, [repoTabs, mode]);
 
@@ -99,10 +127,25 @@ export function RepoTaskRow({
   }, [repoTabs]);
 
   const aggregate = useMemo(() => {
-    let running = 0;
+    // Per-domain running counts (code/design, reggie-system, debug). Other status
+    // counts (attention/exited/completed) stay flat — domain-splitting them adds
+    // little signal for the user and clutters the badge row.
+    let runningCode = 0;
+    let runningReggieSystem = 0;
+    let runningDebug = 0;
+    let runningOther = 0;
     let attention = 0;
     let exited = 0;
     let completed = 0;
+
+    const tallyRunning = (label: string) => {
+      const domain = domainForLabel(label);
+      if (domain === "code") runningCode++;
+      else if (domain === "reggieSystem") runningReggieSystem++;
+      else if (domain === "debug") runningDebug++;
+      else runningOther++;
+    };
+
     for (const s of unpromotedHeadlessSessions) {
       if (s.completed) {
         completed++;
@@ -111,7 +154,7 @@ export function RepoTaskRow({
       } else if (s.needsAttention) {
         attention++;
       } else {
-        running++;
+        tallyRunning(s.label);
       }
     }
     // Count promoted sessions as running (they are live terminal views)
@@ -119,10 +162,20 @@ export function RepoTaskRow({
       if (s.dead || s.headlessCompleted) {
         completed++;
       } else {
-        running++;
+        tallyRunning(s.label);
       }
     }
-    return { running, attention, exited, completed };
+    const running = runningCode + runningReggieSystem + runningDebug + runningOther;
+    return {
+      running,
+      runningCode,
+      runningReggieSystem,
+      runningDebug,
+      runningOther,
+      attention,
+      exited,
+      completed,
+    };
   }, [unpromotedHeadlessSessions, promotedSessions]);
 
   const handleDismissAll = useCallback(() => {
@@ -155,24 +208,59 @@ export function RepoTaskRow({
     }
   }, [handleToggleExpand]);
 
-  // Aggregate status label for collapsed state (when sessions exist)
+  // Aggregate status label for collapsed state (when sessions exist).
+  // Running is split per-domain so users can see "2 code running, 1 reggie-sys running, 3 debug running"
+  // at a glance. Non-running statuses stay flat.
   const aggregateBadges = useMemo(() => {
     if (!hasSessions) return null;
-    const parts: { label: string; className: string }[] = [];
-    if (aggregate.running > 0) {
-      parts.push({ label: `${aggregate.running} running`, className: "running" });
+    const parts: { key: string; label: string; className: string }[] = [];
+    // For init mode (where labels carry no workflow prefix) and any sessions whose label
+    // isn't workflow-prefixed, fall back to a flat "N running" badge.
+    if (mode === "init") {
+      if (aggregate.running > 0) {
+        parts.push({ key: "running", label: `${aggregate.running} running`, className: "running" });
+      }
+    } else {
+      if (aggregate.runningCode > 0) {
+        parts.push({
+          key: "running-code",
+          label: `${aggregate.runningCode} code running`,
+          className: "running",
+        });
+      }
+      if (aggregate.runningReggieSystem > 0) {
+        parts.push({
+          key: "running-reggie-sys",
+          label: `${aggregate.runningReggieSystem} reggie-sys running`,
+          className: "running",
+        });
+      }
+      if (aggregate.runningDebug > 0) {
+        parts.push({
+          key: "running-debug",
+          label: `${aggregate.runningDebug} debug running`,
+          className: "running",
+        });
+      }
+      if (aggregate.runningOther > 0) {
+        parts.push({
+          key: "running-other",
+          label: `${aggregate.runningOther} running`,
+          className: "running",
+        });
+      }
     }
     if (aggregate.attention > 0) {
-      parts.push({ label: `${aggregate.attention} attention`, className: "attention" });
+      parts.push({ key: "attention", label: `${aggregate.attention} attention`, className: "attention" });
     }
     if (aggregate.completed > 0) {
-      parts.push({ label: `${aggregate.completed} completed`, className: "completed" });
+      parts.push({ key: "completed", label: `${aggregate.completed} completed`, className: "completed" });
     }
     if (aggregate.exited > 0) {
-      parts.push({ label: `${aggregate.exited} exited`, className: "exited" });
+      parts.push({ key: "exited", label: `${aggregate.exited} exited`, className: "exited" });
     }
     return parts;
-  }, [hasSessions, aggregate]);
+  }, [hasSessions, aggregate, mode]);
 
   const getPromotedTab = useCallback((terminalId: string): TerminalTab | undefined => {
     if (!repoTabs) return undefined;
@@ -198,6 +286,40 @@ export function RepoTaskRow({
       onHideSession(promotedTab.id);
     }
   }, [getPromotedTab, onHideSession]);
+
+  // Pick the action button for a task item based on its mode tag:
+  //   manual        -> "Walk through" (visible launch via onWalkThroughTask)
+  //   debug         -> "Debug"        (headless via onStartTask)
+  //   reggie-system -> "Start"        (headless via onStartTask)
+  //   code/design/— -> "Start"        (headless via onStartTask)
+  function renderTaskItemActions(item: typeof taskItems[number]) {
+    if (!item.slug) return null;
+    const itemMode = item.mode ?? null;
+    if (itemMode === "manual") {
+      if (!onWalkThroughTask) return null;
+      return (
+        <div className="repo-task-row-session-actions">
+          <button
+            className="repo-task-row-btn"
+            onClick={() => onWalkThroughTask(repo.path, repo.name, item.slug)}
+          >
+            Walk through
+          </button>
+        </div>
+      );
+    }
+    if (!onStartTask) return null;
+    return (
+      <div className="repo-task-row-session-actions">
+        <button
+          className="repo-task-row-btn"
+          onClick={() => onStartTask(repo.path, repo.name, item.slug, undefined, itemMode)}
+        >
+          {itemMode === "debug" ? "Debug" : "Start"}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={`repo-task-row-container${aggregate.attention > 0 ? " attention" : ""}`}>
@@ -229,7 +351,7 @@ export function RepoTaskRow({
           {isExpandable && aggregateBadges && (
             <div className="repo-task-row-aggregate">
               {aggregateBadges.map((badge) => (
-                <span key={badge.className} className={`repo-task-row-aggregate-badge ${badge.className}`}>
+                <span key={badge.key} className={`repo-task-row-aggregate-badge ${badge.className}`}>
                   {badge.className === "running" && <span className="repo-task-row-status-dot" />}
                   {badge.className === "attention" && <span className="repo-task-row-status-pulse" />}
                   {badge.label}
@@ -312,6 +434,15 @@ export function RepoTaskRow({
                       title="Kill process"
                     >
                       Kill
+                    </button>
+                  )}
+                  {isDead && onKillPromotedSession && (
+                    <button
+                      className="repo-task-row-btn dismiss"
+                      onClick={() => onKillPromotedSession(tab.id)}
+                      title="Trash completed session"
+                    >
+                      Trash
                     </button>
                   )}
                 </div>
@@ -399,16 +530,7 @@ export function RepoTaskRow({
                     : (item.slug ? `${item.slug}: ${item.description}` : item.description)}
                 </span>
               </div>
-              {mode === "code" && item.slug && onStartTask && (
-                <div className="repo-task-row-session-actions">
-                  <button
-                    className="repo-task-row-btn"
-                    onClick={() => onStartTask(repo.path, repo.name, item.slug)}
-                  >
-                    Start
-                  </button>
-                </div>
-              )}
+              {mode === "code" && renderTaskItemActions(item)}
             </div>
           ))}
         </div>

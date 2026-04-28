@@ -415,7 +415,7 @@ describe("RepoTaskRow", () => {
         />
       );
 
-      expect(screen.getByText("1 running")).toBeTruthy();
+      expect(screen.getByText("1 code running")).toBeTruthy();
       expect(screen.getByText("1 completed")).toBeTruthy();
     });
 

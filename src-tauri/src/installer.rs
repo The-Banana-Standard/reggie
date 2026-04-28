@@ -32,6 +32,9 @@ const SHELL_EXPORT_LINE: &str = "export ENABLE_TOOL_SEARCH=auto:5";
 /// The fish shell equivalent.
 const FISH_EXPORT_LINE: &str = "set -gx ENABLE_TOOL_SEARCH auto:5";
 
+/// The comment line written above the export, matched verbatim during uninstall.
+const REGGIE_COMMENT_LINE: &str = "# Added by Reggie — enables Claude Code auto tool search";
+
 // ── Public types ──────────────────────────────────────────────────────────
 
 /// Returned from `run_install` to summarize what happened.
@@ -219,7 +222,8 @@ pub fn add_to_shell_profile() -> Result<String, String> {
         content.push('\n');
     }
     content.push('\n');
-    content.push_str("# Added by Reggie — enables Claude Code auto tool search\n");
+    content.push_str(REGGIE_COMMENT_LINE);
+    content.push('\n');
     content.push_str(export_line);
     content.push('\n');
 
@@ -343,7 +347,12 @@ pub fn uninstall_reggie_files(
     remove_shell_profile: bool,
 ) -> Result<UninstallReport, String> {
     let claude_dir = get_claude_dir()?;
-    let bundled_docs = list_bundled_doc_names(&app).unwrap_or_default();
+    let bundled_docs = list_bundled_doc_names(&app).unwrap_or_else(|e| {
+        eprintln!(
+            "uninstall: list_bundled_doc_names failed ({e}); non-prefixed bundled docs will not be removed"
+        );
+        Vec::new()
+    });
     run_uninstall(&claude_dir, remove_shell_profile, &bundled_docs)
 }
 
@@ -855,27 +864,42 @@ fn remove_stats_hook_from_settings(settings_path: &Path) -> Result<bool, String>
 
     let mut settings: Value = match serde_json::from_str(&raw) {
         Ok(v) => v,
-        Err(_) => {
-            // Can't safely mutate malformed JSON; leave it alone.
+        Err(e) => {
+            eprintln!(
+                "uninstall: settings.json at {} is malformed JSON ({e}); leaving stats hook in place",
+                settings_path.display()
+            );
             return Ok(false);
         }
     };
 
     let Some(obj) = settings.as_object_mut() else {
+        eprintln!(
+            "uninstall: settings.json at {} is not a JSON object; nothing to clean",
+            settings_path.display()
+        );
         return Ok(false);
     };
 
     // Walk to hooks.PostToolUse without creating missing keys.
     let Some(hooks_val) = obj.get_mut("hooks") else {
+        // No hooks block at all — nothing to remove, not an error condition.
         return Ok(false);
     };
     let Some(hooks) = hooks_val.as_object_mut() else {
+        eprintln!(
+            "uninstall: settings.json `hooks` is not an object; cannot remove stats hook"
+        );
         return Ok(false);
     };
     let Some(post_val) = hooks.get_mut("PostToolUse") else {
+        // No PostToolUse — Reggie hook is not present, expected.
         return Ok(false);
     };
     let Some(post_arr) = post_val.as_array_mut() else {
+        eprintln!(
+            "uninstall: settings.json `hooks.PostToolUse` is not an array; cannot remove stats hook"
+        );
         return Ok(false);
     };
 
@@ -927,7 +951,7 @@ fn remove_shell_profile_export(profile_path: &Path) -> Result<bool, String> {
     let raw = fs::read_to_string(profile_path)
         .map_err(|e| format!("Failed to read {}: {e}", profile_path.display()))?;
 
-    let comment = "# Added by Reggie — enables Claude Code auto tool search";
+    let comment = REGGIE_COMMENT_LINE;
     let lines: Vec<&str> = raw.lines().collect();
     let mut kept: Vec<&str> = Vec::with_capacity(lines.len());
     let mut removed_any = false;

@@ -7,6 +7,7 @@ import { groupByWorkspace } from "./groupByWorkspace";
 interface ParallelizableTaskSlug {
   slug: string;
   tier: string | null;
+  mode: string | null;
 }
 
 interface ParallelizableTasksResult {
@@ -21,6 +22,56 @@ function parseTier(tier: string | null): { model: string | undefined; effort: st
     model: parts[0] || undefined,
     effort: parts[1] || undefined,
   };
+}
+
+/**
+ * Map a task's `mode` to the workflow command and session-label prefix used to dispatch it.
+ * Falls back to the code workflow for `code`, `design`, and any unrecognized/null mode.
+ */
+export function commandForMode(mode: string | null | undefined): {
+  command: string;
+  labelPrefix: string;
+} {
+  if (mode === "reggie-system") {
+    return { command: "/reggie-system-change --yes", labelPrefix: "reggie-sys --" };
+  }
+  if (mode === "debug") {
+    return { command: "/reggie-debug-workflow --yes", labelPrefix: "debug --" };
+  }
+  return { command: "/reggie-code-workflow --yes", labelPrefix: "code --" };
+}
+
+/**
+ * Whether a session label belongs to one of the dispatched workflows
+ * (code, reggie-system, or debug). Used to filter sessions per-repo and to
+ * skip repos in batch start that already have a workflow session running.
+ */
+export function isWorkflowLabel(label: string): boolean {
+  return (
+    label.startsWith("code --") ||
+    label.startsWith("reggie-sys --") ||
+    label.startsWith("debug --")
+  );
+}
+
+/** Per-domain caps applied client-side after the backend returns parallelizable slugs. */
+const DOMAIN_CAPS = {
+  code: 5,
+  reggieSystem: 1,
+  debug: 3,
+} as const;
+
+/**
+ * Partition slugs by domain (code/design vs. reggie-system vs. debug) and apply per-domain caps.
+ * Returns the concatenated slug list in dispatch order: code/design first, then reggie-system, then debug.
+ */
+function partitionAndCap(slugs: ParallelizableTaskSlug[]): ParallelizableTaskSlug[] {
+  const codeDesign = slugs
+    .filter((s) => !s.mode || s.mode === "code" || s.mode === "design")
+    .slice(0, DOMAIN_CAPS.code);
+  const reggieSystem = slugs.filter((s) => s.mode === "reggie-system").slice(0, DOMAIN_CAPS.reggieSystem);
+  const debug = slugs.filter((s) => s.mode === "debug").slice(0, DOMAIN_CAPS.debug);
+  return [...codeDesign, ...reggieSystem, ...debug];
 }
 
 interface CodeWorkflowTabProps {
@@ -140,20 +191,26 @@ export function CodeWorkflowTab({
         const result = await invoke<ParallelizableTasksResult>("get_parallelizable_tasks", {
           projectPath: repoPath,
         });
-        if (result.slugs.length > 0) {
-          // Launch one session per parallelizable slug
-          for (const entry of result.slugs) {
-            const { model, effort } = parseTier(entry.tier);
-            await onLaunchHeadless(
-              repoPath,
-              `/reggie-code-workflow --yes ${entry.slug}`,
-              `code -- ${repoName}/${entry.slug}`,
-              model,
-              effort,
-            );
-          }
-        } else {
+        if (result.slugs.length === 0) {
           showNoTasksMessage(repoName);
+          return;
+        }
+        // Partition by domain (code/design, reggie-system, debug) and apply per-domain caps.
+        const toLaunch = partitionAndCap(result.slugs);
+        if (toLaunch.length === 0) {
+          showNoTasksMessage(repoName);
+          return;
+        }
+        for (const entry of toLaunch) {
+          const { model, effort } = parseTier(entry.tier);
+          const { command, labelPrefix } = commandForMode(entry.mode);
+          await onLaunchHeadless(
+            repoPath,
+            `${command} ${entry.slug}`,
+            `${labelPrefix} ${repoName}/${entry.slug}`,
+            model,
+            effort,
+          );
         }
       } catch (err) {
         console.error("Failed to get parallelizable tasks:", err);
@@ -163,13 +220,14 @@ export function CodeWorkflowTab({
   );
 
   const handleStartIndividualTask = useCallback(
-    async (repoPath: string, repoName: string, slug: string, tier?: string) => {
+    async (repoPath: string, repoName: string, slug: string, tier?: string, mode?: string | null) => {
       try {
         const { model, effort } = parseTier(tier ?? null);
+        const { command, labelPrefix } = commandForMode(mode ?? null);
         await onLaunchHeadless(
           repoPath,
-          `/reggie-code-workflow --yes ${slug}`,
-          `code -- ${repoName}/${slug}`,
+          `${command} ${slug}`,
+          `${labelPrefix} ${repoName}/${slug}`,
           model,
           effort,
         );
@@ -180,21 +238,50 @@ export function CodeWorkflowTab({
     [onLaunchHeadless]
   );
 
+  // For [manual] tasks: launch headless with the manual-walkthrough command, then immediately
+  // promote so the user sees the session on the Sessions tab. The label still uses the
+  // "code -- <repo>/<slug>" prefix so the task de-dupes correctly against future scans.
+  const handleWalkThroughTask = useCallback(
+    async (repoPath: string, repoName: string, slug: string) => {
+      try {
+        const terminalId = await onLaunchHeadless(
+          repoPath,
+          `/reggie-manual-task ${slug}`,
+          `code -- ${repoName}/${slug}`,
+          undefined,
+          undefined,
+        );
+        if (terminalId) {
+          onPromoteHeadless(terminalId);
+        }
+      } catch (err) {
+        console.error("Failed to launch walk-through task:", err);
+      }
+    },
+    [onLaunchHeadless, onPromoteHeadless]
+  );
+
   const handleBatchStart = useCallback(async () => {
     const reposWithTasks = repos.filter((r) => r.groomedCount + r.activeCount > 0);
     if (reposWithTasks.length === 0) return;
 
     setBatchRunning(true);
     for (const repo of reposWithTasks) {
-      // Skip repos that already have a headless code session
+      // Skip repos that already have a headless workflow session running for any domain
+      // (code, reggie-system, or debug).
       const existingHeadless = headlessSessions.find(
-        (s) => s.projectPath === repo.path && s.label.startsWith("code --") && !s.exited
+        (s) => s.projectPath === repo.path && isWorkflowLabel(s.label) && !s.exited
       );
       if (existingHeadless) continue;
 
-      // Skip repos that have a promoted (visible) code-workflow session still running
+      // Skip repos that have a promoted (visible) workflow session still running.
       const existingPromoted = sessions.find(
-        (s) => s.projectPath === repo.path && s.isHeadlessPromoted && s.label.startsWith("code --") && !s.dead && !s.headlessCompleted
+        (s) =>
+          s.projectPath === repo.path &&
+          s.isHeadlessPromoted &&
+          isWorkflowLabel(s.label) &&
+          !s.dead &&
+          !s.headlessCompleted
       );
       if (existingPromoted) continue;
 
@@ -269,7 +356,7 @@ export function CodeWorkflowTab({
             )}
             {group.repos.map((repo) => {
               const repoSessions = headlessSessions.filter(
-                (s) => s.projectPath === repo.path && s.label.startsWith("code --")
+                (s) => s.projectPath === repo.path && isWorkflowLabel(s.label)
               );
               const repoTabs = sessions.filter(
                 (s) => s.projectPath === repo.path
@@ -291,6 +378,7 @@ export function CodeWorkflowTab({
                   onKillPromotedSession={onKillPromotedSession}
                   onTrashSession={onTrashSession}
                   onStartTask={handleStartIndividualTask}
+                  onWalkThroughTask={handleWalkThroughTask}
                 />
               );
             })}

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { resetTauriMocks, mockInvoke } from "../../../__test-utils__/tauri-mock";
 import { SettingsPanel } from "../SettingsPanel";
 
@@ -103,12 +103,9 @@ describe("SettingsPanel Danger Zone", () => {
       return Promise.reject(new Error(`Unexpected invoke: ${cmd}`));
     });
 
-    // Click the confirm button inside the modal (second one with this label).
-    const confirmButtons = screen.getAllByRole("button", {
-      name: "Remove Reggie Files",
-    });
-    // The modal's confirm button is the last one rendered.
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+    fireEvent.click(
+      screen.getByRole("button", { name: /confirm remove reggie files/i })
+    );
 
     await waitFor(() => {
       const uninstallCalls = mockInvoke.mock.calls.filter(
@@ -136,10 +133,9 @@ describe("SettingsPanel Danger Zone", () => {
       return Promise.reject(new Error(`Unexpected invoke: ${cmd}`));
     });
 
-    const confirmButtons = screen.getAllByRole("button", {
-      name: "Remove Reggie Files",
-    });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+    fireEvent.click(
+      screen.getByRole("button", { name: /confirm remove reggie files/i })
+    );
 
     await waitFor(() => {
       const uninstallCalls = mockInvoke.mock.calls.filter(
@@ -163,10 +159,9 @@ describe("SettingsPanel Danger Zone", () => {
       return Promise.reject(new Error(`Unexpected invoke: ${cmd}`));
     });
 
-    const confirmButtons = screen.getAllByRole("button", {
-      name: "Remove Reggie Files",
-    });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+    fireEvent.click(
+      screen.getByRole("button", { name: /confirm remove reggie files/i })
+    );
 
     expect(await screen.findByText(/Removed 3 files\./)).toBeTruthy();
     // Close button appears after success.
@@ -187,11 +182,154 @@ describe("SettingsPanel Danger Zone", () => {
       return Promise.reject(new Error(`Unexpected invoke: ${cmd}`));
     });
 
-    const confirmButtons = screen.getAllByRole("button", {
-      name: "Remove Reggie Files",
-    });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+    fireEvent.click(
+      screen.getByRole("button", { name: /confirm remove reggie files/i })
+    );
 
     expect(await screen.findByText(/Failed:.*permission denied/)).toBeTruthy();
+  });
+
+  it("closes modal when Escape is pressed", async () => {
+    render(<SettingsPanel />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Remove Reggie Files" })
+    );
+    expect(await screen.findByText("Remove Reggie Files?")).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Remove Reggie Files?")).toBeNull();
+    });
+  });
+
+  it("closes modal when overlay background is clicked", async () => {
+    render(<SettingsPanel />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Remove Reggie Files" })
+    );
+    const dialog = await screen.findByRole("dialog");
+
+    // Click the overlay itself (the dialog element).
+    fireEvent.click(dialog);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Remove Reggie Files?")).toBeNull();
+    });
+  });
+
+  it("Escape does not close modal mid-uninstall", async () => {
+    render(<SettingsPanel />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Remove Reggie Files" })
+    );
+    await screen.findByText("Remove Reggie Files?");
+
+    // Hold uninstall in flight so state stays "uninstalling".
+    let resolveUninstall: ((v: unknown) => void) | undefined;
+    mockInvoke.mockImplementationOnce(
+      (cmd: string) =>
+        new Promise((resolve, reject) => {
+          if (cmd === "uninstall_reggie_files") {
+            resolveUninstall = resolve;
+          } else {
+            reject(new Error(`Unexpected invoke: ${cmd}`));
+          }
+        })
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /confirm remove reggie files/i })
+    );
+    await screen.findByText("Removing...");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(screen.getByText("Remove Reggie Files?")).toBeTruthy();
+
+    // Cleanup so the pending promise doesn't leak.
+    resolveUninstall?.(fakeReport);
+  });
+});
+
+describe("SettingsPanel reinstall auto-reset", () => {
+  it("clears reinstall success message after ~2.5s", async () => {
+    mockInvoke.mockImplementation((cmd: string) => {
+      switch (cmd) {
+        case "get_detailed_install_status":
+          return Promise.resolve(fakeStatus);
+        case "get_shell_export_line":
+          return Promise.resolve("export ENABLE_TOOL_SEARCH=auto:5");
+        case "force_reinstall":
+          return Promise.resolve({
+            installed: true,
+            version: "1.1.2",
+            needsSetup: false,
+            message: "Reinstalled successfully",
+          });
+        default:
+          return Promise.reject(new Error(`Unexpected invoke: ${cmd}`));
+      }
+    });
+
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      render(<SettingsPanel />);
+      const reinstallBtn = await screen.findByRole("button", {
+        name: "Reinstall",
+      });
+      fireEvent.click(reinstallBtn);
+
+      await screen.findByText("Reinstalled successfully");
+      expect(
+        screen.getByRole("button", { name: "Reinstalled" })
+      ).toBeTruthy();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2600);
+      });
+
+      expect(screen.queryByText("Reinstalled successfully")).toBeNull();
+      expect(screen.getByRole("button", { name: "Reinstall" })).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears reinstall error message after ~2.5s", async () => {
+    mockInvoke.mockImplementation((cmd: string) => {
+      switch (cmd) {
+        case "get_detailed_install_status":
+          return Promise.resolve(fakeStatus);
+        case "get_shell_export_line":
+          return Promise.resolve("export ENABLE_TOOL_SEARCH=auto:5");
+        case "force_reinstall":
+          return Promise.reject(new Error("install blew up"));
+        default:
+          return Promise.reject(new Error(`Unexpected invoke: ${cmd}`));
+      }
+    });
+
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      render(<SettingsPanel />);
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Reinstall" })
+      );
+
+      await screen.findByText(/Failed:.*install blew up/);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2600);
+      });
+
+      expect(screen.queryByText(/Failed:/)).toBeNull();
+      expect(screen.getByRole("button", { name: "Reinstall" })).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
