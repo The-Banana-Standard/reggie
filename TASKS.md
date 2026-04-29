@@ -2,17 +2,6 @@
 
 ## Active Tasks
 
-### sessions-tab-link-not-opening
-**Task**: Make clickable terminal links open in system browser
-**Pipeline**: code-workflow
-**Branch**: task/sessions-tab-link-not-opening
-**Worktree**: .worktree/sessions-tab-link-not-opening
-**Base**: main
-**Started**: 2026-04-29
-**Files**:
-- MOD: src/components/Terminal/TerminalView.tsx
-- MOD: src/components/Terminal/__tests__/TerminalView.test.tsx
-
 ---
 
 ## Backlog

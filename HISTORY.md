@@ -1,5 +1,6 @@
 # Completed Tasks
 
+- [x] sessions-tab-link-not-opening Make clickable terminal links open in system browser -- 2026-04-29
 - [x] squash-pipeline-stage-commits-on-complete Eliminate `meta: stage` commits by moving runtime pipeline state out of TASKS.md -- 2026-04-29
 - [x] vitest-setupfiles-and-contract-test-fixes Populate vite setupFiles and add uninstall_reggie_files to RUST_COMMANDS -- 2026-04-26
 - [x] fix-sessions-tab-width-on-return Fix Sessions tab terminal width shrinking on return -- 2026-04-26
