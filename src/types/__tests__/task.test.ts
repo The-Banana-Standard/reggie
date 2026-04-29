@@ -39,6 +39,28 @@ describe("parseTasksMd", () => {
     expect(task.checked).toBe(false);
   });
 
+  it("parses all 5 pipeline mode tags", () => {
+    const md = `## Backlog
+
+### Modes
+
+- [ ] code-task: Code task [P1] [code] [planned]
+- [ ] design-task: Design task [P1] [design] [planned]
+- [ ] manual-task: Manual task [P1] [manual] [planned]
+- [ ] sys-task: System task [P1] [reggie-system] [planned]
+- [ ] debug-task: Debug task [P1] [debug] [planned]`;
+
+    const result = parseTasksMd(md);
+    const tasks = result.groomed[0].tasks;
+    expect(tasks.map((t) => t.pipeline)).toEqual([
+      "code",
+      "design",
+      "manual",
+      "reggie-system",
+      "debug",
+    ]);
+  });
+
   it("parses unplanned structured tasks into ungroomed", () => {
     const md = `## Backlog
 

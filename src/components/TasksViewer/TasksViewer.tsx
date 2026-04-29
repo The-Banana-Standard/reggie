@@ -1,10 +1,11 @@
 import { useMemo } from "react";
 import { parseTasksMd } from "../../types/task";
+import type { TaskPipeline } from "../../types/task";
 import { TaskCard } from "./TaskCard";
 
 interface TasksViewerProps {
   tasksMd: string;
-  onStartTask: (slug: string) => void;
+  onStartTask: (slug: string, mode: TaskPipeline | null) => void;
 }
 
 export function TasksViewer({ tasksMd, onStartTask }: TasksViewerProps) {

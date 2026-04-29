@@ -6,6 +6,7 @@ import type { ProjectInfo } from "../../types/project-info";
 import { SessionCard } from "./SessionCard";
 import { GitLogView } from "./GitLogView";
 import { TasksViewer } from "../TasksViewer/TasksViewer";
+import type { TaskPipeline } from "../../types/task";
 import { checkRunScript } from "../../services/terminal-service";
 
 const SINGLE_TASK_MAX_LENGTH = 200;
@@ -110,7 +111,7 @@ interface ProjectSummaryPanelProps {
   onRunLocally?: (port: number, hasScript: boolean) => void;
   onStopLocally?: () => void;
   runLocallyState?: "idle" | "starting" | "running";
-  onStartTask?: (slug: string) => void;
+  onStartTask?: (slug: string, mode: TaskPipeline | null) => void;
   onTasksAdded?: () => void;
   taskInput?: string;
   onTaskInputChange?: (value: string) => void;

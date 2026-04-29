@@ -1,6 +1,6 @@
 export type TaskPriority = "P1" | "P2" | "P3";
 export type TaskComplexity = "simple" | "moderate" | "complex";
-export type TaskPipeline = "code" | "design";
+export type TaskPipeline = "code" | "design" | "manual" | "reggie-system" | "debug";
 
 export interface TaskItem {
   slug: string;
@@ -29,7 +29,7 @@ export interface ParsedTasks {
 
 const PRIORITY_RE = /\[P([123])\]/;
 const COMPLEXITY_RE = /\[(simple|moderate|complex)\]/;
-const PIPELINE_RE = /\[(code|design)\]/;
+const PIPELINE_RE = /\[(code|design|manual|reggie-system|debug)\]/;
 const DEPENDS_RE = /\[depends:\s*([^\]]+)\]/;
 const CONFLICTS_RE = /\[conflicts:\s*([^\]]+)\]/;
 const PLANNED_RE = /\[planned\]/;

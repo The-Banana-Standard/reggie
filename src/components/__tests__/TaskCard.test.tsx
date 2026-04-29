@@ -131,17 +131,99 @@ describe("TaskCard", () => {
     expect(screen.queryByText("Start")).toBeNull();
   });
 
-  it("calls onStart with slug when Start button is clicked", () => {
+  it("calls onStart with slug and mode when Start button is clicked", () => {
     const onStart = vi.fn();
     render(
       <TaskCard
-        task={makeTask({ slug: "my-task" })}
+        task={makeTask({ slug: "my-task", pipeline: "code" })}
         onStart={onStart}
         interactive={true}
       />
     );
     fireEvent.click(screen.getByText("Start"));
-    expect(onStart).toHaveBeenCalledWith("my-task");
+    expect(onStart).toHaveBeenCalledWith("my-task", "code");
+  });
+
+  it("renders 'Walk through' button for manual mode", () => {
+    render(
+      <TaskCard
+        task={makeTask({ pipeline: "manual" })}
+        onStart={vi.fn()}
+        interactive={true}
+      />
+    );
+    expect(screen.getByText("Walk through")).toBeTruthy();
+    expect(screen.queryByText("Start")).toBeNull();
+  });
+
+  it("renders 'Debug' button for debug mode", () => {
+    render(
+      <TaskCard
+        task={makeTask({ pipeline: "debug" })}
+        onStart={vi.fn()}
+        interactive={true}
+      />
+    );
+    expect(screen.getByText("Debug")).toBeTruthy();
+  });
+
+  it("renders 'Start' button for reggie-system mode", () => {
+    render(
+      <TaskCard
+        task={makeTask({ pipeline: "reggie-system" })}
+        onStart={vi.fn()}
+        interactive={true}
+      />
+    );
+    expect(screen.getByText("Start")).toBeTruthy();
+  });
+
+  it("renders 'Start' button for null/code/design modes", () => {
+    const { rerender } = render(
+      <TaskCard
+        task={makeTask({ pipeline: null })}
+        onStart={vi.fn()}
+        interactive={true}
+      />
+    );
+    expect(screen.getByText("Start")).toBeTruthy();
+
+    rerender(
+      <TaskCard
+        task={makeTask({ pipeline: "design" })}
+        onStart={vi.fn()}
+        interactive={true}
+      />
+    );
+    expect(screen.getByText("Start")).toBeTruthy();
+  });
+
+  it("renders mode badge for all 5 modes", () => {
+    const modes = ["code", "design", "manual", "reggie-system", "debug"] as const;
+    for (const mode of modes) {
+      const { unmount } = render(
+        <TaskCard
+          task={makeTask({ pipeline: mode })}
+          onStart={vi.fn()}
+          interactive={true}
+        />
+      );
+      expect(screen.getByText(mode)).toBeTruthy();
+      unmount();
+    }
+  });
+
+  it("passes manual mode through to onStart callback", () => {
+    const onStart = vi.fn();
+    render(
+      <TaskCard
+        task={makeTask({ slug: "manual-task", pipeline: "manual" })}
+        onStart={onStart}
+        interactive={true}
+      />
+    );
+    fireEvent.click(screen.getByText("Walk through"));
+    expect(onStart).toHaveBeenCalledWith("manual-task", "manual");
   });
 
   it("shows dependency relations", () => {

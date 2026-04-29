@@ -6,6 +6,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Mode-aware task dispatch in the project summary panel.** TasksViewer (used by ProjectSummaryPanel) now respects all 5 pipeline mode tags — `[code]`, `[design]`, `[manual]`, `[reggie-system]`, `[debug]` — matching the CodeWorkflow tab's behavior. Per-mode buttons (`Walk through` for manual, `Debug` for debug, `Start` for the rest) and correct command dispatch (e.g. `[debug]` → `/reggie-debug-workflow --yes`, `[manual]` → `/reggie-manual-task`). Previously all dispatches were hardcoded to `/reggie-code-workflow`, regardless of mode.
+
 ## [2.1.0] - 2026-04-28
 
 ### Added

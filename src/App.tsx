@@ -5,6 +5,7 @@ import { checkClaudeCli, writeToTerminal, openInBrowser } from "./services/termi
 import { AppLayout } from "./components/Layout/AppLayout";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { WorkspaceOverview } from "./components/WorkspaceOverview/WorkspaceOverview";
+import { commandForMode } from "./components/WorkspaceOverview/CodeWorkflowTab";
 import { ProjectSummaryPanel } from "./components/ProjectSummary/ProjectSummaryPanel";
 import { TerminalTabBar } from "./components/Terminal/TerminalTabBar";
 import { TerminalView } from "./components/Terminal/TerminalView";
@@ -14,6 +15,7 @@ import { useProjects } from "./hooks/useProjects";
 import { useTerminal, HOME_TAB_ID, SESSIONS_TAB_ID } from "./hooks/useTerminal";
 import { useSessionTracking } from "./hooks/useSessionTracking";
 import type { Project } from "./types/project";
+import type { TaskPipeline } from "./types/task";
 import type { Workspace } from "./services/database-service";
 
 function App() {
@@ -321,13 +323,16 @@ function App() {
   );
 
   const handleStartTask = useCallback(
-    (slug: string) => {
+    (slug: string, mode: TaskPipeline | null) => {
       const tab = tabs.find((t) => t.id === activeTabId);
       const path = tab?.projectPath;
-      if (path) {
-        addTab(path, true, undefined, `/reggie-code-workflow --yes ${slug}`);
-        setActiveTabId(SESSIONS_TAB_ID);
-      }
+      if (!path) return;
+      const cmd =
+        mode === "manual"
+          ? `/reggie-manual-task ${slug}`
+          : `${commandForMode(mode).command} ${slug}`;
+      addTab(path, true, undefined, cmd);
+      setActiveTabId(SESSIONS_TAB_ID);
     },
     [tabs, activeTabId, addTab, setActiveTabId]
   );
