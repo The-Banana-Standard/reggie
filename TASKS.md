@@ -2,6 +2,20 @@
 
 ## Active Tasks
 
+### configurable-pipelines-with-locked-reggie-system
+**Task**: Let users bind any pipeline to code/debug/manual modes; reggie-system stays fixed
+**Pipeline**: code-workflow
+**Branch**: task/configurable-pipelines-with-locked-reggie-system
+**Worktree**: .worktree/configurable-pipelines-with-locked-reggie-system
+**Base**: main
+**Started**: 2026-04-29
+**Files**:
+- NEW: src-tauri/src/commands/pipeline_bindings.rs
+- NEW: src/lib/pipelineBindings.ts
+- MOD: src/components/WorkspaceOverview/CodeWorkflowTab.tsx
+- MOD: src/components/ActivityBar/PipelinesPanel.tsx
+- MOD: src-tauri/src/lib.rs
+
 ---
 
 ## Backlog
@@ -15,8 +29,6 @@
 (no open tasks)
 
 ### Reggie UI
-- [ ] configurable-pipelines-with-locked-reggie-system: Let users bind any pipeline to code/debug/manual modes; reggie-system stays fixed [P2] [depends: wire-tasksviewer-mode-dispatch] [conflicts: investigate-cross-domain-batch-start, wire-tasksviewer-mode-dispatch] [complex] [tier: opus:high] [code] [planned]
-  files: src-tauri/src/commands/pipeline_bindings.rs (NEW), src/lib/pipelineBindings.ts (NEW), src/components/ActivityBar/PipelinesPanel.tsx (MOD), src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD), src-tauri/src/lib.rs (MOD)
 - [ ] investigate-cross-domain-batch-start: Diagnose why Batch Start Coding fails for `[debug]` and possibly `[reggie-system]` tasks [P2] [conflicts: configurable-pipelines-with-locked-reggie-system] [complex] [tier: opus:high] [debug] [planned]
   files: src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD)
 
