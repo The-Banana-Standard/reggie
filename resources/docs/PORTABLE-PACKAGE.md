@@ -320,39 +320,25 @@ The pipeline system tracks state in a `TASKS.md` file in your project root. Mult
 
 ### add-user-auth
 **Task**: Add user authentication
-**Stage**: IMPLEMENT
 **Pipeline**: code-workflow
 **Branch**: task/add-user-auth
 **Worktree**: .worktree/add-user-auth
 **Base**: main
 **Started**: 2026-02-04
-**Attempts**: 1
 **Files**:
 - NEW: src/auth/AuthManager.swift
 - MOD: src/models/User.swift
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| RESEARCH | 9.2 | 1 | PASS |
-| PLAN | 9.1 | 1 | PASS |
-| IMPLEMENT | - | 0 | CURRENT |
 
 ---
 
 ### fix-color-rendering
 **Task**: Fix Android color rendering
-**Stage**: PLAN
 **Pipeline**: code-workflow
 **Branch**: task/fix-color-rendering
 **Worktree**: .worktree/fix-color-rendering
 **Base**: main
 **Started**: 2026-02-04
-**Attempts**: 0
 **Files**: (pending PLAN)
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| PLAN | - | 0 | CURRENT |
 
 ---
 
@@ -380,7 +366,9 @@ The pipeline system tracks state in a `TASKS.md` file in your project root. Mult
   > context: noticed during TestFlight feedback, may be Firestore SDK init or asset loading
 ```
 
-Completed tasks migrate from `## Active Tasks` to a separate `HISTORY.md` file at COMPLETE stage — they are not kept in TASKS.md. Each active task gets an isolated `.pipeline/[slug]/` directory containing its `task.md` (from `/reggie-init-tasks`), `CONTEXT.md`, `HANDOFF.md`, and `DECISIONS.md`.
+Completed tasks migrate from `## Active Tasks` to a separate `HISTORY.md` file at COMPLETE stage — they are not kept in TASKS.md. Each active task gets an isolated `.pipeline/[slug]/` directory containing its `task.md` (from `/reggie-init-tasks`), `CONTEXT.md`, `HANDOFF.md`, `DECISIONS.md`, `STATE` (current stage + scores table), and optional `SKIP` (stages to bypass).
+
+The Active Tasks block carries only static fields set once at PICKUP. Runtime state — current stage, attempts, quality scores — lives in `.pipeline/[slug]/STATE` (gitignored, dies with the run). Splitting state this way keeps base-branch history clean: only PICKUP, file-list updates, and COMPLETE produce `meta:` commits, not every stage advance.
 
 ### Mode Tags
 
