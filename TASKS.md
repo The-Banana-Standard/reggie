@@ -2,20 +2,6 @@
 
 ## Active Tasks
 
-### configurable-pipelines-with-locked-reggie-system
-**Task**: Let users bind any pipeline to code/debug/manual modes; reggie-system stays fixed
-**Pipeline**: code-workflow
-**Branch**: task/configurable-pipelines-with-locked-reggie-system
-**Worktree**: .worktree/configurable-pipelines-with-locked-reggie-system
-**Base**: main
-**Started**: 2026-04-29
-**Files**:
-- NEW: src-tauri/src/commands/pipeline_bindings.rs
-- NEW: src/lib/pipelineBindings.ts
-- MOD: src/components/WorkspaceOverview/CodeWorkflowTab.tsx
-- MOD: src/components/ActivityBar/PipelinesPanel.tsx
-- MOD: src-tauri/src/lib.rs
-
 ---
 
 ## Backlog
