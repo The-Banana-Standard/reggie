@@ -2,6 +2,21 @@
 
 ## Active Tasks
 
+### wire-tasksviewer-mode-dispatch
+**Task**: Make TasksViewer respect all 5 pipeline mode tags
+**Pipeline**: code-workflow
+**Branch**: task/wire-tasksviewer-mode-dispatch
+**Worktree**: .worktree/wire-tasksviewer-mode-dispatch
+**Base**: main
+**Started**: 2026-04-29
+**Files**:
+- MOD: src/types/task.ts
+- MOD: src/components/TasksViewer/TaskCard.tsx
+- MOD: src/components/TasksViewer/TasksViewer.tsx
+- MOD: src/App.tsx
+- MOD: src/components/__tests__/TaskCard.test.tsx
+- MOD: src/components/__tests__/TasksViewer.test.tsx
+
 ### sessions-tab-link-not-opening
 **Task**: Make clickable terminal links open in system browser
 **Pipeline**: code-workflow
@@ -26,8 +41,6 @@
 (no open tasks)
 
 ### Reggie UI
-- [ ] wire-tasksviewer-mode-dispatch: Make TasksViewer respect all 5 pipeline mode tags [P2] [moderate] [tier: opus:medium] [code] [planned]
-  files: src/types/task.ts (MOD), src/components/TasksViewer/TaskCard.tsx (MOD), src/components/TasksViewer/TasksViewer.tsx (MOD), src/App.tsx (MOD)
 - [ ] configurable-pipelines-with-locked-reggie-system: Let users bind any pipeline to code/debug/manual modes; reggie-system stays fixed [P2] [depends: wire-tasksviewer-mode-dispatch] [conflicts: investigate-cross-domain-batch-start, wire-tasksviewer-mode-dispatch] [complex] [tier: opus:high] [code] [planned]
   files: src-tauri/src/commands/pipeline_bindings.rs (NEW), src/lib/pipelineBindings.ts (NEW), src/components/ActivityBar/PipelinesPanel.tsx (MOD), src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD), src-tauri/src/lib.rs (MOD)
 - [ ] investigate-cross-domain-batch-start: Diagnose why Batch Start Coding fails for `[debug]` and possibly `[reggie-system]` tasks [P2] [conflicts: configurable-pipelines-with-locked-reggie-system] [complex] [tier: opus:high] [debug] [planned]
