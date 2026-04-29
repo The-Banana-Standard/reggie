@@ -6,6 +6,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Terminal links now open in the system default browser when clicked. Previously, clicking a link in the integrated terminal was a no-op because Tauri's webview blocks `window.open()`; links now route through `@tauri-apps/plugin-shell`'s `open()`.
+
 ### Changed
 - **Mode-aware task dispatch in the project summary panel.** TasksViewer (used by ProjectSummaryPanel) now respects all 5 pipeline mode tags — `[code]`, `[design]`, `[manual]`, `[reggie-system]`, `[debug]` — matching the CodeWorkflow tab's behavior. Per-mode buttons (`Walk through` for manual, `Debug` for debug, `Start` for the rest) and correct command dispatch (e.g. `[debug]` → `/reggie-debug-workflow --yes`, `[manual]` → `/reggie-manual-task`). Previously all dispatches were hardcoded to `/reggie-code-workflow`, regardless of mode.
 
