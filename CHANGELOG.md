@@ -6,6 +6,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Configurable pipeline bindings.** Users can now bind any installed pipeline to the Code, Debug, or Manual dispatch mode via the PipelinesPanel. Bindings persist across restarts in `app_data_dir/pipeline-bindings.json`; binding a pipeline to a mode auto-unbinds the previous pipeline for that mode.
+- **Binding badges on pipeline cards.** Bound pipelines display a "Default: Code" (or multi-mode) badge in PipelinesPanel. Cards for pipelines that were bound but have since been uninstalled show a warning.
+- **Binding status strip in CodeWorkflowTab.** A read-only strip shows the active pipeline for each mode ("Code: \<name\> · Debug: \<name\> · Manual: \<name\>") with a hint pointing to PipelinesPanel to change bindings.
+- **Rust-layer pipeline name validation.** Pipeline names are validated against `[A-Za-z0-9_-]`, max 128 chars, before any binding is stored. `reggie-system` mode is not bindable and always dispatches to `/reggie-system-change`.
+
 ### Fixed
 - Terminal links now open in the system default browser when clicked. Previously, clicking a link in the integrated terminal was a no-op because Tauri's webview blocks `window.open()`; links now route through `@tauri-apps/plugin-shell`'s `open()`.
 

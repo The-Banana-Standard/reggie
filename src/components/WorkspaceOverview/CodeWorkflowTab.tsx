@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { RepoTaskSummary, HeadlessSession, TerminalTab } from "../../types/terminal";
 import { RepoTaskRow } from "./RepoTaskRow";
 import { groupByWorkspace } from "./groupByWorkspace";
+import { getCachedBindings, onBindingsChange } from "../../lib/pipelineBindings";
 
 interface ParallelizableTaskSlug {
   slug: string;
@@ -32,13 +33,25 @@ export function commandForMode(mode: string | null | undefined): {
   command: string;
   labelPrefix: string;
 } {
+  // reggie-system is never bindable — always uses the hardcoded command.
   if (mode === "reggie-system") {
     return { command: "/reggie-system-change --yes", labelPrefix: "reggie-sys --" };
   }
+  const bindings = getCachedBindings();
   if (mode === "debug") {
-    return { command: "/reggie-debug-workflow --yes", labelPrefix: "debug --" };
+    const command = bindings.debug ? `/${bindings.debug} --yes` : "/reggie-debug-workflow --yes";
+    return { command, labelPrefix: "debug --" };
   }
-  return { command: "/reggie-code-workflow --yes", labelPrefix: "code --" };
+  if (mode === "manual") {
+    // Manual mode dispatch via commandForMode is a fallback path
+    // (handleWalkThroughTask owns the primary manual flow). Label prefix
+    // stays "code --" per the mode-driven label-prefix rule.
+    const command = bindings.manual ? `/${bindings.manual}` : "/reggie-manual-task";
+    return { command, labelPrefix: "code --" };
+  }
+  // code, design, null/undefined → code workflow
+  const command = bindings.code ? `/${bindings.code} --yes` : "/reggie-code-workflow --yes";
+  return { command, labelPrefix: "code --" };
 }
 
 /**
@@ -244,9 +257,10 @@ export function CodeWorkflowTab({
   const handleWalkThroughTask = useCallback(
     async (repoPath: string, repoName: string, slug: string) => {
       try {
+        const { command } = commandForMode("manual");
         const terminalId = await onLaunchHeadless(
           repoPath,
-          `/reggie-manual-task ${slug}`,
+          `${command} ${slug}`,
           `code -- ${repoName}/${slug}`,
           undefined,
           undefined,
@@ -310,6 +324,7 @@ export function CodeWorkflowTab({
 
   return (
     <div className="dashboard-tab-content">
+      <BindingsStatusStrip />
       <div className="dashboard-tab-header">
         <div className="dashboard-tab-header-info">
           <span className="dashboard-tab-header-count">{totalGroomed} tasks</span>
@@ -388,3 +403,34 @@ export function CodeWorkflowTab({
     </div>
   );
 }
+
+/**
+ * Small read-only strip showing the active pipeline bindings for each mode.
+ * Reggie-system is omitted because it is not bindable.
+ */
+function BindingsStatusStrip() {
+  // Re-render on any cache change; read the validated view directly so the
+  // strip reflects the effective dispatch command, not the raw (possibly
+  // uninstalled) binding name.
+  const [, setTick] = useState(0);
+  useEffect(() => onBindingsChange(() => setTick((n) => n + 1)), []);
+  const bindings = getCachedBindings();
+  const code = bindings.code ?? "reggie-code-workflow";
+  const debug = bindings.debug ?? "reggie-debug-workflow";
+  const manual = bindings.manual ?? "reggie-manual-task";
+  return (
+    <div
+      className="pipeline-bindings-strip"
+      style={{
+        fontSize: "11px",
+        color: "var(--text-muted)",
+        padding: "4px 0",
+        lineHeight: 1.4,
+      }}
+    >
+      <span>Code: {code} · Debug: {debug} · Manual: {manual}</span>
+      <div style={{ opacity: 0.75 }}>configure in Pipelines panel</div>
+    </div>
+  );
+}
+

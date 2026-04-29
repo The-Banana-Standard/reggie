@@ -1,11 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { mockInvoke, resetTauriMocks } from "../../../__test-utils__/tauri-mock";
-import { CodeWorkflowTab } from "../CodeWorkflowTab";
+import { CodeWorkflowTab, commandForMode } from "../CodeWorkflowTab";
 import type { RepoTaskSummary } from "../../../types/terminal";
+import {
+  loadPipelineBindings,
+  __resetForTests as resetBindings,
+} from "../../../lib/pipelineBindings";
 
 beforeEach(() => {
   resetTauriMocks();
+  resetBindings();
 });
 
 const defaultProps = {
@@ -1014,5 +1019,84 @@ describe("CodeWorkflowTab walk-through (manual) flow", () => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
     });
     expect(onPromoteHeadless).not.toHaveBeenCalled();
+  });
+});
+
+describe("commandForMode honours pipeline bindings cache", () => {
+  it("uses the default code workflow when no binding is set", () => {
+    expect(commandForMode("code")).toEqual({
+      command: "/reggie-code-workflow --yes",
+      labelPrefix: "code --",
+    });
+  });
+
+  it("reggie-system is never bindable — always returns the hardcoded command", async () => {
+    mockInvoke.mockResolvedValue({ code: "evil", debug: "evil", manual: "evil" });
+    await loadPipelineBindings();
+    // Even when other bindings are set, reggie-system stays hardcoded.
+    expect(commandForMode("reggie-system")).toEqual({
+      command: "/reggie-system-change --yes",
+      labelPrefix: "reggie-sys --",
+    });
+  });
+
+  it("uses the code binding when set, preserving the 'code --' label prefix", async () => {
+    mockInvoke.mockResolvedValue({ code: "my-code-pipeline" });
+    await loadPipelineBindings();
+    expect(commandForMode("code")).toEqual({
+      command: "/my-code-pipeline --yes",
+      labelPrefix: "code --",
+    });
+  });
+
+  it("uses the debug binding when set, preserving the 'debug --' label prefix", async () => {
+    mockInvoke.mockResolvedValue({ debug: "my-debug-pipeline" });
+    await loadPipelineBindings();
+    expect(commandForMode("debug")).toEqual({
+      command: "/my-debug-pipeline --yes",
+      labelPrefix: "debug --",
+    });
+  });
+
+  it("uses the manual binding when set (no --yes), with 'code --' label prefix", async () => {
+    mockInvoke.mockResolvedValue({ manual: "my-manual-pipeline" });
+    await loadPipelineBindings();
+    expect(commandForMode("manual")).toEqual({
+      command: "/my-manual-pipeline",
+      labelPrefix: "code --",
+    });
+  });
+
+  it("falls back to /reggie-manual-task for manual mode when no binding is set", () => {
+    expect(commandForMode("manual")).toEqual({
+      command: "/reggie-manual-task",
+      labelPrefix: "code --",
+    });
+  });
+
+  it("design and null/undefined modes route to the code binding", async () => {
+    mockInvoke.mockResolvedValue({ code: "my-code-pipeline" });
+    await loadPipelineBindings();
+    expect(commandForMode("design").command).toBe("/my-code-pipeline --yes");
+    expect(commandForMode(null).command).toBe("/my-code-pipeline --yes");
+    expect(commandForMode(undefined).command).toBe("/my-code-pipeline --yes");
+  });
+});
+
+describe("handleWalkThroughTask honours manual pipeline binding", () => {
+  it("uses the manual binding via commandForMode when walk-through task is launched", async () => {
+    // Set up a manual binding
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_pipeline_bindings") return Promise.resolve({ manual: "custom-manual" });
+      if (cmd === "get_parallelizable_tasks") return Promise.resolve({ slugs: [], totalGroomed: 0 });
+      if (cmd === "scan_tasks_across_repos") return Promise.resolve([]);
+      if (cmd === "get_install_status") return Promise.resolve({ version: "0", needsSetup: false });
+      return Promise.resolve(undefined);
+    });
+    await loadPipelineBindings();
+
+    // Verify commandForMode("manual") uses the binding
+    const { command } = commandForMode("manual");
+    expect(command).toBe("/custom-manual");
   });
 });

@@ -77,6 +77,11 @@ const RUST_COMMANDS: Record<string, string[]> = {
   read_bookmarks: [],
   write_bookmarks: ["bookmarks"],
 
+  // pipeline_bindings.rs
+  get_pipeline_bindings: [],
+  set_pipeline_binding: ["mode", "pipelineName"],
+  clear_pipeline_binding: ["mode"],
+
   // installer.rs — src-tauri/src/installer.rs
   get_install_status: [],
   get_detailed_install_status: [],
