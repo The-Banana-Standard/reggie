@@ -52,3 +52,4 @@
 - [x] replace-sqlite-with-json-bookmarks Replace tauri-plugin-sql with a JSON bookmark file -- 2026-04-25
 - [x] add-pipeline-mode-tags-manual-reggie-system-and-debug Introduce [manual], [reggie-system], and [debug] pipeline-mode tags -- 2026-04-25
 - [x] attach-images-to-ungroomed-tasks Paste/drop image attachments on ungroomed tasks consumed during init-tasks -- 2026-04-26
+- [x] wire-tasksviewer-mode-dispatch Make TasksViewer respect all 5 pipeline mode tags -- 2026-04-29

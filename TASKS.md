@@ -2,21 +2,6 @@
 
 ## Active Tasks
 
-### wire-tasksviewer-mode-dispatch
-**Task**: Make TasksViewer respect all 5 pipeline mode tags
-**Pipeline**: code-workflow
-**Branch**: task/wire-tasksviewer-mode-dispatch
-**Worktree**: .worktree/wire-tasksviewer-mode-dispatch
-**Base**: main
-**Started**: 2026-04-29
-**Files**:
-- MOD: src/types/task.ts
-- MOD: src/components/TasksViewer/TaskCard.tsx
-- MOD: src/components/TasksViewer/TasksViewer.tsx
-- MOD: src/App.tsx
-- MOD: src/components/__tests__/TaskCard.test.tsx
-- MOD: src/components/__tests__/TasksViewer.test.tsx
-
 ### sessions-tab-link-not-opening
 **Task**: Make clickable terminal links open in system browser
 **Pipeline**: code-workflow
