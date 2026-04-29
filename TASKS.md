@@ -2,6 +2,17 @@
 
 ## Active Tasks
 
+### sessions-tab-link-not-opening
+**Task**: Make clickable terminal links open in system browser
+**Pipeline**: code-workflow
+**Branch**: task/sessions-tab-link-not-opening
+**Worktree**: .worktree/sessions-tab-link-not-opening
+**Base**: main
+**Started**: 2026-04-29
+**Files**:
+- MOD: src/components/Terminal/TerminalView.tsx
+- MOD: src/components/Terminal/__tests__/TerminalView.test.tsx
+
 ---
 
 ## Backlog
@@ -21,8 +32,6 @@
   files: src-tauri/src/commands/pipeline_bindings.rs (NEW), src/lib/pipelineBindings.ts (NEW), src/components/ActivityBar/PipelinesPanel.tsx (MOD), src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD), src-tauri/src/lib.rs (MOD)
 - [ ] investigate-cross-domain-batch-start: Diagnose why Batch Start Coding fails for `[debug]` and possibly `[reggie-system]` tasks [P2] [conflicts: configurable-pipelines-with-locked-reggie-system] [complex] [tier: opus:high] [debug] [planned]
   files: src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD)
-- [ ] sessions-tab-link-not-opening: Make clickable terminal links open in system browser [P3] [simple] [tier: sonnet:medium] [code] [planned]
-  files: src/components/Terminal/TerminalView.tsx (MOD), src/components/Terminal/__tests__/TerminalView.test.tsx (MOD)
 
 ### Bug Fixes & Tech Debt
 - [x] vitest-env-hang-investigation: Diagnose and fix vitest hanging at 0% CPU [P2] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [conflicts: replace-sqlite-with-json-bookmarks] [complex] [tier: opus:high] [debug] [planned]
