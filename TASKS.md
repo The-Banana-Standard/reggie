@@ -2,6 +2,19 @@
 
 ## Active Tasks
 
+### fix-cross-domain-dispatch-per-repo-and-batch
+**Task**: Fix per-repo Start + Batch Start to honor per-domain caps (code:5, debug:3 per-repo; reggie-system:1 group-wide)
+**Pipeline**: code-workflow
+**Branch**: task/fix-cross-domain-dispatch-per-repo-and-batch
+**Worktree**: .worktree/fix-cross-domain-dispatch-per-repo-and-batch
+**Base**: main
+**Started**: 2026-04-30
+**Files**:
+- NEW: src/components/WorkspaceOverview/sessionLabels.ts
+- MOD: src/components/WorkspaceOverview/CodeWorkflowTab.tsx
+- MOD: src/components/WorkspaceOverview/RepoTaskRow.tsx
+- MOD: src-tauri/src/commands/projects.rs
+
 ---
 
 ## Backlog
@@ -15,8 +28,9 @@
 (no open tasks)
 
 ### Reggie UI
-- [ ] investigate-cross-domain-batch-start: Diagnose why Batch Start Coding fails for `[debug]` and possibly `[reggie-system]` tasks [P2] [conflicts: configurable-pipelines-with-locked-reggie-system] [complex] [tier: opus:high] [debug] [planned]
+- [x] investigate-cross-domain-batch-start: Diagnose why Batch Start Coding fails for `[debug]` and possibly `[reggie-system]` tasks [P2] [conflicts: configurable-pipelines-with-locked-reggie-system] [complex] [tier: opus:high] [debug] [planned]
   files: src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD)
+  > closed 2026-04-30: 4 bugs identified in per-repo Start dispatch (backend conflict prune drops cross-domain backlog tasks; active slugs re-launched as duplicates; active slugs lose mode tag; reggie-system cap is per-repo instead of group-wide), plus 1 secondary bug in Batch Start (per-repo skip via `isWorkflowLabel` swallows cross-domain dispatch). Design intent confirmed: code/debug per-repo (5/3), reggie-system group-wide (1 total). Visible-signal UX decision for held reggie-system slot. Follow-up `[code]` task: fix-cross-domain-dispatch-per-repo-and-batch. See .pipeline/investigate-cross-domain-batch-start/HANDOFF.md.
 
 ### Bug Fixes & Tech Debt
 - [x] vitest-env-hang-investigation: Diagnose and fix vitest hanging at 0% CPU [P2] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [conflicts: replace-sqlite-with-json-bookmarks] [complex] [tier: opus:high] [debug] [planned]
