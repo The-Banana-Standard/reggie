@@ -2,19 +2,6 @@
 
 ## Active Tasks
 
-### fix-cross-domain-dispatch-per-repo-and-batch
-**Task**: Fix per-repo Start + Batch Start to honor per-domain caps (code:5, debug:3 per-repo; reggie-system:1 group-wide)
-**Pipeline**: code-workflow
-**Branch**: task/fix-cross-domain-dispatch-per-repo-and-batch
-**Worktree**: .worktree/fix-cross-domain-dispatch-per-repo-and-batch
-**Base**: main
-**Started**: 2026-04-30
-**Files**:
-- NEW: src/components/WorkspaceOverview/sessionLabels.ts
-- MOD: src/components/WorkspaceOverview/CodeWorkflowTab.tsx
-- MOD: src/components/WorkspaceOverview/RepoTaskRow.tsx
-- MOD: src-tauri/src/commands/projects.rs
-
 ---
 
 ## Backlog
