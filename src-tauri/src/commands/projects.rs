@@ -427,7 +427,14 @@ pub struct ParallelizableTaskSlug {
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParallelizableTasksResult {
-    pub slugs: Vec<ParallelizableTaskSlug>,
+    /// Slugs already running as `### header` blocks under `## Active Tasks`.
+    /// These never feed the conflict prune below and are intentionally not
+    /// re-launched by the frontend — they are surfaced so callers know what
+    /// is in flight (e.g. for cap math).
+    pub active_slugs: Vec<ParallelizableTaskSlug>,
+    /// Backlog candidates the frontend may launch, after dependency and
+    /// (backlog-vs-backlog) conflict pruning.
+    pub backlog_slugs: Vec<ParallelizableTaskSlug>,
     pub total_groomed: usize,
 }
 
@@ -530,7 +537,7 @@ fn parse_task_line(line: &str) -> Option<TaskEntry> {
 
 #[tauri::command]
 pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTasksResult, String> {
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
 
     let tasks_path = Path::new(&project_path).join("TASKS.md");
     let content = fs::read_to_string(&tasks_path)
@@ -544,7 +551,21 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
         .map(|t| t.slug)
         .collect();
 
-    // First pass: collect active task slugs from ## Active Tasks section (### headers)
+    // Build a slug -> mode map by parsing every task line in the entire file.
+    // This is intentionally NOT section-gated: the original tagged entry for
+    // an active slug typically lives outside `## Active Tasks` (e.g. checked
+    // off in `## Done` or still listed in `## Backlog`). We use this map only
+    // to populate `mode` on active slugs — backlog mode flows through
+    // `parse_task_line` directly.
+    let slug_to_mode: HashMap<String, Option<String>> = content
+        .lines()
+        .filter_map(parse_task_line)
+        .map(|t| (t.slug, t.mode))
+        .collect();
+
+    // First pass: collect active task slugs from ## Active Tasks section (### headers).
+    // Mode is filled in via the cross-reference map above; falls back to None
+    // when no original entry survives in the file.
     let mut active_slugs: Vec<ParallelizableTaskSlug> = Vec::new();
     {
         let mut in_active = false;
@@ -564,10 +585,11 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
             if in_active && trimmed.starts_with("### ") {
                 let slug = trimmed["### ".len()..].trim().to_string();
                 if !slug.is_empty() {
+                    let mode = slug_to_mode.get(&slug).cloned().unwrap_or(None);
                     active_slugs.push(ParallelizableTaskSlug {
                         slug,
                         tier: None,
-                        mode: None,
+                        mode,
                     });
                 }
             }
@@ -615,8 +637,16 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
     // Sort by priority (P1=1 first)
     ready.sort_by_key(|t| t.priority);
 
-    // Start with active slugs, then fill remaining capacity from backlog
-    let mut selected: Vec<ParallelizableTaskSlug> = active_slugs;
+    // Backlog-only conflict prune.
+    //
+    // Active slugs never feed the conflict prune; cross-domain backlog conflicts
+    // are intentionally preserved. Earlier this loop seeded `selected` with
+    // `active_slugs`, which silently dropped any backlog task that listed an
+    // active slug in its `[conflicts: ...]` tag (the cross-domain dispatch
+    // bug investigated in `.pipeline/investigate-cross-domain-batch-start`).
+    // Restricting to backlog-vs-backlog fixes that without weakening the
+    // user-authored conflict semantics within backlog.
+    let mut selected: Vec<ParallelizableTaskSlug> = Vec::new();
     let mut selected_conflicts: HashSet<String> = HashSet::new();
 
     for task in &ready {
@@ -642,7 +672,8 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
     }
 
     Ok(ParallelizableTasksResult {
-        slugs: selected,
+        active_slugs,
+        backlog_slugs: selected,
         total_groomed,
     })
 }
@@ -1199,8 +1230,20 @@ mod tests {
     use super::*;
 
     /// Extract slug names from a ParallelizableTasksResult for easy assertion.
+    /// Returns `active_slugs` concatenated with `backlog_slugs`, mirroring the
+    /// previous combined `slugs` field so existing assertions stay valid.
     fn slug_names(result: &ParallelizableTasksResult) -> Vec<String> {
-        result.slugs.iter().map(|s| s.slug.clone()).collect()
+        result
+            .active_slugs
+            .iter()
+            .chain(result.backlog_slugs.iter())
+            .map(|s| s.slug.clone())
+            .collect()
+    }
+
+    /// Just the backlog slug names.
+    fn backlog_slug_names(result: &ParallelizableTasksResult) -> Vec<String> {
+        result.backlog_slugs.iter().map(|s| s.slug.clone()).collect()
     }
 
     // --- merge_deps ---
@@ -2285,7 +2328,8 @@ mod tests {
     fn get_parallelizable_tasks_empty_backlog() {
         let dir = create_tasks_md("# TASKS\n\n## Backlog\n\n## Done\n");
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert!(result.slugs.is_empty());
+        assert!(result.active_slugs.is_empty());
+        assert!(result.backlog_slugs.is_empty());
         assert_eq!(result.total_groomed, 0);
     }
 
@@ -2393,7 +2437,7 @@ mod tests {
         }
         let dir = create_tasks_md(&content);
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert_eq!(result.slugs.len(), 8);
+        assert_eq!(result.backlog_slugs.len(), 8);
         assert_eq!(result.total_groomed, 8);
     }
 
@@ -2408,9 +2452,9 @@ mod tests {
              ## Done\n"
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert_eq!(result.slugs.len(), 2);
-        assert_eq!(result.slugs[0].slug, "high");
-        assert_eq!(result.slugs[1].slug, "low");
+        assert_eq!(result.backlog_slugs.len(), 2);
+        assert_eq!(result.backlog_slugs[0].slug, "high");
+        assert_eq!(result.backlog_slugs[1].slug, "low");
     }
 
     #[test]
@@ -2422,8 +2466,8 @@ mod tests {
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
         // Only one should be selected; alpha appears first in the list at same priority
-        assert_eq!(result.slugs.len(), 1);
-        assert_eq!(result.slugs[0].slug, "alpha");
+        assert_eq!(result.backlog_slugs.len(), 1);
+        assert_eq!(result.backlog_slugs[0].slug, "alpha");
     }
 
     #[test]
@@ -2464,7 +2508,7 @@ mod tests {
         assert!(slug_names(&result).contains(&"ready-dep".to_string()));
         assert!(slug_names(&result).contains(&"docs".to_string()));
 
-        assert_eq!(result.slugs.len(), 4);
+        assert_eq!(result.backlog_slugs.len(), 4);
     }
 
     #[test]
@@ -2515,7 +2559,8 @@ mod tests {
              - [ ] task: Something [P1] [planned]\n\n## Done\n"
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert!(result.slugs.is_empty());
+        assert!(result.active_slugs.is_empty());
+        assert!(result.backlog_slugs.is_empty());
         assert_eq!(result.total_groomed, 0);
     }
 
@@ -2564,13 +2609,13 @@ mod tests {
              - [ ] task-c: Task C [P3] [planned]\n"
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert_eq!(result.slugs.len(), 3);
-        assert_eq!(result.slugs[0].slug, "task-a");
-        assert_eq!(result.slugs[0].tier, Some("opus:high".to_string()));
-        assert_eq!(result.slugs[1].slug, "task-b");
-        assert_eq!(result.slugs[1].tier, Some("sonnet:medium".to_string()));
-        assert_eq!(result.slugs[2].slug, "task-c");
-        assert_eq!(result.slugs[2].tier, None);
+        assert_eq!(result.backlog_slugs.len(), 3);
+        assert_eq!(result.backlog_slugs[0].slug, "task-a");
+        assert_eq!(result.backlog_slugs[0].tier, Some("opus:high".to_string()));
+        assert_eq!(result.backlog_slugs[1].slug, "task-b");
+        assert_eq!(result.backlog_slugs[1].tier, Some("sonnet:medium".to_string()));
+        assert_eq!(result.backlog_slugs[2].slug, "task-c");
+        assert_eq!(result.backlog_slugs[2].tier, None);
     }
 
     #[test]
@@ -2777,7 +2822,7 @@ mod tests {
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
         let by_slug: std::collections::HashMap<&str, Option<&str>> = result
-            .slugs
+            .backlog_slugs
             .iter()
             .map(|s| (s.slug.as_str(), s.mode.as_deref()))
             .collect();
@@ -2785,6 +2830,94 @@ mod tests {
         assert_eq!(by_slug.get("debug-task"), Some(&Some("debug")));
         assert_eq!(by_slug.get("reggie-task"), Some(&Some("reggie-system")));
         assert_eq!(by_slug.get("no-mode"), Some(&None));
+    }
+
+    // --- active/backlog split + cross-domain dispatch regression tests ---
+
+    #[test]
+    fn get_parallelizable_tasks_splits_active_and_backlog() {
+        // One active `### header` slug + one backlog task → exactly one in each list.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### my-active\n\n\
+             ## Backlog\n\
+             - [ ] my-backlog: A backlog task [P1] [planned]\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.active_slugs.len(), 1);
+        assert_eq!(result.active_slugs[0].slug, "my-active");
+        assert_eq!(result.backlog_slugs.len(), 1);
+        assert_eq!(result.backlog_slugs[0].slug, "my-backlog");
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_active_mode_from_cross_reference() {
+        // The original tagged entry for `my-active` lives in `## Done` as a
+        // checked `[debug]` task. The cross-reference pass should populate
+        // `mode = Some("debug")` on the active slug.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### my-active\n\n\
+             ## Backlog\n\n\
+             ## Done\n\
+             - [x] my-active: An old debug task [P1] [planned] [debug]\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.active_slugs.len(), 1);
+        assert_eq!(result.active_slugs[0].slug, "my-active");
+        assert_eq!(result.active_slugs[0].mode, Some("debug".to_string()));
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_active_mode_none_when_unmatched() {
+        // No original entry anywhere in the file for the active slug → mode None.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### orphan-slug\n\n\
+             ## Backlog\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.active_slugs.len(), 1);
+        assert_eq!(result.active_slugs[0].slug, "orphan-slug");
+        assert_eq!(result.active_slugs[0].mode, None);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_conflict_prune_does_not_drop_cross_domain_backlog() {
+        // Live regression: an active code slug + a backlog `[debug]` task that
+        // lists the active slug in `[conflicts: ...]`. Previously the prune
+        // seeded `selected` with active_slugs and silently dropped the debug
+        // task. After the fix the backlog task must survive.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### code-active\n\n\
+             ## Backlog\n\
+             - [ ] debug-task: Cross-domain debug [P1] [conflicts: code-active] [planned] [debug]\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.active_slugs.len(), 1);
+        assert_eq!(result.active_slugs[0].slug, "code-active");
+        assert_eq!(
+            backlog_slug_names(&result),
+            vec!["debug-task".to_string()],
+            "backlog task must survive cross-domain conflict against active slug",
+        );
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_conflict_prune_within_backlog_still_works() {
+        // Backlog-vs-backlog conflict prune is preserved on purpose.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] first: Higher in priority order [P1] [conflicts: second] [planned]\n\
+             - [ ] second: Loses the prune [P1] [conflicts: first] [planned]\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(
+            backlog_slug_names(&result),
+            vec!["first".to_string()],
+            "in-backlog conflicts still prune the lower-precedence task",
+        );
     }
 
     #[test]

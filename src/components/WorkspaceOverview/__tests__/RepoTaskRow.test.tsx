@@ -2204,4 +2204,46 @@ describe("RepoTaskRow", () => {
       expect(screen.queryByText(/reggie-sys running/)).toBeNull();
     });
   });
+
+  describe("reggie-system deferred badge", () => {
+    it("renders deferred badge with the holder repo name", () => {
+      render(
+        <RepoTaskRow
+          repo={makeRepo({
+            groomedCount: 1,
+            groomedTasks: [
+              { slug: "rotate-keys", description: "Rotate keys", mode: "reggie-system" },
+            ],
+          })}
+          mode="code"
+          headlessSessions={[]}
+          {...defaultProps}
+          reggieSystemDeferred={true}
+          reggieSystemHolderName="repo-a"
+        />
+      );
+      expect(
+        screen.getByText("1 reggie-system task deferred — slot held by repo-a"),
+      ).toBeTruthy();
+    });
+
+    it("does not render the deferred badge when reggieSystemDeferred is false", () => {
+      render(
+        <RepoTaskRow
+          repo={makeRepo({
+            groomedCount: 1,
+            groomedTasks: [
+              { slug: "rotate-keys", description: "Rotate keys", mode: "reggie-system" },
+            ],
+          })}
+          mode="code"
+          headlessSessions={[]}
+          {...defaultProps}
+          reggieSystemDeferred={false}
+          reggieSystemHolderName={null}
+        />
+      );
+      expect(screen.queryByText(/reggie-system task deferred/)).toBeNull();
+    });
+  });
 });
