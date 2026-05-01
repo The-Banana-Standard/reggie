@@ -41,6 +41,11 @@ pub struct AppState {
     /// `tokio::sync::Mutex` so async commands can lock without blocking.
     pub tasks_watcher:
         Arc<tokio::sync::Mutex<Option<crate::watchers::tasks_md::TasksWatcher>>>,
+    /// Serializes read-modify-write of `pipeline-bindings.json`. Holders perform the
+    /// full read+mutate+write under this lock so concurrent IPC writers cannot lose
+    /// each other's mutations. Readers (`get_pipeline_bindings`) skip the lock —
+    /// the on-disk tmp+rename gives them a consistent old-or-new view.
+    pub pipeline_bindings_lock: Arc<Mutex<()>>,
 }
 
 impl AppState {
@@ -49,6 +54,7 @@ impl AppState {
             terminals: Arc::new(Mutex::new(HashMap::new())),
             headless_terminals: Arc::new(Mutex::new(HashMap::new())),
             tasks_watcher: Arc::new(tokio::sync::Mutex::new(None)),
+            pipeline_bindings_lock: Arc::new(Mutex::new(())),
         }
     }
 }

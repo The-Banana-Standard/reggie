@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
+
+use crate::state::AppState;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PipelineBindings {
@@ -82,19 +84,32 @@ pub fn get_pipeline_bindings(app: AppHandle) -> Result<PipelineBindings, String>
 #[tauri::command]
 pub fn set_pipeline_binding(
     app: AppHandle,
+    state: State<'_, AppState>,
     mode: String,
     pipeline_name: String,
 ) -> Result<(), String> {
     validate_pipeline_name(&pipeline_name)?;
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let _guard = state
+        .pipeline_bindings_lock
+        .lock()
+        .map_err(|e| format!("pipeline_bindings_lock poisoned: {e}"))?;
     let mut bindings = read_bindings_from_dir(&dir)?;
     apply_set(&mut bindings, &mode, Some(pipeline_name))?;
     write_bindings_to_dir(&dir, &bindings)
 }
 
 #[tauri::command]
-pub fn clear_pipeline_binding(app: AppHandle, mode: String) -> Result<(), String> {
+pub fn clear_pipeline_binding(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    mode: String,
+) -> Result<(), String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let _guard = state
+        .pipeline_bindings_lock
+        .lock()
+        .map_err(|e| format!("pipeline_bindings_lock poisoned: {e}"))?;
     let mut bindings = read_bindings_from_dir(&dir)?;
     apply_set(&mut bindings, &mode, None)?;
     write_bindings_to_dir(&dir, &bindings)
@@ -240,6 +255,43 @@ mod tests {
         let loaded2 = read_bindings_from_dir(dir.path()).unwrap();
         assert!(loaded2.code.is_none());
         assert_eq!(loaded2.debug.as_deref(), Some("d1"));
+    }
+
+    #[test]
+    fn concurrent_writes_under_lock_preserve_all_mutations() {
+        use std::sync::{Arc, Mutex};
+        use std::thread;
+
+        let dir = TempDir::new().unwrap();
+        let dir_path = dir.path().to_path_buf();
+        let lock = Arc::new(Mutex::new(()));
+
+        // Each thread sets a different mode field. Without the lock these would race
+        // on the read-modify-write and lose each other's mutations.
+        let modes = ["code", "debug", "manual"];
+        let mut handles = Vec::new();
+        for mode in modes {
+            let dir_path = dir_path.clone();
+            let lock = Arc::clone(&lock);
+            handles.push(thread::spawn(move || {
+                // Run several iterations to widen the interleaving window.
+                for i in 0..20 {
+                    let _g = lock.lock().unwrap();
+                    let mut b = read_bindings_from_dir(&dir_path).unwrap();
+                    apply_set(&mut b, mode, Some(format!("{mode}-{i}"))).unwrap();
+                    write_bindings_to_dir(&dir_path, &b).unwrap();
+                }
+            }));
+        }
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        let final_state = read_bindings_from_dir(&dir_path).unwrap();
+        // After serialization, every thread's last write must be present.
+        assert_eq!(final_state.code.as_deref(), Some("code-19"));
+        assert_eq!(final_state.debug.as_deref(), Some("debug-19"));
+        assert_eq!(final_state.manual.as_deref(), Some("manual-19"));
     }
 
     #[test]
