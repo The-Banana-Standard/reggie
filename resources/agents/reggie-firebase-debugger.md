@@ -100,6 +100,7 @@ After completing your work, update your agent memory with significant new learni
 - "Missing or insufficient permissions" -- security rules blocking, user not authenticated, or rule logic error. Check rules, use Rules Playground.
 - Query returns empty but data exists -- wrong collection path (case-sensitive), missing index, or subcollection confusion. Simplify query and verify path.
 - "Requires an index" -- click error link or create manually in Console, wait 2-5 minutes.
+- Security rules use OR semantics across matching `match` blocks — they do NOT follow most-specific-match precedence. Adding a narrower `match` block does not override a broader one: if the broader block grants permission, the narrower one cannot revoke it. To tighten access, edit the broader rule directly. Source: Firebase docs ("If multiple rules match the request, the request is allowed if any of the matched rules allows it"). Redundant narrower rules are fine for defense-in-depth documentation, but not for tightening.
 
 **Authentication:**
 - Token refresh failures -- token expired, network issues, or user deleted/disabled. Decode JWT, force refresh with `getIdToken(true)`.
