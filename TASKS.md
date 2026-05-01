@@ -2,16 +2,6 @@
 
 ## Active Tasks
 
-### fix-sessions-fullpage-no-gap
-**Task**: Make session terminal panes flush, edge-to-edge
-**Pipeline**: code-workflow (design)
-**Branch**: task/fix-sessions-fullpage-no-gap
-**Worktree**: .worktree/fix-sessions-fullpage-no-gap
-**Base**: main
-**Started**: 2026-04-30
-**Files**:
-- MOD: src/styles/globals.css
-
 ### fix-groomed-tasks-refresh-stale
 **Task**: Add filesystem watcher so TASKS.md changes refresh the UI immediately
 **Pipeline**: code-workflow
