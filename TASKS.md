@@ -2,6 +2,17 @@
 
 ## Active Tasks
 
+### fix-image-counter-resets-on-navigation
+**Task**: Image counter rebuilds from surviving textarea content on project navigation
+**Pipeline**: code-workflow
+**Branch**: task/fix-image-counter-resets-on-navigation
+**Worktree**: .worktree/fix-image-counter-resets-on-navigation
+**Base**: main
+**Started**: 2026-05-01
+**Files**:
+- MOD: src/components/ProjectSummary/ProjectSummaryPanel.tsx
+- MOD: src/components/ProjectSummary/__tests__/ProjectSummaryPanel.test.tsx
+
 ---
 
 ## Backlog
@@ -13,11 +24,13 @@
 ### Pipeline System Expansion
 - [x] fix-groomed-section-shows-done-tasks: Fix debug-workflow "Done" path orphaning [x] tasks [P2] [simple] [tier: sonnet:medium] [reggie-system] [planned]
   files: resources/commands/reggie-debug-workflow.md (MOD)
+- [ ] fix-meta-complete-removes-tasks-md-line: Make `meta: complete` actually migrate (delete from TASKS.md) instead of toggling `[x]`; teach dep resolution to read HISTORY.md [P1] [conflicts: fix-dispatch-no-op-with-manual-tasks] [complex] [tier: opus:high] [reggie-system] [planned]
+  files: resources/commands/reggie-code-workflow.md (MOD), resources/commands/reggie-debug-workflow.md (MOD), resources/commands/reggie-manual-task.md (MOD), resources/commands/reggie-system-change.md (MOD), src-tauri/src/commands/projects.rs (MOD), src/types/task.ts (MOD), TASKS.md (MOD)
 
 ### Reggie UI
-- [ ] debug-promoted-session-no-respawn: Debug why UI doesn't spawn next session after a promoted headless session completes [P2] [conflicts: explain-batch-start-blocked-reasons] [complex] [tier: opus:high] [debug] [planned]
+- [ ] debug-promoted-session-no-respawn: Debug why UI doesn't spawn next session after a promoted headless session completes [P2] [complex] [tier: opus:high] [debug] [planned]
   files: src/components/WorkspaceOverview/CodeWorkflowTab.tsx (READ), src/hooks/useTerminal.ts (READ), src-tauri/src/commands/terminal.rs (READ)
-- [ ] explain-batch-start-blocked-reasons: Explain why batch start finds no dispatchable tasks (manual deps, manual-only) [P2] [conflicts: debug-promoted-session-no-respawn] [complex] [tier: opus:high] [code] [planned]
+- [ ] fix-dispatch-no-op-with-manual-tasks: Project-level Start dispatches eligible code tasks even when manual tasks exist; surfaces persistent reason banner when nothing is dispatchable [P2] [depends: fix-meta-complete-removes-tasks-md-line] [conflicts: fix-meta-complete-removes-tasks-md-line] [complex] [tier: opus:high] [code] [planned]
   files: src-tauri/src/commands/projects.rs (MOD), src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD), src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx (MOD)
 
 ### Bug Fixes & Tech Debt
