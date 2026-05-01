@@ -2,16 +2,6 @@
 
 ## Active Tasks
 
-### codeworkflowtab-act-warnings-from-relaunch-effect
-**Task**: Silence relaunch-effect act warnings in unrelated tests
-**Pipeline**: code-workflow
-**Branch**: task/codeworkflowtab-act-warnings-from-relaunch-effect
-**Worktree**: .worktree/codeworkflowtab-act-warnings-from-relaunch-effect
-**Base**: main
-**Started**: 2026-05-01
-**Files**:
-- MOD: src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx
-
 ---
 
 ## Backlog
@@ -52,5 +42,8 @@
 
 - [ ] tauri-capabilities-no-per-command-allowlist: `src-tauri/capabilities/default.json` does not enumerate per-command allowlists, so every `#[tauri::command]` in the binary is reachable from any frontend script in the `main` window. Pre-existing posture; not introduced by any specific task. If the app ever loads third-party content (extensions, embedded webviews of remote pages), this becomes exploitable.
   > context: discovered during security review of fix-groomed-tasks-refresh-stale (2026-04-30). Pre-existing in main. Severity LOW in current single-user trust model; HIGH if trust model expands.
+
+- [ ] inconsistent-act-wrapping-in-codeworkflowtab-tests: ~30+ `fireEvent.click` calls in `CodeWorkflowTab.test.tsx` remain bare (no `act` wrapper) while others are wrapped. The implicit rule "wrap only if it warns" is fragile — warning behavior depends on whether the handler triggers a microtask that escapes React's batched update detection.
+  > context: discovered 2026-05-01 during codeworkflowtab-act-warnings-from-relaunch-effect. As production code evolves, formerly-bare clicks may start warning. Consider adopting a project-wide convention (always `await act(async () => fireEvent.click(...))` for any click that may trigger state updates) and applying it in a follow-up sweep.
 
 <!-- folded into vitest-setupfiles-and-contract-test-fixes (2026-04-25). Original guess (scanner glob bug) was wrong — RUST_COMMANDS is a hand-maintained table; just needs the missing entry. -->
