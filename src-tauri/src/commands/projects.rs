@@ -1383,14 +1383,14 @@ mod tests {
     fn has_extension_in_dir_finds_extension() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::File::create(dir.path().join("project.xcodeproj")).unwrap();
-        assert!(has_extension_in_dir(&dir.path().to_path_buf(), "xcodeproj"));
+        assert!(has_extension_in_dir(dir.path(), "xcodeproj"));
     }
 
     #[test]
     fn has_extension_in_dir_no_match() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::File::create(dir.path().join("file.txt")).unwrap();
-        assert!(!has_extension_in_dir(&dir.path().to_path_buf(), "xcodeproj"));
+        assert!(!has_extension_in_dir(dir.path(), "xcodeproj"));
     }
 
     // --- read_file_truncated ---
@@ -1458,7 +1458,7 @@ mod tests {
             "# My Project\n\nThis is the description of the project.\n\n## Getting Started\n",
         ).unwrap();
 
-        let result = read_readme_excerpt(&dir.path().to_path_buf());
+        let result = read_readme_excerpt(dir.path());
         assert!(result.is_some());
         assert_eq!(result.unwrap(), "This is the description of the project.");
     }
@@ -1471,7 +1471,7 @@ mod tests {
             "# My Project\n\n[![Build](https://badge.svg)](https://link)\n![Logo](logo.png)\n\nActual description here.\n",
         ).unwrap();
 
-        let result = read_readme_excerpt(&dir.path().to_path_buf());
+        let result = read_readme_excerpt(dir.path());
         assert!(result.is_some());
         assert_eq!(result.unwrap(), "Actual description here.");
     }
@@ -1479,7 +1479,7 @@ mod tests {
     #[test]
     fn read_readme_excerpt_no_readme() {
         let dir = tempfile::tempdir().unwrap();
-        let result = read_readme_excerpt(&dir.path().to_path_buf());
+        let result = read_readme_excerpt(dir.path());
         assert!(result.is_none());
     }
 
@@ -3657,7 +3657,7 @@ mod tests {
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
         let parsed: Vec<TaskEntry> = content.lines()
-            .filter_map(|line| parse_task_line(line))
+            .filter_map(parse_task_line)
             .collect();
 
         assert_eq!(parsed.len(), 2);
@@ -3699,7 +3699,7 @@ mod tests {
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
         let parsed: Vec<TaskEntry> = content.lines()
-            .filter_map(|line| parse_task_line(line))
+            .filter_map(parse_task_line)
             .collect();
 
         assert_eq!(parsed.len(), 1);
