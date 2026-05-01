@@ -1,5 +1,6 @@
 # Completed Tasks
 
+- [x] harden-init-tasks-plan-quality Upgrade init-tasks RESEARCH+PLAN with Plain-English Summary, Concept Glosses, Verified Facts, Out of Scope, Verification Strategy, Success Metric, Bail Conditions, 3-column Key Decisions; ownership-of-facts callout; plain-English protocol; verify-before-presenting + plan-quality self-check; explain-X 4th approval option; updated Task File Format spec and polish-settings worked example -- 2026-05-01
 - [x] preexisting-clippy-warnings-in-projects-rs-tests Fix 7 pre-existing clippy warnings + add CI gate -- 2026-05-01
 - [x] slug-control-char-whitelist Validate colon-style slugs + active-section headers with is_safe_slug; strip PTY control chars at write sites -- 2026-05-01
 - [x] codeworkflowtab-act-warnings-from-relaunch-effect Silence React act() warnings from auto-relaunch useEffect in CodeWorkflowTab tests — wrap fireEvent.click + rerender in act(async) for 12 affected tests -- 2026-05-01

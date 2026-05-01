@@ -23,8 +23,6 @@
 ### Pipeline System Expansion
 - [x] fix-groomed-section-shows-done-tasks: Fix debug-workflow "Done" path orphaning [x] tasks [P2] [simple] [tier: sonnet:medium] [reggie-system] [planned]
   files: resources/commands/reggie-debug-workflow.md (MOD)
-- [ ] harden-init-tasks-plan-quality: Upgrade init-tasks RESEARCH+PLAN to produce plans that are trustworthy on first pass and serve two audiences [P2] [complex] [tier: opus:high] [reggie-system] [planned]
-  files: resources/commands/reggie-init-tasks.md (MOD)
 
 ### Reggie UI
 - [ ] debug-promoted-session-no-respawn: Debug why UI doesn't spawn next session after a promoted headless session completes [P2] [conflicts: explain-batch-start-blocked-reasons] [complex] [tier: opus:high] [debug] [planned]
