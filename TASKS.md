@@ -12,17 +12,6 @@
 **Files**:
 - MOD: src/styles/globals.css
 
-### pipeline-bindings-css-unstyled
-**Task**: Add CSS rules for pipeline binding UI + tokenize panel-purple
-**Pipeline**: code-workflow
-**Branch**: task/pipeline-bindings-css-unstyled
-**Worktree**: .worktree/pipeline-bindings-css-unstyled
-**Base**: main
-**Started**: 2026-05-01
-**Files**:
-- MOD: src/styles/globals.css
-- MOD: src/components/WorkspaceOverview/CodeWorkflowTab.tsx
-
 ## Backlog
 
 ### v2.0.0 Release
