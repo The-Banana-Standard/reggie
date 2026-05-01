@@ -12,6 +12,21 @@
 **Files**:
 - MOD: src/styles/globals.css
 
+### fix-groomed-tasks-refresh-stale
+**Task**: Add filesystem watcher so TASKS.md changes refresh the UI immediately
+**Pipeline**: code-workflow
+**Branch**: task/fix-groomed-tasks-refresh-stale
+**Worktree**: .worktree/fix-groomed-tasks-refresh-stale
+**Base**: main
+**Started**: 2026-04-30
+**Files**:
+- NEW: src-tauri/src/watchers/tasks_md.rs
+- MOD: src-tauri/src/lib.rs
+- MOD: src-tauri/src/commands/projects.rs
+- MOD: src-tauri/Cargo.toml
+- MOD: src/hooks/useSessionTracking.ts
+- MOD: src/__tests__/tauri-contract.test.ts
+
 ---
 
 ## Backlog
@@ -35,8 +50,6 @@
 - [x] vitest-env-hang-investigation: Diagnose and fix vitest hanging at 0% CPU [P2] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [conflicts: replace-sqlite-with-json-bookmarks] [complex] [tier: opus:high] [debug] [planned]
   files: vite.config.ts (MOD), package.json (MOD)
   > closed 2026-04-25: hang not reproducible — full suite runs 962 tests in 6.86s across 3 invocations. Diagnosis inconclusive (likely stale Vite dep-optimizer cache or sandbox-trapped stale processes, both since cleared). setupFiles AC item folded into vitest-setupfiles-and-contract-test-fixes. See .pipeline/vitest-env-hang-investigation/HANDOFF.md.
-- [ ] fix-groomed-tasks-refresh-stale: Add filesystem watcher so TASKS.md changes refresh the UI immediately [P2] [complex] [tier: opus:high] [code] [planned]
-  files: src-tauri/src/watchers/tasks_md.rs (NEW), src-tauri/src/lib.rs (MOD), src-tauri/src/commands/projects.rs (MOD), src-tauri/Cargo.toml (MOD), src/hooks/useSessionTracking.ts (MOD), src/__tests__/tauri-contract.test.ts (MOD)
 
 ### Other
 
