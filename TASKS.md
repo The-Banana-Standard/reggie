@@ -2,6 +2,16 @@
 
 ## Active Tasks
 
+### fix-sessions-fullpage-no-gap
+**Task**: Make session terminal panes flush, edge-to-edge
+**Pipeline**: code-workflow (design)
+**Branch**: task/fix-sessions-fullpage-no-gap
+**Worktree**: .worktree/fix-sessions-fullpage-no-gap
+**Base**: main
+**Started**: 2026-04-30
+**Files**:
+- MOD: src/styles/globals.css
+
 ---
 
 ## Backlog
@@ -11,8 +21,10 @@
 (all v2.0.0 release tasks complete or in progress)
 
 ### Pipeline System Expansion
-
-(no open tasks)
+- [ ] eliminate-yes-loop-system-side: Strip /compact + loop from --yes mode in code-workflow and system-change [P2] [moderate] [tier: opus:medium] [reggie-system] [planned]
+  files: resources/commands/reggie-code-workflow.md (MOD), resources/commands/reggie-system-change.md (MOD), resources/managers/reggie-code-manager.md (MOD)
+- [ ] add-headless-auto-relaunch-on-done: UI relaunches next backlog task when a Repo-Start session emits DONE-success [P2] [depends: eliminate-yes-loop-system-side] [complex] [tier: opus:high] [code] [planned]
+  files: src/types/terminal.ts (MOD), src/hooks/useTerminal.ts (MOD), src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD), src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx (MOD)
 
 ### Reggie UI
 - [x] investigate-cross-domain-batch-start: Diagnose why Batch Start Coding fails for `[debug]` and possibly `[reggie-system]` tasks [P2] [conflicts: configurable-pipelines-with-locked-reggie-system] [complex] [tier: opus:high] [debug] [planned]
@@ -23,6 +35,8 @@
 - [x] vitest-env-hang-investigation: Diagnose and fix vitest hanging at 0% CPU [P2] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [conflicts: replace-sqlite-with-json-bookmarks] [complex] [tier: opus:high] [debug] [planned]
   files: vite.config.ts (MOD), package.json (MOD)
   > closed 2026-04-25: hang not reproducible — full suite runs 962 tests in 6.86s across 3 invocations. Diagnosis inconclusive (likely stale Vite dep-optimizer cache or sandbox-trapped stale processes, both since cleared). setupFiles AC item folded into vitest-setupfiles-and-contract-test-fixes. See .pipeline/vitest-env-hang-investigation/HANDOFF.md.
+- [ ] fix-groomed-tasks-refresh-stale: Add filesystem watcher so TASKS.md changes refresh the UI immediately [P2] [complex] [tier: opus:high] [code] [planned]
+  files: src-tauri/src/watchers/tasks_md.rs (NEW), src-tauri/src/lib.rs (MOD), src-tauri/src/commands/projects.rs (MOD), src-tauri/Cargo.toml (MOD), src/hooks/useSessionTracking.ts (MOD), src/__tests__/tauri-contract.test.ts (MOD)
 
 ### Other
 
