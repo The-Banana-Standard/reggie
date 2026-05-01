@@ -2,6 +2,17 @@
 
 ## Active Tasks
 
+### slug-control-char-whitelist
+**Task**: Whitelist colon-style slugs + strip control chars at PTY write
+**Pipeline**: code-workflow
+**Branch**: task/slug-control-char-whitelist
+**Worktree**: .worktree/slug-control-char-whitelist
+**Base**: main
+**Started**: 2026-05-01
+**Files**:
+- MOD: src-tauri/src/commands/projects.rs
+- MOD: src-tauri/src/commands/terminal.rs
+
 ---
 
 ## Backlog
@@ -17,8 +28,6 @@
 ### Reggie UI
 
 ### Bug Fixes & Tech Debt
-- [ ] slug-control-char-whitelist: Whitelist colon-style slugs + strip control chars at PTY write [P3] [conflicts: harden-tasks-md-watcher, preexisting-clippy-warnings-in-projects-rs-tests] [simple] [tier: sonnet:medium] [code] [planned]
-  files: src-tauri/src/commands/projects.rs (MOD), src-tauri/src/commands/terminal.rs (MOD)
 - [ ] preexisting-clippy-warnings-in-projects-rs-tests: Fix 7 pre-existing clippy warnings + add CI gate [P3] [conflicts: harden-tasks-md-watcher, slug-control-char-whitelist] [simple] [tier: sonnet:medium] [code] [planned]
   files: src-tauri/src/commands/projects.rs (MOD), .github/workflows/ci.yml (MOD)
 
