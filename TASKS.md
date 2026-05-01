@@ -20,7 +20,7 @@
 (all v2.0.0 release tasks complete or in progress)
 
 ### Pipeline System Expansion
-- [ ] fix-groomed-section-shows-done-tasks: Fix debug-workflow "Done" path orphaning [x] tasks [P2] [simple] [tier: sonnet:medium] [reggie-system] [planned]
+- [x] fix-groomed-section-shows-done-tasks: Fix debug-workflow "Done" path orphaning [x] tasks [P2] [simple] [tier: sonnet:medium] [reggie-system] [planned]
   files: resources/commands/reggie-debug-workflow.md (MOD)
 
 ### Reggie UI

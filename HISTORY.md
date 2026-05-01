@@ -1,5 +1,6 @@
 # Completed Tasks
 
+- [x] fix-groomed-section-shows-done-tasks Fix debug-workflow Option 3 ("Done") to migrate slug to HISTORY.md via meta-commit, matching Option 2 — prevents orphan [x] tasks in Backlog -- 2026-05-01
 - [x] pipeline-bindings-css-unstyled Add CSS rules for pipeline binding UI + tokenize panel-purple (3 new tokens in :root + light theme; 11 hardcoded refs converted; 7 binding-UI rules added; inline styles removed from CodeWorkflowTab) -- 2026-05-01
 - [x] cross-domain-dispatch-followups Defensive cleanup from cross-domain dispatch fix review (slugFromLabel + activeSlugs filter in pickBacklogToLaunch + deterministic pickReggieSystemHolder) -- 2026-05-01
 - [x] harden-tasks-md-watcher Defensive cleanup of TASKS.md watcher chain (ref-guard frontend stop IPC + canonicalize/reject root/home in start_tasks_md_watch) -- 2026-05-01

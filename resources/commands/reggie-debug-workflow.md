@@ -107,7 +107,7 @@ You are orchestrating a debug workflow. This is a conversational debugging proce
 
    - **Option 1 ("Continue investigating this bug")**: Re-enter Stage 2 (DEBUG-DIALOGUE) for the same slug. Carry the prior hypotheses and evidence forward — don't restart from scratch.
    - **Option 2 / "Next" / "Move to next"**: Mark the current slug `[x]` in TASKS.md, move to HISTORY.md with the standard meta-commit, then scan `## Backlog` for the next `[debug]` slug in document order. If one exists, re-enter slug-mode with that slug. If none remain, exit cleanly with `~~REGGIE:DONE:reggie-debug-workflow:success~~`.
-   - **Option 3 ("Done")**: Mark the current slug `[x]` (assuming the user is satisfied with the diagnosis), exit cleanly with `~~REGGIE:DONE:reggie-debug-workflow:success~~`.
+   - **Option 3 ("Done")**: Mark the current slug `[x]` in TASKS.md, migrate to HISTORY.md with the standard meta-commit (`meta: complete [slug]`), then exit cleanly with `~~REGGIE:DONE:reggie-debug-workflow:success~~`. Does not scan for the next `[debug]` slug — only Option 2 continues.
 
    **Auto-continue rule**: The orchestrator MUST NOT auto-continue to the next `[debug]` slug without an explicit "Next" / "Move to next" / "2" from the user. `--yes` accelerates work *within* a debug session but never bypasses this checkpoint between sessions. This is intentional — debug findings often warrant human pause.
 
