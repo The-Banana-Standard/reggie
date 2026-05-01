@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { mockInvoke, resetTauriMocks } from "../../../__test-utils__/tauri-mock";
 import { CodeWorkflowTab, commandForMode, pickBacklogToLaunch, pickReggieSystemHolder } from "../CodeWorkflowTab";
-import type { HeadlessSession, TerminalTab } from "../../../types/terminal";
-import type { RepoTaskSummary, HeadlessSession } from "../../../types/terminal";
+import type { HeadlessSession, TerminalTab, RepoTaskSummary } from "../../../types/terminal";
 import {
   loadPipelineBindings,
   __resetForTests as resetBindings,
@@ -73,7 +72,9 @@ describe("CodeWorkflowTab tracked data consumption", () => {
   it("falls back to local fetch when trackedRepos is not provided", async () => {
     mockInvoke.mockResolvedValue([makeRepo({ groomedCount: 7 })]);
 
-    render(<CodeWorkflowTab {...defaultProps} />);
+    await act(async () => {
+      render(<CodeWorkflowTab {...defaultProps} />);
+    });
 
     // Should call invoke for scan
     expect(mockInvoke).toHaveBeenCalledWith("scan_tasks_across_repos", {
@@ -537,7 +538,9 @@ describe("CodeWorkflowTab no-tasks feedback", () => {
     );
 
     // Click Start on the repo row
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     // Should show the no-tasks feedback message
     await vi.waitFor(() => {
@@ -838,12 +841,12 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
     );
 
     // Click Batch Start Coding
-    fireEvent.click(screen.getByText("Batch Start Coding"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Batch Start Coding"));
+    });
 
     // Since the promoted session is dead, the repo should NOT be skipped
-    await vi.waitFor(() => {
-      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
-    });
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
   });
 
   it("treats slugs with null/missing mode as code workflow", async () => {
@@ -902,10 +905,10 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
-    // Wait a tick for the async handler. No launch should have occurred.
-    await new Promise((r) => setTimeout(r, 20));
     expect(onLaunchHeadless).not.toHaveBeenCalled();
   });
 });
@@ -1252,10 +1255,10 @@ describe("CodeWorkflowTab handleLaunchSession remaining-slots math", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
-    // Wait a tick — no launches should have fired.
-    await new Promise((r) => setTimeout(r, 30));
     expect(onLaunchHeadless).not.toHaveBeenCalled();
   });
 
@@ -1300,11 +1303,11 @@ describe("CodeWorkflowTab handleLaunchSession remaining-slots math", () => {
     // The repo row has a running session, so the per-repo "Start" button is hidden.
     // Use Batch Start to trigger the launch path instead — it invokes
     // `launchForRepo` for the same repo, exercising the same remaining-slots math.
-    fireEvent.click(screen.getByText("Batch Start Coding"));
-
-    await vi.waitFor(() => {
-      expect(onLaunchHeadless).toHaveBeenCalledTimes(4);
+    await act(async () => {
+      fireEvent.click(screen.getByText("Batch Start Coding"));
     });
+
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -1338,12 +1341,14 @@ describe("CodeWorkflowTab handleBatchStart group-wide reggie-system", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Batch Start Coding"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Batch Start Coding"));
+    });
 
     // Gate on the actual condition: exactly one launch fires across both repos.
     // The second repo's [reggie-system] slug is dropped because the slot was
     // claimed by the first iteration's in-flight counter.
-    await vi.waitFor(() => expect(onLaunchHeadless).toHaveBeenCalledTimes(1));
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
 
     const reggieCalls = onLaunchHeadless.mock.calls.filter((c) =>
       String(c[2]).startsWith("reggie-sys --"),
@@ -1570,11 +1575,11 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Batch Start Coding"));
-
-    await vi.waitFor(() => {
-      expect(onLaunchHeadless).toHaveBeenCalledTimes(4);
+    await act(async () => {
+      fireEvent.click(screen.getByText("Batch Start Coding"));
     });
+
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(4);
 
     const completedA: HeadlessSession = {
       terminalId: "t-a",
@@ -1601,15 +1606,17 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       autoRelaunch: true,
     };
 
-    rerender(
-      <CodeWorkflowTab
-        {...defaultProps}
-        onLaunchHeadless={onLaunchHeadless}
-        trackedRepos={trackedRepos}
-        reposLoading={false}
-        headlessSessions={[completedA, completedB]}
-      />
-    );
+    await act(async () => {
+      rerender(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={trackedRepos}
+          reposLoading={false}
+          headlessSessions={[completedA, completedB]}
+        />
+      );
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(6);
@@ -1754,7 +1761,9 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -1773,15 +1782,17 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       autoRelaunch: true,
     };
 
-    rerender(
-      <CodeWorkflowTab
-        {...defaultProps}
-        onLaunchHeadless={onLaunchHeadless}
-        trackedRepos={trackedRepos}
-        reposLoading={false}
-        headlessSessions={[completedSession]}
-      />
-    );
+    await act(async () => {
+      rerender(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={trackedRepos}
+          reposLoading={false}
+          headlessSessions={[completedSession]}
+        />
+      );
+    });
 
     await vi.waitFor(() => {
       expect(call).toBeGreaterThanOrEqual(2);
@@ -1829,7 +1840,9 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Batch Start Coding"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Batch Start Coding"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -1849,15 +1862,17 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       autoRelaunch: true,
     };
 
-    rerender(
-      <CodeWorkflowTab
-        {...defaultProps}
-        onLaunchHeadless={onLaunchHeadless}
-        trackedRepos={trackedRepos}
-        reposLoading={false}
-        headlessSessions={[completedRsA]}
-      />
-    );
+    await act(async () => {
+      rerender(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={trackedRepos}
+          reposLoading={false}
+          headlessSessions={[completedRsA]}
+        />
+      );
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(2);
@@ -1993,15 +2008,17 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       autoRelaunch: true,
     };
 
-    rerender(
-      <CodeWorkflowTab
-        {...defaultProps}
-        onLaunchHeadless={onLaunchHeadless}
-        trackedRepos={trackedRepos}
-        reposLoading={false}
-        headlessSessions={[completedRsA]}
-      />
-    );
+    await act(async () => {
+      rerender(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={trackedRepos}
+          reposLoading={false}
+          headlessSessions={[completedRsA]}
+        />
+      );
+    });
 
     // Wait for the fan-out to settle. repo-a relaunch (no backlog) + exactly
     // ONE peer claims the freed slot (cap-of-1 across the workspace).
@@ -2071,15 +2088,17 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       autoRelaunch: true,
     };
 
-    rerender(
-      <CodeWorkflowTab
-        {...defaultProps}
-        onLaunchHeadless={onLaunchHeadless}
-        trackedRepos={trackedRepos}
-        reposLoading={false}
-        headlessSessions={[completedSession]}
-      />
-    );
+    await act(async () => {
+      rerender(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={trackedRepos}
+          reposLoading={false}
+          headlessSessions={[completedSession]}
+        />
+      );
+    });
 
     // The auto-relaunch effect fires launchForRepo for repo-a. repo-a's filter
     // suppresses its own "shared-slug" (composite key match) and shows no-tasks.
@@ -2094,7 +2113,9 @@ describe("CodeWorkflowTab auto-relaunch", () => {
 
     const callsBefore = onLaunchHeadless.mock.calls.length;
     // Click the second Start button (repo-b appears after repo-a in render order).
-    fireEvent.click(startButtons[startButtons.length - 1]);
+    await act(async () => {
+      fireEvent.click(startButtons[startButtons.length - 1]);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless.mock.calls.length).toBeGreaterThan(callsBefore);
