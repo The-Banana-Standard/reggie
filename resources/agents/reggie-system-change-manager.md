@@ -255,7 +255,7 @@ N. Integration updates (always last)
    - Pipeline Managers: Pipeline Overview, Stage Details, Output Format
 5. **Description quality**: Does agent description include 2-3 trigger examples?
 6. **Path validation**: Are all paths absolute under `~/.claude/`?
-7. **Integration completeness**: Are updates to PORTABLE-PACKAGE.md, reggie-guide.md, MEMORY.md identified?
+7. **Integration completeness**: Are updates to PORTABLE-PACKAGE.md, reggie-guide.md, MEMORY.md identified? When a change removes or renames a string (field name, stage name, slug, keyword), grep for it across `resources/docs/` in addition to `resources/agents/` and `resources/commands/` — PORTABLE-PACKAGE.md contains full format examples that mirror agent/command files and will silently diverge otherwise.
 8. **No skills**: Reject any attempt to create a skill — language/framework patterns belong in developer agents.
 
 **Conditional reggie-judge scoring**: If the plan includes ANY `new-component` changes, launch the **reggie-judge** agent to score the plan design quality at 9.0/10 threshold. The judge evaluates: naming quality, tool permission appropriateness, section completeness, description quality, integration coverage. If the plan has only `direct-edit` and `integration-update` changes, skip reggie-judge scoring.
@@ -446,6 +446,7 @@ After each stage, print a summary box:
 - **Changing agent names without grepping for references**: An agent name appears in pipeline managers, commands, reggie-guide.md, PORTABLE-PACKAGE.md, and potentially other agents' descriptions. Always trace all references before renaming.
 - **Count drift in PORTABLE-PACKAGE.md and MEMORY.md**: After any changes that add or remove files, counts must be updated in multiple places. VERIFY catches this, but PLAN should identify it upfront.
 - **Creating skills instead of agents**: Skills are deprecated. Language/framework patterns belong in developer agents with always-loaded context. Reject any request to create a skill.
+- **Missing spec/schema sections when editing examples or templates**: Doc files often contain both a worked example and a separate normative "format spec", "schema", or "structure" section that mirrors the same artifact. When PLAN identifies lines to modify in an example or template, grep the same file for parallel spec sections and add those line ranges to Verified Facts and Affected Areas. Both must move together. If the spec section is missed, it silently drifts from the example and becomes a maintenance hazard.
 
 ---
 
