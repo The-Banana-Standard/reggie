@@ -26,18 +26,6 @@
 - MOD: src/styles/globals.css
 - MOD: src/components/WorkspaceOverview/CodeWorkflowTab.tsx
 
-### harden-tasks-md-watcher
-**Task**: Defensive cleanup of TASKS.md watcher chain
-**Pipeline**: code-workflow
-**Branch**: task/harden-tasks-md-watcher
-**Worktree**: .worktree/harden-tasks-md-watcher
-**Base**: main
-**Started**: 2026-05-01
-**Files**:
-- MOD: src/hooks/useSessionTracking.ts
-- MOD: src/hooks/__tests__/useSessionTracking.test.ts
-- MOD: src-tauri/src/commands/projects.rs
-
 ## Backlog
 
 ### v2.0.0 Release

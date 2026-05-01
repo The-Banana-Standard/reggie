@@ -1,5 +1,6 @@
 # Completed Tasks
 
+- [x] harden-tasks-md-watcher Defensive cleanup of TASKS.md watcher chain (ref-guard frontend stop IPC + canonicalize/reject root/home in start_tasks_md_watch) -- 2026-05-01
 - [x] fix-sessions-fullpage-no-gap Make session terminal panes flush, edge-to-edge -- 2026-04-30
 - [x] eliminate-yes-loop-system-side Strip /compact + auto-loop from --yes mode in code-workflow and system-change; --yes now means only "skip in-session confirmation gates" -- 2026-04-30
 - [x] fix-cross-domain-dispatch-per-repo-and-batch Fix per-repo Start + Batch Start to honor per-domain caps (code:5, debug:3 per-repo; reggie-system:1 group-wide) -- 2026-04-30
@@ -59,3 +60,5 @@
 - [x] wire-tasksviewer-mode-dispatch Make TasksViewer respect all 5 pipeline mode tags -- 2026-04-29
 - [x] fix-groomed-tasks-refresh-stale Add filesystem watcher so TASKS.md changes refresh the UI immediately -- 2026-04-30
 - [x] add-headless-auto-relaunch-on-done UI relaunches next backlog task when a Repo-Start session emits DONE-success -- 2026-04-30
+- [x] vitest-env-hang-investigation Diagnose and fix vitest hanging at 0% CPU -- 2026-04-25
+- [x] investigate-cross-domain-batch-start Diagnose why Batch Start Coding fails for [debug] and [reggie-system] tasks -- 2026-04-30
