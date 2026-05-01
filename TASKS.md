@@ -2,6 +2,18 @@
 
 ## Active Tasks
 
+### codeworkflowtab-act-warnings-from-relaunch-effect
+**Task**: Silence relaunch-effect act warnings in unrelated tests
+**Pipeline**: code-workflow
+**Branch**: task/codeworkflowtab-act-warnings-from-relaunch-effect
+**Worktree**: .worktree/codeworkflowtab-act-warnings-from-relaunch-effect
+**Base**: main
+**Started**: 2026-05-01
+**Files**:
+- MOD: src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx
+
+---
+
 ## Backlog
 
 ### v2.0.0 Release
@@ -19,8 +31,6 @@
   files: src-tauri/src/commands/projects.rs (MOD), src-tauri/src/commands/terminal.rs (MOD)
 - [ ] preexisting-clippy-warnings-in-projects-rs-tests: Fix 7 pre-existing clippy warnings + add CI gate [P3] [conflicts: harden-tasks-md-watcher, slug-control-char-whitelist] [simple] [tier: sonnet:medium] [code] [planned]
   files: src-tauri/src/commands/projects.rs (MOD), .github/workflows/ci.yml (MOD)
-- [ ] codeworkflowtab-act-warnings-from-relaunch-effect: Silence relaunch-effect act warnings in unrelated tests [P3] [simple] [tier: sonnet:medium] [code] [planned]
-  files: src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx (MOD)
 
 ### Other
 
