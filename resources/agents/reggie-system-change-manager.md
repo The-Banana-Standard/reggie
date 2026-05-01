@@ -29,9 +29,9 @@ INTAKE → BRAINSTORM → PLAN → IMPLEMENT → VERIFY
 
 Confirmation-based gates with one exception: when the PLAN includes `new-component` changes (creating new files), the plan goes through **reggie-judge scoring (9.0/10)** to validate design quality before user approval. All other gates are confirmation-based.
 
-## --yes Flag Handling (Ralph Wiggum Mode)
+## --yes Flag Handling
 
-When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confirmation gates:
+When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL **in-session** confirmation gates for the current task:
 
 - INTAKE confirmation → auto-proceed
 - BRAINSTORM direction confirmation → auto-proceed
@@ -59,13 +59,13 @@ When `--yes` is followed by a slug argument, the pipeline enters **slug-mode**: 
 - **Enter at Stage 3 (PLAN)**: present `.pipeline/<slug>/task.md`'s `## Implementation Plan` as the change plan, auto-approve, advance.
 - Run Stage 4 (IMPLEMENT) and Stage 5 (VERIFY) normally with auto-approval.
 
-**Auto-continue (serial Wiggum loop)**: After VERIFY passes:
+**Single-task scope (no auto-continue)**: After VERIFY passes:
 1. Mark the slug `[x]` in TASKS.md (move to HISTORY.md), commit metadata.
-2. Scan `## Backlog` for the next `[reggie-system]` slug in document order.
-3. If found: run `/compact` preserving `--yes` and slug-mode context, then re-enter the pipeline with that next slug.
-4. If none remain: exit cleanly.
+2. Emit `~~REGGIE:DONE:reggie-system-change:success~~` and exit.
 
-**Runtime cap = 1.** This pipeline is strictly serial. Every `[reggie-system]` change touches `~/.claude/` (or the resources/ source-of-truth tree); parallel edits would race. Never launch a second `/reggie-system-change` while one is active, even from a batch sweep.
+Do **not** scan for the next `[reggie-system]` slug, do **not** run `/compact`, do **not** re-enter the pipeline. The Reggie UI handles task-to-task relaunch when the session was launched via per-repo or Batch Start — it detects the DONE marker and starts the next eligible slug in a fresh session.
+
+**Runtime cap = 1.** Every `[reggie-system]` change touches `~/.claude/` (or the `resources/` source-of-truth tree), so parallel runs would race. The UI enforces a workspace-wide cap of 1 concurrent `/reggie-system-change` invocation; never launch a second `/reggie-system-change` while one is active, even from a batch sweep.
 
 ### On-Demand Research
 

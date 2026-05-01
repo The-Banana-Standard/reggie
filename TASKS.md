@@ -36,8 +36,6 @@
 (all v2.0.0 release tasks complete or in progress)
 
 ### Pipeline System Expansion
-- [ ] eliminate-yes-loop-system-side: Strip /compact + loop from --yes mode in code-workflow and system-change [P2] [moderate] [tier: opus:medium] [reggie-system] [planned]
-  files: resources/commands/reggie-code-workflow.md (MOD), resources/commands/reggie-system-change.md (MOD), resources/managers/reggie-code-manager.md (MOD)
 - [ ] add-headless-auto-relaunch-on-done: UI relaunches next backlog task when a Repo-Start session emits DONE-success [P2] [depends: eliminate-yes-loop-system-side] [complex] [tier: opus:high] [code] [planned]
   files: src/types/terminal.ts (MOD), src/hooks/useTerminal.ts (MOD), src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD), src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx (MOD)
 

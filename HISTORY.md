@@ -1,5 +1,6 @@
 # Completed Tasks
 
+- [x] eliminate-yes-loop-system-side Strip /compact + auto-loop from --yes mode in code-workflow and system-change; --yes now means only "skip in-session confirmation gates" -- 2026-04-30
 - [x] fix-cross-domain-dispatch-per-repo-and-batch Fix per-repo Start + Batch Start to honor per-domain caps (code:5, debug:3 per-repo; reggie-system:1 group-wide) -- 2026-04-30
 - [x] sessions-tab-link-not-opening Make clickable terminal links open in system browser -- 2026-04-29
 - [x] squash-pipeline-stage-commits-on-complete Eliminate `meta: stage` commits by moving runtime pipeline state out of TASKS.md -- 2026-04-29
