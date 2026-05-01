@@ -2,17 +2,6 @@
 
 ## Active Tasks
 
-### slug-control-char-whitelist
-**Task**: Whitelist colon-style slugs + strip control chars at PTY write
-**Pipeline**: code-workflow
-**Branch**: task/slug-control-char-whitelist
-**Worktree**: .worktree/slug-control-char-whitelist
-**Base**: main
-**Started**: 2026-05-01
-**Files**:
-- MOD: src-tauri/src/commands/projects.rs
-- MOD: src-tauri/src/commands/terminal.rs
-
 ---
 
 ## Backlog
