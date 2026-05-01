@@ -2,6 +2,16 @@
 
 ## Active Tasks
 
+### act-wrap-fireEvent-clicks-codeworkflowtab-tests
+**Task**: Sweep all 29 bare fireEvent.click calls in CodeWorkflowTab.test.tsx into await act wrappers
+**Pipeline**: code-workflow
+**Branch**: task/act-wrap-fireEvent-clicks-codeworkflowtab-tests
+**Worktree**: .worktree/act-wrap-fireEvent-clicks-codeworkflowtab-tests
+**Base**: main
+**Started**: 2026-05-01
+**Files**:
+- MOD: src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx
+
 ---
 
 ## Backlog
@@ -13,8 +23,14 @@
 ### Pipeline System Expansion
 - [x] fix-groomed-section-shows-done-tasks: Fix debug-workflow "Done" path orphaning [x] tasks [P2] [simple] [tier: sonnet:medium] [reggie-system] [planned]
   files: resources/commands/reggie-debug-workflow.md (MOD)
+- [ ] harden-init-tasks-plan-quality: Upgrade init-tasks RESEARCH+PLAN to produce plans that are trustworthy on first pass and serve two audiences [P2] [complex] [tier: opus:high] [reggie-system] [planned]
+  files: resources/commands/reggie-init-tasks.md (MOD)
 
 ### Reggie UI
+- [ ] debug-promoted-session-no-respawn: Debug why UI doesn't spawn next session after a promoted headless session completes [P2] [conflicts: explain-batch-start-blocked-reasons] [complex] [tier: opus:high] [debug] [planned]
+  files: src/components/WorkspaceOverview/CodeWorkflowTab.tsx (READ), src/hooks/useTerminal.ts (READ), src-tauri/src/commands/terminal.rs (READ)
+- [ ] explain-batch-start-blocked-reasons: Explain why batch start finds no dispatchable tasks (manual deps, manual-only) [P2] [conflicts: debug-promoted-session-no-respawn] [complex] [tier: opus:high] [code] [planned]
+  files: src-tauri/src/commands/projects.rs (MOD), src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD), src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx (MOD)
 
 ### Bug Fixes & Tech Debt
 
@@ -38,8 +54,5 @@
 
 - [ ] tauri-capabilities-no-per-command-allowlist: `src-tauri/capabilities/default.json` does not enumerate per-command allowlists, so every `#[tauri::command]` in the binary is reachable from any frontend script in the `main` window. Pre-existing posture; not introduced by any specific task. If the app ever loads third-party content (extensions, embedded webviews of remote pages), this becomes exploitable.
   > context: discovered during security review of fix-groomed-tasks-refresh-stale (2026-04-30). Pre-existing in main. Severity LOW in current single-user trust model; HIGH if trust model expands.
-
-- [ ] inconsistent-act-wrapping-in-codeworkflowtab-tests: ~30+ `fireEvent.click` calls in `CodeWorkflowTab.test.tsx` remain bare (no `act` wrapper) while others are wrapped. The implicit rule "wrap only if it warns" is fragile — warning behavior depends on whether the handler triggers a microtask that escapes React's batched update detection.
-  > context: discovered 2026-05-01 during codeworkflowtab-act-warnings-from-relaunch-effect. As production code evolves, formerly-bare clicks may start warning. Consider adopting a project-wide convention (always `await act(async () => fireEvent.click(...))` for any click that may trigger state updates) and applying it in a follow-up sweep.
 
 <!-- folded into vitest-setupfiles-and-contract-test-fixes (2026-04-25). Original guess (scanner glob bug) was wrong — RUST_COMMANDS is a hand-maintained table; just needs the missing entry. -->
