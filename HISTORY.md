@@ -1,5 +1,6 @@
 # Completed Tasks
 
+- [x] cross-domain-dispatch-followups Defensive cleanup from cross-domain dispatch fix review (slugFromLabel + activeSlugs filter in pickBacklogToLaunch + deterministic pickReggieSystemHolder) -- 2026-05-01
 - [x] harden-tasks-md-watcher Defensive cleanup of TASKS.md watcher chain (ref-guard frontend stop IPC + canonicalize/reject root/home in start_tasks_md_watch) -- 2026-05-01
 - [x] fix-sessions-fullpage-no-gap Make session terminal panes flush, edge-to-edge -- 2026-04-30
 - [x] eliminate-yes-loop-system-side Strip /compact + auto-loop from --yes mode in code-workflow and system-change; --yes now means only "skip in-session confirmation gates" -- 2026-04-30

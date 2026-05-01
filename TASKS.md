@@ -2,19 +2,6 @@
 
 ## Active Tasks
 
-### cross-domain-dispatch-followups
-**Task**: Defensive cleanup from cross-domain dispatch fix review
-**Pipeline**: code-workflow
-**Branch**: task/cross-domain-dispatch-followups
-**Worktree**: .worktree/cross-domain-dispatch-followups
-**Base**: main
-**Started**: 2026-05-01
-**Files**:
-- MOD: src/components/WorkspaceOverview/CodeWorkflowTab.tsx
-- MOD: src/components/WorkspaceOverview/sessionLabels.ts
-- MOD: src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx
-- NEW: src/components/WorkspaceOverview/__tests__/sessionLabels.test.ts
-
 ### pipeline-bindings-css-unstyled
 **Task**: Add CSS rules for pipeline binding UI + tokenize panel-purple
 **Pipeline**: code-workflow
