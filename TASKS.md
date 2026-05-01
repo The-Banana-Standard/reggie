@@ -2,17 +2,6 @@
 
 ## Active Tasks
 
-### preexisting-clippy-warnings-in-projects-rs-tests
-**Task**: Fix 7 pre-existing clippy warnings + add CI gate
-**Pipeline**: code-workflow
-**Branch**: task/preexisting-clippy-warnings-in-projects-rs-tests
-**Worktree**: .worktree/preexisting-clippy-warnings-in-projects-rs-tests
-**Base**: main
-**Started**: 2026-05-01
-**Files**:
-- MOD: src-tauri/src/commands/projects.rs
-- MOD: .github/workflows/ci.yml
-
 ---
 
 ## Backlog

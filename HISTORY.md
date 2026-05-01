@@ -1,5 +1,6 @@
 # Completed Tasks
 
+- [x] preexisting-clippy-warnings-in-projects-rs-tests Fix 7 pre-existing clippy warnings + add CI gate -- 2026-05-01
 - [x] slug-control-char-whitelist Validate colon-style slugs + active-section headers with is_safe_slug; strip PTY control chars at write sites -- 2026-05-01
 - [x] codeworkflowtab-act-warnings-from-relaunch-effect Silence React act() warnings from auto-relaunch useEffect in CodeWorkflowTab tests — wrap fireEvent.click + rerender in act(async) for 12 affected tests -- 2026-05-01
 - [x] pipeline-bindings-concurrent-write-race Serialize set/clear of pipeline-bindings.json behind an AppState mutex; concurrent IPC writes can no longer lose mutations -- 2026-05-01
