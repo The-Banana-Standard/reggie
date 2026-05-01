@@ -2,6 +2,17 @@
 
 ## Active Tasks
 
+### pipeline-bindings-concurrent-write-race
+**Task**: Serialize pipeline-bindings.json writes with a mutex
+**Pipeline**: code-workflow
+**Branch**: task/pipeline-bindings-concurrent-write-race
+**Worktree**: .worktree/pipeline-bindings-concurrent-write-race
+**Base**: main
+**Started**: 2026-05-01
+**Files**:
+- MOD: src-tauri/src/state.rs
+- MOD: src-tauri/src/commands/pipeline_bindings.rs
+
 ## Backlog
 
 ### v2.0.0 Release
@@ -15,8 +26,6 @@
 ### Reggie UI
 
 ### Bug Fixes & Tech Debt
-- [ ] pipeline-bindings-concurrent-write-race: Serialize pipeline-bindings.json writes with a mutex [P3] [moderate] [tier: opus:medium] [code] [planned]
-  files: src-tauri/src/state.rs (MOD), src-tauri/src/commands/pipeline_bindings.rs (MOD)
 - [ ] slug-control-char-whitelist: Whitelist colon-style slugs + strip control chars at PTY write [P3] [conflicts: harden-tasks-md-watcher, preexisting-clippy-warnings-in-projects-rs-tests] [simple] [tier: sonnet:medium] [code] [planned]
   files: src-tauri/src/commands/projects.rs (MOD), src-tauri/src/commands/terminal.rs (MOD)
 - [ ] preexisting-clippy-warnings-in-projects-rs-tests: Fix 7 pre-existing clippy warnings + add CI gate [P3] [conflicts: harden-tasks-md-watcher, slug-control-char-whitelist] [simple] [tier: sonnet:medium] [code] [planned]
