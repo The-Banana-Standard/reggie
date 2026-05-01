@@ -2,16 +2,6 @@
 
 ## Active Tasks
 
-### add-session-list-divider
-**Task**: Restore 1px grey separators between session grid cards
-**Pipeline**: code-workflow
-**Branch**: task/add-session-list-divider
-**Worktree**: .worktree/add-session-list-divider
-**Base**: main
-**Started**: 2026-05-01
-**Files**:
-- MOD: src/styles/globals.css
-
 ## Backlog
 
 ### v2.0.0 Release

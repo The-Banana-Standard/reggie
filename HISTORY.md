@@ -64,3 +64,4 @@
 - [x] add-headless-auto-relaunch-on-done UI relaunches next backlog task when a Repo-Start session emits DONE-success -- 2026-04-30
 - [x] vitest-env-hang-investigation Diagnose and fix vitest hanging at 0% CPU -- 2026-04-25
 - [x] investigate-cross-domain-batch-start Diagnose why Batch Start Coding fails for [debug] and [reggie-system] tasks -- 2026-04-30
+- [x] add-session-list-divider Restore 1px grey separators between session grid cards -- 2026-05-01
