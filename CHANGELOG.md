@@ -19,6 +19,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - When a `[reggie-system]` task completes in any repo, the freed workspace-wide slot is offered sequentially to other repos with deferred reggie-system backlog — no concurrent dispatch.
 
 ### Fixed
+- Restore 1px grey separators between session grid cards in the Sessions tab.
 - **Hardened `TASKS.md` watcher.** `start_tasks_md_watch` now canonicalizes the requested watch path and rejects root, the user's home directory, and any ancestor of home — defends against a buggy frontend exhausting FSEvents/inotify resources by recursively watching `/`, `$HOME`, or a symlinked home. The frontend `useSessionTracking` hook tracks watcher state via a ref and only invokes `stop_tasks_md_watch` when a watcher was actually started, eliminating no-op watcher IPC on every effect run.
 - Task panels (Groomed, Active, Ungroomed) now refresh automatically when any `TASKS.md` under the active workspace is edited externally — for example, by `/reggie-init-tasks` runs, autonomous workflow appends, or manual edits. Previously the UI could show stale tasks until the 60s poll fired or the window regained focus.
 - Terminal links now open in the system default browser when clicked. Previously, clicking a link in the integrated terminal was a no-op because Tauri's webview blocks `window.open()`; links now route through `@tauri-apps/plugin-shell`'s `open()`.

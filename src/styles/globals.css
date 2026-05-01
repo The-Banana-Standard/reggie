@@ -1558,7 +1558,8 @@ html, body, #root {
 
 .terminal-panels.grid-mode {
   display: grid;
-  gap: 0;
+  gap: 1px;
+  background: var(--border-color);
   overflow-y: auto;
 }
 
