@@ -71,3 +71,4 @@
 - [x] vitest-env-hang-investigation Diagnose and fix vitest hanging at 0% CPU -- 2026-04-25
 - [x] investigate-cross-domain-batch-start Diagnose why Batch Start Coding fails for [debug] and [reggie-system] tasks -- 2026-04-30
 - [x] add-session-list-divider Restore 1px grey separators between session grid cards -- 2026-05-01
+- [x] act-wrap-fireEvent-clicks-codeworkflowtab-tests Sweep all 29 bare fireEvent.click calls in CodeWorkflowTab.test.tsx into await act wrappers -- 2026-05-01

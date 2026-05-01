@@ -2,16 +2,6 @@
 
 ## Active Tasks
 
-### act-wrap-fireEvent-clicks-codeworkflowtab-tests
-**Task**: Sweep all 29 bare fireEvent.click calls in CodeWorkflowTab.test.tsx into await act wrappers
-**Pipeline**: code-workflow
-**Branch**: task/act-wrap-fireEvent-clicks-codeworkflowtab-tests
-**Worktree**: .worktree/act-wrap-fireEvent-clicks-codeworkflowtab-tests
-**Base**: main
-**Started**: 2026-05-01
-**Files**:
-- MOD: src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx
-
 ---
 
 ## Backlog
