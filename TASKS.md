@@ -2,6 +2,16 @@
 
 ## Active Tasks
 
+### add-session-list-divider
+**Task**: Restore 1px grey separators between session grid cards
+**Pipeline**: code-workflow
+**Branch**: task/add-session-list-divider
+**Worktree**: .worktree/add-session-list-divider
+**Base**: main
+**Started**: 2026-05-01
+**Files**:
+- MOD: src/styles/globals.css
+
 ### pipeline-bindings-css-unstyled
 **Task**: Add CSS rules for pipeline binding UI + tokenize panel-purple
 **Pipeline**: code-workflow
@@ -24,8 +34,6 @@
   files: resources/commands/reggie-debug-workflow.md (MOD)
 
 ### Reggie UI
-- [ ] add-session-list-divider: Restore 1px grey separators between session grid cards [P3] [conflicts: pipeline-bindings-css-unstyled] [simple] [tier: sonnet:medium] [code] [planned]
-  files: src/styles/globals.css (MOD)
 
 ### Bug Fixes & Tech Debt
 - [ ] pipeline-bindings-concurrent-write-race: Serialize pipeline-bindings.json writes with a mutex [P3] [moderate] [tier: opus:medium] [code] [planned]
