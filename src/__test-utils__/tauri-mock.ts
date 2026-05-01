@@ -25,9 +25,19 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 /**
  * Call this in beforeEach to reset the mock state.
+ *
+ * After reset, `mockInvoke` resolves to `undefined` by default. This matters
+ * because production code chains `.catch(...)` on the returned promise (e.g.
+ * useSessionTracking's watcher cleanup), and a bare `vi.fn()` without an
+ * implementation returns `undefined`, which would throw "Cannot read
+ * properties of undefined (reading 'catch')". Tests that need a specific
+ * return value still call `mockInvoke.mockResolvedValue(...)` and override
+ * the default.
  */
 export function resetTauriMocks() {
   mockInvoke.mockReset();
+  mockInvoke.mockResolvedValue(undefined);
   mockChannel.mockClear();
   mockListen.mockClear();
+  mockListen.mockImplementation(() => Promise.resolve(() => {}));
 }

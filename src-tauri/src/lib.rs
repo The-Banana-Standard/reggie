@@ -1,6 +1,7 @@
 mod commands;
 mod installer;
 mod state;
+mod watchers;
 
 use state::AppState;
 use tauri::Manager;
@@ -56,6 +57,8 @@ pub fn run() {
             commands::projects::save_attachment_image,
             commands::projects::cleanup_attachments,
             commands::projects::list_orphan_attachments,
+            commands::projects::start_tasks_md_watch,
+            commands::projects::stop_tasks_md_watch,
             commands::reggie_data::get_agents,
             commands::reggie_data::get_commands,
             commands::reggie_data::get_pipelines,

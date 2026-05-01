@@ -54,6 +54,8 @@ const RUST_COMMANDS: Record<string, string[]> = {
   save_attachment_image: ["projectPath", "dirName", "extension", "imageBytes"],
   cleanup_attachments: ["projectPath", "dirNames"],
   list_orphan_attachments: ["projectPath"],
+  start_tasks_md_watch: ["path"],
+  stop_tasks_md_watch: [],
 
   // git.rs
   get_git_log: ["projectPath", "limit"],

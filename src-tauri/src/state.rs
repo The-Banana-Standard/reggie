@@ -36,6 +36,11 @@ pub struct HeadlessTerminal {
 pub struct AppState {
     pub terminals: Arc<Mutex<HashMap<String, TerminalInstance>>>,
     pub headless_terminals: Arc<Mutex<HashMap<String, HeadlessTerminal>>>,
+    /// Active filesystem watcher for `TASKS.md` changes under the current
+    /// workspace path. `None` when no path is being watched. Uses
+    /// `tokio::sync::Mutex` so async commands can lock without blocking.
+    pub tasks_watcher:
+        Arc<tokio::sync::Mutex<Option<crate::watchers::tasks_md::TasksWatcher>>>,
 }
 
 impl AppState {
@@ -43,6 +48,7 @@ impl AppState {
         Self {
             terminals: Arc::new(Mutex::new(HashMap::new())),
             headless_terminals: Arc::new(Mutex::new(HashMap::new())),
+            tasks_watcher: Arc::new(tokio::sync::Mutex::new(None)),
         }
     }
 }

@@ -1225,6 +1225,46 @@ fn extract_attachment_dir_refs(content: &str, out: &mut HashSet<String>) {
     }
 }
 
+/// Start (or restart) the `TASKS.md` filesystem watcher rooted at `path`.
+///
+/// Replaces any existing watcher. Emits `tasks-md-changed` events on the app
+/// handle when any `TASKS.md` under the watched tree is modified. Tolerates
+/// missing `TASKS.md` files — events fire only when one is actually touched.
+#[tauri::command]
+pub async fn start_tasks_md_watch(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, crate::state::AppState>,
+    path: String,
+) -> Result<(), String> {
+    let path_buf = PathBuf::from(&path);
+    if !path_buf.exists() {
+        return Err(format!("Path does not exist: {}", path));
+    }
+
+    // Lock first, drop the old watcher, THEN construct the new one — this
+    // avoids any window where two overlapping watchers are alive at once and
+    // could double-emit events. If `start()` fails we end up with no watcher,
+    // which is acceptable: the frontend has poll/focus fallbacks and a failure
+    // here means the path is bad anyway.
+    let mut guard = state.tasks_watcher.lock().await;
+    *guard = None;
+
+    let new_watcher = crate::watchers::tasks_md::start(app, path_buf)
+        .map_err(|e| format!("Failed to start TASKS.md watcher: {}", e))?;
+    *guard = Some(new_watcher);
+    Ok(())
+}
+
+/// Stop the `TASKS.md` filesystem watcher, if one is active. No-op otherwise.
+#[tauri::command]
+pub async fn stop_tasks_md_watch(
+    state: tauri::State<'_, crate::state::AppState>,
+) -> Result<(), String> {
+    let mut guard = state.tasks_watcher.lock().await;
+    *guard = None;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

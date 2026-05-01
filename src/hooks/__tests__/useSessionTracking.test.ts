@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
-import { mockInvoke, resetTauriMocks } from "../../__test-utils__/tauri-mock";
+import { mockInvoke, mockListen, resetTauriMocks } from "../../__test-utils__/tauri-mock";
 import { useSessionTracking } from "../useSessionTracking";
 import type { HeadlessSession, TerminalTab, RepoTaskSummary } from "../../types/terminal";
 
@@ -47,6 +47,20 @@ function makeRepoTaskSummary(overrides: Partial<RepoTaskSummary> = {}): RepoTask
 
 // --- Tests ---
 
+/**
+ * Count of `scan_tasks_across_repos` invoke calls.
+ *
+ * Use this instead of `mockInvoke.mock.calls.length` whenever you care about
+ * how many times the hook *fetched task data*. The hook also invokes
+ * `start_tasks_md_watch` / `stop_tasks_md_watch` as part of the watcher
+ * lifecycle, and those calls would otherwise inflate the count and break
+ * brittle assertions like `toHaveBeenCalledTimes(1)`.
+ */
+function scanCallCount(): number {
+  return mockInvoke.mock.calls.filter((c) => c[0] === "scan_tasks_across_repos")
+    .length;
+}
+
 beforeEach(() => {
   resetTauriMocks();
 });
@@ -68,7 +82,9 @@ describe("useSessionTracking", () => {
     it("does not fetch when activeLevelPath is null", () => {
       renderHook(() => useSessionTracking([], [], null));
 
-      expect(mockInvoke).not.toHaveBeenCalled();
+      // The watcher useEffect may invoke stop_tasks_md_watch as a no-op even
+      // when path is null; what matters here is that we did not scan tasks.
+      expect(scanCallCount()).toBe(0);
     });
 
     it("returns empty repos and zero summary when activeLevelPath is null", async () => {
@@ -764,7 +780,7 @@ describe("useSessionTracking", () => {
       );
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(1);
+        expect(scanCallCount()).toBe(1);
       });
 
       // Advance past poll interval
@@ -773,7 +789,7 @@ describe("useSessionTracking", () => {
       });
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(2);
+        expect(scanCallCount()).toBe(2);
       });
     });
 
@@ -789,7 +805,7 @@ describe("useSessionTracking", () => {
       );
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(1);
+        expect(scanCallCount()).toBe(1);
       });
 
       await act(async () => {
@@ -797,7 +813,7 @@ describe("useSessionTracking", () => {
       });
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(2);
+        expect(scanCallCount()).toBe(2);
       });
     });
 
@@ -816,15 +832,15 @@ describe("useSessionTracking", () => {
       );
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(1);
+        expect(scanCallCount()).toBe(1);
       });
 
       await act(async () => {
         vi.advanceTimersByTime(120_000);
       });
 
-      // No additional calls
-      expect(mockInvoke).toHaveBeenCalledTimes(1);
+      // No additional scan calls (watcher invokes don't count).
+      expect(scanCallCount()).toBe(1);
     });
 
     it("does not poll when activeLevelPath is null", async () => {
@@ -834,13 +850,13 @@ describe("useSessionTracking", () => {
         useSessionTracking(sessions, [], null)
       );
 
-      expect(mockInvoke).not.toHaveBeenCalled();
+      expect(scanCallCount()).toBe(0);
 
       await act(async () => {
         vi.advanceTimersByTime(120_000);
       });
 
-      expect(mockInvoke).not.toHaveBeenCalled();
+      expect(scanCallCount()).toBe(0);
     });
   });
 
@@ -861,7 +877,7 @@ describe("useSessionTracking", () => {
       );
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(1);
+        expect(scanCallCount()).toBe(1);
       });
 
       // Move time forward past debounce window (15s)
@@ -872,7 +888,7 @@ describe("useSessionTracking", () => {
       });
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(2);
+        expect(scanCallCount()).toBe(2);
       });
     });
 
@@ -884,7 +900,7 @@ describe("useSessionTracking", () => {
       );
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(1);
+        expect(scanCallCount()).toBe(1);
       });
 
       // Move past debounce
@@ -895,7 +911,7 @@ describe("useSessionTracking", () => {
       });
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(2);
+        expect(scanCallCount()).toBe(2);
       });
 
       // Fire focus again immediately (within debounce window)
@@ -903,8 +919,8 @@ describe("useSessionTracking", () => {
         window.dispatchEvent(new Event("focus"));
       });
 
-      // Should not have called again
-      expect(mockInvoke).toHaveBeenCalledTimes(2);
+      // Should not have scanned again
+      expect(scanCallCount()).toBe(2);
     });
   });
 
@@ -914,9 +930,17 @@ describe("useSessionTracking", () => {
       const firstCall = new Promise<RepoTaskSummary[]>((r) => { resolveFirst = r; });
       const secondResult = [makeRepoTaskSummary({ name: "repo-b", path: "/projects/repo-b" })];
 
-      mockInvoke
-        .mockImplementationOnce(() => firstCall)
-        .mockResolvedValueOnce(secondResult);
+      // Track scan calls separately because the watcher useEffect interleaves
+      // start/stop_tasks_md_watch invokes between the two scans we care about.
+      let scanCallSeq = 0;
+      mockInvoke.mockImplementation((cmd: string) => {
+        if (cmd === "scan_tasks_across_repos") {
+          scanCallSeq++;
+          return scanCallSeq === 1 ? firstCall : Promise.resolve(secondResult);
+        }
+        // Watcher commands and anything else: resolve with undefined.
+        return Promise.resolve(undefined);
+      });
 
       const { result, rerender } = renderHook(
         ({ path }: { path: string | null }) => useSessionTracking([], [], path),
@@ -959,7 +983,7 @@ describe("useSessionTracking", () => {
 
       // Wait for initial load
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(1);
+        expect(scanCallCount()).toBe(1);
       });
 
       // Now rerender with the session exited (transition from 1 active -> 0 active)
@@ -973,7 +997,7 @@ describe("useSessionTracking", () => {
 
       // The transition from >0 to 0 should trigger another loadTasks call
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(2);
+        expect(scanCallCount()).toBe(2);
       });
     });
 
@@ -994,7 +1018,7 @@ describe("useSessionTracking", () => {
 
       // Wait for initial load
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(1);
+        expect(scanCallCount()).toBe(1);
       });
 
       // Rerender with a different exited session (still 0 active -> 0 active)
@@ -1009,7 +1033,7 @@ describe("useSessionTracking", () => {
       // Should NOT have triggered an additional loadTasks call
       // Give React a tick to process the rerender
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledTimes(1);
+        expect(scanCallCount()).toBe(1);
       });
     });
   });
@@ -1026,13 +1050,248 @@ describe("useSessionTracking", () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(mockInvoke).toHaveBeenCalledTimes(1);
+      expect(scanCallCount()).toBe(1);
 
       act(() => {
         result.current.refresh();
       });
 
-      expect(mockInvoke).toHaveBeenCalledTimes(2);
+      expect(scanCallCount()).toBe(2);
+    });
+  });
+
+  describe("TASKS.md watcher integration", () => {
+    /** Pull all invoke calls for a specific Tauri command name. */
+    function callsFor(command: string): unknown[][] {
+      return mockInvoke.mock.calls
+        .filter((c) => c[0] === command)
+        .map((c) => c.slice(1));
+    }
+
+    it("calls start_tasks_md_watch when activeLevelPath becomes non-null", async () => {
+      mockInvoke.mockResolvedValue([]);
+
+      renderHook(() => useSessionTracking([], [], "/projects/foo"));
+
+      await waitFor(() => {
+        expect(callsFor("start_tasks_md_watch").length).toBeGreaterThan(0);
+      });
+
+      const startCalls = callsFor("start_tasks_md_watch");
+      expect(startCalls[0][0]).toEqual({ path: "/projects/foo" });
+    });
+
+    it("does NOT call start_tasks_md_watch when activeLevelPath is null", async () => {
+      mockInvoke.mockResolvedValue([]);
+
+      renderHook(() => useSessionTracking([], [], null));
+
+      // Let any pending async effects flush
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(callsFor("start_tasks_md_watch")).toHaveLength(0);
+    });
+
+    it("calls stop_tasks_md_watch then start_tasks_md_watch when activeLevelPath changes", async () => {
+      mockInvoke.mockResolvedValue([]);
+
+      const { rerender } = renderHook(
+        ({ path }: { path: string | null }) => useSessionTracking([], [], path),
+        { initialProps: { path: "/projects/foo" as string | null } }
+      );
+
+      await waitFor(() => {
+        const startArgs = callsFor("start_tasks_md_watch").map((c) => c[0]);
+        expect(startArgs).toContainEqual({ path: "/projects/foo" });
+      });
+
+      rerender({ path: "/projects/bar" });
+
+      await waitFor(() => {
+        const startArgs = callsFor("start_tasks_md_watch").map((c) => c[0]);
+        expect(startArgs).toContainEqual({ path: "/projects/bar" });
+      });
+
+      // Verify ordering: in mock.calls, the stop for the old path must appear
+      // before the start for the new path.
+      const ordered = mockInvoke.mock.calls
+        .map((c, idx) => ({ idx, command: c[0], args: c[1] }))
+        .filter(
+          (c) =>
+            c.command === "stop_tasks_md_watch" ||
+            (c.command === "start_tasks_md_watch" &&
+              (c.args as { path: string } | undefined)?.path === "/projects/bar")
+        );
+
+      const firstStopIdx = ordered.findIndex(
+        (c) => c.command === "stop_tasks_md_watch"
+      );
+      const startBarIdx = ordered.findIndex(
+        (c) => c.command === "start_tasks_md_watch"
+      );
+
+      expect(firstStopIdx).toBeGreaterThanOrEqual(0);
+      expect(startBarIdx).toBeGreaterThanOrEqual(0);
+      expect(firstStopIdx).toBeLessThan(startBarIdx);
+    });
+
+    it("calls stop_tasks_md_watch on unmount", async () => {
+      mockInvoke.mockResolvedValue([]);
+
+      const { unmount } = renderHook(() =>
+        useSessionTracking([], [], "/projects/foo")
+      );
+
+      await waitFor(() => {
+        expect(callsFor("start_tasks_md_watch").length).toBeGreaterThan(0);
+      });
+
+      const stopCallsBefore = callsFor("stop_tasks_md_watch").length;
+
+      unmount();
+
+      await waitFor(() => {
+        expect(callsFor("stop_tasks_md_watch").length).toBeGreaterThan(
+          stopCallsBefore
+        );
+      });
+    });
+
+    it("subscribes to tasks-md-changed event with a handler", async () => {
+      mockInvoke.mockResolvedValue([]);
+
+      renderHook(() => useSessionTracking([], [], "/projects/foo"));
+
+      await waitFor(() => {
+        expect(mockListen).toHaveBeenCalled();
+      });
+
+      const tasksMdCalls = mockListen.mock.calls.filter(
+        (c) => c[0] === "tasks-md-changed"
+      );
+      expect(tasksMdCalls.length).toBeGreaterThan(0);
+      // Second arg must be a function (the event handler).
+      expect(typeof tasksMdCalls[0][1]).toBe("function");
+    });
+
+    it("triggers loadTasks when the tasks-md-changed handler fires", async () => {
+      mockInvoke.mockResolvedValue([]);
+
+      renderHook(() => useSessionTracking([], [], "/projects/foo"));
+
+      // Wait for the initial scan + listen registration.
+      await waitFor(() => {
+        expect(callsFor("scan_tasks_across_repos").length).toBeGreaterThan(0);
+        expect(mockListen).toHaveBeenCalled();
+      });
+
+      const scanCallsBefore = callsFor("scan_tasks_across_repos").length;
+
+      const handler = mockListen.mock.calls.find(
+        (c) => c[0] === "tasks-md-changed"
+      )?.[1] as ((event: unknown) => void) | undefined;
+      expect(handler).toBeDefined();
+
+      await act(async () => {
+        handler!({ payload: null });
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(callsFor("scan_tasks_across_repos").length).toBeGreaterThan(
+          scanCallsBefore
+        );
+      });
+    });
+
+    it("uses latest activeLevelPath when handler fires after a path change (no stale closure)", async () => {
+      // Regression guard: the listen handler is registered once per `loadTasks`
+      // identity; `loadTasks` itself reads `activeLevelPath` via a ref. If that
+      // ref were ever removed and the handler captured `activeLevelPath`
+      // directly, this test would fail because the post-change handler would
+      // scan the old path.
+      mockInvoke.mockResolvedValue([]);
+
+      const { rerender } = renderHook(
+        ({ path }: { path: string | null }) => useSessionTracking([], [], path),
+        { initialProps: { path: "/projects/old" as string | null } }
+      );
+
+      await waitFor(() => {
+        expect(mockListen).toHaveBeenCalled();
+      });
+
+      // Capture the handler registered on initial mount.
+      const handler = mockListen.mock.calls.find(
+        (c) => c[0] === "tasks-md-changed"
+      )?.[1] as ((event: unknown) => void) | undefined;
+      expect(handler).toBeDefined();
+
+      // Change path to a new value.
+      rerender({ path: "/projects/new" });
+
+      // Wait for the post-change scan to complete so we have a clean baseline.
+      await waitFor(() => {
+        const scans = mockInvoke.mock.calls.filter(
+          (c) => c[0] === "scan_tasks_across_repos"
+        );
+        expect(
+          scans.some(
+            (c) => (c[1] as { folderPath: string }).folderPath === "/projects/new"
+          )
+        ).toBe(true);
+      });
+
+      // Snapshot scan calls before firing the watcher event.
+      const scansBefore = mockInvoke.mock.calls.filter(
+        (c) => c[0] === "scan_tasks_across_repos"
+      ).length;
+
+      // Fire the original handler (the one captured before the path change).
+      // It must still scan the NEW path, not the OLD one.
+      await act(async () => {
+        handler!({ payload: null });
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        const scans = mockInvoke.mock.calls.filter(
+          (c) => c[0] === "scan_tasks_across_repos"
+        );
+        expect(scans.length).toBeGreaterThan(scansBefore);
+        // The scan triggered by the watcher event must use the latest path.
+        const lastScan = scans[scans.length - 1];
+        expect((lastScan[1] as { folderPath: string }).folderPath).toBe(
+          "/projects/new"
+        );
+      });
+    });
+
+    it("invokes the listen() unsubscribe function on unmount", async () => {
+      const unsubSpy = vi.fn();
+      // For this test only, override mockListen to return our spy as the
+      // unsubscribe function. (Default impl returns a no-op.)
+      mockListen.mockImplementationOnce(() => Promise.resolve(unsubSpy));
+      mockInvoke.mockResolvedValue([]);
+
+      const { unmount } = renderHook(() =>
+        useSessionTracking([], [], "/projects/foo")
+      );
+
+      await waitFor(() => {
+        expect(mockListen).toHaveBeenCalled();
+      });
+
+      // Let the promise from listen() resolve so the hook captures unsubSpy.
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      unmount();
+
+      expect(unsubSpy).toHaveBeenCalled();
     });
   });
 });

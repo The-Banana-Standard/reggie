@@ -23,6 +23,7 @@ portable-pty = "0.8"
 tokio = { version = "1", features = ["full"] }
 uuid = { version = "1", features = ["v4"] }
 dirs = "6"
+notify = "8"
 
 [dev-dependencies]
 tempfile = "3"
