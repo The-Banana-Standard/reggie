@@ -94,7 +94,9 @@ describe("CodeWorkflowTab tracked data consumption", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Refresh"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Refresh"));
+    });
     expect(onRefreshRepos).toHaveBeenCalledTimes(1);
     // Should NOT call invoke
     expect(mockInvoke).not.toHaveBeenCalled();
@@ -172,7 +174,7 @@ describe("CodeWorkflowTab totalGroomed includes activeCount", () => {
     expect(batchBtn.hasAttribute("disabled")).toBe(false);
   });
 
-  it("shows Trash All Completed when promoted sessions have headlessCompleted", () => {
+  it("shows Trash All Completed when promoted sessions have headlessCompleted", async () => {
     const onTrashCompleted = vi.fn();
     const trackedRepos = [makeRepo()];
     const promotedSession = {
@@ -200,7 +202,9 @@ describe("CodeWorkflowTab totalGroomed includes activeCount", () => {
 
     const trashBtn = screen.getByText("Trash All Completed");
     expect(trashBtn).toBeTruthy();
-    fireEvent.click(trashBtn);
+    await act(async () => {
+      fireEvent.click(trashBtn);
+    });
     expect(onTrashCompleted).toHaveBeenCalledTimes(1);
   });
 
@@ -261,7 +265,9 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
     );
 
     // Click the Start button on the repo row
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(2);
@@ -304,7 +310,9 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -339,7 +347,9 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -374,7 +384,9 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -409,7 +421,9 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -446,7 +460,9 @@ describe("CodeWorkflowTab reggie-prefix correctness", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -480,10 +496,15 @@ describe("CodeWorkflowTab reggie-prefix correctness", () => {
       />
     );
 
-    // Expand the repo row to reveal task items
-    fireEvent.click(container.querySelector(".repo-task-row")!);
-    const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
-    fireEvent.click(queuedItems[0].querySelector("button")!);
+    // Two separate act blocks: the expand click flushes its state update at act() end,
+    // so querySelectorAll must run in a second act block to see the revealed items.
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
+    await act(async () => {
+      const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
+      fireEvent.click(queuedItems[0].querySelector("button")!);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -573,7 +594,9 @@ describe("CodeWorkflowTab individual task start (handleStartIndividualTask)", ()
     );
 
     // Expand the repo row to reveal task items
-    fireEvent.click(container.querySelector(".repo-task-row")!);
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
 
     // Find the Start buttons inside queued task items (not the repo-level Start button)
     const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
@@ -582,7 +605,9 @@ describe("CodeWorkflowTab individual task start (handleStartIndividualTask)", ()
     // Click the Start button for the first task (add-feature)
     const firstStartBtn = queuedItems[0].querySelector("button")!;
     expect(firstStartBtn.textContent).toBe("Start");
-    fireEvent.click(firstStartBtn);
+    await act(async () => {
+      fireEvent.click(firstStartBtn);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -618,10 +643,14 @@ describe("CodeWorkflowTab individual task start (handleStartIndividualTask)", ()
     );
 
     // Expand and click the individual Start button
-    fireEvent.click(container.querySelector(".repo-task-row")!);
-    const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
-    const startBtn = queuedItems[0].querySelector("button")!;
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
+    await act(async () => {
+      const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
+      const startBtn = queuedItems[0].querySelector("button")!;
+      fireEvent.click(startBtn);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -656,9 +685,13 @@ describe("CodeWorkflowTab individual task start (handleStartIndividualTask)", ()
     );
 
     // Expand and click individual task Start
-    fireEvent.click(container.querySelector(".repo-task-row")!);
-    const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
-    fireEvent.click(queuedItems[0].querySelector("button")!);
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
+    await act(async () => {
+      const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
+      fireEvent.click(queuedItems[0].querySelector("button")!);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -709,7 +742,9 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     // 5 code/design + 1 reggie-system + 3 debug = 9 launches
     await vi.waitFor(() => {
@@ -748,7 +783,9 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -781,7 +818,9 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -869,7 +908,9 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -934,11 +975,15 @@ describe("CodeWorkflowTab walk-through (manual) flow", () => {
       />
     );
 
-    fireEvent.click(container.querySelector(".repo-task-row")!);
-    const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
-    const btn = queuedItems[0].querySelector("button")!;
-    expect(btn.textContent).toBe("Walk through");
-    fireEvent.click(btn);
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
+    await act(async () => {
+      const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
+      const btn = queuedItems[0].querySelector("button")!;
+      expect(btn.textContent).toBe("Walk through");
+      fireEvent.click(btn);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -978,9 +1023,13 @@ describe("CodeWorkflowTab walk-through (manual) flow", () => {
       />
     );
 
-    fireEvent.click(container.querySelector(".repo-task-row")!);
-    const btn = container.querySelector(".repo-task-row-session.queued button")!;
-    fireEvent.click(btn);
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
+    await act(async () => {
+      const btn = container.querySelector(".repo-task-row-session.queued button")!;
+      fireEvent.click(btn);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -1495,7 +1544,9 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(2);
@@ -1644,9 +1695,13 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       />
     );
 
-    fireEvent.click(container.querySelector(".repo-task-row")!);
-    const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
-    fireEvent.click(queuedItems[0].querySelector("button")!);
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
+    await act(async () => {
+      const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
+      fireEvent.click(queuedItems[0].querySelector("button")!);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -1699,7 +1754,9 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -1911,7 +1968,9 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(2);
