@@ -1225,6 +1225,39 @@ fn extract_attachment_dir_refs(content: &str, out: &mut HashSet<String>) {
     }
 }
 
+/// Validate and canonicalize a path requested for recursive watching.
+///
+/// Rejects root, the user's home directory, and any ancestor of the user's
+/// home directory — recursively watching these would exhaust FSEvents/inotify
+/// resources. Both `path` and `home` are canonicalized so symlinked or
+/// otherwise-aliased home directories still match. Returns the canonical path
+/// on success.
+fn validate_watch_path(path: &Path, home: &Path) -> Result<PathBuf, String> {
+    let canonical = fs::canonicalize(path)
+        .map_err(|e| format!("Path cannot be canonicalized: {}: {}", path.display(), e))?;
+
+    // Canonicalize home for matching, but keep the raw form too — if home is
+    // unresolvable (e.g. a stale symlink) we still want to match the literal.
+    let canonical_home = fs::canonicalize(home).unwrap_or_else(|_| home.to_path_buf());
+
+    // Reject filesystem root.
+    if canonical.parent().is_none() {
+        return Err(format!("Path is too broad to watch: {}", canonical.display()));
+    }
+
+    // Reject equality with either form of home.
+    if canonical == canonical_home || canonical == home {
+        return Err(format!("Path is too broad to watch: {}", canonical.display()));
+    }
+
+    // Reject ancestors of canonical home (covers `/`, `/Users`, `/home`).
+    if canonical_home.starts_with(&canonical) {
+        return Err(format!("Path is too broad to watch: {}", canonical.display()));
+    }
+
+    Ok(canonical)
+}
+
 /// Start (or restart) the `TASKS.md` filesystem watcher rooted at `path`.
 ///
 /// Replaces any existing watcher. Emits `tasks-md-changed` events on the app
@@ -1237,9 +1270,9 @@ pub async fn start_tasks_md_watch(
     path: String,
 ) -> Result<(), String> {
     let path_buf = PathBuf::from(&path);
-    if !path_buf.exists() {
-        return Err(format!("Path does not exist: {}", path));
-    }
+    let home = dirs::home_dir()
+        .ok_or_else(|| "Could not determine home directory".to_string())?;
+    let canonical = validate_watch_path(&path_buf, &home)?;
 
     // Lock first, drop the old watcher, THEN construct the new one — this
     // avoids any window where two overlapping watchers are alive at once and
@@ -1249,7 +1282,7 @@ pub async fn start_tasks_md_watch(
     let mut guard = state.tasks_watcher.lock().await;
     *guard = None;
 
-    let new_watcher = crate::watchers::tasks_md::start(app, path_buf)
+    let new_watcher = crate::watchers::tasks_md::start(app, canonical)
         .map_err(|e| format!("Failed to start TASKS.md watcher: {}", e))?;
     *guard = Some(new_watcher);
     Ok(())
@@ -4085,5 +4118,71 @@ mod tests {
         // Exactly one `- [ ]` line and zero annotation lines.
         assert_eq!(content.matches("- [ ]").count(), 1);
         assert_eq!(content.matches("> attachments:").count(), 0);
+    }
+
+    // --- validate_watch_path ---
+
+    #[test]
+    fn validate_watch_path_rejects_root() {
+        let home = tempfile::tempdir().unwrap();
+        let err = validate_watch_path(Path::new("/"), home.path()).unwrap_err();
+        assert!(err.contains("too broad"), "got: {}", err);
+    }
+
+    #[test]
+    fn validate_watch_path_rejects_home() {
+        let home = tempfile::tempdir().unwrap();
+        let err = validate_watch_path(home.path(), home.path()).unwrap_err();
+        assert!(err.contains("too broad"), "got: {}", err);
+    }
+
+    #[test]
+    fn validate_watch_path_rejects_ancestor_of_home() {
+        // Use the parent of a tempdir-based home as the watch target.
+        let home = tempfile::tempdir().unwrap();
+        let parent = home.path().parent().expect("tempdir has a parent");
+        let err = validate_watch_path(parent, home.path()).unwrap_err();
+        assert!(err.contains("too broad"), "got: {}", err);
+    }
+
+    #[test]
+    fn validate_watch_path_accepts_sibling_of_home() {
+        // Two distinct tempdirs with the same parent — sibling, not ancestor.
+        let home = tempfile::tempdir().unwrap();
+        let sibling = tempfile::tempdir().unwrap();
+        let result = validate_watch_path(sibling.path(), home.path());
+        assert!(result.is_ok(), "got: {:?}", result);
+    }
+
+    #[test]
+    fn validate_watch_path_accepts_nested_project_under_home() {
+        let home = tempfile::tempdir().unwrap();
+        let nested = home.path().join("projects").join("repo-a");
+        fs::create_dir_all(&nested).unwrap();
+        let result = validate_watch_path(&nested, home.path());
+        assert!(result.is_ok(), "got: {:?}", result);
+    }
+
+    #[test]
+    fn validate_watch_path_rejects_symlinked_home_via_canonical() {
+        // Create a real home dir, then a symlink pointing at it. Pass the
+        // canonical (real) home as the home arg and the symlink as the path —
+        // canonicalization should resolve them to the same path and reject.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let real_home = tempfile::tempdir().unwrap();
+            let link_parent = tempfile::tempdir().unwrap();
+            let link_path = link_parent.path().join("home-link");
+            symlink(real_home.path(), &link_path).unwrap();
+
+            // canonical-home arg, raw-symlink as path → reject.
+            let err = validate_watch_path(&link_path, real_home.path()).unwrap_err();
+            assert!(err.contains("too broad"), "got: {}", err);
+
+            // raw-symlink as home arg, raw-symlink as path → reject (canonicalize both).
+            let err = validate_watch_path(&link_path, &link_path).unwrap_err();
+            assert!(err.contains("too broad"), "got: {}", err);
+        }
     }
 }

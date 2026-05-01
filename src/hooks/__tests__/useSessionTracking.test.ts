@@ -79,12 +79,55 @@ describe("useSessionTracking", () => {
       });
     });
 
-    it("does not fetch when activeLevelPath is null", () => {
+    it("does not fetch or invoke watcher IPC when activeLevelPath is null", () => {
       renderHook(() => useSessionTracking([], [], null));
 
-      // The watcher useEffect may invoke stop_tasks_md_watch as a no-op even
-      // when path is null; what matters here is that we did not scan tasks.
+      // No task scan, and the gated watcher must not invoke start/stop when
+      // no watcher was ever started.
       expect(scanCallCount()).toBe(0);
+      const watcherCalls = mockInvoke.mock.calls.filter(
+        (c) => c[0] === "start_tasks_md_watch" || c[0] === "stop_tasks_md_watch"
+      );
+      expect(watcherCalls).toHaveLength(0);
+    });
+
+    it("invokes exactly 1 start + 1 stop across null → path → unmount", async () => {
+      mockInvoke.mockImplementation((cmd: string) => {
+        if (cmd === "scan_tasks_across_repos") return Promise.resolve([]);
+        return Promise.resolve();
+      });
+
+      const { rerender, unmount } = renderHook(
+        ({ path }: { path: string | null }) => useSessionTracking([], [], path),
+        { initialProps: { path: null as string | null } }
+      );
+
+      // Transition null → path: should produce exactly 1 start, 0 stop.
+      await act(async () => {
+        rerender({ path: "/projects" });
+      });
+
+      await waitFor(() => {
+        const startCalls = mockInvoke.mock.calls.filter(
+          (c) => c[0] === "start_tasks_md_watch"
+        );
+        expect(startCalls).toHaveLength(1);
+      });
+
+      // Unmount: should produce exactly 1 stop.
+      unmount();
+
+      await waitFor(() => {
+        const stopCalls = mockInvoke.mock.calls.filter(
+          (c) => c[0] === "stop_tasks_md_watch"
+        );
+        expect(stopCalls).toHaveLength(1);
+      });
+
+      const startCalls = mockInvoke.mock.calls.filter(
+        (c) => c[0] === "start_tasks_md_watch"
+      );
+      expect(startCalls).toHaveLength(1);
     });
 
     it("returns empty repos and zero summary when activeLevelPath is null", async () => {

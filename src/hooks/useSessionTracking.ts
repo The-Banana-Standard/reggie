@@ -96,6 +96,7 @@ export function useSessionTracking(
   const requestIdRef = useRef(0);
   const lastFocusLoadRef = useRef(0);
   const prevActiveSessionCountRef = useRef(0);
+  const lastStartedPathRef = useRef<string | null>(null);
 
   // Mirror activeLevelPath in ref for use in loadTasks callback (stale closure avoidance)
   const activeLevelPathRef = useRef(activeLevelPath);
@@ -144,17 +145,22 @@ export function useSessionTracking(
     let cancelled = false;
 
     (async () => {
-      // Best-effort stop of any prior watcher.
-      try {
-        await invoke("stop_tasks_md_watch");
-      } catch (err) {
-        console.warn("stop_tasks_md_watch failed (non-fatal):", err);
+      // Best-effort stop only when a watcher was previously started.
+      if (lastStartedPathRef.current !== null) {
+        try {
+          await invoke("stop_tasks_md_watch");
+        } catch (err) {
+          console.warn("stop_tasks_md_watch failed (non-fatal):", err);
+        }
+        // Clear the ref regardless of stop result — best-effort.
+        lastStartedPathRef.current = null;
       }
 
       if (cancelled || !activeLevelPath) return;
 
       try {
         await invoke("start_tasks_md_watch", { path: activeLevelPath });
+        lastStartedPathRef.current = activeLevelPath;
       } catch (err) {
         console.warn("start_tasks_md_watch failed (non-fatal):", err);
       }
@@ -162,10 +168,13 @@ export function useSessionTracking(
 
     return () => {
       cancelled = true;
-      // Cleanup: stop the watcher when the path changes or hook unmounts.
-      invoke("stop_tasks_md_watch").catch((err) => {
-        console.warn("stop_tasks_md_watch cleanup failed (non-fatal):", err);
-      });
+      // Cleanup: stop the watcher only when one was actually started.
+      if (lastStartedPathRef.current !== null) {
+        lastStartedPathRef.current = null;
+        invoke("stop_tasks_md_watch").catch((err) => {
+          console.warn("stop_tasks_md_watch cleanup failed (non-fatal):", err);
+        });
+      }
     };
   }, [activeLevelPath]);
 
