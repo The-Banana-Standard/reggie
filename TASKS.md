@@ -2,6 +2,19 @@
 
 ## Active Tasks
 
+### add-headless-auto-relaunch-on-done
+**Task**: UI relaunches next backlog task when a Repo-Start session emits DONE-success
+**Pipeline**: code-workflow
+**Branch**: task/add-headless-auto-relaunch-on-done
+**Worktree**: .worktree/add-headless-auto-relaunch-on-done
+**Base**: main
+**Started**: 2026-04-30
+**Files**:
+- MOD: src/types/terminal.ts
+- MOD: src/hooks/useTerminal.ts
+- MOD: src/components/WorkspaceOverview/CodeWorkflowTab.tsx
+- MOD: src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx
+
 ## Backlog
 
 ### v2.0.0 Release
@@ -9,8 +22,6 @@
 (all v2.0.0 release tasks complete or in progress)
 
 ### Pipeline System Expansion
-- [ ] add-headless-auto-relaunch-on-done: UI relaunches next backlog task when a Repo-Start session emits DONE-success [P2] [depends: eliminate-yes-loop-system-side] [complex] [tier: opus:high] [code] [planned]
-  files: src/types/terminal.ts (MOD), src/hooks/useTerminal.ts (MOD), src/components/WorkspaceOverview/CodeWorkflowTab.tsx (MOD), src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx (MOD)
 
 ### Reggie UI
 - [x] investigate-cross-domain-batch-start: Diagnose why Batch Start Coding fails for `[debug]` and possibly `[reggie-system]` tasks [P2] [conflicts: configurable-pipelines-with-locked-reggie-system] [complex] [tier: opus:high] [debug] [planned]
