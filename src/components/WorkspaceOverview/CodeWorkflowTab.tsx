@@ -664,17 +664,9 @@ function BindingsStatusStrip() {
   const debug = bindings.debug ?? "reggie-debug-workflow";
   const manual = bindings.manual ?? "reggie-manual-task";
   return (
-    <div
-      className="pipeline-bindings-strip"
-      style={{
-        fontSize: "11px",
-        color: "var(--text-muted)",
-        padding: "4px 0",
-        lineHeight: 1.4,
-      }}
-    >
+    <div className="pipeline-bindings-strip">
       <span>Code: {code} · Debug: {debug} · Manual: {manual}</span>
-      <div style={{ opacity: 0.75 }}>configure in Pipelines panel</div>
+      <div className="pipeline-bindings-strip-hint">configure in Pipelines panel</div>
     </div>
   );
 }

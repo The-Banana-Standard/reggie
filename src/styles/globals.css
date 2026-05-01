@@ -32,6 +32,9 @@
   --accent-highlight: #FF8533;
   --btn-primary-text: #000;
   --overlay-bg: rgba(0, 0, 0, 0.15);
+  --accent-purple: #c4a7ff;
+  --accent-purple-bg-soft: rgba(196, 167, 255, 0.12);
+  --accent-purple-border-soft: rgba(196, 167, 255, 0.25);
 }
 
 [data-theme="light"] {
@@ -65,6 +68,9 @@
   --accent-highlight: #06d45a;
   --btn-primary-text: #000;
   --overlay-bg: rgba(255, 255, 255, 0.25);
+  --accent-purple: #7c5dd6;
+  --accent-purple-bg-soft: rgba(124, 93, 214, 0.12);
+  --accent-purple-border-soft: rgba(124, 93, 214, 0.25);
 }
 
 /* ── Theme transition ── */
@@ -3438,9 +3444,9 @@ html, body, #root {
 }
 
 .agent-model-badge.opus {
-  color: #c4a7ff;
-  background: rgba(196, 167, 255, 0.12);
-  border: 1px solid rgba(196, 167, 255, 0.25);
+  color: var(--accent-purple);
+  background: var(--accent-purple-bg-soft);
+  border: 1px solid var(--accent-purple-border-soft);
 }
 
 .agent-model-badge.sonnet {
@@ -3605,9 +3611,9 @@ html, body, #root {
 }
 
 .command-type-badge.stage {
-  color: #c4a7ff;
-  background: rgba(196, 167, 255, 0.12);
-  border: 1px solid rgba(196, 167, 255, 0.25);
+  color: var(--accent-purple);
+  background: var(--accent-purple-bg-soft);
+  border: 1px solid var(--accent-purple-border-soft);
 }
 
 .command-card-actions {
@@ -3669,7 +3675,7 @@ html, body, #root {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #c4a7ff;
+  color: var(--accent-purple);
   margin-bottom: 12px;
 }
 
@@ -3687,7 +3693,7 @@ html, body, #root {
 }
 
 .pipelines-search:focus {
-  border-color: rgba(196, 167, 255, 0.5);
+  border-color: color-mix(in srgb, var(--accent-purple) 50%, transparent);
 }
 
 .pipelines-search::placeholder {
@@ -3708,7 +3714,7 @@ html, body, #root {
 }
 
 .pipeline-card:hover {
-  border-color: rgba(196, 167, 255, 0.4);
+  border-color: color-mix(in srgb, var(--accent-purple) 40%, transparent);
   background: var(--bg-hover);
 }
 
@@ -3729,7 +3735,7 @@ html, body, #root {
 .pipeline-name {
   font-size: 12px;
   font-weight: 600;
-  color: #c4a7ff;
+  color: var(--accent-purple);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3761,7 +3767,7 @@ html, body, #root {
 }
 
 .pipeline-edit-btn:hover {
-  color: #c4a7ff;
+  color: var(--accent-purple);
 }
 
 .pipeline-desc {
@@ -3806,6 +3812,68 @@ html, body, #root {
   color: var(--text-muted);
   padding: 16px 0;
   text-align: center;
+}
+
+.pipeline-binding-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: var(--accent-purple);
+  background: var(--accent-purple-bg-soft);
+  border: 1px solid var(--accent-purple-border-soft);
+}
+
+.pipeline-bind-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-color);
+}
+
+.pipeline-bind-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.pipeline-bind-btn {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.pipeline-bind-btn:hover {
+  border-color: var(--accent-purple-border-soft);
+}
+
+.pipeline-bind-btn-active {
+  color: var(--accent-purple);
+  background: var(--accent-purple-bg-soft);
+  border-color: var(--accent-purple-border-soft);
+}
+
+.pipeline-bindings-strip {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px 0;
+  line-height: 1.4;
+}
+
+.pipeline-bindings-strip-hint {
+  opacity: 0.75;
 }
 
 /* ── Git Log View ── */
