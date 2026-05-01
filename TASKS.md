@@ -2,19 +2,6 @@
 
 ## Active Tasks
 
-### add-headless-auto-relaunch-on-done
-**Task**: UI relaunches next backlog task when a Repo-Start session emits DONE-success
-**Pipeline**: code-workflow
-**Branch**: task/add-headless-auto-relaunch-on-done
-**Worktree**: .worktree/add-headless-auto-relaunch-on-done
-**Base**: main
-**Started**: 2026-04-30
-**Files**:
-- MOD: src/types/terminal.ts
-- MOD: src/hooks/useTerminal.ts
-- MOD: src/components/WorkspaceOverview/CodeWorkflowTab.tsx
-- MOD: src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx
-
 ## Backlog
 
 ### v2.0.0 Release
