@@ -453,7 +453,7 @@ fn parse_task_line(line: &str) -> Option<TaskEntry> {
     // Try slug: description format (colon separator), else informal checkbox task
     let (slug, description, tag_source_owned) = if let Some(colon_pos) = rest.find(':') {
         let slug = rest[..colon_pos].trim().to_string();
-        if slug.is_empty() {
+        if !is_safe_slug(&slug) {
             return None;
         }
         let after_colon = &rest[colon_pos + 1..];
@@ -463,7 +463,9 @@ fn parse_task_line(line: &str) -> Option<TaskEntry> {
         };
         (slug, description, after_colon.to_string())
     } else {
-        // No colon — informal checkbox task, generate slug from text
+        // No colon — informal checkbox task, generate slug from text.
+        // to_kebab_case uses c.is_alphanumeric() which already excludes control chars
+        // by construction; no additional validation needed.
         let description = match rest.find('[') {
             Some(bracket_pos) => rest[..bracket_pos].trim().to_string(),
             None => rest.trim().to_string(),
@@ -584,7 +586,7 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
             }
             if in_active && trimmed.starts_with("### ") {
                 let slug = trimmed["### ".len()..].trim().to_string();
-                if !slug.is_empty() {
+                if is_safe_slug(&slug) {
                     let mode = slug_to_mode.get(&slug).cloned().unwrap_or(None);
                     active_slugs.push(ParallelizableTaskSlug {
                         slug,
@@ -1013,6 +1015,19 @@ pub fn append_ungroomed_tasks(
 /// Allowed image extensions for paste/drop attachments. HEIC/HEIF and other
 /// non-Read-tool-friendly formats are rejected at the boundary.
 const ALLOWED_IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp"];
+
+/// Validate that a task slug contains only safe characters: `[A-Za-z0-9._-]`.
+/// Rejects empty strings, `.`, `..`, and any control characters (including `\r`,
+/// `\n`). Only applied to colon-style slugs and active-section headers — the
+/// no-colon kebab path uses `to_kebab_case` which already excludes control chars
+/// by construction, and restricting it would break Unicode task descriptions.
+fn is_safe_slug(name: &str) -> bool {
+    if name.is_empty() || name == "." || name == ".." {
+        return false;
+    }
+    name.chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-')
+}
 
 /// Validate that a directory name is safe to use as a single path component
 /// under `.reggie/attachments/`: non-empty, no path separators, no `..`, only
@@ -2380,6 +2395,104 @@ mod tests {
         assert_eq!(task.depends, vec!["slug-a".to_string()]);
     }
 
+    // --- is_safe_slug ---
+
+    #[test]
+    fn is_safe_slug_accepts_valid_slugs() {
+        assert!(is_safe_slug("prepare-v2.0.0-release"));
+        assert!(is_safe_slug("add-jwt-auth"));
+        assert!(is_safe_slug("slug_with_under"));
+        assert!(is_safe_slug("a"));
+    }
+
+    #[test]
+    fn is_safe_slug_rejects_invalid_slugs() {
+        assert!(!is_safe_slug(""));
+        assert!(!is_safe_slug(".."));
+        assert!(!is_safe_slug("bad\rslug"));
+        assert!(!is_safe_slug("bad\nslug"));
+        assert!(!is_safe_slug("bad\tslug"));
+        assert!(!is_safe_slug("bad;slug"));
+        assert!(!is_safe_slug("bad/slug"));
+        assert!(!is_safe_slug("bad slug"));
+        assert!(!is_safe_slug("badé"));
+    }
+
+    #[test]
+    fn is_safe_slug_dot_edge_cases() {
+        // Single `.` is in the whitelist `[A-Za-z0-9._-]` and the function only
+        // special-cases empty / `.` / `..`. Pin that `.` is rejected (special-cased
+        // alongside `..`) and that strings consisting purely of allowed punctuation
+        // like `_` or `-` pass.
+        assert!(!is_safe_slug("."));
+        assert!(!is_safe_slug(".."));
+        assert!(is_safe_slug("_"));
+        assert!(is_safe_slug("-"));
+        assert!(is_safe_slug("..."));
+        assert!(is_safe_slug("v1.2.3"));
+    }
+
+    #[test]
+    fn parse_task_line_rejects_cr_in_colon_slug() {
+        assert!(parse_task_line("- [ ] bad\rslug: description").is_none());
+    }
+
+    #[test]
+    fn parse_task_line_accepts_clean_colon_slug() {
+        let task = parse_task_line("- [ ] good-slug: description [planned]").unwrap();
+        assert_eq!(task.slug, "good-slug");
+    }
+
+    #[test]
+    fn active_section_parser_drops_multiword_header() {
+        // A free-form header like "### slug with spaces" parses into a slug
+        // containing spaces, which `is_safe_slug` must reject so we don't
+        // launch a session against an attacker-controlled descriptive heading.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### slug with spaces\n\
+             ### good-slug\n\n\
+             ## Backlog\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        let active: Vec<String> = result.active_slugs.iter().map(|s| s.slug.clone()).collect();
+        assert_eq!(active, vec!["good-slug"]);
+    }
+
+    #[test]
+    fn active_section_parser_drops_dot_dot_header() {
+        // A header of `### ..` would, without the is_safe_slug guard, allow
+        // an attacker to traverse out of the worktree root.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### ..\n\
+             ### good-slug\n\n\
+             ## Backlog\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        let active: Vec<String> = result.active_slugs.iter().map(|s| s.slug.clone()).collect();
+        assert_eq!(active, vec!["good-slug"]);
+    }
+
+    #[test]
+    fn active_section_parser_drops_unsafe_slug_keeps_safe() {
+        // Active-section parser reads `### slug` lines under `## Active Tasks`.
+        // A header containing an embedded `\r` must be silently dropped while
+        // a clean header on the same page survives.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### bad\rslug\n\
+             ### good-slug\n\n\
+             ## Backlog\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        let active: Vec<String> = result.active_slugs.iter().map(|s| s.slug.clone()).collect();
+        assert_eq!(active, vec!["good-slug"]);
+    }
+
     // --- get_parallelizable_tasks ---
 
     /// Helper: create a temp dir with a TASKS.md file containing the given content.
@@ -2953,6 +3066,20 @@ mod tests {
         assert_eq!(result.active_slugs.len(), 1);
         assert_eq!(result.active_slugs[0].slug, "orphan-slug");
         assert_eq!(result.active_slugs[0].mode, None);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_active_section_drops_cr_slug() {
+        // A `### slug` line containing a CR must be silently dropped.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### bad\rslug\n\n\
+             ### good-slug\n\n\
+             ## Backlog\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.active_slugs.len(), 1);
+        assert_eq!(result.active_slugs[0].slug, "good-slug");
     }
 
     #[test]
