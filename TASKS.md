@@ -75,6 +75,9 @@
 - [ ] tauri-capabilities-no-per-command-allowlist: `src-tauri/capabilities/default.json` does not enumerate per-command allowlists, so every `#[tauri::command]` in the binary is reachable from any frontend script in the `main` window. Pre-existing posture; not introduced by any specific task. If the app ever loads third-party content (extensions, embedded webviews of remote pages), this becomes exploitable.
   > context: discovered during security review of fix-groomed-tasks-refresh-stale (2026-04-30). Pre-existing in main. Severity LOW in current single-user trust model; HIGH if trust model expands.
 
+- [ ] codeworkflowtab-act-warnings-from-relaunch-effect: New `useEffect` in `CodeWorkflowTab.tsx` (added by add-headless-auto-relaunch-on-done) fires on `headlessSessions` mutation, causing React `act(...)` warnings in unrelated tests that mutate sessions without wrapping in `act()`. Stderr-only, no test failures.
+  > context: discovered during implement of add-headless-auto-relaunch-on-done (2026-04-30). Cleanup: wrap impacted test mutations in `await act(async () => { ... })`. Low priority — cosmetic test output noise only.
+
 - [ ] preexisting-clippy-warnings-in-projects-rs-tests: `cargo clippy --all-targets -- -D warnings` fails on main with 7 errors in `src-tauri/src/commands/projects.rs` test helpers — 5× `unnecessary use of to_path_buf` (around lines 1298, 1305, 1373, 1386, 1394) and 2× `redundant closure` calling `parse_task_line`. Blocks any future CI gate that includes test targets.
   > context: discovered during verify-app of fix-groomed-tasks-refresh-stale (2026-04-30). Pre-existing on base commit `50571df`. Trivial fix; would unblock a stricter clippy CI gate.
 
