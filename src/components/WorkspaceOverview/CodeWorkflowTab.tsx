@@ -4,7 +4,7 @@ import type { RepoTaskSummary, HeadlessSession, TerminalTab } from "../../types/
 import { RepoTaskRow } from "./RepoTaskRow";
 import { groupByWorkspace } from "./groupByWorkspace";
 import { getCachedBindings, onBindingsChange } from "../../lib/pipelineBindings";
-import { domainForLabel, isWorkflowLabel } from "./sessionLabels";
+import { domainForLabel, isWorkflowLabel, slugFromLabel } from "./sessionLabels";
 
 interface ParallelizableTaskSlug {
   slug: string;
@@ -73,23 +73,68 @@ const DOMAIN_CAPS = {
  *
  * Returns the concatenated list in dispatch order: code/design, then reggie-system, then debug.
  *
- * Note: `addHeadlessSession` has no dedupe; correctness here relies on `backlogSlugs`
- * never containing active slugs (the backend split guarantees this).
+ * `activeSlugs` is a defensive consumer-side filter: any backlog entry whose slug is
+ * already in the set is dropped before per-domain slicing. This makes the no-duplicate-
+ * launch invariant explicit at the call site rather than inherited from the backend's
+ * `activeSlugs`/`backlogSlugs` split — a regression in `get_parallelizable_tasks`
+ * cannot re-introduce double launches as long as callers pass a correct active set.
+ *
+ * The set is keyed by slug only because `pickBacklogToLaunch` is invoked per-repo;
+ * cross-repo slug collisions cannot occur within a single call's scope.
  */
 export function pickBacklogToLaunch(
   backlog: ParallelizableTaskSlug[],
   remaining: { code: number; reggieSystem: number; debug: number },
+  activeSlugs: Set<string> = new Set(),
 ): ParallelizableTaskSlug[] {
-  const codeDesign = backlog
+  const eligible = activeSlugs.size === 0
+    ? backlog
+    : backlog.filter((s) => !activeSlugs.has(s.slug));
+  const codeDesign = eligible
     .filter((s) => !s.mode || s.mode === "code" || s.mode === "design")
     .slice(0, Math.max(0, remaining.code));
-  const reggieSystem = backlog
+  const reggieSystem = eligible
     .filter((s) => s.mode === "reggie-system")
     .slice(0, Math.max(0, remaining.reggieSystem));
-  const debug = backlog
+  const debug = eligible
     .filter((s) => s.mode === "debug")
     .slice(0, Math.max(0, remaining.debug));
   return [...codeDesign, ...reggieSystem, ...debug];
+}
+
+/**
+ * Pick the repo currently holding the workspace-wide reggie-system slot.
+ *
+ * Iterates both running headless sessions and promoted-but-still-running terminal
+ * tabs, sorts the candidates by `terminalId` ascending, and returns the first match's
+ * `{ repoPath, repoName }`. Sorting by UUID makes the result deterministic across
+ * renders even during the transient mid-promotion window when the same session
+ * appears in both arrays — the previous "iterate headless first, then sessions"
+ * approach gave a non-deterministic badge name depending on which array's iteration
+ * resolved first. The order is stable, not chronological — that's all the badge needs.
+ */
+export function pickReggieSystemHolder(
+  headlessSessions: HeadlessSession[],
+  sessions: TerminalTab[],
+): { repoPath: string; repoName: string } | null {
+  const candidates: { terminalId: string; projectPath: string }[] = [];
+  for (const s of headlessSessions) {
+    if (s.exited || s.completed) continue;
+    if (domainForLabel(s.label) !== "reggieSystem") continue;
+    candidates.push({ terminalId: s.terminalId, projectPath: s.projectPath });
+  }
+  for (const s of sessions) {
+    if (!s.isHeadlessPromoted) continue;
+    if (s.dead || s.headlessCompleted) continue;
+    if (s.terminalId === null) continue;
+    if (domainForLabel(s.label) !== "reggieSystem") continue;
+    candidates.push({ terminalId: s.terminalId, projectPath: s.projectPath });
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => (a.terminalId < b.terminalId ? -1 : a.terminalId > b.terminalId ? 1 : 0));
+  const winner = candidates[0];
+  const repoName = winner.projectPath.split(/[/\\]/).pop() ?? "";
+  return { repoPath: winner.projectPath, repoName };
 }
 
 /**
@@ -315,7 +360,26 @@ export function CodeWorkflowTab({
           debug: Math.max(0, DOMAIN_CAPS.debug - runningPerRepo.debug),
         };
 
-        const toLaunch = pickBacklogToLaunch(filteredBacklog, remaining);
+        // Defensive slug filter: build the set of slugs already running for this
+        // repo across both headless sessions and promoted terminal tabs. Passed
+        // to `pickBacklogToLaunch` so a backend regression in `activeSlugs`/
+        // `backlogSlugs` partitioning cannot re-introduce duplicate launches.
+        const activeSlugs = new Set<string>();
+        for (const s of headlessSessions) {
+          if (s.exited || s.completed) continue;
+          if (s.projectPath !== repoPath) continue;
+          const slug = slugFromLabel(s.label);
+          if (slug) activeSlugs.add(slug);
+        }
+        for (const s of sessions) {
+          if (!s.isHeadlessPromoted) continue;
+          if (s.dead || s.headlessCompleted) continue;
+          if (s.projectPath !== repoPath) continue;
+          const slug = slugFromLabel(s.label);
+          if (slug) activeSlugs.add(slug);
+        }
+
+        const toLaunch = pickBacklogToLaunch(filteredBacklog, remaining, activeSlugs);
         if (toLaunch.length === 0) {
           showNoTasksMessage(repoName);
           return { reggieSystemLaunched: 0 };
@@ -464,22 +528,10 @@ export function CodeWorkflowTab({
   // Identify the repo that currently holds the workspace-wide reggie-system slot.
   // Other repos with a `[reggie-system]` task in their backlog will show a
   // "deferred — slot held by <repo>" badge.
-  const reggieSystemHolder = useMemo<{ repoPath: string; repoName: string } | null>(() => {
-    const findHolder = (projectPath: string): { repoPath: string; repoName: string } => {
-      const repoName = projectPath.split(/[/\\]/).pop() ?? "";
-      return { repoPath: projectPath, repoName };
-    };
-    for (const s of headlessSessions) {
-      if (s.exited || s.completed) continue;
-      if (domainForLabel(s.label) === "reggieSystem") return findHolder(s.projectPath);
-    }
-    for (const s of sessions) {
-      if (!s.isHeadlessPromoted) continue;
-      if (s.dead || s.headlessCompleted) continue;
-      if (domainForLabel(s.label) === "reggieSystem") return findHolder(s.projectPath);
-    }
-    return null;
-  }, [headlessSessions, sessions]);
+  const reggieSystemHolder = useMemo<{ repoPath: string; repoName: string } | null>(
+    () => pickReggieSystemHolder(headlessSessions, sessions),
+    [headlessSessions, sessions],
+  );
 
   // Group repos by workspace
   const grouped = groupByWorkspace(repos);

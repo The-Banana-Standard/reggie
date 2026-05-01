@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { mockInvoke, resetTauriMocks } from "../../../__test-utils__/tauri-mock";
-import { CodeWorkflowTab, commandForMode, pickBacklogToLaunch } from "../CodeWorkflowTab";
+import { CodeWorkflowTab, commandForMode, pickBacklogToLaunch, pickReggieSystemHolder } from "../CodeWorkflowTab";
+import type { HeadlessSession, TerminalTab } from "../../../types/terminal";
 import type { RepoTaskSummary, HeadlessSession } from "../../../types/terminal";
 import {
   loadPipelineBindings,
@@ -1091,6 +1092,141 @@ describe("pickBacklogToLaunch", () => {
     ];
     const picked = pickBacklogToLaunch(backlog, { code: 5, reggieSystem: 1, debug: 0 });
     expect(picked.map((s) => s.slug)).toEqual(["c1", "rs1"]);
+  });
+
+  it("excludes slugs present in activeSlugs (defensive consumer-side filter)", () => {
+    const backlog = [
+      { slug: "c1", tier: null, mode: "code" },
+      { slug: "c2", tier: null, mode: "code" },
+      { slug: "rs1", tier: null, mode: "reggie-system" },
+    ];
+    const activeSlugs = new Set(["c1"]);
+    const picked = pickBacklogToLaunch(backlog, { code: 5, reggieSystem: 1, debug: 0 }, activeSlugs);
+    expect(picked.map((s) => s.slug)).toEqual(["c2", "rs1"]);
+  });
+
+  it("empty activeSlugs is a no-op", () => {
+    const backlog = [{ slug: "c1", tier: null, mode: "code" }];
+    const picked = pickBacklogToLaunch(backlog, { code: 5, reggieSystem: 0, debug: 0 }, new Set());
+    expect(picked.map((s) => s.slug)).toEqual(["c1"]);
+  });
+
+  it("activeSlugs is keyed by slug only — caller scopes per-repo (cross-repo slug shared by name OK)", () => {
+    // Within a single call, all backlog entries belong to one repo. The same
+    // slug name surfacing in another repo's call is a separate invocation
+    // with its own activeSlugs set, so cross-repo dispatch is preserved.
+    const backlog = [{ slug: "shared", tier: null, mode: "code" }];
+    const pickedRepoA = pickBacklogToLaunch(backlog, { code: 5, reggieSystem: 0, debug: 0 }, new Set(["shared"]));
+    const pickedRepoB = pickBacklogToLaunch(backlog, { code: 5, reggieSystem: 0, debug: 0 }, new Set());
+    expect(pickedRepoA).toEqual([]);
+    expect(pickedRepoB.map((s) => s.slug)).toEqual(["shared"]);
+  });
+});
+
+describe("pickReggieSystemHolder", () => {
+  const makeHeadless = (overrides: Partial<HeadlessSession>): HeadlessSession => ({
+    terminalId: "t-default",
+    projectPath: "/repos/default",
+    projectName: "default",
+    label: "reggie-sys -- default/some-slug",
+    needsAttention: false,
+    exited: false,
+    exitCode: null,
+    bufferSize: 0,
+    completed: false,
+    ...overrides,
+  });
+
+  const makeTab = (overrides: Partial<TerminalTab>): TerminalTab => ({
+    id: "tab-default",
+    terminalId: "t-default",
+    label: "reggie-sys -- default/some-slug",
+    isClaudeSession: true,
+    projectPath: "/repos/default",
+    isHeadlessPromoted: true,
+    ...overrides,
+  });
+
+  it("returns null when no reggie-system sessions are running", () => {
+    const tabs: TerminalTab[] = [
+      makeTab({ terminalId: "t-1", label: "code -- foo/bar" }),
+    ];
+    expect(pickReggieSystemHolder([], tabs)).toBeNull();
+  });
+
+  it("ignores exited / completed headless sessions", () => {
+    const headless: HeadlessSession[] = [
+      makeHeadless({ terminalId: "t-1", projectPath: "/repos/alpha", exited: true }),
+      makeHeadless({ terminalId: "t-2", projectPath: "/repos/beta", completed: true }),
+    ];
+    expect(pickReggieSystemHolder(headless, [])).toBeNull();
+  });
+
+  it("ignores dead / completed promoted tabs", () => {
+    const tabs: TerminalTab[] = [
+      makeTab({ terminalId: "t-1", projectPath: "/repos/alpha", dead: true }),
+      makeTab({ terminalId: "t-2", projectPath: "/repos/beta", headlessCompleted: true }),
+    ];
+    expect(pickReggieSystemHolder([], tabs)).toBeNull();
+  });
+
+  it("ignores non-promoted terminal tabs", () => {
+    const tabs: TerminalTab[] = [
+      makeTab({ terminalId: "t-1", projectPath: "/repos/alpha", isHeadlessPromoted: false }),
+    ];
+    expect(pickReggieSystemHolder([], tabs)).toBeNull();
+  });
+
+  it("returns repo info for the lowest-terminalId reggie-system candidate", () => {
+    const headless: HeadlessSession[] = [
+      makeHeadless({ terminalId: "t-bbb", projectPath: "/repos/beta" }),
+      makeHeadless({ terminalId: "t-aaa", projectPath: "/repos/alpha" }),
+    ];
+    const holder = pickReggieSystemHolder(headless, []);
+    expect(holder).toEqual({ repoPath: "/repos/alpha", repoName: "alpha" });
+  });
+
+  it("is deterministic across input array order — mid-promotion duplicate yields the same holder", () => {
+    // Two competing reggie-system sessions in different repos. During the
+    // mid-promotion window, the same session can appear in both arrays.
+    // The previous implementation returned different holders depending on
+    // which array's iteration "won". Sorting by terminalId fixes this.
+    const headlessA: HeadlessSession[] = [
+      makeHeadless({ terminalId: "t-aaa", projectPath: "/repos/alpha" }),
+    ];
+    const tabsA: TerminalTab[] = [
+      makeTab({ terminalId: "t-bbb", projectPath: "/repos/beta" }),
+    ];
+    const holderA = pickReggieSystemHolder(headlessA, tabsA);
+
+    // Reverse: the "headless" winner moved into tabs first (promotion order swap).
+    const headlessB: HeadlessSession[] = [
+      makeHeadless({ terminalId: "t-bbb", projectPath: "/repos/beta" }),
+    ];
+    const tabsB: TerminalTab[] = [
+      makeTab({ terminalId: "t-aaa", projectPath: "/repos/alpha" }),
+    ];
+    const holderB = pickReggieSystemHolder(headlessB, tabsB);
+
+    expect(holderA).toEqual({ repoPath: "/repos/alpha", repoName: "alpha" });
+    expect(holderB).toEqual(holderA);
+  });
+
+  it("skips promoted tabs with null terminalId (not yet spawned)", () => {
+    const tabs: TerminalTab[] = [
+      makeTab({ terminalId: null, projectPath: "/repos/alpha" }),
+      makeTab({ terminalId: "t-zzz", projectPath: "/repos/beta" }),
+    ];
+    const holder = pickReggieSystemHolder([], tabs);
+    expect(holder).toEqual({ repoPath: "/repos/beta", repoName: "beta" });
+  });
+
+  it("derives repoName from the trailing path segment (handles both / and \\ separators)", () => {
+    const headless: HeadlessSession[] = [
+      makeHeadless({ terminalId: "t-1", projectPath: "C:\\projects\\my-repo" }),
+    ];
+    const holder = pickReggieSystemHolder(headless, []);
+    expect(holder).toEqual({ repoPath: "C:\\projects\\my-repo", repoName: "my-repo" });
   });
 });
 

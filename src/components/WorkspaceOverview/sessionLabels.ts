@@ -6,6 +6,9 @@
  *
  * Label prefixes are produced by `commandForMode` in `CodeWorkflowTab.tsx`:
  *   "code --" / "reggie-sys --" / "debug --"
+ *
+ * Full label format is `"<domain> -- <repo>/<slug>"` (see CodeWorkflowTab
+ * dispatch sites). `slugFromLabel` extracts the trailing slug.
  */
 
 /** Map a session label prefix to the dispatch domain, or `null` for non-workflow labels. */
@@ -22,4 +25,19 @@ export function domainForLabel(label: string): "code" | "reggieSystem" | "debug"
  */
 export function isWorkflowLabel(label: string): boolean {
   return domainForLabel(label) !== null;
+}
+
+/**
+ * Extract the slug from a workflow session label.
+ *
+ * Labels are formatted as `"<domain> -- <repo>/<slug>"`. The slug is the
+ * substring after the final `/`. Returns `null` for non-workflow labels
+ * or malformed labels (no `/` after the domain prefix).
+ */
+export function slugFromLabel(label: string): string | null {
+  if (!isWorkflowLabel(label)) return null;
+  const slashIdx = label.lastIndexOf("/");
+  if (slashIdx === -1) return null;
+  const slug = label.slice(slashIdx + 1).trim();
+  return slug.length > 0 ? slug : null;
 }
