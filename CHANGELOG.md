@@ -12,6 +12,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Binding status strip in CodeWorkflowTab.** A read-only strip shows the active pipeline for each mode ("Code: \<name\> · Debug: \<name\> · Manual: \<name\>") with a hint pointing to PipelinesPanel to change bindings.
 - **Rust-layer pipeline name validation.** Pipeline names are validated against `[A-Za-z0-9_-]`, max 128 chars, before any binding is stored. `reggie-system` mode is not bindable and always dispatches to `/reggie-system-change`.
 
+- **Auto-relaunch on task completion.** Per-repo Start and Batch Start sessions now launch the next backlog task automatically when a headless Claude session emits `~~REGGIE:DONE:<workflow>:success~~`. Each relaunched task gets a fresh agent context with no carryover from the previous run. Behaviors:
+  - Per-task Start and Walk-through (manual) launches are one-shot and do NOT auto-relaunch — those are intentional single-task actions.
+  - Failed completions (`~~REGGIE:DONE:<workflow>:failed~~`) do NOT auto-relaunch — failures require human review.
+  - Per-domain caps still apply (`code: 5/repo`, `debug: 3/repo`, `reggie-system: 1` workspace-wide).
+  - When a `[reggie-system]` task completes in any repo, the freed workspace-wide slot is offered sequentially to other repos with deferred reggie-system backlog — no concurrent dispatch.
+
 ### Fixed
 - Task panels (Groomed, Active, Ungroomed) now refresh automatically when any `TASKS.md` under the active workspace is edited externally — for example, by `/reggie-init-tasks` runs, autonomous workflow appends, or manual edits. Previously the UI could show stale tasks until the 60s poll fired or the window regained focus.
 - Terminal links now open in the system default browser when clicked. Previously, clicking a link in the integrated terminal was a no-op because Tauri's webview blocks `window.open()`; links now route through `@tauri-apps/plugin-shell`'s `open()`.

@@ -31,6 +31,7 @@ export interface HeadlessSession {
   exitCode: number | null;
   bufferSize: number;
   completed: boolean;
+  autoRelaunch?: boolean;
 }
 
 export interface HeadlessTerminalStatus {

@@ -150,7 +150,7 @@ interface CodeWorkflowTabProps {
   activeLevelPath: string | null;
   headlessSessions: HeadlessSession[];
   sessions: TerminalTab[];
-  onLaunchHeadless: (projectPath: string, initialCommand: string, label: string, model?: string, effort?: string) => Promise<string | null>;
+  onLaunchHeadless: (projectPath: string, initialCommand: string, label: string, model?: string, effort?: string, autoRelaunch?: boolean) => Promise<string | null>;
   onPromoteHeadless: (terminalId: string) => string | null;
   onPromoteSession: (tabId: string) => void;
   onRemoveHeadless: (terminalId: string) => void;
@@ -190,6 +190,8 @@ export function CodeWorkflowTab({
   const [noTasksMessage, setNoTasksMessage] = useState<string | null>(null);
   const noTasksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const relaunchedTerminalIdsRef = useRef<Set<string>>(new Set());
+  const recentlyCompletedSlugsRef = useRef<Map<string, number>>(new Map());
 
   const loadTasks = useCallback(() => {
     if (useTracked) return;
@@ -282,6 +284,17 @@ export function CodeWorkflowTab({
           return { reggieSystemLaunched: 0 };
         }
 
+        // Defense-in-depth filter against the race where TASKS.md re-scan happens
+        // before the backend's meta-commit lands. Drop slugs we just relaunched off of.
+        // Keyed by `${repoPath}::${slug}` so a same-named slug in another repo isn't suppressed.
+        const now = Date.now();
+        for (const [key, ts] of recentlyCompletedSlugsRef.current) {
+          if (now - ts > 5000) recentlyCompletedSlugsRef.current.delete(key);
+        }
+        const filteredBacklog = result.backlogSlugs.filter(
+          (s) => !recentlyCompletedSlugsRef.current.has(`${repoPath}::${s.slug}`),
+        );
+
         // Per-domain remaining slots: cap minus currently-running per repo for code/debug,
         // cap minus currently-running across the whole workspace for reggie-system.
         // Active slugs never reach the launch loop — backend splits them into
@@ -302,7 +315,7 @@ export function CodeWorkflowTab({
           debug: Math.max(0, DOMAIN_CAPS.debug - runningPerRepo.debug),
         };
 
-        const toLaunch = pickBacklogToLaunch(result.backlogSlugs, remaining);
+        const toLaunch = pickBacklogToLaunch(filteredBacklog, remaining);
         if (toLaunch.length === 0) {
           showNoTasksMessage(repoName);
           return { reggieSystemLaunched: 0 };
@@ -318,6 +331,7 @@ export function CodeWorkflowTab({
             `${labelPrefix} ${repoName}/${entry.slug}`,
             model,
             effort,
+            true,
           );
           if (entry.mode === "reggie-system") reggieSystemLaunched++;
         }
@@ -336,6 +350,37 @@ export function CodeWorkflowTab({
     },
     [launchForRepo]
   );
+
+  // Auto-relaunch: when a session originally launched with autoRelaunch:true completes
+  // successfully, kick off a fresh launchForRepo for the same repo. Idempotent on
+  // terminalId via relaunchedTerminalIdsRef so a session only ever triggers one relaunch.
+  useEffect(() => {
+    void (async () => {
+      for (const session of headlessSessions) {
+        if (!session.completed || !session.autoRelaunch) continue;
+        if (relaunchedTerminalIdsRef.current.has(session.terminalId)) continue;
+        relaunchedTerminalIdsRef.current.add(session.terminalId);
+        const slug = session.label.split("/").pop();
+        if (slug) recentlyCompletedSlugsRef.current.set(`${session.projectPath}::${slug}`, Date.now());
+
+        const ownResult = await launchForRepo(session.projectPath, session.projectName);
+
+        // reggie-system has a workspace-wide cap of 1. The just-completed session
+        // freed the slot — fan out to peers sequentially with a threaded in-flight
+        // counter so two peers can't race into the same slot from parallel calls.
+        if (domainForLabel(session.label) === "reggieSystem") {
+          let inFlight = ownResult.reggieSystemLaunched;
+          for (const other of repos) {
+            if (other.path === session.projectPath) continue;
+            const remaining = Math.max(0, DOMAIN_CAPS.reggieSystem - inFlight);
+            if (remaining === 0) break;
+            const { reggieSystemLaunched } = await launchForRepo(other.path, other.name, remaining);
+            inFlight += reggieSystemLaunched;
+          }
+        }
+      }
+    })();
+  }, [headlessSessions, launchForRepo, repos]);
 
   const handleStartIndividualTask = useCallback(
     async (repoPath: string, repoName: string, slug: string, tier?: string, mode?: string | null) => {
