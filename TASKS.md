@@ -2,17 +2,6 @@
 
 ## Active Tasks
 
-### pipeline-bindings-concurrent-write-race
-**Task**: Serialize pipeline-bindings.json writes with a mutex
-**Pipeline**: code-workflow
-**Branch**: task/pipeline-bindings-concurrent-write-race
-**Worktree**: .worktree/pipeline-bindings-concurrent-write-race
-**Base**: main
-**Started**: 2026-05-01
-**Files**:
-- MOD: src-tauri/src/state.rs
-- MOD: src-tauri/src/commands/pipeline_bindings.rs
-
 ## Backlog
 
 ### v2.0.0 Release
