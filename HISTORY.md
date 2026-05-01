@@ -57,3 +57,4 @@
 - [x] add-pipeline-mode-tags-manual-reggie-system-and-debug Introduce [manual], [reggie-system], and [debug] pipeline-mode tags -- 2026-04-25
 - [x] attach-images-to-ungroomed-tasks Paste/drop image attachments on ungroomed tasks consumed during init-tasks -- 2026-04-26
 - [x] wire-tasksviewer-mode-dispatch Make TasksViewer respect all 5 pipeline mode tags -- 2026-04-29
+- [x] fix-groomed-tasks-refresh-stale Add filesystem watcher so TASKS.md changes refresh the UI immediately -- 2026-04-30

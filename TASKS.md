@@ -2,23 +2,6 @@
 
 ## Active Tasks
 
-### fix-groomed-tasks-refresh-stale
-**Task**: Add filesystem watcher so TASKS.md changes refresh the UI immediately
-**Pipeline**: code-workflow
-**Branch**: task/fix-groomed-tasks-refresh-stale
-**Worktree**: .worktree/fix-groomed-tasks-refresh-stale
-**Base**: main
-**Started**: 2026-04-30
-**Files**:
-- NEW: src-tauri/src/watchers/tasks_md.rs
-- MOD: src-tauri/src/lib.rs
-- MOD: src-tauri/src/commands/projects.rs
-- MOD: src-tauri/Cargo.toml
-- MOD: src/hooks/useSessionTracking.ts
-- MOD: src/__tests__/tauri-contract.test.ts
-
----
-
 ## Backlog
 
 ### v2.0.0 Release
@@ -71,5 +54,17 @@
 
 - [ ] slug-control-char-whitelist: `parse_task_line` and the active-section parser in `src-tauri/src/commands/projects.rs:455, 586` use `String::trim()` only — embedded `\r` in a slug survives parsing and reaches Claude Code's REPL stdin via `terminal.rs:625-638`. Single-user trust model makes this minor, but a whitelist (`[A-Za-z0-9._-]`) would foreclose the CR-injection path entirely.
   > context: discovered during security review of fix-cross-domain-dispatch-per-repo-and-batch (2026-04-30). Pre-existing in main, not introduced by the diff. Severity MINOR. Bonus hardening: strip ASCII control chars from `cmd` in `spawn_headless_terminal` before `writer.write_all`.
+
+- [ ] tasks-md-watch-skip-when-path-null: The `useSessionTracking` watcher useEffect at `src/hooks/useSessionTracking.ts:143-170` always calls `invoke("stop_tasks_md_watch")` on mount and on cleanup, even when `activeLevelPath` is and was always null. Harmless (Rust stop is a no-op) but produces extra IPC traffic in the null-path case.
+  > context: discovered during write-tests of fix-groomed-tasks-refresh-stale (2026-04-30). Suggested fix: gate the effect body on `activeLevelPath != null` if both prev and next are null, or track via a ref whether a watcher is currently running.
+
+- [ ] tasks-md-watch-recursive-scope-guard: `start_tasks_md_watch` accepts any `path: String` from the frontend and watches recursively. A buggy or malicious frontend passing `/` or `$HOME` could exhaust FSEvents/inotify resources until app restart. Single-user trust model makes this acceptable today; defense-in-depth would canonicalize the path and reject roots, home, or fewer than N components.
+  > context: discovered during security review of fix-groomed-tasks-refresh-stale (2026-04-30). Severity MEDIUM in current threat model. notify itself doesn't crash; stop_tasks_md_watch recovers.
+
+- [ ] tauri-capabilities-no-per-command-allowlist: `src-tauri/capabilities/default.json` does not enumerate per-command allowlists, so every `#[tauri::command]` in the binary is reachable from any frontend script in the `main` window. Pre-existing posture; not introduced by any specific task. If the app ever loads third-party content (extensions, embedded webviews of remote pages), this becomes exploitable.
+  > context: discovered during security review of fix-groomed-tasks-refresh-stale (2026-04-30). Pre-existing in main. Severity LOW in current single-user trust model; HIGH if trust model expands.
+
+- [ ] preexisting-clippy-warnings-in-projects-rs-tests: `cargo clippy --all-targets -- -D warnings` fails on main with 7 errors in `src-tauri/src/commands/projects.rs` test helpers — 5× `unnecessary use of to_path_buf` (around lines 1298, 1305, 1373, 1386, 1394) and 2× `redundant closure` calling `parse_task_line`. Blocks any future CI gate that includes test targets.
+  > context: discovered during verify-app of fix-groomed-tasks-refresh-stale (2026-04-30). Pre-existing on base commit `50571df`. Trivial fix; would unblock a stricter clippy CI gate.
 
 <!-- folded into vitest-setupfiles-and-contract-test-fixes (2026-04-25). Original guess (scanner glob bug) was wrong — RUST_COMMANDS is a hand-maintained table; just needs the missing entry. -->
