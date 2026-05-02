@@ -2,18 +2,6 @@
 
 ## Active Tasks
 
-### fix-dispatch-no-op-with-manual-tasks
-**Task**: Project-level Start dispatches eligible code tasks even when manual tasks exist; surfaces persistent reason banner when nothing is dispatchable
-**Pipeline**: code-workflow
-**Branch**: task/fix-dispatch-no-op-with-manual-tasks
-**Worktree**: .worktree/fix-dispatch-no-op-with-manual-tasks
-**Base**: main
-**Started**: 2026-05-01
-**Files**:
-- MOD: src-tauri/src/commands/projects.rs
-- MOD: src/components/WorkspaceOverview/CodeWorkflowTab.tsx
-- MOD: src/components/WorkspaceOverview/__tests__/CodeWorkflowTab.test.tsx
-
 ---
 
 ## Backlog
