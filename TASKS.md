@@ -2,17 +2,6 @@
 
 ## Active Tasks
 
-### fix-image-counter-resets-on-navigation
-**Task**: Image counter rebuilds from surviving textarea content on project navigation
-**Pipeline**: code-workflow
-**Branch**: task/fix-image-counter-resets-on-navigation
-**Worktree**: .worktree/fix-image-counter-resets-on-navigation
-**Base**: main
-**Started**: 2026-05-01
-**Files**:
-- MOD: src/components/ProjectSummary/ProjectSummaryPanel.tsx
-- MOD: src/components/ProjectSummary/__tests__/ProjectSummaryPanel.test.tsx
-
 ---
 
 ## Backlog
