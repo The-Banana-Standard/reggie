@@ -1,5 +1,6 @@
 # Completed Tasks
 
+- [x] fix-image-counter-resets-on-navigation Image counter rebuilds from surviving textarea content on project navigation -- 2026-05-01
 - [x] fix-meta-complete-removes-tasks-md-line Make `meta: complete` a true migration (delete from TASKS.md, append to HISTORY.md) and teach dep resolution to read HISTORY.md so deps on completed work continue to resolve -- 2026-05-01
 - [x] harden-init-tasks-plan-quality Upgrade init-tasks RESEARCH+PLAN with Plain-English Summary, Concept Glosses, Verified Facts, Out of Scope, Verification Strategy, Success Metric, Bail Conditions, 3-column Key Decisions; ownership-of-facts callout; plain-English protocol; verify-before-presenting + plan-quality self-check; explain-X 4th approval option; updated Task File Format spec and polish-settings worked example -- 2026-05-01
 - [x] preexisting-clippy-warnings-in-projects-rs-tests Fix 7 pre-existing clippy warnings + add CI gate -- 2026-05-01
