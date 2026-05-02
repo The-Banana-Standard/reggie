@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { mockInvoke, resetTauriMocks } from "../../../__test-utils__/tauri-mock";
-import { ProjectSummaryPanel } from "../ProjectSummaryPanel";
+import { ProjectSummaryPanel, computeNextImageIndex } from "../ProjectSummaryPanel";
 import type { ProjectInfo } from "../../../types/project-info";
 
 // Mock react-markdown to avoid ESM/rendering issues in tests
@@ -1412,5 +1412,198 @@ describe("ProjectSummaryPanel: state reset on project switch", () => {
     unmount();
     // The unmount cleanup effect should have invoked clearTimeout at least once.
     expect(clearSpy.mock.calls.length).toBeGreaterThan(callsBeforeUnmount);
+  });
+});
+
+describe("ProjectSummaryPanel: image counter sync on project change", () => {
+  beforeEach(() => {
+    resetTauriMocks();
+    vi.restoreAllMocks();
+    setupAttachmentInvokeMock();
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+  });
+
+  it("starts counter at 1 when seeded external input is empty", async () => {
+    const onTaskInputChange = vi.fn();
+    render(
+      <ProjectSummaryPanel
+        {...defaultProps}
+        taskInput=""
+        onTaskInputChange={onTaskInputChange}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Add to Ungroomed")).toBeTruthy();
+    });
+    const textarea = screen.getByPlaceholderText(
+      /Add tasks \(one per line/,
+    ) as HTMLTextAreaElement;
+
+    fireEvent.paste(textarea, {
+      clipboardData: makeClipboardData([makeImageFile("a.png", "image/png")]),
+    });
+
+    await waitFor(() => {
+      // With external state, parent's onTaskInputChange receives the staged write.
+      const lastCall = onTaskInputChange.mock.calls.at(-1);
+      expect(lastCall?.[0]).toEqual(expect.stringContaining("[Image 1]"));
+    });
+  });
+
+  it("yields [Image 2] when seeded external input contains [Image 1]", async () => {
+    const onTaskInputChange = vi.fn();
+    render(
+      <ProjectSummaryPanel
+        {...defaultProps}
+        taskInput="task with [Image 1]"
+        onTaskInputChange={onTaskInputChange}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Add to Ungroomed")).toBeTruthy();
+    });
+    const textarea = screen.getByPlaceholderText(
+      /Add tasks \(one per line/,
+    ) as HTMLTextAreaElement;
+
+    fireEvent.paste(textarea, {
+      clipboardData: makeClipboardData([makeImageFile("a.png", "image/png")]),
+    });
+
+    await waitFor(() => {
+      const lastCall = onTaskInputChange.mock.calls.at(-1);
+      expect(lastCall?.[0]).toEqual(expect.stringContaining("[Image 2]"));
+    });
+  });
+
+  it("yields [Image 4] when seeded external input contains [Image 3] (gap)", async () => {
+    const onTaskInputChange = vi.fn();
+    render(
+      <ProjectSummaryPanel
+        {...defaultProps}
+        taskInput="see [Image 3]"
+        onTaskInputChange={onTaskInputChange}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Add to Ungroomed")).toBeTruthy();
+    });
+    const textarea = screen.getByPlaceholderText(
+      /Add tasks \(one per line/,
+    ) as HTMLTextAreaElement;
+
+    fireEvent.paste(textarea, {
+      clipboardData: makeClipboardData([makeImageFile("a.png", "image/png")]),
+    });
+
+    await waitFor(() => {
+      const lastCall = onTaskInputChange.mock.calls.at(-1);
+      expect(lastCall?.[0]).toEqual(expect.stringContaining("[Image 4]"));
+    });
+  });
+
+  it("ignores non-image bracket text when seeding the counter", async () => {
+    const onTaskInputChange = vi.fn();
+    render(
+      <ProjectSummaryPanel
+        {...defaultProps}
+        taskInput="see [Important] note"
+        onTaskInputChange={onTaskInputChange}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Add to Ungroomed")).toBeTruthy();
+    });
+    const textarea = screen.getByPlaceholderText(
+      /Add tasks \(one per line/,
+    ) as HTMLTextAreaElement;
+
+    fireEvent.paste(textarea, {
+      clipboardData: makeClipboardData([makeImageFile("a.png", "image/png")]),
+    });
+
+    await waitFor(() => {
+      const lastCall = onTaskInputChange.mock.calls.at(-1);
+      expect(lastCall?.[0]).toEqual(expect.stringContaining("[Image 1]"));
+    });
+    // [Important] does NOT match IMAGE_LABEL_REGEX, so the counter should not have
+    // skipped to [Image 2].
+    const stagedText = onTaskInputChange.mock.calls.at(-1)?.[0] as string;
+    expect(stagedText).not.toContain("[Image 2]");
+  });
+
+  it("re-syncs counter from surviving external input on project path change (regression)", async () => {
+    const onTaskInputChange = vi.fn();
+    const { rerender } = render(
+      <ProjectSummaryPanel
+        {...defaultProps}
+        projectPath="/p/a"
+        taskInput="left over [Image 5]"
+        onTaskInputChange={onTaskInputChange}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Add to Ungroomed")).toBeTruthy();
+    });
+
+    // Rerender with a NEW projectPath — this fires the project-change effect,
+    // which should re-seed the counter from the (retained) externalTaskInput.
+    rerender(
+      <ProjectSummaryPanel
+        {...defaultProps}
+        projectPath="/p/b"
+        taskInput="left over [Image 5]"
+        onTaskInputChange={onTaskInputChange}
+      />,
+    );
+
+    // Wait for the project-change effect to settle (loading resolves).
+    await waitFor(() => {
+      expect(screen.getByText("Add to Ungroomed")).toBeTruthy();
+    });
+
+    onTaskInputChange.mockClear();
+
+    const textarea = screen.getByPlaceholderText(
+      /Add tasks \(one per line/,
+    ) as HTMLTextAreaElement;
+
+    fireEvent.paste(textarea, {
+      clipboardData: makeClipboardData([makeImageFile("a.png", "image/png")]),
+    });
+
+    await waitFor(() => {
+      const lastCall = onTaskInputChange.mock.calls.at(-1);
+      expect(lastCall?.[0]).toEqual(expect.stringContaining("[Image 6]"));
+    });
+    // If the bug had returned, this would be [Image 1].
+    const stagedText = onTaskInputChange.mock.calls.at(-1)?.[0] as string;
+    expect(stagedText).not.toMatch(/\[Image 1\](?!\d)/);
+  });
+});
+
+describe("computeNextImageIndex", () => {
+  it("returns 1 for an empty string", () => {
+    expect(computeNextImageIndex("")).toBe(1);
+  });
+
+  it("returns 1 when no labels are present", () => {
+    expect(computeNextImageIndex("no labels here")).toBe(1);
+  });
+
+  it("returns max + 1 for a single label", () => {
+    expect(computeNextImageIndex("[Image 3] foo")).toBe(4);
+  });
+
+  it("returns max + 1 across multiple unordered labels", () => {
+    expect(computeNextImageIndex("[Image 1] [Image 5] [Image 2]")).toBe(6);
+  });
+
+  it("ignores non-image bracket text", () => {
+    expect(computeNextImageIndex("see [Important] note")).toBe(1);
+  });
+
+  it("handles large indices", () => {
+    expect(computeNextImageIndex("[Image 1] and [Image 99]")).toBe(100);
   });
 });

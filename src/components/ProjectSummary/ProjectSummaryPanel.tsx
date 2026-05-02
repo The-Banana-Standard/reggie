@@ -12,6 +12,16 @@ import { checkRunScript } from "../../services/terminal-service";
 const SINGLE_TASK_MAX_LENGTH = 200;
 const LIST_PREFIX_REGEX = /^(?:[-*+]\s|\d+[.)]\s)/;
 const IMAGE_LABEL_REGEX = /\[Image (\d+)\]/g;
+
+export function computeNextImageIndex(text: string): number {
+  let max = 0;
+  for (const m of text.matchAll(IMAGE_LABEL_REGEX)) {
+    const n = Number(m[1]);
+    if (n > max) max = n;
+  }
+  return max + 1;
+}
+
 const IMAGE_MIME_WHITELIST: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -175,7 +185,7 @@ export function ProjectSummaryPanel({
     setInfo(null);
     if (!onTaskInputChange) setLocalTaskInput("");
     setTaskSuccess(false);
-    imageCounterRef.current = 1;
+    imageCounterRef.current = computeNextImageIndex(externalTaskInput ?? "");
     imageMapRef.current = {};
     setPasteError(null);
     if (pasteErrorTimeoutRef.current !== null) {
