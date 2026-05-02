@@ -12,10 +12,54 @@ interface ParallelizableTaskSlug {
   mode: string | null;
 }
 
+export type BlockedReason =
+  | { type: "manual" }
+  | { type: "blockedBy"; data: string };
+
 interface ParallelizableTasksResult {
   activeSlugs: ParallelizableTaskSlug[];
   backlogSlugs: ParallelizableTaskSlug[];
   totalGroomed: number;
+  blocked: Record<string, BlockedReason>;
+}
+
+/**
+ * Build a human-readable banner string explaining why a repo had no
+ * dispatchable code tasks. Distinguishes manual-blocked, dep-blocked, and
+ * mixed cases. Returns a generic fallback when `blocked` is empty (the
+ * "literally no planned-unchecked tasks" case).
+ */
+export function formatBlockedReasons(
+  blocked: Record<string, BlockedReason>,
+  repoName: string,
+): string {
+  const entries = Object.entries(blocked);
+  if (entries.length === 0) {
+    return `No tasks available for ${repoName}`;
+  }
+  const manual: string[] = [];
+  const depBlocked: string[] = [];
+  for (const [slug, reason] of entries) {
+    if (reason.type === "manual") manual.push(slug);
+    else depBlocked.push(slug);
+  }
+  const total = entries.length;
+  const taskWord = total === 1 ? "task" : "tasks";
+  const parts: string[] = [];
+  if (manual.length > 0) {
+    const m = manual.length === 1 ? "manual task" : "manual tasks";
+    parts.push(`${manual.length} ${m} (${manual.join(", ")})`);
+  }
+  if (depBlocked.length > 0) {
+    const d = depBlocked.length === 1
+      ? "task blocked by an unmet dependency"
+      : "tasks blocked by unmet dependencies";
+    parts.push(`${depBlocked.length} ${d} (${depBlocked.join(", ")})`);
+  }
+  const tail = manual.length > 0
+    ? "Walk through manual tasks first."
+    : "Resolve dependencies (see HISTORY.md / TASKS.md) before dispatch.";
+  return `All ${total} ${taskWord} in ${repoName} blocked: ${parts.join(", ")}. ${tail}`;
 }
 
 function parseTier(tier: string | null): { model: string | undefined; effort: string | undefined } {
@@ -232,8 +276,10 @@ export function CodeWorkflowTab({
   const [localRepos, setLocalRepos] = useState<RepoTaskSummary[]>([]);
   const [localLoading, setLocalLoading] = useState(true);
   const [batchRunning, setBatchRunning] = useState(false);
-  const [noTasksMessage, setNoTasksMessage] = useState<string | null>(null);
-  const noTasksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Per-repo banner explaining why dispatch found nothing. Persistent — cleared
+  // explicitly on refresh, batch start, and successful launches. Not triggered
+  // from the auto-relaunch path (would flash banners during normal completion).
+  const [blockedBanner, setBlockedBanner] = useState<Map<string, string>>(new Map());
   const mountedRef = useRef(true);
   const relaunchedTerminalIdsRef = useRef<Set<string>>(new Set());
   const recentlyCompletedSlugsRef = useRef<Map<string, number>>(new Map());
@@ -285,23 +331,45 @@ export function CodeWorkflowTab({
 
   const repos = useTracked ? trackedRepos : localRepos;
   const loading = useTracked ? (reposLoading ?? false) : localLoading;
-  const handleRefresh = useTracked ? (onRefreshRepos ?? (() => {})) : loadTasks;
+  const baseRefresh = useTracked ? (onRefreshRepos ?? (() => {})) : loadTasks;
+  const handleRefresh = useCallback(() => {
+    setBlockedBanner(new Map());
+    baseRefresh();
+  }, [baseRefresh]);
 
-  const showNoTasksMessage = useCallback((repoName: string) => {
-    if (noTasksTimerRef.current) clearTimeout(noTasksTimerRef.current);
-    setNoTasksMessage(`No tasks available for ${repoName}`);
-    noTasksTimerRef.current = setTimeout(() => {
-      setNoTasksMessage(null);
-      noTasksTimerRef.current = null;
-    }, 4000);
+  const setRepoBlockedBanner = useCallback((repoPath: string, message: string) => {
+    setBlockedBanner((prev) => {
+      const next = new Map(prev);
+      next.set(repoPath, message);
+      return next;
+    });
   }, []);
 
-  // Clean up timer on unmount
+  const clearRepoBlockedBanner = useCallback((repoPath: string) => {
+    setBlockedBanner((prev) => {
+      if (!prev.has(repoPath)) return prev;
+      const next = new Map(prev);
+      next.delete(repoPath);
+      return next;
+    });
+  }, []);
+
+  // Drop banner entries for repos that are no longer in the list (e.g. when
+  // the active level path changes or a repo is removed). Without this the
+  // banner could orphan a stale message keyed at a path that nothing renders.
   useEffect(() => {
-    return () => {
-      if (noTasksTimerRef.current) clearTimeout(noTasksTimerRef.current);
-    };
-  }, []);
+    setBlockedBanner((prev) => {
+      if (prev.size === 0) return prev;
+      const live = new Set(repos.map((r) => r.path));
+      let changed = false;
+      const next = new Map<string, string>();
+      for (const [path, msg] of prev) {
+        if (live.has(path)) next.set(path, msg);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [repos]);
 
   /**
    * Launch backlog tasks for a single repo, capped per-domain by remaining slots.
@@ -319,13 +387,18 @@ export function CodeWorkflowTab({
       repoPath: string,
       repoName: string,
       reggieSystemRemainingOverride?: number,
+      suppressBanner: boolean = false,
     ): Promise<{ reggieSystemLaunched: number }> => {
+      const reportNoDispatch = (blocked: Record<string, BlockedReason> | undefined) => {
+        if (suppressBanner) return;
+        setRepoBlockedBanner(repoPath, formatBlockedReasons(blocked ?? {}, repoName));
+      };
       try {
         const result = await invoke<ParallelizableTasksResult>("get_parallelizable_tasks", {
           projectPath: repoPath,
         });
         if (result.activeSlugs.length === 0 && result.backlogSlugs.length === 0) {
-          showNoTasksMessage(repoName);
+          reportNoDispatch(result.blocked);
           return { reggieSystemLaunched: 0 };
         }
 
@@ -381,7 +454,7 @@ export function CodeWorkflowTab({
 
         const toLaunch = pickBacklogToLaunch(filteredBacklog, remaining, activeSlugs);
         if (toLaunch.length === 0) {
-          showNoTasksMessage(repoName);
+          reportNoDispatch(result.blocked);
           return { reggieSystemLaunched: 0 };
         }
 
@@ -399,13 +472,14 @@ export function CodeWorkflowTab({
           );
           if (entry.mode === "reggie-system") reggieSystemLaunched++;
         }
+        clearRepoBlockedBanner(repoPath);
         return { reggieSystemLaunched };
       } catch (err) {
         console.error("Failed to get parallelizable tasks:", err);
         return { reggieSystemLaunched: 0 };
       }
     },
-    [onLaunchHeadless, showNoTasksMessage, headlessSessions, sessions]
+    [onLaunchHeadless, setRepoBlockedBanner, clearRepoBlockedBanner, headlessSessions, sessions]
   );
 
   const handleLaunchSession = useCallback(
@@ -427,7 +501,12 @@ export function CodeWorkflowTab({
         const slug = session.label.split("/").pop();
         if (slug) recentlyCompletedSlugsRef.current.set(`${session.projectPath}::${slug}`, Date.now());
 
-        const ownResult = await launchForRepo(session.projectPath, session.projectName);
+        const ownResult = await launchForRepo(
+          session.projectPath,
+          session.projectName,
+          undefined,
+          true,
+        );
 
         // reggie-system has a workspace-wide cap of 1. The just-completed session
         // freed the slot — fan out to peers sequentially with a threaded in-flight
@@ -438,7 +517,12 @@ export function CodeWorkflowTab({
             if (other.path === session.projectPath) continue;
             const remaining = Math.max(0, DOMAIN_CAPS.reggieSystem - inFlight);
             if (remaining === 0) break;
-            const { reggieSystemLaunched } = await launchForRepo(other.path, other.name, remaining);
+            const { reggieSystemLaunched } = await launchForRepo(
+              other.path,
+              other.name,
+              remaining,
+              true,
+            );
             inFlight += reggieSystemLaunched;
           }
         }
@@ -490,6 +574,7 @@ export function CodeWorkflowTab({
   );
 
   const handleBatchStart = useCallback(async () => {
+    setBlockedBanner(new Map());
     const reposWithTasks = repos.filter((r) => r.groomedCount + r.activeCount > 0);
     if (reposWithTasks.length === 0) return;
 
@@ -583,8 +668,26 @@ export function CodeWorkflowTab({
         </div>
       </div>
 
-      {noTasksMessage && (
-        <div style={{ fontSize: "11px", color: "var(--text-muted)", padding: "6px 0" }}>{noTasksMessage}</div>
+      {blockedBanner.size > 0 && (
+        <div
+          role="status"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+            padding: "8px 10px",
+            margin: "8px 0",
+            border: "1px solid var(--border-warning, var(--border-color, #c97c00))",
+            borderRadius: "4px",
+            background: "var(--bg-warning, rgba(201, 124, 0, 0.08))",
+            color: "var(--text-warning, var(--text-primary, inherit))",
+            fontSize: "12px",
+          }}
+        >
+          {Array.from(blockedBanner.entries()).map(([repoPath, message]) => (
+            <div key={repoPath}>{message}</div>
+          ))}
+        </div>
       )}
 
       <div className="dashboard-tab-list">

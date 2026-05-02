@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { mockInvoke, resetTauriMocks } from "../../../__test-utils__/tauri-mock";
-import { CodeWorkflowTab, commandForMode, pickBacklogToLaunch, pickReggieSystemHolder } from "../CodeWorkflowTab";
+import { CodeWorkflowTab, commandForMode, pickBacklogToLaunch, pickReggieSystemHolder, formatBlockedReasons } from "../CodeWorkflowTab";
 import type { HeadlessSession, TerminalTab, RepoTaskSummary } from "../../../types/terminal";
 import {
   loadPipelineBindings,
@@ -2185,5 +2185,378 @@ describe("CodeWorkflowTab auto-relaunch", () => {
       (c) => c[0] === "/projects/repo-b" && String(c[1]).includes("shared-slug"),
     );
     expect(repoBCall).toBeTruthy();
+  });
+});
+
+describe("formatBlockedReasons", () => {
+  it("returns the legacy fallback when blocked is empty", () => {
+    expect(formatBlockedReasons({}, "repo-a")).toBe("No tasks available for repo-a");
+  });
+
+  it("formats a single manual task with singular grammar", () => {
+    const msg = formatBlockedReasons(
+      { "setup-thing": { type: "manual" } },
+      "repo-a",
+    );
+    expect(msg).toContain("All 1 task in repo-a blocked:");
+    expect(msg).toContain("1 manual task (setup-thing)");
+    expect(msg).toContain("Walk through manual tasks first.");
+  });
+
+  it("formats multiple manual tasks with plural grammar", () => {
+    const msg = formatBlockedReasons(
+      {
+        "setup-thing": { type: "manual" },
+        "configure-foo": { type: "manual" },
+      },
+      "repo-a",
+    );
+    expect(msg).toContain("All 2 tasks in repo-a blocked:");
+    expect(msg).toContain("2 manual tasks (");
+    // Order is map iteration order; both slugs must appear.
+    expect(msg).toContain("setup-thing");
+    expect(msg).toContain("configure-foo");
+    expect(msg).toContain("Walk through manual tasks first.");
+  });
+
+  it("formats a single dep-blocked task with singular grammar and dep tail", () => {
+    const msg = formatBlockedReasons(
+      { "task-a": { type: "blockedBy", data: "manual-thing" } },
+      "repo-a",
+    );
+    expect(msg).toContain("All 1 task in repo-a blocked:");
+    expect(msg).toContain("1 task blocked by an unmet dependency (task-a)");
+    expect(msg).toContain("Resolve dependencies");
+    expect(msg).not.toContain("Walk through manual tasks first.");
+  });
+
+  it("formats multiple dep-blocked tasks with plural grammar", () => {
+    const msg = formatBlockedReasons(
+      {
+        "task-a": { type: "blockedBy", data: "x" },
+        "task-b": { type: "blockedBy", data: "y" },
+      },
+      "repo-a",
+    );
+    expect(msg).toContain("All 2 tasks in repo-a blocked:");
+    expect(msg).toContain("2 tasks blocked by unmet dependencies (");
+    expect(msg).toContain("Resolve dependencies");
+  });
+
+  it("formats mixed manual + dep-blocked with both segments and the manual tail", () => {
+    const msg = formatBlockedReasons(
+      {
+        "manual-1": { type: "manual" },
+        "task-a": { type: "blockedBy", data: "manual-1" },
+      },
+      "repo-a",
+    );
+    expect(msg).toContain("All 2 tasks in repo-a blocked:");
+    expect(msg).toContain("1 manual task (manual-1)");
+    expect(msg).toContain("1 task blocked by an unmet dependency (task-a)");
+    // When manual is present, the manual-tail wins (most actionable).
+    expect(msg).toContain("Walk through manual tasks first.");
+  });
+});
+
+describe("CodeWorkflowTab blocked banner persistence", () => {
+  it("renders a persistent banner when all tasks are manual and does not auto-hide", async () => {
+    vi.useFakeTimers();
+    try {
+      const onLaunchHeadless = vi.fn().mockResolvedValue("ht-none");
+      const trackedRepos = [makeRepo({ groomedCount: 2 })];
+
+      mockInvoke.mockResolvedValue({
+        activeSlugs: [],
+        backlogSlugs: [],
+        totalGroomed: 0,
+        blocked: {
+          "setup-thing": { type: "manual" },
+          "configure-foo": { type: "manual" },
+        },
+      });
+
+      render(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={trackedRepos}
+          reposLoading={false}
+        />,
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByText("Start"));
+      });
+
+      // Banner copy mentions both manual slugs and the manual tail.
+      await vi.waitFor(() => {
+        expect(screen.queryByText(/setup-thing/)).toBeTruthy();
+      });
+      const bannerNode = screen.getByText(/setup-thing/);
+      expect(bannerNode.textContent).toContain("configure-foo");
+      expect(bannerNode.textContent).toContain("Walk through manual tasks first.");
+
+      // Advance fake time past the legacy 4s toast lifetime — banner persists.
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByText(/setup-thing/)).toBeTruthy();
+
+      expect(onLaunchHeadless).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("renders a banner with the dep-blocked tail when all tasks are blocked by deps", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue(null);
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+
+    mockInvoke.mockResolvedValue({
+      activeSlugs: [],
+      backlogSlugs: [],
+      totalGroomed: 1,
+      blocked: { "task-a": { type: "blockedBy", data: "manual-thing" } },
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/task-a/)).toBeTruthy();
+    });
+    const banner = screen.getByText(/task-a/);
+    expect(banner.textContent).toContain("blocked by an unmet dependency");
+    expect(banner.textContent).toContain("Resolve dependencies");
+    expect(banner.textContent).not.toContain("Walk through manual tasks first.");
+  });
+
+  it("clears the banner when Refresh is clicked", async () => {
+    const onRefreshRepos = vi.fn();
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+
+    mockInvoke.mockResolvedValue({
+      activeSlugs: [],
+      backlogSlugs: [],
+      totalGroomed: 0,
+      blocked: { "setup-thing": { type: "manual" } },
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        onRefreshRepos={onRefreshRepos}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/setup-thing/)).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Refresh"));
+    });
+
+    expect(screen.queryByText(/setup-thing/)).toBeNull();
+    expect(onRefreshRepos).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears a per-repo banner after a successful launch on that repo", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-launched");
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+
+    // First call: empty + blocked → banner appears.
+    // Second call: a dispatchable backlog slug → launch fires, banner clears.
+    let callCount = 0;
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd !== "get_parallelizable_tasks") return Promise.resolve(undefined);
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          activeSlugs: [],
+          backlogSlugs: [],
+          totalGroomed: 0,
+          blocked: { "setup-thing": { type: "manual" } },
+        });
+      }
+      return Promise.resolve({
+        activeSlugs: [],
+        backlogSlugs: [{ slug: "code-1", tier: null, mode: "code" }],
+        totalGroomed: 1,
+      });
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />,
+    );
+
+    // First click → banner appears.
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/setup-thing/)).toBeTruthy();
+    });
+
+    // Second click → dispatchable slug, launch fires, banner clears.
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText(/setup-thing/)).toBeNull();
+  });
+
+  it("does NOT show a banner from the auto-relaunch path when blocked is non-empty", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue(null);
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+
+    // The auto-relaunch effect will call get_parallelizable_tasks for repo-a.
+    mockInvoke.mockResolvedValue({
+      activeSlugs: [],
+      backlogSlugs: [],
+      totalGroomed: 0,
+      blocked: { "setup-thing": { type: "manual" } },
+    });
+
+    const completedSession: HeadlessSession = {
+      terminalId: "t-relaunch",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "code -- repo-a/done-task",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: true,
+      autoRelaunch: true,
+    };
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        headlessSessions={[completedSession]}
+      />,
+    );
+
+    // Wait for the auto-relaunch effect to fire and resolve.
+    await vi.waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith("get_parallelizable_tasks", {
+        projectPath: "/projects/repo-a",
+      });
+    });
+    // Give the suppressed-banner effect time to settle without surfacing.
+    await new Promise((r) => setTimeout(r, 30));
+
+    // Banner must NOT appear — the auto-relaunch path passes suppressBanner: true.
+    expect(screen.queryByText(/setup-thing/)).toBeNull();
+  });
+
+  it("shows the legacy fallback banner copy when invoke returns no `blocked` field (backwards compat)", async () => {
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+
+    // No `blocked` field in the response — exercises the `?? {}` defensive default.
+    mockInvoke.mockResolvedValue({
+      activeSlugs: [],
+      backlogSlugs: [],
+      totalGroomed: 0,
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+
+    await vi.waitFor(() => {
+      expect(screen.queryByText("No tasks available for repo-a")).toBeTruthy();
+    });
+  });
+
+  it("clears banner entries for repos dropped from the repos prop", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue(null);
+    const repoA = makeRepo({ name: "repo-a", path: "/projects/repo-a", groomedCount: 1 });
+    const repoB = makeRepo({ name: "repo-b", path: "/projects/repo-b", groomedCount: 1 });
+
+    // Both repos return a blocked map → both will get a banner if Started.
+    mockInvoke.mockImplementation((cmd: string, args: { projectPath: string }) => {
+      if (cmd === "get_parallelizable_tasks") {
+        return Promise.resolve({
+          activeSlugs: [],
+          backlogSlugs: [],
+          totalGroomed: 0,
+          blocked:
+            args.projectPath === "/projects/repo-a"
+              ? { "manual-a": { type: "manual" } }
+              : { "manual-b": { type: "manual" } },
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const { rerender } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={[repoA, repoB]}
+        reposLoading={false}
+      />,
+    );
+
+    // Trigger banner for repo-a via per-repo Start.
+    const startButtons = screen.getAllByText("Start");
+    await act(async () => {
+      fireEvent.click(startButtons[0]);
+    });
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/manual-a/)).toBeTruthy();
+    });
+
+    // Re-render with repo-a removed from the list. The cleanup effect drops
+    // banner entries for repos no longer present.
+    await act(async () => {
+      rerender(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={[repoB]}
+          reposLoading={false}
+        />,
+      );
+    });
+
+    expect(screen.queryByText(/manual-a/)).toBeNull();
   });
 });

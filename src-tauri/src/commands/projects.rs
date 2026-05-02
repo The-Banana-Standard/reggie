@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -424,6 +424,16 @@ pub struct ParallelizableTaskSlug {
     pub mode: Option<String>,
 }
 
+/// Reason a backlog task was excluded from `backlog_slugs` despite being
+/// `planned && !checked`. Tagged enum: serialized as
+/// `{ "type": "manual" }` or `{ "type": "blockedBy", "data": "<slug>" }`.
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+pub enum BlockedReason {
+    Manual,
+    BlockedBy(String),
+}
+
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParallelizableTasksResult {
@@ -436,6 +446,11 @@ pub struct ParallelizableTasksResult {
     /// (backlog-vs-backlog) conflict pruning.
     pub backlog_slugs: Vec<ParallelizableTaskSlug>,
     pub total_groomed: usize,
+    /// Map of slug → reason it was excluded from `backlog_slugs`. Populated
+    /// for manual-mode tasks (always `Manual`) and for code/debug tasks whose
+    /// `depends:` set is not fully satisfied (`BlockedBy(<first-unmet-dep>)`).
+    /// Conflict-pruned tasks are intentionally not captured here.
+    pub blocked: HashMap<String, BlockedReason>,
 }
 
 /// Read `HISTORY.md` (sibling of TASKS.md) and return the set of completed slugs.
@@ -660,19 +675,41 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
         }
     }
 
-    // Filter to planned, unchecked tasks. Exclude manual-mode tasks: they require
-    // human-in-the-loop walk-through and must not be auto-dispatched.
-    let groomed: Vec<&TaskEntry> = backlog_tasks
-        .iter()
-        .filter(|t| t.planned && !t.checked && t.mode.as_deref() != Some("manual"))
-        .collect();
+    // Walk planned-unchecked backlog tasks, capturing per-task blocked reasons
+    // for the UI banner. Manual-mode tasks are excluded from `groomed` (they
+    // require human-in-the-loop walk-through) but recorded as `Manual` blockers
+    // so the frontend can surface them. Tasks with at least one unmet `depends:`
+    // are recorded as `BlockedBy(<first-unmet-dep>)`. Conflict-pruned tasks are
+    // intentionally not captured (rare; would require duplicating prune logic).
+    let mut blocked: HashMap<String, BlockedReason> = HashMap::new();
+    let mut groomed: Vec<&TaskEntry> = Vec::new();
+    for task in backlog_tasks.iter() {
+        if !task.planned || task.checked {
+            continue;
+        }
+        if task.mode.as_deref() == Some("manual") {
+            blocked.insert(task.slug.clone(), BlockedReason::Manual);
+            continue;
+        }
+        groomed.push(task);
+    }
     let total_groomed = groomed.len();
 
-    // Filter to ready tasks (all dependencies satisfied)
-    let mut ready: Vec<&TaskEntry> = groomed
-        .into_iter()
-        .filter(|t| t.depends.iter().all(|dep| checked_slugs.contains(dep)))
-        .collect();
+    // Filter to ready tasks (all dependencies satisfied). Tasks with any
+    // unmet dep are recorded into `blocked` with the first unmet slug.
+    let mut ready: Vec<&TaskEntry> = Vec::new();
+    for task in groomed.into_iter() {
+        let unmet = task
+            .depends
+            .iter()
+            .find(|dep| !checked_slugs.contains(dep.as_str()));
+        match unmet {
+            Some(dep) => {
+                blocked.insert(task.slug.clone(), BlockedReason::BlockedBy(dep.clone()));
+            }
+            None => ready.push(task),
+        }
+    }
 
     // Sort by priority (P1=1 first)
     ready.sort_by_key(|t| t.priority);
@@ -715,6 +752,7 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
         active_slugs,
         backlog_slugs: selected,
         total_groomed,
+        blocked,
     })
 }
 
@@ -2693,6 +2731,117 @@ mod tests {
         .unwrap();
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
         assert_eq!(slug_names(&result), vec!["dependent"]);
+    }
+
+    // --- `blocked` field population (BlockedReason) ---
+
+    #[test]
+    fn get_parallelizable_tasks_blocked_only_manual() {
+        // Backlog has only [manual] planned-unchecked tasks. They should be
+        // captured into `blocked` as `Manual`; backlog_slugs is empty.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] setup-thing: Manual setup [P1] [planned] [manual]\n\
+             - [ ] configure-foo: Configure foo [P1] [planned] [manual]\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.backlog_slugs.is_empty());
+        assert_eq!(result.total_groomed, 0);
+        assert_eq!(result.blocked.len(), 2);
+        assert_eq!(
+            result.blocked.get("setup-thing"),
+            Some(&BlockedReason::Manual)
+        );
+        assert_eq!(
+            result.blocked.get("configure-foo"),
+            Some(&BlockedReason::Manual)
+        );
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_blocked_only_unmet_deps() {
+        // Code tasks each with one unmet dep — captured as
+        // `BlockedBy(<dep>)`. backlog_slugs is empty.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] task-a: A [P1] [depends: prereq-a] [planned] [code]\n\
+             - [ ] task-b: B [P1] [depends: prereq-b] [planned] [code]\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.backlog_slugs.is_empty());
+        // Both tasks are groomed (manual filter doesn't drop them) but blocked
+        // on deps. total_groomed counts non-manual planned-unchecked tasks.
+        assert_eq!(result.total_groomed, 2);
+        assert_eq!(result.blocked.len(), 2);
+        assert_eq!(
+            result.blocked.get("task-a"),
+            Some(&BlockedReason::BlockedBy("prereq-a".to_string()))
+        );
+        assert_eq!(
+            result.blocked.get("task-b"),
+            Some(&BlockedReason::BlockedBy("prereq-b".to_string()))
+        );
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_blocked_mixed_cases() {
+        // Mix of manual + dep-blocked + dispatchable. The dispatchable task
+        // shows up in backlog_slugs; the others go into `blocked` with the
+        // correct variants.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] go-now: Ready to dispatch [P1] [planned] [code]\n\
+             - [ ] manual-1: Walk through this [P1] [planned] [manual]\n\
+             - [ ] dep-stuck: Needs prereq [P1] [depends: missing-prereq] [planned] [code]\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["go-now"]);
+        assert_eq!(result.blocked.len(), 2);
+        assert_eq!(
+            result.blocked.get("manual-1"),
+            Some(&BlockedReason::Manual)
+        );
+        assert_eq!(
+            result.blocked.get("dep-stuck"),
+            Some(&BlockedReason::BlockedBy("missing-prereq".to_string()))
+        );
+        // Dispatchable task is NOT in blocked.
+        assert!(!result.blocked.contains_key("go-now"));
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_blocked_field_empty_when_no_blocking() {
+        // Pure dispatchable backlog — `blocked` is empty.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] task-1: One [P1] [planned] [code]\n\
+             - [ ] task-2: Two [P2] [planned] [code]\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["task-1", "task-2"]);
+        assert!(result.blocked.is_empty());
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_blocked_first_unmet_dep_when_multiple() {
+        // Task with multiple unmet deps — banner copy bounds to the first
+        // unmet dep so the message stays short. The dependency-list iteration
+        // order is the authored order, so we expect "a" not "b".
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] multi-dep: Many deps [P1] [depends: a, b] [planned] [code]\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.backlog_slugs.is_empty());
+        assert_eq!(
+            result.blocked.get("multi-dep"),
+            Some(&BlockedReason::BlockedBy("a".to_string()))
+        );
     }
 
     #[test]
