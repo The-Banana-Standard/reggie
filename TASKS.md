@@ -22,10 +22,6 @@
 (all v2.0.0 release tasks complete or in progress)
 
 ### Pipeline System Expansion
-- [x] fix-groomed-section-shows-done-tasks: Fix debug-workflow "Done" path orphaning [x] tasks [P2] [simple] [tier: sonnet:medium] [reggie-system] [planned]
-  files: resources/commands/reggie-debug-workflow.md (MOD)
-- [ ] fix-meta-complete-removes-tasks-md-line: Make `meta: complete` actually migrate (delete from TASKS.md) instead of toggling `[x]`; teach dep resolution to read HISTORY.md [P1] [conflicts: fix-dispatch-no-op-with-manual-tasks] [complex] [tier: opus:high] [reggie-system] [planned]
-  files: resources/commands/reggie-code-workflow.md (MOD), resources/commands/reggie-debug-workflow.md (MOD), resources/commands/reggie-manual-task.md (MOD), resources/commands/reggie-system-change.md (MOD), src-tauri/src/commands/projects.rs (MOD), src/types/task.ts (MOD), TASKS.md (MOD)
 
 ### Reggie UI
 - [ ] debug-promoted-session-no-respawn: Debug why UI doesn't spawn next session after a promoted headless session completes [P2] [complex] [tier: opus:high] [debug] [planned]
