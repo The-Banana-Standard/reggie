@@ -145,6 +145,16 @@ export function parseTasksMd(content: string): ParsedTasks {
     // Parse structured task lines (checkbox + slug: description)
     const task = parseTaskLine(trimmed);
     if (task) {
+      // Defense-in-depth: never surface checked tasks to the UI. The
+      // delete-on-complete migration semantics mean `[x]` rows should not
+      // exist in TASKS.md anymore, but if one slips through (stale from
+      // before the migration, or hand-edited), drop it from every output
+      // bucket. Still update `lastTask` so any indented `files: ...`
+      // continuation line attaches to the right context.
+      if (task.checked) {
+        lastTask = task;
+        continue;
+      }
       if (inActive) {
         result.active.push(task);
         lastTask = task;

@@ -438,6 +438,38 @@ pub struct ParallelizableTasksResult {
     pub total_groomed: usize,
 }
 
+/// Read `HISTORY.md` (sibling of TASKS.md) and return the set of completed slugs.
+/// Returns an empty set if the file is missing or unreadable.
+///
+/// HISTORY.md uses `- [x] <slug> <description> -- <date>` (no colon after slug),
+/// distinct from TASKS.md's `- [x] <slug>: <description> [tags]` format. The slug
+/// is the first whitespace-delimited token; a trailing colon is tolerated so this
+/// helper also accepts TASKS.md-shaped lines if HISTORY.md ever borrows that format.
+fn read_history_md_slugs(repo_path: &Path) -> HashSet<String> {
+    let history_path = repo_path.join("HISTORY.md");
+    let content = match fs::read_to_string(&history_path) {
+        Ok(c) => c,
+        Err(_) => return HashSet::new(),
+    };
+    let mut slugs = HashSet::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        let rest = match trimmed
+            .strip_prefix("- [x] ")
+            .or_else(|| trimmed.strip_prefix("- [X] "))
+        {
+            Some(r) => r,
+            None => continue,
+        };
+        let first_token = rest.split_whitespace().next().unwrap_or("");
+        let slug = first_token.trim_end_matches(':');
+        if is_safe_slug(slug) {
+            slugs.insert(slug.to_string());
+        }
+    }
+    slugs
+}
+
 /// Parse a single task line into a TaskEntry, or None if it doesn't match.
 fn parse_task_line(line: &str) -> Option<TaskEntry> {
     let trimmed = line.trim();
@@ -545,13 +577,19 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
     let content = fs::read_to_string(&tasks_path)
         .map_err(|e| format!("Failed to read TASKS.md: {}", e))?;
 
-    // Collect all checked slugs from the entire file (for dependency resolution)
-    let checked_slugs: HashSet<String> = content
+    // Collect all checked slugs (for dependency resolution).
+    // Source 1: TASKS.md `[x]` lines — covers stale `[x]` lines that may still
+    // linger from before the delete-on-complete migration semantics.
+    // Source 2: HISTORY.md `[x]` lines — the post-migration source of truth
+    // for completed work. Without this, every dep on historical work would
+    // silently block once `meta: complete` stops leaving `[x]` rows in TASKS.md.
+    let mut checked_slugs: HashSet<String> = content
         .lines()
         .filter_map(parse_task_line)
         .filter(|t| t.checked)
         .map(|t| t.slug)
         .collect();
+    checked_slugs.extend(read_history_md_slugs(Path::new(&project_path)));
 
     // Build a slug -> mode map by parsing every task line in the entire file.
     // This is intentionally NOT section-gated: the original tagged entry for
@@ -2589,6 +2627,100 @@ mod tests {
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
         assert_eq!(slug_names(&result), vec!["dependent"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_history_md_dependency_resolves() {
+        // Dep slug lives only in HISTORY.md (post-migration source of truth).
+        // Without reading HISTORY.md, the dep would silently block.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] dependent: Needs hist-slug [P1] [depends: hist-slug] [planned]\n",
+        );
+        std::fs::write(
+            dir.path().join("HISTORY.md"),
+            "# Completed Tasks\n\n- [x] hist-slug Some completed work -- 2026-04-15\n",
+        )
+        .unwrap();
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["dependent"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_dependency_in_neither_file_blocked() {
+        // Sanity check: with HISTORY.md present but missing the dep, the task
+        // remains correctly blocked.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] dependent: Needs ghost-slug [P1] [depends: ghost-slug] [planned]\n\
+             - [ ] independent: No deps [P1] [planned]\n",
+        );
+        std::fs::write(
+            dir.path().join("HISTORY.md"),
+            "# Completed Tasks\n\n- [x] other-slug Unrelated -- 2026-04-15\n",
+        )
+        .unwrap();
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["independent"]);
+        assert_eq!(result.total_groomed, 2);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_history_md_missing_does_not_error() {
+        // No HISTORY.md present — helper returns empty set, dep resolution
+        // falls back to TASKS.md `[x]` lines only.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [x] in-tasks: Stale done row [P1] [planned]\n\
+             - [ ] dependent: Needs in-tasks [P1] [depends: in-tasks] [planned]\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["dependent"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_mixed_dependency_sources_resolve() {
+        // One dep in TASKS.md `[x]`, another in HISTORY.md — both must resolve.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [x] tasks-prereq: Stale [P1] [planned]\n\
+             - [ ] dependent: Needs both [P1] [depends: tasks-prereq, hist-prereq] [planned]\n",
+        );
+        std::fs::write(
+            dir.path().join("HISTORY.md"),
+            "# Completed Tasks\n\n- [x] hist-prereq Migrated work -- 2026-04-20\n",
+        )
+        .unwrap();
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["dependent"]);
+    }
+
+    #[test]
+    fn read_history_md_slugs_parses_no_colon_format() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("HISTORY.md"),
+            "# Completed Tasks\n\n\
+             - [x] slug-one Some description -- 2026-04-01\n\
+             - [X] slug-two Capital X also accepted -- 2026-04-02\n\
+             - [x] slug-three: Tolerates trailing colon -- 2026-04-03\n\
+             - [ ] not-checked-skipped Should be ignored\n\
+             random line that is not a task\n",
+        )
+        .unwrap();
+        let slugs = read_history_md_slugs(dir.path());
+        assert!(slugs.contains("slug-one"));
+        assert!(slugs.contains("slug-two"));
+        assert!(slugs.contains("slug-three"));
+        assert!(!slugs.contains("not-checked-skipped"));
+        assert_eq!(slugs.len(), 3);
+    }
+
+    #[test]
+    fn read_history_md_slugs_missing_file_returns_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let slugs = read_history_md_slugs(dir.path());
+        assert!(slugs.is_empty());
     }
 
     #[test]

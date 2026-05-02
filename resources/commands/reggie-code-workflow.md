@@ -670,7 +670,7 @@ Ready to mark task complete? (y/n)
 **Actions to perform (not just display — actually do these):**
 
 1. Final commit in worktree (if uncommitted changes remain)
-2. Remove `### [slug]` section from `## Active Tasks` in TASKS.md
+2. **Remove the slug's line from TASKS.md** and any indented continuation lines beneath it (`files: ...`, `> ...`, until the next blank line or next task line). Also remove the `### [slug]` section from `## Active Tasks` if present. The slug's row must be deleted, not toggled to `[x]` — `meta: complete` is a true migration from TASKS.md to HISTORY.md.
 3. Append to `HISTORY.md` (same directory as TASKS.md): `- [x] [slug] [task name] -- [date]`. Create the file with a `# Completed Tasks` header if it doesn't exist.
 4. Commit metadata: `git add TASKS.md HISTORY.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: complete [slug]" --no-gpg-sign 2>/dev/null`
 5. **CRITICAL: `cd` to the repo root first** — the shell may be sitting in the worktree directory that is about to be removed. Run `cd [repo-root]` (use the known project root path) before any worktree removal. If `cd` fails, the shell CWD is already invalid — start a fresh shell.

@@ -983,7 +983,7 @@ Options:
 ### Complete Task
 1. Identify which task is completing (from context or ask if ambiguous)
 2. Final commit in worktree: `git -C .worktree/[slug] add -A && git -C .worktree/[slug] commit -m "complete: [task name]"`
-3. Remove `### [slug]` section from `## Active Tasks` in TASKS.md
+3. **Remove the slug's line from TASKS.md** and any indented continuation lines beneath it (`files: ...`, `> ...`, until the next blank line or next task line). Also remove the `### [slug]` section from `## Active Tasks` if present. The slug's row must be deleted, not toggled to `[x]` — `meta: complete` is a true migration from TASKS.md to HISTORY.md.
 4. Append to `HISTORY.md` (same directory as TASKS.md): `- [x] [slug] [task name] -- [date]`. Create the file with a `# Completed Tasks` header if it doesn't exist.
 5. Commit metadata: `git add TASKS.md HISTORY.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: complete [slug]" --no-gpg-sign 2>/dev/null`
 6. `cd` to the repo root — the shell may be in the worktree directory that is about to be removed. Use the known project root path or `git rev-parse --show-toplevel`.

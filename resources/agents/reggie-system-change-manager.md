@@ -60,7 +60,7 @@ When `--yes` is followed by a slug argument, the pipeline enters **slug-mode**: 
 - Run Stage 4 (IMPLEMENT) and Stage 5 (VERIFY) normally with auto-approval.
 
 **Single-task scope (no auto-continue)**: After VERIFY passes:
-1. Mark the slug `[x]` in TASKS.md (move to HISTORY.md), commit metadata.
+1. Migrate the slug from TASKS.md to HISTORY.md (**remove the slug's line from TASKS.md** and any indented continuation lines, then append to HISTORY.md), commit metadata.
 2. Emit `~~REGGIE:DONE:reggie-system-change:success~~` and exit.
 
 Do **not** scan for the next `[reggie-system]` slug, do **not** run `/compact`, do **not** re-enter the pipeline. The Reggie UI handles task-to-task relaunch when the session was launched via per-repo or Batch Start — it detects the DONE marker and starts the next eligible slug in a fresh session.

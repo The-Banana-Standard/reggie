@@ -95,18 +95,68 @@ describe("parseTasksMd", () => {
     expect(result.ungroomed[0].slug).toBe("unplanned-one");
   });
 
-  it("parses active tasks section", () => {
+  it("parses active tasks section and filters checked rows (defense-in-depth)", () => {
+    // Post-migration, `[x]` rows should never appear in TASKS.md, but if one
+    // slips through (stale or hand-edited), the parser must drop it from
+    // every output bucket so it doesn't render as pending work in the UI.
     const md = `## Active Tasks
 
 - [x] login-fix: Fix login page redirect [P1] [simple] [code]
 - [ ] dashboard: Build main dashboard [P2] [moderate] [code]`;
 
     const result = parseTasksMd(md);
-    expect(result.active).toHaveLength(2);
-    expect(result.active[0].slug).toBe("login-fix");
-    expect(result.active[0].checked).toBe(true);
-    expect(result.active[1].slug).toBe("dashboard");
-    expect(result.active[1].checked).toBe(false);
+    expect(result.active).toHaveLength(1);
+    expect(result.active[0].slug).toBe("dashboard");
+    expect(result.active[0].checked).toBe(false);
+  });
+
+  it("filters orphan [x] rows from groomed sections", () => {
+    // Regression for the orphan-in-backlog case: a `[x]` line under a
+    // groomed `### Section` must not appear in `result.groomed`.
+    const md = `## Backlog
+
+### Pipeline System Expansion
+- [x] orphan-done: Stale completed row [P2] [planned]
+- [ ] still-open: Open work [P1] [planned]`;
+
+    const result = parseTasksMd(md);
+    expect(result.groomed).toHaveLength(1);
+    expect(result.groomed[0].tasks).toHaveLength(1);
+    expect(result.groomed[0].tasks[0].slug).toBe("still-open");
+  });
+
+  it("filters checked rows from later-features and ungroomed buckets", () => {
+    const md = `## Backlog
+
+### Later Features
+- [x] done-feature: Already shipped [P2] [planned]
+- [ ] open-feature: Still planned [P2] [planned]
+
+### Other
+- [x] done-loose: Stale loose row
+- [ ] open-loose: Open loose row`;
+
+    const result = parseTasksMd(md);
+    expect(result.laterFeatures.map((t) => t.slug)).toEqual(["open-feature"]);
+    expect(result.ungroomed.map((t) => t.slug)).toEqual(["open-loose"]);
+  });
+
+  it("preserves files: continuation under a checked row's successor", () => {
+    // Even though the `[x]` row itself is dropped, `lastTask` must still be
+    // updated so a `files:` line that follows the NEXT (unchecked) task
+    // attaches to that task — not to nothing.
+    const md = `## Backlog
+
+### Features
+- [x] dropped: Stale [P1] [planned]
+  files: src/old.ts (MOD)
+- [ ] kept: Open [P1] [planned]
+  files: src/new.ts (MOD)`;
+
+    const result = parseTasksMd(md);
+    expect(result.groomed[0].tasks).toHaveLength(1);
+    expect(result.groomed[0].tasks[0].slug).toBe("kept");
+    expect(result.groomed[0].tasks[0].filesLine).toBe("src/new.ts (MOD)");
   });
 
   it("parses task with dependencies and conflicts", () => {
@@ -152,15 +202,21 @@ describe("parseTasksMd", () => {
     expect(tasks[1].filesLine).toBe("src/second.ts");
   });
 
-  it("parses checked tasks with uppercase X", () => {
+  it("recognizes uppercase [X] as checked and filters it out (defense-in-depth)", () => {
+    // The line-level parser must accept `[X]` as a valid checked marker so the
+    // defensive filter sees `task.checked = true` and drops it. If `[X]` parsed
+    // as unchecked, the filter would miss it and an orphan would render.
     const md = `## Backlog
 
 ### Done
 
-- [X] completed: This was done [P1] [planned]`;
+- [X] completed: This was done [P1] [planned]
+- [ ] still-open: Open work [P1] [planned]`;
 
     const result = parseTasksMd(md);
-    expect(result.groomed[0].tasks[0].checked).toBe(true);
+    expect(result.groomed).toHaveLength(1);
+    expect(result.groomed[0].tasks).toHaveLength(1);
+    expect(result.groomed[0].tasks[0].slug).toBe("still-open");
   });
 
   it("returns null defaults for unplanned tasks without tags", () => {
