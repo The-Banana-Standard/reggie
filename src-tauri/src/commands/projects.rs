@@ -55,7 +55,7 @@ const SKIP_DIRS: &[&str] = &[
 fn find_git_repos(dir: &Path) -> Vec<DirectoryEntry> {
     let mut repos: Vec<DirectoryEntry> = Vec::new();
     find_git_repos_recursive(dir, &mut repos);
-    repos.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    repos.sort_by_key(|a| a.name.to_lowercase());
     repos
 }
 
@@ -126,7 +126,7 @@ fn list_subdirs(dir: &Path) -> Result<Vec<DirectoryEntry>, String> {
             name,
         });
     }
-    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    entries.sort_by_key(|a| a.name.to_lowercase());
     Ok(entries)
 }
 
