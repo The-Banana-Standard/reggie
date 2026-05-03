@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-05-03
+
 ### Added
 - **Configurable pipeline bindings.** Users can now bind any installed pipeline to the Code, Debug, or Manual dispatch mode via the PipelinesPanel. Bindings persist across restarts in `app_data_dir/pipeline-bindings.json`; binding a pipeline to a mode auto-unbinds the previous pipeline for that mode.
 - **Binding badges on pipeline cards.** Bound pipelines display a "Default: Code" (or multi-mode) badge in PipelinesPanel. Cards for pipelines that were bound but have since been uninstalled show a warning.
