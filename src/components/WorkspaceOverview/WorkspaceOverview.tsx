@@ -20,7 +20,7 @@ interface WorkspaceOverviewProps {
   onRunSkill: (skillName: string) => void;
   headlessSessions: HeadlessSession[];
   sessions: TerminalTab[];
-  onLaunchHeadless: (projectPath: string, initialCommand: string, label: string) => Promise<string | null>;
+  onLaunchHeadless: (projectPath: string, initialCommand: string, label: string, model?: string, effort?: string, autoRelaunch?: boolean) => Promise<string | null>;
   onSpawnVisibleHeadless: (projectPath: string, initialCommand: string, label: string) => Promise<string | null>;
   onPromoteHeadless: (terminalId: string) => string | null;
   onPromoteSession: (tabId: string) => void;

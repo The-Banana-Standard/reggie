@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { mockInvoke, resetTauriMocks } from "../../../__test-utils__/tauri-mock";
 import { PipelinesPanel } from "../PipelinesPanel";
 import type { PipelineInfo } from "../../../types/reggie";
+import { __resetForTests as resetBindings } from "../../../lib/pipelineBindings";
 
 const mockPipelines: PipelineInfo[] = [
   {
@@ -36,6 +37,7 @@ const defaultProps = {
 
 beforeEach(() => {
   resetTauriMocks();
+  resetBindings();
   defaultProps.onExecutePipeline.mockClear();
   defaultProps.onEditPipeline.mockClear();
 });
@@ -358,6 +360,128 @@ describe("PipelinesPanel", () => {
 
     // managerName is "pipeline-manager", should display as "Pipeline Manager"
     expect(screen.getByText("Pipeline Manager")).toBeTruthy();
+  });
+
+  describe("pipeline bindings UI", () => {
+    it("renders bind buttons for Code, Debug, and Manual modes (reggie-system is not bindable)", async () => {
+      mockInvoke.mockResolvedValue([mockPipelines[0]]);
+      render(<PipelinesPanel {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Code Workflow")).toBeTruthy();
+      });
+
+      expect(screen.getByLabelText("Bind code-workflow to Code mode")).toBeTruthy();
+      expect(screen.getByLabelText("Bind code-workflow to Debug mode")).toBeTruthy();
+      expect(screen.getByLabelText("Bind code-workflow to Manual mode")).toBeTruthy();
+      // No reggie-system bind option.
+      expect(screen.queryByLabelText(/reggie-system mode/i)).toBeNull();
+    });
+
+    it("clicking a bind button invokes set_pipeline_binding with the correct mode and pipelineName", async () => {
+      mockInvoke.mockImplementation((cmd: string) => {
+        if (cmd === "get_pipelines") return Promise.resolve([mockPipelines[0]]);
+        if (cmd === "get_pipeline_bindings") return Promise.resolve({ code: "code-workflow" });
+        return Promise.resolve(undefined);
+      });
+      render(<PipelinesPanel {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Code Workflow")).toBeTruthy();
+      });
+
+      fireEvent.click(screen.getByLabelText("Bind code-workflow to Debug mode"));
+
+      await waitFor(() => {
+        expect(mockInvoke).toHaveBeenCalledWith("set_pipeline_binding", {
+          mode: "debug",
+          pipelineName: "code-workflow",
+        });
+      });
+    });
+
+    it("clicking a bind button on an already-bound mode invokes clear_pipeline_binding (toggle off)", async () => {
+      mockInvoke.mockImplementation((cmd: string) => {
+        if (cmd === "get_pipelines") return Promise.resolve([mockPipelines[0]]);
+        if (cmd === "get_pipeline_bindings") return Promise.resolve({ code: "code-workflow" });
+        if (cmd === "set_pipeline_binding") return Promise.resolve(undefined);
+        if (cmd === "clear_pipeline_binding") return Promise.resolve(undefined);
+        return Promise.resolve(undefined);
+      });
+      render(<PipelinesPanel {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Code Workflow")).toBeTruthy();
+      });
+
+      // Bind first so the cache has { code: "code-workflow" }.
+      fireEvent.click(screen.getByLabelText("Bind code-workflow to Code mode"));
+      await waitFor(() => {
+        const badge = screen.queryByLabelText("Default for modes");
+        expect(badge).toBeTruthy();
+        expect(badge?.textContent).toContain("Code");
+      });
+
+      // Click again on Code mode → toggle off.
+      fireEvent.click(screen.getByLabelText("Bind code-workflow to Code mode"));
+
+      await waitFor(() => {
+        expect(mockInvoke).toHaveBeenCalledWith("clear_pipeline_binding", { mode: "code" });
+      });
+    });
+
+    it("renders a 'Default: <mode>' badge when the pipeline is bound", async () => {
+      mockInvoke.mockImplementation((cmd: string) => {
+        if (cmd === "get_pipelines") return Promise.resolve([mockPipelines[0]]);
+        if (cmd === "get_pipeline_bindings") return Promise.resolve({ code: "code-workflow", debug: "code-workflow" });
+        if (cmd === "set_pipeline_binding") return Promise.resolve(undefined);
+        return Promise.resolve(undefined);
+      });
+      render(<PipelinesPanel {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Code Workflow")).toBeTruthy();
+      });
+
+      // Bind to populate cache (synthetically — clicking surfaces it via the canonical reload).
+      fireEvent.click(screen.getByLabelText("Bind code-workflow to Code mode"));
+
+      await waitFor(() => {
+        const badge = screen.getByLabelText("Default for modes");
+        expect(badge.textContent).toContain("Code");
+        expect(badge.textContent).toContain("Debug");
+      });
+    });
+
+    it("shows a 'not found, using default' warning when a bound pipeline is missing from the loaded list", async () => {
+      // Load pipelines list that does NOT include "ghost-workflow", but the
+      // backend reports a binding pointing at it.
+      mockInvoke.mockImplementation((cmd: string) => {
+        if (cmd === "get_pipelines") return Promise.resolve([mockPipelines[0]]);
+        if (cmd === "get_pipeline_bindings") return Promise.resolve({ code: "ghost-workflow" });
+        if (cmd === "set_pipeline_binding") return Promise.resolve(undefined);
+        return Promise.resolve(undefined);
+      });
+
+      render(<PipelinesPanel {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Code Workflow")).toBeTruthy();
+      });
+
+      // Trigger a binding refresh by clicking a bind button — this causes the
+      // hook to read the (mocked) get_pipeline_bindings result that includes
+      // the ghost binding. Use the init-tasks pipeline name to keep things
+      // distinct from the ghost.
+      fireEvent.click(screen.getByLabelText("Bind code-workflow to Manual mode"));
+
+      // After the refresh, the ghost binding is in the cache.
+      await waitFor(() => {
+        expect(
+          screen.getByText("Bound pipeline 'ghost-workflow' not found, using default"),
+        ).toBeTruthy();
+      });
+    });
   });
 
   it("shows manager row with edit button but no description when pipeline has no description and has manager", async () => {

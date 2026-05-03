@@ -5,6 +5,8 @@ import { checkClaudeCli, writeToTerminal, openInBrowser } from "./services/termi
 import { AppLayout } from "./components/Layout/AppLayout";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { WorkspaceOverview } from "./components/WorkspaceOverview/WorkspaceOverview";
+import { commandForMode } from "./components/WorkspaceOverview/CodeWorkflowTab";
+import { loadPipelineBindings, setAvailablePipelineNames } from "./lib/pipelineBindings";
 import { ProjectSummaryPanel } from "./components/ProjectSummary/ProjectSummaryPanel";
 import { TerminalTabBar } from "./components/Terminal/TerminalTabBar";
 import { TerminalView } from "./components/Terminal/TerminalView";
@@ -14,6 +16,7 @@ import { useProjects } from "./hooks/useProjects";
 import { useTerminal, HOME_TAB_ID, SESSIONS_TAB_ID } from "./hooks/useTerminal";
 import { useSessionTracking } from "./hooks/useSessionTracking";
 import type { Project } from "./types/project";
+import type { TaskPipeline } from "./types/task";
 import type { Workspace } from "./services/database-service";
 
 function App() {
@@ -58,6 +61,15 @@ function App() {
 
   // First-launch setup modal
   const [showSetup, setShowSetup] = useState(false);
+
+  // Populate the pipeline-bindings cache and register available pipeline names
+  // at startup so commandForMode can validate bindings against installed pipelines.
+  useEffect(() => {
+    loadPipelineBindings();
+    invoke<{ name: string }[]>("get_pipelines")
+      .then((ps) => setAvailablePipelineNames(ps.map((p) => p.name)))
+      .catch((err) => console.error("get_pipelines failed; pipeline binding validation disabled:", err));
+  }, []);
 
   useEffect(() => {
     invoke<{ version: string; needsSetup: boolean }>("get_install_status")
@@ -321,13 +333,13 @@ function App() {
   );
 
   const handleStartTask = useCallback(
-    (slug: string) => {
+    (slug: string, mode: TaskPipeline | null) => {
       const tab = tabs.find((t) => t.id === activeTabId);
       const path = tab?.projectPath;
-      if (path) {
-        addTab(path, true, undefined, `/reggie-code-workflow --yes ${slug}`);
-        setActiveTabId(SESSIONS_TAB_ID);
-      }
+      if (!path) return;
+      const cmd = `${commandForMode(mode).command} ${slug}`;
+      addTab(path, true, undefined, cmd);
+      setActiveTabId(SESSIONS_TAB_ID);
     },
     [tabs, activeTabId, addTab, setActiveTabId]
   );
@@ -473,6 +485,13 @@ function App() {
     : visibleCount === 3 ? "sessions-3"
     : "sessions-4-plus";
 
+  const terminalPanelClasses = [
+    "terminal-panels",
+    isSessionsActive && "grid-mode",
+    isSessionsActive && gridClass,
+    !isSessionsActive && "offscreen",
+  ].filter(Boolean).join(" ");
+
   return (
     <>
     {showSetup && <FirstLaunchSetup onComplete={handleSetupComplete} />}
@@ -579,16 +598,9 @@ function App() {
           )}
 
           {/* Sessions tab — unified grid of all visible terminal sessions */}
-          {shouldRenderTerminals && (() => {
-            const panelClasses = [
-              "terminal-panels",
-              isSessionsActive && "grid-mode",
-              isSessionsActive && gridClass,
-              !isSessionsActive && "offscreen",
-            ].filter(Boolean).join(" ");
-            return (
+          {shouldRenderTerminals && (
             <>
-            <div className={panelClasses}>
+            <div className={terminalPanelClasses}>
               {terminalTabs.map((tab) => {
                 const isTabVisible = isSessionsActive && tab.visible !== false;
                 const isExpanded = isTabVisible && expandedTerminalId === tab.id;
@@ -666,8 +678,7 @@ function App() {
               />
             )}
             </>
-            );
-          })()}
+          )}
         </div>
       }
     />

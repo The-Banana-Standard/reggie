@@ -29,9 +29,9 @@ INTAKE → BRAINSTORM → PLAN → IMPLEMENT → VERIFY
 
 Confirmation-based gates with one exception: when the PLAN includes `new-component` changes (creating new files), the plan goes through **reggie-judge scoring (9.0/10)** to validate design quality before user approval. All other gates are confirmation-based.
 
-## --yes Flag Handling (Ralph Wiggum Mode)
+## --yes Flag Handling
 
-When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL confirmation gates:
+When `--yes` is present in $ARGUMENTS, the orchestrator auto-approves ALL **in-session** confirmation gates for the current task:
 
 - INTAKE confirmation → auto-proceed
 - BRAINSTORM direction confirmation → auto-proceed
@@ -59,13 +59,13 @@ When `--yes` is followed by a slug argument, the pipeline enters **slug-mode**: 
 - **Enter at Stage 3 (PLAN)**: present `.pipeline/<slug>/task.md`'s `## Implementation Plan` as the change plan, auto-approve, advance.
 - Run Stage 4 (IMPLEMENT) and Stage 5 (VERIFY) normally with auto-approval.
 
-**Auto-continue (serial Wiggum loop)**: After VERIFY passes:
-1. Mark the slug `[x]` in TASKS.md (move to HISTORY.md), commit metadata.
-2. Scan `## Backlog` for the next `[reggie-system]` slug in document order.
-3. If found: run `/compact` preserving `--yes` and slug-mode context, then re-enter the pipeline with that next slug.
-4. If none remain: exit cleanly.
+**Single-task scope (no auto-continue)**: After VERIFY passes:
+1. Migrate the slug from TASKS.md to HISTORY.md (**remove the slug's line from TASKS.md** and any indented continuation lines, then append to HISTORY.md), commit metadata.
+2. Emit `~~REGGIE:DONE:reggie-system-change:success~~` and exit.
 
-**Runtime cap = 1.** This pipeline is strictly serial. Every `[reggie-system]` change touches `~/.claude/` (or the resources/ source-of-truth tree); parallel edits would race. Never launch a second `/reggie-system-change` while one is active, even from a batch sweep.
+Do **not** scan for the next `[reggie-system]` slug, do **not** run `/compact`, do **not** re-enter the pipeline. The Reggie UI handles task-to-task relaunch when the session was launched via per-repo or Batch Start — it detects the DONE marker and starts the next eligible slug in a fresh session.
+
+**Runtime cap = 1.** Every `[reggie-system]` change touches `~/.claude/` (or the `resources/` source-of-truth tree), so parallel runs would race. The UI enforces a workspace-wide cap of 1 concurrent `/reggie-system-change` invocation; never launch a second `/reggie-system-change` while one is active, even from a batch sweep.
 
 ### On-Demand Research
 
@@ -255,7 +255,7 @@ N. Integration updates (always last)
    - Pipeline Managers: Pipeline Overview, Stage Details, Output Format
 5. **Description quality**: Does agent description include 2-3 trigger examples?
 6. **Path validation**: Are all paths absolute under `~/.claude/`?
-7. **Integration completeness**: Are updates to PORTABLE-PACKAGE.md, reggie-guide.md, MEMORY.md identified?
+7. **Integration completeness**: Are updates to PORTABLE-PACKAGE.md, reggie-guide.md, MEMORY.md identified? When a change removes or renames a string (field name, stage name, slug, keyword), grep for it across `resources/docs/` in addition to `resources/agents/` and `resources/commands/` — PORTABLE-PACKAGE.md contains full format examples that mirror agent/command files and will silently diverge otherwise.
 8. **No skills**: Reject any attempt to create a skill — language/framework patterns belong in developer agents.
 
 **Conditional reggie-judge scoring**: If the plan includes ANY `new-component` changes, launch the **reggie-judge** agent to score the plan design quality at 9.0/10 threshold. The judge evaluates: naming quality, tool permission appropriateness, section completeness, description quality, integration coverage. If the plan has only `direct-edit` and `integration-update` changes, skip reggie-judge scoring.
@@ -446,6 +446,7 @@ After each stage, print a summary box:
 - **Changing agent names without grepping for references**: An agent name appears in pipeline managers, commands, reggie-guide.md, PORTABLE-PACKAGE.md, and potentially other agents' descriptions. Always trace all references before renaming.
 - **Count drift in PORTABLE-PACKAGE.md and MEMORY.md**: After any changes that add or remove files, counts must be updated in multiple places. VERIFY catches this, but PLAN should identify it upfront.
 - **Creating skills instead of agents**: Skills are deprecated. Language/framework patterns belong in developer agents with always-loaded context. Reject any request to create a skill.
+- **Missing spec/schema sections when editing examples or templates**: Doc files often contain both a worked example and a separate normative "format spec", "schema", or "structure" section that mirrors the same artifact. When PLAN identifies lines to modify in an example or template, grep the same file for parallel spec sections and add those line ranges to Verified Facts and Affected Areas. Both must move together. If the spec section is missed, it silently drifts from the example and becomes a maintenance hazard.
 
 ---
 

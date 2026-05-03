@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { open } from "@tauri-apps/plugin-shell";
 import type { TerminalTab } from "../../types/terminal";
 import {
   spawnTerminal,
@@ -135,7 +136,7 @@ export function TerminalView({
 
     const fitAddon = new FitAddon();
     xterm.loadAddon(fitAddon);
-    xterm.loadAddon(new WebLinksAddon());
+    xterm.loadAddon(new WebLinksAddon((_, uri) => { open(uri).catch(console.error); }));
 
     xterm.open(container);
     xtermRef.current = xterm;

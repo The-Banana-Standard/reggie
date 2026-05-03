@@ -42,7 +42,7 @@ This command orchestrates the **reggie-system-change pipeline** — a lightweigh
 
 **IMPORTANT**: You (the main Claude) orchestrate this pipeline directly. Do NOT launch the reggie-system-change-manager as a subagent — subagents cannot launch other subagents. Instead, read `~/.claude/agents/reggie-system-change-manager.md` for detailed guidance, then run each stage yourself by launching the appropriate specialized agent via the Task tool. When launching any agent via Task, only use `model: "opus"` or `model: "sonnet"` — never `model: "haiku"`.
 
-**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. INTAKE confirmation, BRAINSTORM direction, PLAN approval, frontmatter approvals, and all other human prompts are auto-approved. Automated quality gates (9.0/10 reggie-judge scoring on new components) still run normally.
+**`--yes` flag**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL **in-session** confirmation gates for the current task. INTAKE confirmation, BRAINSTORM direction, PLAN approval, frontmatter approvals, and all other human prompts are auto-approved. Automated quality gates (9.0/10 reggie-judge scoring on new components) still run normally. The flag does **not** auto-continue across slugs: after the current task completes, the pipeline emits the standard DONE marker and exits. Cross-task relaunch is the UI's job.
 
 **`--yes <slug>` mode (slug-mode entry)**: When `--yes` is followed by a slug argument (e.g., `/reggie-system-change --yes add-debug-tag`), the pipeline enters **slug-mode**:
 
@@ -75,9 +75,9 @@ This command orchestrates the **reggie-system-change pipeline** — a lightweigh
    - **Enter at Phase 3 (PLAN)**: read task.md's `## Implementation Plan` section, present it as the change plan, auto-approve (since `--yes` is active), and proceed directly to Phase 4 (IMPLEMENT).
    - Run Phase 4 (IMPLEMENT) and Phase 5 (VERIFY) normally with all gates auto-approved.
 
-3. **Auto-continue (serial Wiggum loop)**: After VERIFY passes and CAPTURE-LEARNINGS / AUTO-IMPROVE complete, mark the task `[x]` in TASKS.md (move to HISTORY.md following the standard meta-commit pattern), then scan `## Backlog` for the next `[reggie-system]` slug in document order. If one exists, run `/compact` (preserve `--yes` flag and the fact that this is a serial reggie-system loop), then loop back to step 1 with that next slug. If none remain, exit cleanly with `~~REGGIE:DONE:reggie-system-change:success~~`.
+3. **Single-task scope (no auto-continue)**: After VERIFY passes and CAPTURE-LEARNINGS / AUTO-IMPROVE complete, migrate the task from TASKS.md to HISTORY.md following the standard meta-commit pattern (**remove the slug's line from TASKS.md** and any indented continuation lines, then append to HISTORY.md), and exit cleanly with `~~REGGIE:DONE:reggie-system-change:success~~`. Do **not** scan for the next `[reggie-system]` slug, do **not** run `/compact`, do **not** loop. The Reggie UI handles task-to-task relaunch when the session was launched via per-repo or Batch Start — it detects the DONE marker and starts the next eligible slug in a fresh session.
 
-   **Runtime cap = 1 (serial only).** This pipeline never runs concurrent reggie-system tasks because every change touches `~/.claude/` and parallel edits would race. Even when launched from a parent batch sweep, only one `/reggie-system-change` instance runs at a time.
+   **Runtime cap = 1 (serial only).** Every `[reggie-system]` change touches `~/.claude/`, so parallel runs would race. The UI enforces a workspace-wide cap of 1 concurrent `/reggie-system-change` invocation; this pipeline never runs alongside another instance of itself.
 
 ### When to Use
 
@@ -98,9 +98,9 @@ This command orchestrates the **reggie-system-change pipeline** — a lightweigh
 ```
 /reggie-system-change                              # Start the pipeline (uses conversation context)
 /reggie-system-change [description of change]      # Start with a specific change request
-/reggie-system-change --yes                        # Auto-approve all gates (Ralph Wiggum mode)
+/reggie-system-change --yes                        # Auto-approve all in-session gates for one task
 /reggie-system-change --yes [description]          # With description + auto-approve
-/reggie-system-change --yes <slug>                 # Slug-mode: read .pipeline/<slug>/task.md, skip INTAKE/BRAINSTORM, enter at PLAN; auto-continue to next [reggie-system] slug
+/reggie-system-change --yes <slug>                 # Slug-mode: read .pipeline/<slug>/task.md, skip INTAKE/BRAINSTORM, enter at PLAN; emit DONE and exit after the slug completes (UI handles relaunch)
 $ARGUMENTS
 ```
 

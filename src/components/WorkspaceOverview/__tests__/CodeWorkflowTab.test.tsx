@@ -1,11 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { mockInvoke, resetTauriMocks } from "../../../__test-utils__/tauri-mock";
-import { CodeWorkflowTab } from "../CodeWorkflowTab";
-import type { RepoTaskSummary } from "../../../types/terminal";
+import { CodeWorkflowTab, commandForMode, pickBacklogToLaunch, pickReggieSystemHolder, formatBlockedReasons } from "../CodeWorkflowTab";
+import type { HeadlessSession, TerminalTab, RepoTaskSummary } from "../../../types/terminal";
+import {
+  loadPipelineBindings,
+  __resetForTests as resetBindings,
+} from "../../../lib/pipelineBindings";
 
 beforeEach(() => {
   resetTauriMocks();
+  resetBindings();
 });
 
 const defaultProps = {
@@ -67,7 +72,9 @@ describe("CodeWorkflowTab tracked data consumption", () => {
   it("falls back to local fetch when trackedRepos is not provided", async () => {
     mockInvoke.mockResolvedValue([makeRepo({ groomedCount: 7 })]);
 
-    render(<CodeWorkflowTab {...defaultProps} />);
+    await act(async () => {
+      render(<CodeWorkflowTab {...defaultProps} />);
+    });
 
     // Should call invoke for scan
     expect(mockInvoke).toHaveBeenCalledWith("scan_tasks_across_repos", {
@@ -87,7 +94,9 @@ describe("CodeWorkflowTab tracked data consumption", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Refresh"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Refresh"));
+    });
     expect(onRefreshRepos).toHaveBeenCalledTimes(1);
     // Should NOT call invoke
     expect(mockInvoke).not.toHaveBeenCalled();
@@ -165,7 +174,7 @@ describe("CodeWorkflowTab totalGroomed includes activeCount", () => {
     expect(batchBtn.hasAttribute("disabled")).toBe(false);
   });
 
-  it("shows Trash All Completed when promoted sessions have headlessCompleted", () => {
+  it("shows Trash All Completed when promoted sessions have headlessCompleted", async () => {
     const onTrashCompleted = vi.fn();
     const trackedRepos = [makeRepo()];
     const promotedSession = {
@@ -193,7 +202,9 @@ describe("CodeWorkflowTab totalGroomed includes activeCount", () => {
 
     const trashBtn = screen.getByText("Trash All Completed");
     expect(trashBtn).toBeTruthy();
-    fireEvent.click(trashBtn);
+    await act(async () => {
+      fireEvent.click(trashBtn);
+    });
     expect(onTrashCompleted).toHaveBeenCalledTimes(1);
   });
 
@@ -236,7 +247,8 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
     const trackedRepos = [makeRepo({ groomedCount: 2 })];
 
     mockInvoke.mockResolvedValue({
-      slugs: [
+      activeSlugs: [],
+      backlogSlugs: [
         { slug: "task-a", tier: "opus:high" },
         { slug: "task-b", tier: "sonnet:medium" },
       ],
@@ -253,7 +265,9 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
     );
 
     // Click the Start button on the repo row
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(2);
@@ -265,6 +279,7 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       "code -- repo-a/task-a",
       "opus",
       "high",
+      true,
     );
     expect(onLaunchHeadless).toHaveBeenCalledWith(
       "/projects/repo-a",
@@ -272,6 +287,7 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       "code -- repo-a/task-b",
       "sonnet",
       "medium",
+      true,
     );
   });
 
@@ -280,7 +296,8 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
     const trackedRepos = [makeRepo({ groomedCount: 1 })];
 
     mockInvoke.mockResolvedValue({
-      slugs: [{ slug: "task-x", tier: null }],
+      activeSlugs: [],
+      backlogSlugs: [{ slug: "task-x", tier: null }],
       totalGroomed: 1,
     });
 
@@ -293,7 +310,9 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -305,6 +324,7 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       "code -- repo-a/task-x",
       undefined,
       undefined,
+      true,
     );
   });
 
@@ -313,7 +333,8 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
     const trackedRepos = [makeRepo({ groomedCount: 1 })];
 
     mockInvoke.mockResolvedValue({
-      slugs: [{ slug: "task-e", tier: "" }],
+      activeSlugs: [],
+      backlogSlugs: [{ slug: "task-e", tier: "" }],
       totalGroomed: 1,
     });
 
@@ -326,7 +347,9 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -338,6 +361,7 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       "code -- repo-a/task-e",
       undefined,
       undefined,
+      true,
     );
   });
 
@@ -346,7 +370,8 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
     const trackedRepos = [makeRepo({ groomedCount: 1 })];
 
     mockInvoke.mockResolvedValue({
-      slugs: [{ slug: "task-c", tier: ":high" }],
+      activeSlugs: [],
+      backlogSlugs: [{ slug: "task-c", tier: ":high" }],
       totalGroomed: 1,
     });
 
@@ -359,7 +384,9 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -371,6 +398,7 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       "code -- repo-a/task-c",
       undefined,
       "high",
+      true,
     );
   });
 
@@ -379,7 +407,8 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
     const trackedRepos = [makeRepo({ groomedCount: 1 })];
 
     mockInvoke.mockResolvedValue({
-      slugs: [{ slug: "task-y", tier: "opus" }],
+      activeSlugs: [],
+      backlogSlugs: [{ slug: "task-y", tier: "opus" }],
       totalGroomed: 1,
     });
 
@@ -392,7 +421,9 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -404,6 +435,7 @@ describe("CodeWorkflowTab tier-to-model/effort threading", () => {
       "code -- repo-a/task-y",
       "opus",
       undefined,
+      true,
     );
   });
 });
@@ -414,7 +446,8 @@ describe("CodeWorkflowTab reggie-prefix correctness", () => {
     const trackedRepos = [makeRepo({ name: "my-repo", path: "/projects/my-repo", groomedCount: 1 })];
 
     mockInvoke.mockResolvedValue({
-      slugs: [{ slug: "add-widget", tier: null }],
+      activeSlugs: [],
+      backlogSlugs: [{ slug: "add-widget", tier: null }],
       totalGroomed: 1,
     });
 
@@ -427,7 +460,9 @@ describe("CodeWorkflowTab reggie-prefix correctness", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -461,10 +496,15 @@ describe("CodeWorkflowTab reggie-prefix correctness", () => {
       />
     );
 
-    // Expand the repo row to reveal task items
-    fireEvent.click(container.querySelector(".repo-task-row")!);
-    const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
-    fireEvent.click(queuedItems[0].querySelector("button")!);
+    // Two separate act blocks: the expand click flushes its state update at act() end,
+    // so querySelectorAll must run in a second act block to see the revealed items.
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
+    await act(async () => {
+      const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
+      fireEvent.click(queuedItems[0].querySelector("button")!);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -504,7 +544,8 @@ describe("CodeWorkflowTab no-tasks feedback", () => {
     const trackedRepos = [makeRepo({ groomedCount: 2 })];
 
     mockInvoke.mockResolvedValue({
-      slugs: [],
+      activeSlugs: [],
+      backlogSlugs: [],
       totalGroomed: 0,
     });
 
@@ -518,7 +559,9 @@ describe("CodeWorkflowTab no-tasks feedback", () => {
     );
 
     // Click Start on the repo row
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     // Should show the no-tasks feedback message
     await vi.waitFor(() => {
@@ -551,7 +594,9 @@ describe("CodeWorkflowTab individual task start (handleStartIndividualTask)", ()
     );
 
     // Expand the repo row to reveal task items
-    fireEvent.click(container.querySelector(".repo-task-row")!);
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
 
     // Find the Start buttons inside queued task items (not the repo-level Start button)
     const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
@@ -560,7 +605,9 @@ describe("CodeWorkflowTab individual task start (handleStartIndividualTask)", ()
     // Click the Start button for the first task (add-feature)
     const firstStartBtn = queuedItems[0].querySelector("button")!;
     expect(firstStartBtn.textContent).toBe("Start");
-    fireEvent.click(firstStartBtn);
+    await act(async () => {
+      fireEvent.click(firstStartBtn);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -596,10 +643,14 @@ describe("CodeWorkflowTab individual task start (handleStartIndividualTask)", ()
     );
 
     // Expand and click the individual Start button
-    fireEvent.click(container.querySelector(".repo-task-row")!);
-    const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
-    const startBtn = queuedItems[0].querySelector("button")!;
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
+    await act(async () => {
+      const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
+      const startBtn = queuedItems[0].querySelector("button")!;
+      fireEvent.click(startBtn);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -634,9 +685,13 @@ describe("CodeWorkflowTab individual task start (handleStartIndividualTask)", ()
     );
 
     // Expand and click individual task Start
-    fireEvent.click(container.querySelector(".repo-task-row")!);
-    const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
-    fireEvent.click(queuedItems[0].querySelector("button")!);
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
+    await act(async () => {
+      const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
+      fireEvent.click(queuedItems[0].querySelector("button")!);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -655,47 +710,14 @@ describe("CodeWorkflowTab individual task start (handleStartIndividualTask)", ()
 });
 
 describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
-  it("skips repos that have a promoted code-workflow session still running", async () => {
-    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-batch");
-    const trackedRepos = [makeRepo({ groomedCount: 3 })];
-
-    // A promoted (visible) code-workflow session that is still running
-    const promotedSession = {
-      id: "tab-promoted-1",
-      terminalId: null,
-      label: "code -- repo-a/task-1",
-      isClaudeSession: true,
-      projectPath: "/projects/repo-a",
-      projectName: "repo-a",
-      isHeadlessPromoted: true,
-      headlessTerminalId: "ht-original",
-      headlessCompleted: false,
-      dead: false,
-      visible: true,
-    };
-
-    render(
-      <CodeWorkflowTab
-        {...defaultProps}
-        onLaunchHeadless={onLaunchHeadless}
-        trackedRepos={trackedRepos}
-        reposLoading={false}
-        sessions={[promotedSession]}
-      />
-    );
-
-    // Click Batch Start Coding
-    fireEvent.click(screen.getByText("Batch Start Coding"));
-
-    // Wait a tick and verify onLaunchHeadless was NOT called
-    // because the repo has a promoted session still running
-    await vi.waitFor(() => {
-      // Batch should have finished (batchRunning goes false, button text reverts)
-      expect(screen.getByText("Batch Start Coding")).toBeTruthy();
-    });
-
-    expect(onLaunchHeadless).not.toHaveBeenCalled();
-  });
+  // The legacy test "skips repos that have a promoted code-workflow session
+  // still running" was removed: that per-repo skip was the bug fixed by Phase
+  // 3 of fix-cross-domain-dispatch. The new behavior — running sessions
+  // *reduce* per-domain remaining slots but do not skip the repo entirely —
+  // is covered by `handleLaunchSession remaining-slots math > subtracts
+  // running per-domain (code) from remaining slots` (which routes through
+  // Batch Start because the per-repo Start button is hidden when a session
+  // exists on the row).
 
   it("partitions slugs by domain and applies per-domain caps", async () => {
     const onLaunchHeadless = vi.fn().mockResolvedValue("ht-x");
@@ -709,7 +731,7 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       ...Array.from({ length: 4 }, (_, i) => ({ slug: `rsys-${i}`, tier: null, mode: "reggie-system" })),
       ...Array.from({ length: 5 }, (_, i) => ({ slug: `dbg-${i}`, tier: null, mode: "debug" })),
     ];
-    mockInvoke.mockResolvedValue({ slugs, totalGroomed: slugs.length });
+    mockInvoke.mockResolvedValue({ activeSlugs: [], backlogSlugs: slugs, totalGroomed: slugs.length });
 
     render(
       <CodeWorkflowTab
@@ -720,7 +742,9 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     // 5 code/design + 1 reggie-system + 3 debug = 9 launches
     await vi.waitFor(() => {
@@ -745,7 +769,8 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
     const onLaunchHeadless = vi.fn().mockResolvedValue("ht-rsys");
     const trackedRepos = [makeRepo({ groomedCount: 1 })];
     mockInvoke.mockResolvedValue({
-      slugs: [{ slug: "rotate-keys", tier: null, mode: "reggie-system" }],
+      activeSlugs: [],
+      backlogSlugs: [{ slug: "rotate-keys", tier: null, mode: "reggie-system" }],
       totalGroomed: 1,
     });
 
@@ -758,7 +783,9 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -769,6 +796,7 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       "reggie-sys -- repo-a/rotate-keys",
       undefined,
       undefined,
+      true,
     );
   });
 
@@ -776,7 +804,8 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
     const onLaunchHeadless = vi.fn().mockResolvedValue("ht-dbg");
     const trackedRepos = [makeRepo({ groomedCount: 1 })];
     mockInvoke.mockResolvedValue({
-      slugs: [{ slug: "fix-flaky", tier: null, mode: "debug" }],
+      activeSlugs: [],
+      backlogSlugs: [{ slug: "fix-flaky", tier: null, mode: "debug" }],
       totalGroomed: 1,
     });
 
@@ -789,7 +818,9 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -800,43 +831,18 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       "debug -- repo-a/fix-flaky",
       undefined,
       undefined,
+      true,
     );
   });
 
-  it("batch start skips a repo whose existing running session is reggie-sys or debug", async () => {
-    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-skip");
-    const trackedRepos = [makeRepo({ groomedCount: 3 })];
-
-    // Headless reggie-sys session running on the repo — batch should skip it.
-    const headless = {
-      terminalId: "ht-existing-rsys",
-      projectPath: "/projects/repo-a",
-      projectName: "repo-a",
-      label: "reggie-sys -- repo-a/some-slug",
-      needsAttention: false,
-      exited: false,
-      exitCode: null,
-      bufferSize: 0,
-      completed: false,
-    };
-
-    render(
-      <CodeWorkflowTab
-        {...defaultProps}
-        onLaunchHeadless={onLaunchHeadless}
-        trackedRepos={trackedRepos}
-        reposLoading={false}
-        headlessSessions={[headless]}
-      />
-    );
-
-    fireEvent.click(screen.getByText("Batch Start Coding"));
-
-    await vi.waitFor(() => {
-      expect(screen.getByText("Batch Start Coding")).toBeTruthy();
-    });
-    expect(onLaunchHeadless).not.toHaveBeenCalled();
-  });
+  // The legacy test "batch start skips a repo whose existing running session
+  // is reggie-sys or debug" was removed: that per-repo isWorkflowLabel skip
+  // was the bug fixed by Phase 3. The new group-wide behavior — a running
+  // reggie-sys session in repo A consumes the global slot so repo B's
+  // [reggie-system] is deferred while repo B's code/debug still launch — is
+  // covered by `handleBatchStart group-wide reggie-system > respects the
+  // workspace-wide reggie-system cap of 1 across multiple repos` and by the
+  // deferred-badge tests.
 
   it("does not skip repos where the promoted session is dead", async () => {
     const onLaunchHeadless = vi.fn().mockResolvedValue("ht-batch-2");
@@ -858,7 +864,8 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
     };
 
     mockInvoke.mockResolvedValue({
-      slugs: [{ slug: "task-new", tier: null }],
+      activeSlugs: [],
+      backlogSlugs: [{ slug: "task-new", tier: null }],
       totalGroomed: 2,
     });
 
@@ -873,20 +880,22 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
     );
 
     // Click Batch Start Coding
-    fireEvent.click(screen.getByText("Batch Start Coding"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Batch Start Coding"));
+    });
 
     // Since the promoted session is dead, the repo should NOT be skipped
-    await vi.waitFor(() => {
-      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
-    });
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
   });
 
   it("treats slugs with null/missing mode as code workflow", async () => {
-    // Active-task slugs always have mode=null. Confirm they dispatch via /reggie-code-workflow.
+    // Backlog slugs whose `mode` is null (untagged tasks, or tasks where the
+    // cross-reference fallback applied) must dispatch via /reggie-code-workflow.
     const onLaunchHeadless = vi.fn().mockResolvedValue("ht-null-mode");
     const trackedRepos = [makeRepo({ groomedCount: 1 })];
     mockInvoke.mockResolvedValue({
-      slugs: [{ slug: "active-1", tier: null, mode: null }],
+      activeSlugs: [],
+      backlogSlugs: [{ slug: "active-1", tier: null, mode: null }],
       totalGroomed: 1,
     });
 
@@ -899,7 +908,9 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -910,6 +921,7 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       "code -- repo-a/active-1",
       undefined,
       undefined,
+      true,
     );
   });
 
@@ -920,7 +932,8 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
     const onLaunchHeadless = vi.fn().mockResolvedValue("ht-x");
     const trackedRepos = [makeRepo({ groomedCount: 1 })];
     mockInvoke.mockResolvedValue({
-      slugs: [{ slug: "weird", tier: null, mode: "unknown-mode" }],
+      activeSlugs: [],
+      backlogSlugs: [{ slug: "weird", tier: null, mode: "unknown-mode" }],
       totalGroomed: 1,
     });
 
@@ -933,10 +946,10 @@ describe("CodeWorkflowTab batch start skipping promoted sessions", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Start"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
 
-    // Wait a tick for the async handler. No launch should have occurred.
-    await new Promise((r) => setTimeout(r, 20));
     expect(onLaunchHeadless).not.toHaveBeenCalled();
   });
 });
@@ -962,11 +975,15 @@ describe("CodeWorkflowTab walk-through (manual) flow", () => {
       />
     );
 
-    fireEvent.click(container.querySelector(".repo-task-row")!);
-    const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
-    const btn = queuedItems[0].querySelector("button")!;
-    expect(btn.textContent).toBe("Walk through");
-    fireEvent.click(btn);
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
+    await act(async () => {
+      const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
+      const btn = queuedItems[0].querySelector("button")!;
+      expect(btn.textContent).toBe("Walk through");
+      fireEvent.click(btn);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
@@ -1006,13 +1023,1540 @@ describe("CodeWorkflowTab walk-through (manual) flow", () => {
       />
     );
 
-    fireEvent.click(container.querySelector(".repo-task-row")!);
-    const btn = container.querySelector(".repo-task-row-session.queued button")!;
-    fireEvent.click(btn);
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
+    await act(async () => {
+      const btn = container.querySelector(".repo-task-row-session.queued button")!;
+      fireEvent.click(btn);
+    });
 
     await vi.waitFor(() => {
       expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
     });
     expect(onPromoteHeadless).not.toHaveBeenCalled();
+  });
+});
+
+describe("commandForMode honours pipeline bindings cache", () => {
+  it("uses the default code workflow when no binding is set", () => {
+    expect(commandForMode("code")).toEqual({
+      command: "/reggie-code-workflow --yes",
+      labelPrefix: "code --",
+    });
+  });
+
+  it("reggie-system is never bindable — always returns the hardcoded command", async () => {
+    mockInvoke.mockResolvedValue({ code: "evil", debug: "evil", manual: "evil" });
+    await loadPipelineBindings();
+    // Even when other bindings are set, reggie-system stays hardcoded.
+    expect(commandForMode("reggie-system")).toEqual({
+      command: "/reggie-system-change --yes",
+      labelPrefix: "reggie-sys --",
+    });
+  });
+
+  it("uses the code binding when set, preserving the 'code --' label prefix", async () => {
+    mockInvoke.mockResolvedValue({ code: "my-code-pipeline" });
+    await loadPipelineBindings();
+    expect(commandForMode("code")).toEqual({
+      command: "/my-code-pipeline --yes",
+      labelPrefix: "code --",
+    });
+  });
+
+  it("uses the debug binding when set, preserving the 'debug --' label prefix", async () => {
+    mockInvoke.mockResolvedValue({ debug: "my-debug-pipeline" });
+    await loadPipelineBindings();
+    expect(commandForMode("debug")).toEqual({
+      command: "/my-debug-pipeline --yes",
+      labelPrefix: "debug --",
+    });
+  });
+
+  it("uses the manual binding when set (no --yes), with 'code --' label prefix", async () => {
+    mockInvoke.mockResolvedValue({ manual: "my-manual-pipeline" });
+    await loadPipelineBindings();
+    expect(commandForMode("manual")).toEqual({
+      command: "/my-manual-pipeline",
+      labelPrefix: "code --",
+    });
+  });
+
+  it("falls back to /reggie-manual-task for manual mode when no binding is set", () => {
+    expect(commandForMode("manual")).toEqual({
+      command: "/reggie-manual-task",
+      labelPrefix: "code --",
+    });
+  });
+
+  it("design and null/undefined modes route to the code binding", async () => {
+    mockInvoke.mockResolvedValue({ code: "my-code-pipeline" });
+    await loadPipelineBindings();
+    expect(commandForMode("design").command).toBe("/my-code-pipeline --yes");
+    expect(commandForMode(null).command).toBe("/my-code-pipeline --yes");
+    expect(commandForMode(undefined).command).toBe("/my-code-pipeline --yes");
+  });
+});
+
+describe("handleWalkThroughTask honours manual pipeline binding", () => {
+  it("uses the manual binding via commandForMode when walk-through task is launched", async () => {
+    // Set up a manual binding
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_pipeline_bindings") return Promise.resolve({ manual: "custom-manual" });
+      if (cmd === "get_parallelizable_tasks") return Promise.resolve({ activeSlugs: [], backlogSlugs: [], totalGroomed: 0 });
+      if (cmd === "scan_tasks_across_repos") return Promise.resolve([]);
+      if (cmd === "get_install_status") return Promise.resolve({ version: "0", needsSetup: false });
+      return Promise.resolve(undefined);
+    });
+    await loadPipelineBindings();
+
+    // Verify commandForMode("manual") uses the binding
+    const { command } = commandForMode("manual");
+    expect(command).toBe("/custom-manual");
+  });
+});
+
+describe("pickBacklogToLaunch", () => {
+  it("caps per domain — code/design, reggie-system, debug", () => {
+    const backlog = [
+      { slug: "c1", tier: null, mode: "code" },
+      { slug: "c2", tier: null, mode: "code" },
+      { slug: "c3", tier: null, mode: "code" },
+      { slug: "d1", tier: null, mode: "design" },
+      { slug: "rs1", tier: null, mode: "reggie-system" },
+      { slug: "rs2", tier: null, mode: "reggie-system" },
+      { slug: "db1", tier: null, mode: "debug" },
+      { slug: "db2", tier: null, mode: "debug" },
+    ];
+    const picked = pickBacklogToLaunch(backlog, { code: 2, reggieSystem: 1, debug: 1 });
+    expect(picked).toHaveLength(4);
+    // First two code/design slots, then 1 reggie-system, then 1 debug.
+    expect(picked.map((s) => s.slug)).toEqual(["c1", "c2", "rs1", "db1"]);
+  });
+
+  it("zero remaining drops the whole domain", () => {
+    const backlog = [
+      { slug: "c1", tier: null, mode: "code" },
+      { slug: "rs1", tier: null, mode: "reggie-system" },
+      { slug: "db1", tier: null, mode: "debug" },
+      { slug: "db2", tier: null, mode: "debug" },
+    ];
+    const picked = pickBacklogToLaunch(backlog, { code: 5, reggieSystem: 1, debug: 0 });
+    expect(picked.map((s) => s.slug)).toEqual(["c1", "rs1"]);
+  });
+
+  it("excludes slugs present in activeSlugs (defensive consumer-side filter)", () => {
+    const backlog = [
+      { slug: "c1", tier: null, mode: "code" },
+      { slug: "c2", tier: null, mode: "code" },
+      { slug: "rs1", tier: null, mode: "reggie-system" },
+    ];
+    const activeSlugs = new Set(["c1"]);
+    const picked = pickBacklogToLaunch(backlog, { code: 5, reggieSystem: 1, debug: 0 }, activeSlugs);
+    expect(picked.map((s) => s.slug)).toEqual(["c2", "rs1"]);
+  });
+
+  it("empty activeSlugs is a no-op", () => {
+    const backlog = [{ slug: "c1", tier: null, mode: "code" }];
+    const picked = pickBacklogToLaunch(backlog, { code: 5, reggieSystem: 0, debug: 0 }, new Set());
+    expect(picked.map((s) => s.slug)).toEqual(["c1"]);
+  });
+
+  it("activeSlugs is keyed by slug only — caller scopes per-repo (cross-repo slug shared by name OK)", () => {
+    // Within a single call, all backlog entries belong to one repo. The same
+    // slug name surfacing in another repo's call is a separate invocation
+    // with its own activeSlugs set, so cross-repo dispatch is preserved.
+    const backlog = [{ slug: "shared", tier: null, mode: "code" }];
+    const pickedRepoA = pickBacklogToLaunch(backlog, { code: 5, reggieSystem: 0, debug: 0 }, new Set(["shared"]));
+    const pickedRepoB = pickBacklogToLaunch(backlog, { code: 5, reggieSystem: 0, debug: 0 }, new Set());
+    expect(pickedRepoA).toEqual([]);
+    expect(pickedRepoB.map((s) => s.slug)).toEqual(["shared"]);
+  });
+});
+
+describe("pickReggieSystemHolder", () => {
+  const makeHeadless = (overrides: Partial<HeadlessSession>): HeadlessSession => ({
+    terminalId: "t-default",
+    projectPath: "/repos/default",
+    projectName: "default",
+    label: "reggie-sys -- default/some-slug",
+    needsAttention: false,
+    exited: false,
+    exitCode: null,
+    bufferSize: 0,
+    completed: false,
+    ...overrides,
+  });
+
+  const makeTab = (overrides: Partial<TerminalTab>): TerminalTab => ({
+    id: "tab-default",
+    terminalId: "t-default",
+    label: "reggie-sys -- default/some-slug",
+    isClaudeSession: true,
+    projectPath: "/repos/default",
+    isHeadlessPromoted: true,
+    ...overrides,
+  });
+
+  it("returns null when no reggie-system sessions are running", () => {
+    const tabs: TerminalTab[] = [
+      makeTab({ terminalId: "t-1", label: "code -- foo/bar" }),
+    ];
+    expect(pickReggieSystemHolder([], tabs)).toBeNull();
+  });
+
+  it("ignores exited / completed headless sessions", () => {
+    const headless: HeadlessSession[] = [
+      makeHeadless({ terminalId: "t-1", projectPath: "/repos/alpha", exited: true }),
+      makeHeadless({ terminalId: "t-2", projectPath: "/repos/beta", completed: true }),
+    ];
+    expect(pickReggieSystemHolder(headless, [])).toBeNull();
+  });
+
+  it("ignores dead / completed promoted tabs", () => {
+    const tabs: TerminalTab[] = [
+      makeTab({ terminalId: "t-1", projectPath: "/repos/alpha", dead: true }),
+      makeTab({ terminalId: "t-2", projectPath: "/repos/beta", headlessCompleted: true }),
+    ];
+    expect(pickReggieSystemHolder([], tabs)).toBeNull();
+  });
+
+  it("ignores non-promoted terminal tabs", () => {
+    const tabs: TerminalTab[] = [
+      makeTab({ terminalId: "t-1", projectPath: "/repos/alpha", isHeadlessPromoted: false }),
+    ];
+    expect(pickReggieSystemHolder([], tabs)).toBeNull();
+  });
+
+  it("returns repo info for the lowest-terminalId reggie-system candidate", () => {
+    const headless: HeadlessSession[] = [
+      makeHeadless({ terminalId: "t-bbb", projectPath: "/repos/beta" }),
+      makeHeadless({ terminalId: "t-aaa", projectPath: "/repos/alpha" }),
+    ];
+    const holder = pickReggieSystemHolder(headless, []);
+    expect(holder).toEqual({ repoPath: "/repos/alpha", repoName: "alpha" });
+  });
+
+  it("is deterministic across input array order — mid-promotion duplicate yields the same holder", () => {
+    // Two competing reggie-system sessions in different repos. During the
+    // mid-promotion window, the same session can appear in both arrays.
+    // The previous implementation returned different holders depending on
+    // which array's iteration "won". Sorting by terminalId fixes this.
+    const headlessA: HeadlessSession[] = [
+      makeHeadless({ terminalId: "t-aaa", projectPath: "/repos/alpha" }),
+    ];
+    const tabsA: TerminalTab[] = [
+      makeTab({ terminalId: "t-bbb", projectPath: "/repos/beta" }),
+    ];
+    const holderA = pickReggieSystemHolder(headlessA, tabsA);
+
+    // Reverse: the "headless" winner moved into tabs first (promotion order swap).
+    const headlessB: HeadlessSession[] = [
+      makeHeadless({ terminalId: "t-bbb", projectPath: "/repos/beta" }),
+    ];
+    const tabsB: TerminalTab[] = [
+      makeTab({ terminalId: "t-aaa", projectPath: "/repos/alpha" }),
+    ];
+    const holderB = pickReggieSystemHolder(headlessB, tabsB);
+
+    expect(holderA).toEqual({ repoPath: "/repos/alpha", repoName: "alpha" });
+    expect(holderB).toEqual(holderA);
+  });
+
+  it("skips promoted tabs with null terminalId (not yet spawned)", () => {
+    const tabs: TerminalTab[] = [
+      makeTab({ terminalId: null, projectPath: "/repos/alpha" }),
+      makeTab({ terminalId: "t-zzz", projectPath: "/repos/beta" }),
+    ];
+    const holder = pickReggieSystemHolder([], tabs);
+    expect(holder).toEqual({ repoPath: "/repos/beta", repoName: "beta" });
+  });
+
+  it("derives repoName from the trailing path segment (handles both / and \\ separators)", () => {
+    const headless: HeadlessSession[] = [
+      makeHeadless({ terminalId: "t-1", projectPath: "C:\\projects\\my-repo" }),
+    ];
+    const holder = pickReggieSystemHolder(headless, []);
+    expect(holder).toEqual({ repoPath: "C:\\projects\\my-repo", repoName: "my-repo" });
+  });
+});
+
+describe("CodeWorkflowTab handleLaunchSession remaining-slots math", () => {
+  it("does not relaunch active slugs (only backlogSlugs feed the launch loop)", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-no-relaunch");
+    const trackedRepos = [makeRepo({ groomedCount: 1, activeCount: 1 })];
+
+    // Active slug X is already running — backend reports it under activeSlugs,
+    // not backlogSlugs. The frontend must never re-launch it.
+    mockInvoke.mockResolvedValue({
+      activeSlugs: [{ slug: "X", tier: null, mode: "code" }],
+      backlogSlugs: [],
+      totalGroomed: 2,
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+
+    expect(onLaunchHeadless).not.toHaveBeenCalled();
+  });
+
+  it("subtracts running per-domain (code) from remaining slots", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-cap");
+    const trackedRepos = [makeRepo({ groomedCount: 6 })];
+
+    // One running headless code session in this repo — should subtract 1 from
+    // the code cap of 5 → only 4 launches expected from the backlog of 6.
+    const headless: HeadlessSession = {
+      terminalId: "ht-running-1",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "code -- repo-a/already-running",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: false,
+    };
+
+    mockInvoke.mockResolvedValue({
+      activeSlugs: [],
+      backlogSlugs: Array.from({ length: 6 }, (_, i) => ({
+        slug: `code-${i}`,
+        tier: null,
+        mode: "code",
+      })),
+      totalGroomed: 6,
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        headlessSessions={[headless]}
+      />
+    );
+
+    // The repo row has a running session, so the per-repo "Start" button is hidden.
+    // Use Batch Start to trigger the launch path instead — it invokes
+    // `launchForRepo` for the same repo, exercising the same remaining-slots math.
+    await act(async () => {
+      fireEvent.click(screen.getByText("Batch Start Coding"));
+    });
+
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe("CodeWorkflowTab handleBatchStart group-wide reggie-system", () => {
+  it("respects the workspace-wide reggie-system cap of 1 across multiple repos", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-batch-rsys");
+    const trackedRepos = [
+      makeRepo({ name: "repo-a", path: "/projects/repo-a", groomedCount: 1 }),
+      makeRepo({ name: "repo-b", path: "/projects/repo-b", groomedCount: 1 }),
+    ];
+
+    // Both repos return one [reggie-system] backlog slug.
+    mockInvoke.mockImplementation((cmd: string, args: { projectPath: string }) => {
+      if (cmd === "get_parallelizable_tasks") {
+        const slug = args.projectPath === "/projects/repo-a" ? "rs-a" : "rs-b";
+        return Promise.resolve({
+          activeSlugs: [],
+          backlogSlugs: [{ slug, tier: null, mode: "reggie-system" }],
+          totalGroomed: 1,
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Batch Start Coding"));
+    });
+
+    // Gate on the actual condition: exactly one launch fires across both repos.
+    // The second repo's [reggie-system] slug is dropped because the slot was
+    // claimed by the first iteration's in-flight counter.
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+
+    const reggieCalls = onLaunchHeadless.mock.calls.filter((c) =>
+      String(c[2]).startsWith("reggie-sys --"),
+    );
+    expect(reggieCalls).toHaveLength(1);
+  });
+});
+
+describe("CodeWorkflowTab reggie-system deferred badge", () => {
+  it("renders 'deferred — slot held by <repo>' badge on a non-holder repo with a reggie-system task", () => {
+    const trackedRepos = [
+      makeRepo({
+        name: "repo-a",
+        path: "/projects/repo-a",
+        groomedCount: 1,
+        groomedTasks: [{ slug: "rotate-keys", description: "Rotate keys", mode: "reggie-system" }],
+      }),
+    ];
+
+    // A running reggie-system session on a different repo holds the slot.
+    const headless: HeadlessSession = {
+      terminalId: "ht-rsys-holder",
+      projectPath: "/projects/repo-other",
+      projectName: "repo-other",
+      label: "reggie-sys -- repo-other/some-task",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: false,
+    };
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        headlessSessions={[headless]}
+      />
+    );
+
+    expect(
+      screen.getByText("1 reggie-system task deferred — slot held by repo-other"),
+    ).toBeTruthy();
+  });
+
+  it("does not render the badge on the repo that holds the slot", () => {
+    const trackedRepos = [
+      makeRepo({
+        name: "repo-a",
+        path: "/projects/repo-a",
+        groomedCount: 1,
+        groomedTasks: [{ slug: "rotate-keys", description: "Rotate keys", mode: "reggie-system" }],
+      }),
+    ];
+
+    // The holder is repo-a itself.
+    const headless: HeadlessSession = {
+      terminalId: "ht-rsys-holder",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "reggie-sys -- repo-a/already-running",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: false,
+    };
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        headlessSessions={[headless]}
+      />
+    );
+
+    expect(screen.queryByText(/reggie-system task deferred/)).toBeNull();
+  });
+
+  it("does not render the badge on a non-holder repo without a [reggie-system] backlog task", () => {
+    const trackedRepos = [
+      makeRepo({
+        name: "repo-a",
+        path: "/projects/repo-a",
+        groomedCount: 1,
+        groomedTasks: [{ slug: "feature-x", description: "Feature X", mode: "code" }],
+      }),
+    ];
+
+    const headless: HeadlessSession = {
+      terminalId: "ht-rsys-holder",
+      projectPath: "/projects/repo-other",
+      projectName: "repo-other",
+      label: "reggie-sys -- repo-other/some-task",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: false,
+    };
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        headlessSessions={[headless]}
+      />
+    );
+
+    expect(screen.queryByText(/reggie-system task deferred/)).toBeNull();
+  });
+});
+
+describe("CodeWorkflowTab auto-relaunch", () => {
+  it("relaunches the same repo with the next backlog slug when a Start session completes", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-rl-1");
+    const trackedRepos = [makeRepo({ groomedCount: 2 })];
+
+    let call = 0;
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_parallelizable_tasks") {
+        call++;
+        const slugs =
+          call === 1
+            ? [
+                { slug: "code-1", tier: null, mode: "code" },
+                { slug: "code-2", tier: null, mode: "code" },
+              ]
+            : [{ slug: "code-2", tier: null, mode: "code" }];
+        return Promise.resolve({ activeSlugs: [], backlogSlugs: slugs, totalGroomed: slugs.length });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const { rerender } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(2);
+    });
+    expect(onLaunchHeadless).toHaveBeenNthCalledWith(
+      1,
+      "/projects/repo-a",
+      "/reggie-code-workflow --yes code-1",
+      "code -- repo-a/code-1",
+      undefined,
+      undefined,
+      true,
+    );
+
+    const completedSession: HeadlessSession = {
+      terminalId: "t1",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "code -- repo-a/code-1",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: true,
+      autoRelaunch: true,
+    };
+
+    rerender(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        headlessSessions={[completedSession]}
+      />
+    );
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(3);
+    });
+    const lastCall = onLaunchHeadless.mock.calls[onLaunchHeadless.mock.calls.length - 1];
+    expect(lastCall[1]).toBe("/reggie-code-workflow --yes code-2");
+    expect(lastCall[5]).toBe(true);
+  });
+
+  it("relaunches each repo independently after Batch Start completions", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-rl-batch");
+    const trackedRepos = [
+      makeRepo({ name: "repo-a", path: "/projects/repo-a", groomedCount: 2 }),
+      makeRepo({ name: "repo-b", path: "/projects/repo-b", groomedCount: 2 }),
+    ];
+
+    const callsByRepo: Record<string, number> = {};
+    mockInvoke.mockImplementation((cmd: string, args: { projectPath: string }) => {
+      if (cmd === "get_parallelizable_tasks") {
+        callsByRepo[args.projectPath] = (callsByRepo[args.projectPath] ?? 0) + 1;
+        const repoKey = args.projectPath === "/projects/repo-a" ? "a" : "b";
+        const n = callsByRepo[args.projectPath];
+        const slugs =
+          n === 1
+            ? [
+                { slug: `${repoKey}-1`, tier: null, mode: "code" },
+                { slug: `${repoKey}-2`, tier: null, mode: "code" },
+              ]
+            : [{ slug: `${repoKey}-2`, tier: null, mode: "code" }];
+        return Promise.resolve({ activeSlugs: [], backlogSlugs: slugs, totalGroomed: slugs.length });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const { rerender } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Batch Start Coding"));
+    });
+
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(4);
+
+    const completedA: HeadlessSession = {
+      terminalId: "t-a",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "code -- repo-a/a-1",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: true,
+      autoRelaunch: true,
+    };
+    const completedB: HeadlessSession = {
+      terminalId: "t-b",
+      projectPath: "/projects/repo-b",
+      projectName: "repo-b",
+      label: "code -- repo-b/b-1",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: true,
+      autoRelaunch: true,
+    };
+
+    await act(async () => {
+      rerender(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={trackedRepos}
+          reposLoading={false}
+          headlessSessions={[completedA, completedB]}
+        />
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(6);
+    });
+    const relaunchPaths = onLaunchHeadless.mock.calls.slice(4).map((c) => c[0]).sort();
+    expect(relaunchPaths).toEqual(["/projects/repo-a", "/projects/repo-b"]);
+  });
+
+  it("does not relaunch when an individual-task Start completes (autoRelaunch flag absent)", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-ind");
+    const trackedRepos = [makeRepo({
+      groomedCount: 2,
+      groomedTasks: [
+        { slug: "add-feature", description: "Add feature" },
+        { slug: "fix-bug", description: "Fix bug" },
+      ],
+    })];
+
+    const { container, rerender } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.click(container.querySelector(".repo-task-row")!);
+    });
+    await act(async () => {
+      const queuedItems = container.querySelectorAll(".repo-task-row-session.queued");
+      fireEvent.click(queuedItems[0].querySelector("button")!);
+    });
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+    });
+    expect(onLaunchHeadless.mock.calls[0][5]).toBeUndefined();
+
+    const completedSession: HeadlessSession = {
+      terminalId: "t-ind",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "code -- repo-a/add-feature",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: true,
+      autoRelaunch: false,
+    };
+
+    rerender(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        headlessSessions={[completedSession]}
+      />
+    );
+
+    await new Promise((r) => setTimeout(r, 30));
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not relaunch when a session exits with failure (completed:false)", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-fail");
+    const trackedRepos = [makeRepo({ groomedCount: 2 })];
+
+    mockInvoke.mockResolvedValue({
+      activeSlugs: [],
+      backlogSlugs: [{ slug: "code-1", tier: null, mode: "code" }],
+      totalGroomed: 1,
+    });
+
+    const { rerender } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+    });
+
+    const failedSession: HeadlessSession = {
+      terminalId: "t-fail",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "code -- repo-a/code-1",
+      needsAttention: false,
+      exited: true,
+      exitCode: 1,
+      bufferSize: 0,
+      completed: false,
+      autoRelaunch: true,
+    };
+
+    rerender(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        headlessSessions={[failedSession]}
+      />
+    );
+
+    await new Promise((r) => setTimeout(r, 30));
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+  });
+
+  it("terminates cleanly without a second launch when the backlog is exhausted on completion", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-empty");
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+
+    let call = 0;
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_parallelizable_tasks") {
+        call++;
+        if (call === 1) {
+          return Promise.resolve({
+            activeSlugs: [],
+            backlogSlugs: [{ slug: "code-1", tier: null, mode: "code" }],
+            totalGroomed: 1,
+          });
+        }
+        return Promise.resolve({ activeSlugs: [], backlogSlugs: [], totalGroomed: 0 });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const { rerender } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+    });
+
+    const completedSession: HeadlessSession = {
+      terminalId: "t-empty",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "code -- repo-a/code-1",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: true,
+      autoRelaunch: true,
+    };
+
+    await act(async () => {
+      rerender(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={trackedRepos}
+          reposLoading={false}
+          headlessSessions={[completedSession]}
+        />
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(call).toBeGreaterThanOrEqual(2);
+    });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+  });
+
+  it("relaunches a deferred reggie-system task in another repo after the slot-holder completes", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-rsys-rl");
+    const trackedRepos = [
+      makeRepo({ name: "repo-a", path: "/projects/repo-a", groomedCount: 1 }),
+      makeRepo({ name: "repo-b", path: "/projects/repo-b", groomedCount: 1 }),
+    ];
+
+    const callsByRepo: Record<string, number> = {};
+    mockInvoke.mockImplementation((cmd: string, args: { projectPath: string }) => {
+      if (cmd === "get_parallelizable_tasks") {
+        callsByRepo[args.projectPath] = (callsByRepo[args.projectPath] ?? 0) + 1;
+        if (args.projectPath === "/projects/repo-a") {
+          if (callsByRepo[args.projectPath] === 1) {
+            return Promise.resolve({
+              activeSlugs: [],
+              backlogSlugs: [{ slug: "rs-a", tier: null, mode: "reggie-system" }],
+              totalGroomed: 1,
+            });
+          }
+          return Promise.resolve({ activeSlugs: [], backlogSlugs: [], totalGroomed: 0 });
+        }
+        return Promise.resolve({
+          activeSlugs: [],
+          backlogSlugs: [{ slug: "rs-b", tier: null, mode: "reggie-system" }],
+          totalGroomed: 1,
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const { rerender } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Batch Start Coding"));
+    });
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+    });
+    expect(onLaunchHeadless.mock.calls[0][1]).toBe("/reggie-system-change --yes rs-a");
+
+    const completedRsA: HeadlessSession = {
+      terminalId: "t-rs-a",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "reggie-sys -- repo-a/rs-a",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: true,
+      autoRelaunch: true,
+    };
+
+    await act(async () => {
+      rerender(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={trackedRepos}
+          reposLoading={false}
+          headlessSessions={[completedRsA]}
+        />
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(2);
+    });
+    const secondCall = onLaunchHeadless.mock.calls[1];
+    expect(secondCall[0]).toBe("/projects/repo-b");
+    expect(secondCall[1]).toBe("/reggie-system-change --yes rs-b");
+  });
+
+  it("does not double-relaunch when the same completed session is re-emitted", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-idem");
+    const trackedRepos = [makeRepo({ groomedCount: 2 })];
+
+    let call = 0;
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_parallelizable_tasks") {
+        call++;
+        const slugs =
+          call === 1
+            ? [
+                { slug: "code-1", tier: null, mode: "code" },
+                { slug: "code-2", tier: null, mode: "code" },
+              ]
+            : [{ slug: "code-2", tier: null, mode: "code" }];
+        return Promise.resolve({ activeSlugs: [], backlogSlugs: slugs, totalGroomed: slugs.length });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const { rerender } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(2);
+    });
+
+    const completedSession: HeadlessSession = {
+      terminalId: "t-idem",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "code -- repo-a/code-1",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: true,
+      autoRelaunch: true,
+    };
+
+    rerender(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        headlessSessions={[completedSession]}
+      />
+    );
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(3);
+    });
+
+    rerender(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        headlessSessions={[{ ...completedSession }]}
+      />
+    );
+
+    await new Promise((r) => setTimeout(r, 30));
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not double-dispatch reggie-system when fan-out runs to multiple peers (cap-of-1 holds)", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-fanout");
+    const trackedRepos = [
+      makeRepo({ name: "repo-a", path: "/projects/repo-a", groomedCount: 1 }),
+      makeRepo({ name: "repo-b", path: "/projects/repo-b", groomedCount: 1 }),
+      makeRepo({ name: "repo-c", path: "/projects/repo-c", groomedCount: 1 }),
+    ];
+
+    // Each repo always returns its own reggie-system backlog slug. repo-a's
+    // own relaunch finds an empty backlog (its one task just completed).
+    const callsByRepo: Record<string, number> = {};
+    mockInvoke.mockImplementation((cmd: string, args: { projectPath: string }) => {
+      if (cmd === "get_parallelizable_tasks") {
+        callsByRepo[args.projectPath] = (callsByRepo[args.projectPath] ?? 0) + 1;
+        if (args.projectPath === "/projects/repo-a") {
+          return Promise.resolve({ activeSlugs: [], backlogSlugs: [], totalGroomed: 0 });
+        }
+        const slug = args.projectPath === "/projects/repo-b" ? "rs-b" : "rs-c";
+        return Promise.resolve({
+          activeSlugs: [],
+          backlogSlugs: [{ slug, tier: null, mode: "reggie-system" }],
+          totalGroomed: 1,
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const { rerender } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    // Trigger the fan-out: repo-a's reggie-system session completes with autoRelaunch.
+    const completedRsA: HeadlessSession = {
+      terminalId: "t-rs-a",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "reggie-sys -- repo-a/rs-a",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: true,
+      autoRelaunch: true,
+    };
+
+    await act(async () => {
+      rerender(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={trackedRepos}
+          reposLoading={false}
+          headlessSessions={[completedRsA]}
+        />
+      );
+    });
+
+    // Wait for the fan-out to settle. repo-a relaunch (no backlog) + exactly
+    // ONE peer claims the freed slot (cap-of-1 across the workspace).
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+    });
+    // Stability hold: ensure no second peer launches racing in.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+
+    const reggieCalls = onLaunchHeadless.mock.calls.filter((c) =>
+      String(c[2]).startsWith("reggie-sys --"),
+    );
+    expect(reggieCalls).toHaveLength(1);
+  });
+
+  it("does not suppress a same-named slug in another repo via the recently-completed filter", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-shared-slug");
+    const trackedRepos = [
+      makeRepo({
+        name: "repo-a",
+        path: "/projects/repo-a",
+        groomedCount: 1,
+        groomedTasks: [{ slug: "shared-slug", description: "Shared", mode: "code" }],
+      }),
+      makeRepo({
+        name: "repo-b",
+        path: "/projects/repo-b",
+        groomedCount: 1,
+        groomedTasks: [{ slug: "shared-slug", description: "Shared", mode: "code" }],
+      }),
+    ];
+
+    // Both repos report "shared-slug" as backlog (mode: code).
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_parallelizable_tasks") {
+        return Promise.resolve({
+          activeSlugs: [],
+          backlogSlugs: [{ slug: "shared-slug", tier: null, mode: "code" }],
+          totalGroomed: 1,
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const { rerender } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />
+    );
+
+    // repo-a's "shared-slug" session completes with autoRelaunch — this writes
+    // `/projects/repo-a::shared-slug` into recentlyCompletedSlugsRef.
+    const completedSession: HeadlessSession = {
+      terminalId: "t-shared-a",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "code -- repo-a/shared-slug",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: true,
+      autoRelaunch: true,
+    };
+
+    await act(async () => {
+      rerender(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={trackedRepos}
+          reposLoading={false}
+          headlessSessions={[completedSession]}
+        />
+      );
+    });
+
+    // The auto-relaunch effect fires launchForRepo for repo-a. repo-a's filter
+    // suppresses its own "shared-slug" (composite key match) and shows no-tasks.
+    await new Promise((r) => setTimeout(r, 30));
+
+    // Now click the per-repo Start button on repo-b. Composite keying means
+    // repo-b's "shared-slug" is NOT suppressed (key would be `/projects/repo-b::shared-slug`).
+    const startButtons = screen.getAllByText("Start");
+    // Two repos — find repo-b's Start button. Both are still unblocked since
+    // neither has running sessions (the completed one doesn't count).
+    expect(startButtons.length).toBeGreaterThanOrEqual(1);
+
+    const callsBefore = onLaunchHeadless.mock.calls.length;
+    // Click the second Start button (repo-b appears after repo-a in render order).
+    await act(async () => {
+      fireEvent.click(startButtons[startButtons.length - 1]);
+    });
+
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+
+    // Verify repo-b's shared-slug DID launch (was not suppressed by repo-a's entry).
+    const repoBCall = onLaunchHeadless.mock.calls.find(
+      (c) => c[0] === "/projects/repo-b" && String(c[1]).includes("shared-slug"),
+    );
+    expect(repoBCall).toBeTruthy();
+  });
+});
+
+describe("formatBlockedReasons", () => {
+  it("returns the legacy fallback when blocked is empty", () => {
+    expect(formatBlockedReasons({}, "repo-a")).toBe("No tasks available for repo-a");
+  });
+
+  it("formats a single manual task with singular grammar", () => {
+    const msg = formatBlockedReasons(
+      { "setup-thing": { type: "manual" } },
+      "repo-a",
+    );
+    expect(msg).toContain("All 1 task in repo-a blocked:");
+    expect(msg).toContain("1 manual task (setup-thing)");
+    expect(msg).toContain("Walk through manual tasks first.");
+  });
+
+  it("formats multiple manual tasks with plural grammar", () => {
+    const msg = formatBlockedReasons(
+      {
+        "setup-thing": { type: "manual" },
+        "configure-foo": { type: "manual" },
+      },
+      "repo-a",
+    );
+    expect(msg).toContain("All 2 tasks in repo-a blocked:");
+    expect(msg).toContain("2 manual tasks (");
+    // Order is map iteration order; both slugs must appear.
+    expect(msg).toContain("setup-thing");
+    expect(msg).toContain("configure-foo");
+    expect(msg).toContain("Walk through manual tasks first.");
+  });
+
+  it("formats a single dep-blocked task with singular grammar and dep tail", () => {
+    const msg = formatBlockedReasons(
+      { "task-a": { type: "blockedBy", data: "manual-thing" } },
+      "repo-a",
+    );
+    expect(msg).toContain("All 1 task in repo-a blocked:");
+    expect(msg).toContain("1 task blocked by an unmet dependency (task-a)");
+    expect(msg).toContain("Resolve dependencies");
+    expect(msg).not.toContain("Walk through manual tasks first.");
+  });
+
+  it("formats multiple dep-blocked tasks with plural grammar", () => {
+    const msg = formatBlockedReasons(
+      {
+        "task-a": { type: "blockedBy", data: "x" },
+        "task-b": { type: "blockedBy", data: "y" },
+      },
+      "repo-a",
+    );
+    expect(msg).toContain("All 2 tasks in repo-a blocked:");
+    expect(msg).toContain("2 tasks blocked by unmet dependencies (");
+    expect(msg).toContain("Resolve dependencies");
+  });
+
+  it("formats mixed manual + dep-blocked with both segments and the manual tail", () => {
+    const msg = formatBlockedReasons(
+      {
+        "manual-1": { type: "manual" },
+        "task-a": { type: "blockedBy", data: "manual-1" },
+      },
+      "repo-a",
+    );
+    expect(msg).toContain("All 2 tasks in repo-a blocked:");
+    expect(msg).toContain("1 manual task (manual-1)");
+    expect(msg).toContain("1 task blocked by an unmet dependency (task-a)");
+    // When manual is present, the manual-tail wins (most actionable).
+    expect(msg).toContain("Walk through manual tasks first.");
+  });
+});
+
+describe("CodeWorkflowTab blocked banner persistence", () => {
+  it("renders a persistent banner when all tasks are manual and does not auto-hide", async () => {
+    vi.useFakeTimers();
+    try {
+      const onLaunchHeadless = vi.fn().mockResolvedValue("ht-none");
+      const trackedRepos = [makeRepo({ groomedCount: 2 })];
+
+      mockInvoke.mockResolvedValue({
+        activeSlugs: [],
+        backlogSlugs: [],
+        totalGroomed: 0,
+        blocked: {
+          "setup-thing": { type: "manual" },
+          "configure-foo": { type: "manual" },
+        },
+      });
+
+      render(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={trackedRepos}
+          reposLoading={false}
+        />,
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByText("Start"));
+      });
+
+      // Banner copy mentions both manual slugs and the manual tail.
+      await vi.waitFor(() => {
+        expect(screen.queryByText(/setup-thing/)).toBeTruthy();
+      });
+      const bannerNode = screen.getByText(/setup-thing/);
+      expect(bannerNode.textContent).toContain("configure-foo");
+      expect(bannerNode.textContent).toContain("Walk through manual tasks first.");
+
+      // Advance fake time past the legacy 4s toast lifetime — banner persists.
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByText(/setup-thing/)).toBeTruthy();
+
+      expect(onLaunchHeadless).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("renders a banner with the dep-blocked tail when all tasks are blocked by deps", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue(null);
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+
+    mockInvoke.mockResolvedValue({
+      activeSlugs: [],
+      backlogSlugs: [],
+      totalGroomed: 1,
+      blocked: { "task-a": { type: "blockedBy", data: "manual-thing" } },
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/task-a/)).toBeTruthy();
+    });
+    const banner = screen.getByText(/task-a/);
+    expect(banner.textContent).toContain("blocked by an unmet dependency");
+    expect(banner.textContent).toContain("Resolve dependencies");
+    expect(banner.textContent).not.toContain("Walk through manual tasks first.");
+  });
+
+  it("clears the banner when Refresh is clicked", async () => {
+    const onRefreshRepos = vi.fn();
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+
+    mockInvoke.mockResolvedValue({
+      activeSlugs: [],
+      backlogSlugs: [],
+      totalGroomed: 0,
+      blocked: { "setup-thing": { type: "manual" } },
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        onRefreshRepos={onRefreshRepos}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/setup-thing/)).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Refresh"));
+    });
+
+    expect(screen.queryByText(/setup-thing/)).toBeNull();
+    expect(onRefreshRepos).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears a per-repo banner after a successful launch on that repo", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue("ht-launched");
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+
+    // First call: empty + blocked → banner appears.
+    // Second call: a dispatchable backlog slug → launch fires, banner clears.
+    let callCount = 0;
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd !== "get_parallelizable_tasks") return Promise.resolve(undefined);
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          activeSlugs: [],
+          backlogSlugs: [],
+          totalGroomed: 0,
+          blocked: { "setup-thing": { type: "manual" } },
+        });
+      }
+      return Promise.resolve({
+        activeSlugs: [],
+        backlogSlugs: [{ slug: "code-1", tier: null, mode: "code" }],
+        totalGroomed: 1,
+      });
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />,
+    );
+
+    // First click → banner appears.
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/setup-thing/)).toBeTruthy();
+    });
+
+    // Second click → dispatchable slug, launch fires, banner clears.
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+    await vi.waitFor(() => {
+      expect(onLaunchHeadless).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText(/setup-thing/)).toBeNull();
+  });
+
+  it("does NOT show a banner from the auto-relaunch path when blocked is non-empty", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue(null);
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+
+    // The auto-relaunch effect will call get_parallelizable_tasks for repo-a.
+    mockInvoke.mockResolvedValue({
+      activeSlugs: [],
+      backlogSlugs: [],
+      totalGroomed: 0,
+      blocked: { "setup-thing": { type: "manual" } },
+    });
+
+    const completedSession: HeadlessSession = {
+      terminalId: "t-relaunch",
+      projectPath: "/projects/repo-a",
+      projectName: "repo-a",
+      label: "code -- repo-a/done-task",
+      needsAttention: false,
+      exited: false,
+      exitCode: null,
+      bufferSize: 0,
+      completed: true,
+      autoRelaunch: true,
+    };
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+        headlessSessions={[completedSession]}
+      />,
+    );
+
+    // Wait for the auto-relaunch effect to fire and resolve.
+    await vi.waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith("get_parallelizable_tasks", {
+        projectPath: "/projects/repo-a",
+      });
+    });
+    // Give the suppressed-banner effect time to settle without surfacing.
+    await new Promise((r) => setTimeout(r, 30));
+
+    // Banner must NOT appear — the auto-relaunch path passes suppressBanner: true.
+    expect(screen.queryByText(/setup-thing/)).toBeNull();
+  });
+
+  it("shows the legacy fallback banner copy when invoke returns no `blocked` field (backwards compat)", async () => {
+    const trackedRepos = [makeRepo({ groomedCount: 1 })];
+
+    // No `blocked` field in the response — exercises the `?? {}` defensive default.
+    mockInvoke.mockResolvedValue({
+      activeSlugs: [],
+      backlogSlugs: [],
+      totalGroomed: 0,
+    });
+
+    render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        trackedRepos={trackedRepos}
+        reposLoading={false}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Start"));
+    });
+
+    await vi.waitFor(() => {
+      expect(screen.queryByText("No tasks available for repo-a")).toBeTruthy();
+    });
+  });
+
+  it("clears banner entries for repos dropped from the repos prop", async () => {
+    const onLaunchHeadless = vi.fn().mockResolvedValue(null);
+    const repoA = makeRepo({ name: "repo-a", path: "/projects/repo-a", groomedCount: 1 });
+    const repoB = makeRepo({ name: "repo-b", path: "/projects/repo-b", groomedCount: 1 });
+
+    // Both repos return a blocked map → both will get a banner if Started.
+    mockInvoke.mockImplementation((cmd: string, args: { projectPath: string }) => {
+      if (cmd === "get_parallelizable_tasks") {
+        return Promise.resolve({
+          activeSlugs: [],
+          backlogSlugs: [],
+          totalGroomed: 0,
+          blocked:
+            args.projectPath === "/projects/repo-a"
+              ? { "manual-a": { type: "manual" } }
+              : { "manual-b": { type: "manual" } },
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const { rerender } = render(
+      <CodeWorkflowTab
+        {...defaultProps}
+        onLaunchHeadless={onLaunchHeadless}
+        trackedRepos={[repoA, repoB]}
+        reposLoading={false}
+      />,
+    );
+
+    // Trigger banner for repo-a via per-repo Start.
+    const startButtons = screen.getAllByText("Start");
+    await act(async () => {
+      fireEvent.click(startButtons[0]);
+    });
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/manual-a/)).toBeTruthy();
+    });
+
+    // Re-render with repo-a removed from the list. The cleanup effect drops
+    // banner entries for repos no longer present.
+    await act(async () => {
+      rerender(
+        <CodeWorkflowTab
+          {...defaultProps}
+          onLaunchHeadless={onLaunchHeadless}
+          trackedRepos={[repoB]}
+          reposLoading={false}
+        />,
+      );
+    });
+
+    expect(screen.queryByText(/manual-a/)).toBeNull();
   });
 });

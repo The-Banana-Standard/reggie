@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { RepoTaskSummary, HeadlessSession, TerminalTab, TaskItem } from "../types/terminal";
 
 export interface TrackedSession {
@@ -95,6 +96,7 @@ export function useSessionTracking(
   const requestIdRef = useRef(0);
   const lastFocusLoadRef = useRef(0);
   const prevActiveSessionCountRef = useRef(0);
+  const lastStartedPathRef = useRef<string | null>(null);
 
   // Mirror activeLevelPath in ref for use in loadTasks callback (stale closure avoidance)
   const activeLevelPathRef = useRef(activeLevelPath);
@@ -134,6 +136,75 @@ export function useSessionTracking(
   useEffect(() => {
     loadTasks();
   }, [activeLevelPath, loadTasks]);
+
+  // Start/stop the Rust filesystem watcher for TASKS.md as activeLevelPath changes.
+  // When the path changes, stop any existing watcher then start one rooted at the
+  // new path. Errors are logged but non-fatal — the existing poll/focus refresh
+  // triggers remain as fallbacks.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      // Best-effort stop only when a watcher was previously started.
+      if (lastStartedPathRef.current !== null) {
+        try {
+          await invoke("stop_tasks_md_watch");
+        } catch (err) {
+          console.warn("stop_tasks_md_watch failed (non-fatal):", err);
+        }
+        // Clear the ref regardless of stop result — best-effort.
+        lastStartedPathRef.current = null;
+      }
+
+      if (cancelled || !activeLevelPath) return;
+
+      try {
+        await invoke("start_tasks_md_watch", { path: activeLevelPath });
+        lastStartedPathRef.current = activeLevelPath;
+      } catch (err) {
+        console.warn("start_tasks_md_watch failed (non-fatal):", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      // Cleanup: stop the watcher only when one was actually started.
+      if (lastStartedPathRef.current !== null) {
+        lastStartedPathRef.current = null;
+        invoke("stop_tasks_md_watch").catch((err) => {
+          console.warn("stop_tasks_md_watch cleanup failed (non-fatal):", err);
+        });
+      }
+    };
+  }, [activeLevelPath]);
+
+  // Subscribe to `tasks-md-changed` events from the Rust watcher and refresh
+  // tasks when fired. The Rust side already debounces events at 300ms (the
+  // canonical coalescer), so no additional TS-side debounce is needed —
+  // stacking another debounce here would push end-to-end latency over budget.
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+
+    listen("tasks-md-changed", () => {
+      loadTasks();
+    })
+      .then((fn) => {
+        if (cancelled) {
+          fn();
+        } else {
+          unlisten = fn;
+        }
+      })
+      .catch((err) => {
+        console.warn("listen(tasks-md-changed) failed (non-fatal):", err);
+      });
+
+    return () => {
+      cancelled = true;
+      if (unlisten) unlisten();
+    };
+  }, [loadTasks]);
 
   // Periodic polling while sessions are active
   useEffect(() => {

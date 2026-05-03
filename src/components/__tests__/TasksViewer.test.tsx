@@ -92,17 +92,61 @@ describe("TasksViewer", () => {
     expect(screen.getByText("Start")).toBeTruthy();
   });
 
-  it("clicking Start on groomed task calls onStartTask with slug", () => {
+  it("clicking Start on groomed task calls onStartTask with slug and mode", () => {
     const onStartTask = vi.fn();
     const groomedOnlyMd = `## Backlog
 
 ### Features
 
-- [ ] my-task: A planned task [P1] [planned]`;
+- [ ] my-task: A planned task [P1] [code] [planned]`;
 
     render(<TasksViewer tasksMd={groomedOnlyMd} onStartTask={onStartTask} />);
     fireEvent.click(screen.getByText("Start"));
-    expect(onStartTask).toHaveBeenCalledWith("my-task");
+    expect(onStartTask).toHaveBeenCalledWith("my-task", "code");
+  });
+
+  it("renders mode-specific button labels for each pipeline mode", () => {
+    const modesMd = `## Backlog
+
+### Features
+
+- [ ] code-task: A code task [P1] [code] [planned]
+- [ ] manual-task: A manual task [P1] [manual] [planned]
+- [ ] debug-task: A debug task [P1] [debug] [planned]
+- [ ] sys-task: A reggie-system task [P1] [reggie-system] [planned]`;
+
+    render(<TasksViewer tasksMd={modesMd} onStartTask={vi.fn()} />);
+    expect(screen.getByText("Walk through")).toBeTruthy();
+    expect(screen.getByText("Debug")).toBeTruthy();
+    // code + reggie-system both render "Start" — expect 2
+    const starts = screen.getAllByText("Start");
+    expect(starts.length).toBe(2);
+  });
+
+  it("clicking 'Walk through' on a manual task dispatches with manual mode", () => {
+    const onStartTask = vi.fn();
+    const manualMd = `## Backlog
+
+### Features
+
+- [ ] do-thing: A manual task [P1] [manual] [planned]`;
+
+    render(<TasksViewer tasksMd={manualMd} onStartTask={onStartTask} />);
+    fireEvent.click(screen.getByText("Walk through"));
+    expect(onStartTask).toHaveBeenCalledWith("do-thing", "manual");
+  });
+
+  it("clicking 'Debug' on a debug task dispatches with debug mode", () => {
+    const onStartTask = vi.fn();
+    const debugMd = `## Backlog
+
+### Features
+
+- [ ] fix-bug: A debug task [P1] [debug] [planned]`;
+
+    render(<TasksViewer tasksMd={debugMd} onStartTask={onStartTask} />);
+    fireEvent.click(screen.getByText("Debug"));
+    expect(onStartTask).toHaveBeenCalledWith("fix-bug", "debug");
   });
 
   it("ungroomed tasks do not show Start button", () => {

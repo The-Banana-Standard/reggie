@@ -281,7 +281,9 @@ For each task (or grouped task), work through this cycle:
    - [specific question needing web research]
    ```
 
-**Efficiency shortcut**: For clearly trivial tasks (typo fix, config change, one-liner), do a quick `Grep` or `Read` directly. The enriched format still applies but Problem/Vision sections can be brief and the implementation plan should be minimal (files + 1-2 steps).
+**Ownership of facts.** Counts, line numbers, and type-field-presence claims are owned by you (the orchestrator), regardless of research method. If you opportunistically launch a subagent (Explore, reggie-researcher) for breadth-first mapping, treat its output as a lead, not a fact. Re-verify every quantitative claim with your own `Grep` / `wc` / `Read` before it lands in the plan. Subagents narrate; only the orchestrator's own tool calls produce trustworthy counts. The Verified Facts section in the plan template (step 2(c)) exists for your self-discipline and downstream pipeline audit — not for the user to spot-check.
+
+**Efficiency shortcut**: For clearly trivial tasks (typo fix, config change, one-liner), do a quick `Grep` or `Read` directly. The enriched format still applies but Problem/Vision sections can be brief and the implementation plan should be minimal (files + 1-2 steps). Even simple tasks still run a verification pass on any quantitative claim — one Read or one grep is plenty, and Verified Facts can collapse to a single line. Out of Scope, Verification Strategy, Success Metric, and Bail Conditions are skipped on simple plans; Plain-English Summary stays (it's always cheap).
 
 **If this isn't the first task**: Include a summary of prior task plans as context:
 ```
@@ -310,12 +312,83 @@ Based on what I found in the codebase:
 
 Ask questions in batches. Focus on things the codebase revealed that the user likely hasn't thought about — specific constants, existing patterns, related components that would need to change. **Never silently resolve an implementation choice that could go multiple ways.**
 
-**c) Build enriched description + plan** — From the user's answers + your research, construct the full task:
+**Plain-English protocol.** Two rules for how you talk during this stage:
+
+1. **Gloss technical concepts inline on first use.** When you introduce a term that the user might not know — a framework primitive, an architectural pattern, a piece of jargon — drop a one-line bracketed gloss the first time it appears. Don't make the user ask. The session is a learning surface as much as a planning surface.
+
+2. **Present tradeoffs as plain-English consequences before asking the user to choose.** Frame each option by what it means for the product, the user, the future maintainer — not by its technical label.
+
+   Bad (label-only):
+   > Should we store the JWT in an httpOnly cookie or in localStorage?
+
+   Good (consequence-first):
+   > Two options for where to keep the auth token:
+   >
+   > - **In an httpOnly cookie** (a cookie the browser holds but JS can't read): protects the token from any rogue script that sneaks onto the page; the cost is that we have to think about CSRF separately.
+   > - **In localStorage** (a JS-readable browser store): simpler to wire up and works the same on web and mobile webviews; the cost is that any XSS in our app can read it and impersonate the user.
+   >
+   > Which constraint matters more here?
+
+   The user is choosing between consequences, not between labels.
+
+**c) Build enriched description + plan** — From the user's answers + your research, construct the full task.
+
+**Verify before presenting.** Before you write the plan body, run three concrete checks against your own claims:
+
+1. **Re-Read every file you list in Affected Areas with your own tools.** Not "Explore said it does X" — open it.
+2. **Re-run every quantitative claim with fresh `grep` / `wc` / `Read`.** Counts ("23 callsites"), line ranges ("lines 318-359"), and "this section is N lines" claims all get re-derived now. Discrepancies between subagent narratives and direct verification get resolved in favor of direct verification.
+3. **Confirm every referenced type field exists.** If the plan asserts that `User.lastSeenAt` is a thing, open the type and confirm it.
+
+These three actions populate the Verified Facts section of the plan template. The user does not spot-check this section — you do, before they ever see the plan.
+
+**Plan-quality self-check.** Before you present, answer three yes/no questions:
+
+1. Can the user comprehend the task and the tradeoffs from the Plain-English Summary alone? ("Comprehend" means understanding, not skimming quickly — there is no time cap. If a Concept Gloss is missing, add it.)
+2. Can the implementing agent start cold from this task.md without re-researching? (Verified Facts present, file:line:function anchors on the Files list, decisions explain why rejected alternatives were rejected, Bail Conditions name the surprises that should escalate.)
+3. Is Out of Scope specific enough that an implementing agent could not ambiguously expand the work?
+
+A "no" on any of these means revise the plan before presenting, not after.
+
+The plan body itself follows this template:
 
 ```
 Here's the refined task:
 
 add-jwt-auth: Add JWT authentication to login endpoint
+
+  ## Plain-English Summary
+  Today, when a user logs in, the server keeps a record in its own
+  memory (a "session") and hands the browser a small ticket pointing
+  at that record. This works on the web but doesn't fit how the
+  mobile app talks to us — and it forces the server to remember
+  every logged-in user, which gets expensive.
+
+  We're switching to a self-contained ticket: a JWT (JSON Web Token).
+  The token itself carries the user's identity, signed by the server,
+  so the server doesn't need to remember anything between requests.
+  The browser will hold the token in a cookie that JavaScript can't
+  read (an httpOnly cookie), so a malicious script on the page can't
+  steal it. The mobile app gets the same token and stores it the
+  same way the platform recommends.
+
+  Two things we're choosing here matter to you: (1) we're replacing
+  sessions outright instead of running both side-by-side — cleaner
+  cutover, slightly more work to migrate every protected route at
+  once; (2) we're putting the token in an httpOnly cookie instead
+  of localStorage — better protection against script-based theft,
+  at the cost of having to handle CSRF separately.
+
+  Out of scope on this task: redesigning the login UI, multi-factor
+  auth, social login, and the existing user-management admin pages.
+
+  ## Concept Glosses
+  - **JWT**: a self-signed identity ticket the server can verify
+    without looking anything up — like a tamper-evident wristband.
+  - **httpOnly cookie**: a cookie the browser stores and sends, but
+    page JavaScript cannot read — protects the token from XSS theft.
+  - **CSRF**: an attack where a different site tricks the user's
+    browser into making an authenticated request on their behalf;
+    relevant once we're in cookie-land.
 
   ## Problem
   Login uses session cookies which don't work well for the mobile
@@ -332,30 +405,86 @@ add-jwt-auth: Add JWT authentication to login endpoint
   ## Affected Areas
   src/middleware/auth.ts, src/routes/login.ts, src/utils/
 
+  ## Verified Facts
+  - express-session is mounted at src/app.ts:42 with connect-redis store
+  - 14 routes call `req.session.userId` (grep "req\.session" → 14 hits
+    across src/routes/)
+  - User type at src/types/user.ts:8-22 has `id`, `email`, `role` —
+    these are the fields the JWT payload will carry
+  - jsonwebtoken@9.x already in package.json (added for an earlier
+    spike); no new dependency required
+
+  ## Out of Scope
+  - Login UI redesign (separate design task)
+  - Multi-factor auth and social login (future work)
+  - Admin user-management pages (different surface)
+  - Refresh-token rotation strategy beyond a basic refresh endpoint
+    (revisit once telemetry is in)
+
   ## Acceptance Criteria
   - JWT issued on successful login, stored in httpOnly cookie
   - All authenticated routes validate JWT instead of session
   - Token refresh mechanism prevents forced re-login
   - express-session dependency removed
 
+  ## Verification Strategy
+  - Unit tests for `signJwt` / `verifyJwt` in src/utils/jwt.test.ts
+    (valid token, expired token, tampered signature, missing claims)
+  - Integration test: login → protected route → 200; bad token → 401
+  - Regression: every existing route protected by the old session
+    middleware now passes its existing test suite under JWT middleware
+  - Manual smoke test: log in via web, hit /me, log out; confirm
+    cookie is set with HttpOnly and Secure flags in DevTools
+  - Edge case: clock skew between issuer and verifier (allow 30s leeway)
+
+  ## Success Metric
+  After deploy, no route returns 401 for a previously valid session;
+  Redis session-store memory drops to zero; mobile app's existing
+  staging build authenticates against the new endpoint without
+  client changes beyond reading `Set-Cookie`.
+
   ## Implementation Plan
-  ### Overview
-  Replace express-session with JWT-based auth using httpOnly cookies.
   ### Files
-  - NEW: src/utils/jwt.ts — JWT sign/verify utility
-  - MOD: src/middleware/auth.ts — Replace session validation with JWT
-  - MOD: src/routes/login.ts — Return JWT in httpOnly cookie
+  - NEW: src/utils/jwt.ts — `signJwt(payload)`, `verifyJwt(token)`
+  - MOD: src/middleware/auth.ts:1-58 (`requireAuth` function) —
+    replace session check with `verifyJwt` of `req.cookies.auth`
+  - MOD: src/routes/login.ts:34-70 (`POST /login` handler) — issue
+    JWT and set httpOnly cookie instead of starting a session
+  - NEW: src/routes/refresh.ts — `POST /refresh` rotates the token
+  - MOD: src/app.ts:42 — remove express-session mount
+  - MOD: package.json — drop `express-session`, `connect-redis`
   ### Approach
-  1. Create JWT utility with sign/verify using jsonwebtoken
-  2. Replace session middleware with JWT validation middleware
-  3. Update login route to return JWT in httpOnly cookie
-  4. Add token refresh endpoint
+  1. Add `signJwt` / `verifyJwt` utility with `jsonwebtoken`, default
+     1h expiry, HS256 signed with `process.env.JWT_SECRET`.
+  2. Replace `requireAuth` body to read `req.cookies.auth`, verify,
+     and attach the decoded payload to `req.user`.
+  3. Update `POST /login` to set `Set-Cookie: auth=<token>; HttpOnly;
+     Secure; SameSite=Lax; Max-Age=3600` on success.
+  4. Add `POST /refresh` that re-issues a token if the current one
+     is valid and within the refresh window.
+  5. Remove the express-session middleware mount from app.ts.
+  6. Drop the two dependencies from package.json and re-lock.
+  ### Bail Conditions
+  - If grep finds >20 `req.session` callsites (current count: 14),
+    stop and resurface — scope is bigger than estimated.
+  - If any route reads non-identity fields off `req.session`
+    (e.g. cart, draft state), stop — we'd be moving real state
+    into a token, which is the wrong fix.
+  - If `JWT_SECRET` is not present in the secrets manager for the
+    target env, do not stub it locally — escalate.
   ### Key Decisions
-  | Decision | Rationale |
-  | httpOnly cookie over localStorage | XSS protection |
-  | Clean replacement over parallel migration | User chose simplicity |
+  | Decision | Chosen | Rejected (and why) |
+  |----------|--------|--------------------|
+  | Token storage | httpOnly cookie | localStorage — XSS-readable; loses the main reason to switch |
+  | Migration shape | Clean replacement | Parallel sessions+JWT — temporary complexity, two auth paths to debug, never finishes |
+  | Algorithm | HS256 with shared secret | RS256 — overkill for a single backend, no consumer needs the public key |
+  | Refresh model | Short-lived JWT + refresh endpoint | Long-lived JWT — no revocation story; refresh + short TTL gives us a kill switch |
+  | Library | jsonwebtoken | jose — heavier, async API churn, no benefit at our scale |
   ### Risks
-  - Existing session-dependent code needs migration — grep for req.session
+  - Existing session-dependent code needs migration — grep for
+    `req.session`; mitigation captured in Bail Conditions.
+  - Cookie-based auth introduces CSRF surface — mitigation: SameSite=Lax
+    plus existing same-origin checks on state-changing routes.
 ```
 
 **Complexity classification** — determines the depth of `## Implementation Plan`:
@@ -377,12 +506,15 @@ add-jwt-auth: Add JWT authentication to login endpoint
 **d) User approval gate** — Present the enriched task and ask:
 
 ```
-Is this task ready? (approve / edit / dig deeper)
+Is this task ready? (approve / edit / dig deeper / explain X)
 ```
+
+The user evaluates **vision, approach, tradeoff, and boundary** at this gate — not Verified Facts. Quantitative claims have already been re-derived in step 2(c)'s "Verify before presenting" pass; the user does not spot-check them.
 
 - **approve** — Task is locked, move to next task
 - **edit** — User provides corrections, Claude revises and re-presents
-- **dig deeper** — Run another research pass on a specific aspect the user wants to explore
+- **dig deeper** — Run another research pass on a specific aspect — for **new investigation**, NOT for drift recovery (verification has already run; if the user is asking you to re-check a count, that's a sign verification was skipped and you should re-do step 2(c) silently rather than charge a "dig deeper" round)
+- **explain X** — Switch into teaching mode: explain concept X in plain English, show concrete code references from this codebase, use analogies if useful, then prompt to resume plan flow. The user can invoke this at any point in the session, not just at this gate. Keep teaching turns bounded — answer the question, offer to go deeper if asked, then return to the plan.
 
 **e) Planning discussion** — For complex tasks, discuss implementation choices interactively:
 
@@ -648,6 +780,15 @@ Each task gets a `.pipeline/[slug]/task.md` file containing the full enriched de
 # Task: [slug]
 [one-line description]
 
+## Plain-English Summary
+[user-domain prose: what this does, why this approach, what's
+changing, what isn't, plus any context the user needs to
+understand the change. Length is whatever it takes — not capped.]
+
+## Concept Glosses
+- **[term]**: [one-line plain-English gloss for technical terms used in the summary]
+- **[term]**: [...]
+
 ## Problem
 [what's wrong / what's needed]
 
@@ -660,6 +801,14 @@ Each task gets a `.pipeline/[slug]/task.md` file containing the full enriched de
 ## Affected Areas
 [file paths and directories]
 
+## Verified Facts
+- [load-bearing claim with file:line or verification command anchor]
+- [...]
+
+## Out of Scope
+- [explicit non-goal 1]
+- [explicit non-goal 2]
+
 ## Sub-items
 - [sub-item 1]
 - [sub-item 2]
@@ -668,27 +817,38 @@ Each task gets a `.pipeline/[slug]/task.md` file containing the full enriched de
 - [criterion 1]
 - [criterion 2]
 
+## Verification Strategy
+- [test list, edge cases, regression checks, manual smoke test]
+
+## Success Metric
+[observable end-to-end behavior tied to Problem; one paragraph]
+
 ## Implementation Plan
-### Overview
-[1-2 sentences on the approach]
 ### Files
-- NEW: [path] — [purpose]
-- MOD: [path] — [purpose]
+- NEW: [path:line:function] — [purpose]
+- MOD: [path:line:function] — [purpose]
 ### Approach
 1. [step]
 2. [step]
+### Bail Conditions
+- [when implementing agent should stop and escalate vs. adapt]
 ### Key Decisions
-| Decision | Rationale |
-|----------|-----------|
-| [choice] | [why] |
+| Decision | Chosen | Rejected (and why) |
+|----------|--------|--------------------|
+| [choice] | [pick] | [alternative — why rejected, or "(none viable)"] |
 ### Risks
 - [risk]: [mitigation]
 ```
 
 **Notes**:
 - `## Sub-items` only present for grouped tasks
-- `## Implementation Plan` is always present — minimal for simple tasks (files + 1-2 steps, no Key Decisions/Risks), full for complex tasks
+- `## Implementation Plan` is always present — minimal for simple tasks (files + 1-2 steps, no Bail Conditions/Key Decisions/Risks), full for complex tasks
+- `## Plain-English Summary` is always present (always cheap)
+- `## Concept Glosses` omitted if no unfamiliar terms are introduced
+- `## Verified Facts` collapses to a single line on simple plans, but is never skipped — verification still runs
+- `## Out of Scope`, `## Verification Strategy`, `## Success Metric`, and `### Bail Conditions` are skipped on simple plans
 - `## Context` may reference prior task plans (e.g., "Depends on add-jwt-auth which creates src/utils/jwt.ts")
+- The 3-column `### Key Decisions` table replaces the older 2-column (Decision | Rationale) format. Column 3 reads "(none viable)" when there is no rejected alternative worth naming.
 
 ### Writing Process
 
@@ -809,24 +969,80 @@ Bundled into polish-settings-screen. Now researching each task...
 
 ### Task 1 of 3: polish-settings-screen
 
-[Orchestrator explores settings screen code with Glob/Grep/Read...]
+[Orchestrator explores settings screen code with Glob/Grep/Read,
+re-counts SettingsRow callsites with grep, opens theme.ts directly...]
 
 Based on what I found in the codebase:
 
 1. SettingsRow uses HStack with .trailing alignment for toggles.
-   Should I switch to a consistent .leading alignment for all rows?
+   Two ways to make them line up:
+   - **Switch every row to .leading**: toggles sit at the start of
+     the row, which reads as "this is what you act on first" —
+     matches how iOS Settings does it.
+   - **Keep .trailing but fix the row width**: toggles stay on the
+     right edge but no longer drift; less visual change, doesn't
+     match the iOS Settings convention.
+   Which feel do you want?
 
-2. I see SECTION_GAP (24px) and ITEM_GAP (8px) in theme.ts.
-   The dashboard uses 16px between sections. Match that?
+2. I see SECTION_GAP (24px) and ITEM_GAP (8px) in theme.ts. The
+   dashboard uses 16px between sections. Matching the dashboard
+   gives the app one rhythm everywhere; sticking with 24 keeps
+   settings feeling "denser" than a content surface.
 
-3. The back button is a NavigationButton with default frame.
-   Standard iOS minimum is 44pt. Use .frame(minHeight: 44)?
+3. Tap targets — Apple's HIG says the minimum is 44pt. The back
+   button currently has no explicit frame. Bumping it to 44 is the
+   safe call; staying smaller is asking for a rejection note in
+   review.
 
-> 1. yes leading for all  2. yes match dashboard  3. yes 44pt
+> 1. leading for all — what does "leading" mean here exactly?
+
+[Teaching mode]
+"Leading" is SwiftUI's word for "where the line starts in the user's
+reading direction." In English, that's the left edge; in Arabic or
+Hebrew, the right edge. Saying `.leading` instead of `.left` means
+"start-of-row alignment, regardless of language" — so the layout
+stays correct if the app gets localized later. Concrete reference:
+src/components/SettingsRow.swift:18 currently uses `.trailing`; the
+change is one keyword.
+
+Want to keep going?
+
+> yes — and 2. match dashboard, 3. yes 44pt
+
+[Orchestrator re-Reads SettingsRow.swift, theme.ts, and
+NavigationButton.swift; re-runs grep for SettingsRow callsites;
+confirms the design tokens exist with the values claimed.]
 
 Here's the refined task:
 
 polish-settings-screen: Polish settings screen UI
+
+  ## Plain-English Summary
+  The settings screen looks unfinished next to the rest of the app.
+  Three small things make it feel that way: toggles drift around
+  the row instead of lining up, the spacing between sections is
+  bigger than anywhere else in the app, and the back button is
+  small enough that it's awkward to tap on a phone.
+
+  This task fixes all three at once — they're all in the same
+  screen, and the alignment fix changes the same component used
+  everywhere on the screen, so it's cheaper to do them together
+  than one at a time. The tradeoff worth knowing: we're matching
+  the dashboard's rhythm (16px between sections, not the current
+  24px). That makes the whole app feel like one product, but it
+  does change the visual density of settings — content gets a hair
+  closer together.
+
+  Out of scope: rebuilding the settings information architecture,
+  changing what settings exist, dark-mode polish, settings on iPad.
+
+  ## Concept Glosses
+  - **`.leading` alignment**: SwiftUI's term for "start of the row"
+    (left in LTR languages); makes the layout correct in any
+    locale, unlike `.left` which is hard-coded.
+  - **HIG**: Apple's Human Interface Guidelines — the design rules
+    Apple's review team checks against; 44pt minimum tap target
+    is one of them.
 
   ## Problem
   The settings screen feels unfinished — toggles don't align
@@ -834,8 +1050,8 @@ polish-settings-screen: Polish settings screen UI
   and the back button tap target is too small.
 
   ## Vision
-  Settings should match the dashboard's polish level — clean
-  alignment, consistent rhythm, comfortable tap targets.
+  Settings matches the dashboard's polish level — clean alignment,
+  consistent rhythm, comfortable tap targets.
 
   ## Context
   Pre-launch polish pass. Dashboard already cleaned up.
@@ -843,7 +1059,23 @@ polish-settings-screen: Polish settings screen UI
   across all settings sections.
 
   ## Affected Areas
-  src/screens/Settings/, src/components/SettingsRow, theme.ts
+  src/screens/Settings/, src/components/SettingsRow.swift, theme.ts,
+  src/components/NavigationButton.swift
+
+  ## Verified Facts
+  - SettingsRow used in 7 places (`grep -rn SettingsRow src/screens/`)
+  - SettingsRow.swift:18 uses `HStack(alignment: .trailing)`
+  - theme.ts:14 defines `SECTION_GAP = 24`; theme.ts:15 defines
+    `ITEM_GAP = 8`; dashboard reads `SECTION_GAP_DASHBOARD = 16` at
+    theme.ts:18
+  - NavigationButton.swift:22 declares the button without an explicit
+    `.frame(...)` modifier
+
+  ## Out of Scope
+  - Settings information architecture (what settings exist, grouping)
+  - Dark-mode polish — separate task
+  - iPad-specific layout adjustments
+  - Renaming or consolidating SECTION_GAP / ITEM_GAP design tokens
 
   ## Sub-items
   - Fix toggle alignment to .leading in all SettingsRow instances
@@ -856,7 +1088,52 @@ polish-settings-screen: Polish settings screen UI
   - Back button passes minimum 44pt tap target
   - Visual consistency with dashboard screen
 
-Is this task ready? (approve / edit / dig deeper)
+  ## Verification Strategy
+  - Snapshot tests on Settings screen and three sub-screens that
+    use SettingsRow (Notifications, Account, Privacy)
+  - Visual diff against the dashboard: side-by-side at 24/16 spacing
+    to confirm the rhythm matches
+  - Manual: run on a small phone (iPhone SE) and confirm the back
+    button is comfortable to tap at the screen edge
+  - Regression: any other surface that imports SECTION_GAP picks up
+    the new value cleanly (Notifications detail, About screen)
+
+  ## Success Metric
+  A user moving from the dashboard into Settings doesn't feel a
+  "stylistic seam" between the two; the screen passes a HIG
+  tap-target audit; design ships sign-off without a follow-up
+  polish ticket.
+
+  ## Implementation Plan
+  ### Files
+  - MOD: src/components/SettingsRow.swift:18 (`HStack` alignment)
+  - MOD: src/components/NavigationButton.swift:22 (add `.frame`)
+  - MOD: theme.ts:14 (`SECTION_GAP = 16`)
+  ### Approach
+  1. Change SettingsRow's HStack alignment to `.leading`.
+  2. Drop SECTION_GAP from 24 to 16 in theme.ts; let consumers
+     pick it up via the existing import.
+  3. Add `.frame(minHeight: 44)` to NavigationButton.
+  4. Re-run snapshot suite, accept new baselines after manual review.
+  ### Bail Conditions
+  - If a non-Settings surface relies on SECTION_GAP=24 visually
+    (i.e. snapshots break with intent, not regression), stop and
+    surface — the token may need to be split rather than changed.
+  - If SettingsRow has callsites that pass alignment in (override
+    pattern), stop — the change moves from "one keyword" to
+    "audit every callsite".
+  ### Key Decisions
+  | Decision | Chosen | Rejected (and why) |
+  |----------|--------|--------------------|
+  | Toggle alignment | `.leading` everywhere | Keep `.trailing` and lock width — doesn't match iOS Settings convention; users perceive "right-side controls" as secondary |
+  | Section spacing | 16px (match dashboard) | Keep 24px — leaves the app with two rhythms; settings reads as a different product |
+  | Tap target | `.frame(minHeight: 44)` | Increase padding only — works visually but doesn't guarantee the 44pt hit area HIG audits for |
+  | Token strategy | Edit SECTION_GAP in place | Introduce SETTINGS_SECTION_GAP — (none viable; we explicitly want one rhythm) |
+  ### Risks
+  - Snapshot churn across multiple screens — mitigation: run the
+    suite once, review baselines together rather than file-by-file.
+
+Is this task ready? (approve / edit / dig deeper / explain X)
 
 > approve
 

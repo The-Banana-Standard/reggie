@@ -218,7 +218,7 @@ export function useTerminal() {
   }, []);
 
   const addHeadlessSession = useCallback(
-    async (projectPath: string, initialCommand: string, label: string, model?: string, effort?: string) => {
+    async (projectPath: string, initialCommand: string, label: string, model?: string, effort?: string, autoRelaunch?: boolean) => {
       try {
         const terminalId = await spawnHeadlessTerminal(projectPath, initialCommand, model, effort);
         const projectName = projectPath.split(/[/\\]/).pop() || projectPath;
@@ -232,6 +232,7 @@ export function useTerminal() {
           exitCode: null,
           bufferSize: 0,
           completed: false,
+          autoRelaunch,
         };
         setHeadlessSessions((prev) => [...prev, session]);
         return terminalId;

@@ -54,6 +54,8 @@ const RUST_COMMANDS: Record<string, string[]> = {
   save_attachment_image: ["projectPath", "dirName", "extension", "imageBytes"],
   cleanup_attachments: ["projectPath", "dirNames"],
   list_orphan_attachments: ["projectPath"],
+  start_tasks_md_watch: ["path"],
+  stop_tasks_md_watch: [],
 
   // git.rs
   get_git_log: ["projectPath", "limit"],
@@ -76,6 +78,11 @@ const RUST_COMMANDS: Record<string, string[]> = {
   // bookmarks.rs
   read_bookmarks: [],
   write_bookmarks: ["bookmarks"],
+
+  // pipeline_bindings.rs
+  get_pipeline_bindings: [],
+  set_pipeline_binding: ["mode", "pipelineName"],
+  clear_pipeline_binding: ["mode"],
 
   // installer.rs — src-tauri/src/installer.rs
   get_install_status: [],

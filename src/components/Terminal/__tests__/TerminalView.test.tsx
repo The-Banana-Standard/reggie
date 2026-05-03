@@ -36,8 +36,20 @@ vi.mock("@xterm/addon-fit", () => ({
   })),
 }));
 
+// Captures the click handler passed to WebLinksAddon so tests can invoke it directly
+let capturedWebLinksHandler: ((event: MouseEvent, uri: string) => void) | undefined;
+
 vi.mock("@xterm/addon-web-links", () => ({
-  WebLinksAddon: vi.fn(),
+  WebLinksAddon: vi.fn().mockImplementation((handler?: (event: MouseEvent, uri: string) => void) => {
+    capturedWebLinksHandler = handler;
+  }),
+}));
+
+// ── Mock @tauri-apps/plugin-shell ──
+const mockShellOpen = vi.fn(() => Promise.resolve());
+
+vi.mock("@tauri-apps/plugin-shell", () => ({
+  open: (...args: unknown[]) => mockShellOpen(...args),
 }));
 
 // ── Mock terminal-service ──
@@ -904,5 +916,51 @@ describe("TerminalView reactive theme switching", () => {
 
     // The guard `currentTheme` is falsy so nothing is assigned
     expect(latestMockXtermOptions.theme).toBeUndefined();
+  });
+});
+
+describe("TerminalView WebLinksAddon click handler", () => {
+  beforeEach(() => {
+    installSchedulingMocks();
+    capturedWebLinksHandler = undefined;
+    mockShellOpen.mockClear();
+    mockXtermOpen.mockClear();
+    mockLoadAddon.mockClear();
+    mockSpawnTerminal.mockClear();
+    defaultProps.onTerminalSpawned.mockClear();
+  });
+
+  afterEach(() => {
+    uninstallSchedulingMocks();
+  });
+
+  it("passes a click handler to WebLinksAddon on init", () => {
+    render(<TerminalView {...defaultProps} isVisible={true} />);
+    expect(capturedWebLinksHandler).toBeTypeOf("function");
+  });
+
+  it("click handler calls shell.open() with the URI", async () => {
+    render(<TerminalView {...defaultProps} isVisible={true} />);
+
+    expect(capturedWebLinksHandler).toBeDefined();
+    const fakeEvent = {} as MouseEvent;
+    capturedWebLinksHandler!(fakeEvent, "https://example.com");
+
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockShellOpen).toHaveBeenCalledTimes(1);
+    expect(mockShellOpen).toHaveBeenCalledWith("https://example.com");
+  });
+
+  it("click handler does not throw when shell.open() rejects", async () => {
+    mockShellOpen.mockRejectedValueOnce(new Error("denied"));
+
+    render(<TerminalView {...defaultProps} isVisible={true} />);
+
+    expect(capturedWebLinksHandler).toBeDefined();
+    const fakeEvent = {} as MouseEvent;
+    expect(() => capturedWebLinksHandler!(fakeEvent, "https://example.com")).not.toThrow();
+
+    await act(async () => { await Promise.resolve(); });
   });
 });

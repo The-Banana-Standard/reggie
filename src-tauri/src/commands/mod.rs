@@ -1,5 +1,6 @@
 pub mod terminal;
 pub mod bookmarks;
+pub mod pipeline_bindings;
 pub mod claude_data;
 pub mod frontmatter;
 pub mod git;

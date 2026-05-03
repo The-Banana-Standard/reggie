@@ -150,14 +150,13 @@ After all criteria are walked:
    ```
 
 2. **Decide completion state**:
-   - If at least one criterion was marked **done** AND no criteria are still pending (every criterion was answered): mark the task `[x]` in TASKS.md.
-   - If ALL criteria were skipped: do NOT mark `[x]` — print "All criteria skipped — leaving task open." and exit with `~~REGGIE:DONE:reggie-manual-task:stopped~~`.
+   - If at least one criterion was marked **done** AND no criteria are still pending (every criterion was answered): migrate the task from TASKS.md to HISTORY.md.
+   - If ALL criteria were skipped: do NOT migrate — print "All criteria skipped — leaving task open." and exit with `~~REGGIE:DONE:reggie-manual-task:stopped~~`.
    - Edge case: ask the user "Mark task as complete in TASKS.md? (y/n)" if there's any ambiguity (e.g., mixed done/skip results that may or may not satisfy the task's intent).
 
-3. **Mark `[x]` in TASKS.md**: Use the standard meta-commit pattern from `~/.claude/agents/reggie-code-manager.md` → "Metadata Commit System". Specifically:
-   - Edit TASKS.md: replace `- [ ] <slug>:` with `- [x] <slug>:` on that task line. Preserve all metadata tags and any indented `files:` / `>` lines.
+3. **Migrate from TASKS.md to HISTORY.md**: Use the standard meta-commit pattern from `~/.claude/agents/reggie-code-manager.md` → "Metadata Commit System". Specifically:
+   - **Remove the slug's line from TASKS.md** and any indented `files: ...` / `> ...` continuation lines beneath it (until the next blank line or next task line). The slug's row must be deleted, not toggled to `[x]` — this is a true migration, matching how code-workflow's COMPLETE step handles it.
    - Append to `HISTORY.md`: `- [x] <slug>: <description> -- manual, completed [today's date]`. Create HISTORY.md with a `# Completed Tasks` header if it doesn't exist.
-   - Remove the original `- [ ]` entry from TASKS.md (move semantics, matching how code-workflow's COMPLETE step handles it).
    - Commit metadata: `git add TASKS.md HISTORY.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: complete <slug> (manual)" --no-gpg-sign 2>/dev/null`.
 
 4. **Clean up `.pipeline/<slug>/`**: Delete the directory: `rm -rf .pipeline/<slug>/`. The task.md is consumed at completion just like code-workflow does.

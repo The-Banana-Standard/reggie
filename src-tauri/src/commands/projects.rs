@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -55,7 +55,7 @@ const SKIP_DIRS: &[&str] = &[
 fn find_git_repos(dir: &Path) -> Vec<DirectoryEntry> {
     let mut repos: Vec<DirectoryEntry> = Vec::new();
     find_git_repos_recursive(dir, &mut repos);
-    repos.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    repos.sort_by_key(|a| a.name.to_lowercase());
     repos
 }
 
@@ -126,7 +126,7 @@ fn list_subdirs(dir: &Path) -> Result<Vec<DirectoryEntry>, String> {
             name,
         });
     }
-    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    entries.sort_by_key(|a| a.name.to_lowercase());
     Ok(entries)
 }
 
@@ -424,11 +424,65 @@ pub struct ParallelizableTaskSlug {
     pub mode: Option<String>,
 }
 
+/// Reason a backlog task was excluded from `backlog_slugs` despite being
+/// `planned && !checked`. Tagged enum: serialized as
+/// `{ "type": "manual" }` or `{ "type": "blockedBy", "data": "<slug>" }`.
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+pub enum BlockedReason {
+    Manual,
+    BlockedBy(String),
+}
+
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParallelizableTasksResult {
-    pub slugs: Vec<ParallelizableTaskSlug>,
+    /// Slugs already running as `### header` blocks under `## Active Tasks`.
+    /// These never feed the conflict prune below and are intentionally not
+    /// re-launched by the frontend — they are surfaced so callers know what
+    /// is in flight (e.g. for cap math).
+    pub active_slugs: Vec<ParallelizableTaskSlug>,
+    /// Backlog candidates the frontend may launch, after dependency and
+    /// (backlog-vs-backlog) conflict pruning.
+    pub backlog_slugs: Vec<ParallelizableTaskSlug>,
     pub total_groomed: usize,
+    /// Map of slug → reason it was excluded from `backlog_slugs`. Populated
+    /// for manual-mode tasks (always `Manual`) and for code/debug tasks whose
+    /// `depends:` set is not fully satisfied (`BlockedBy(<first-unmet-dep>)`).
+    /// Conflict-pruned tasks are intentionally not captured here.
+    pub blocked: HashMap<String, BlockedReason>,
+}
+
+/// Read `HISTORY.md` (sibling of TASKS.md) and return the set of completed slugs.
+/// Returns an empty set if the file is missing or unreadable.
+///
+/// HISTORY.md uses `- [x] <slug> <description> -- <date>` (no colon after slug),
+/// distinct from TASKS.md's `- [x] <slug>: <description> [tags]` format. The slug
+/// is the first whitespace-delimited token; a trailing colon is tolerated so this
+/// helper also accepts TASKS.md-shaped lines if HISTORY.md ever borrows that format.
+fn read_history_md_slugs(repo_path: &Path) -> HashSet<String> {
+    let history_path = repo_path.join("HISTORY.md");
+    let content = match fs::read_to_string(&history_path) {
+        Ok(c) => c,
+        Err(_) => return HashSet::new(),
+    };
+    let mut slugs = HashSet::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        let rest = match trimmed
+            .strip_prefix("- [x] ")
+            .or_else(|| trimmed.strip_prefix("- [X] "))
+        {
+            Some(r) => r,
+            None => continue,
+        };
+        let first_token = rest.split_whitespace().next().unwrap_or("");
+        let slug = first_token.trim_end_matches(':');
+        if is_safe_slug(slug) {
+            slugs.insert(slug.to_string());
+        }
+    }
+    slugs
 }
 
 /// Parse a single task line into a TaskEntry, or None if it doesn't match.
@@ -446,7 +500,7 @@ fn parse_task_line(line: &str) -> Option<TaskEntry> {
     // Try slug: description format (colon separator), else informal checkbox task
     let (slug, description, tag_source_owned) = if let Some(colon_pos) = rest.find(':') {
         let slug = rest[..colon_pos].trim().to_string();
-        if slug.is_empty() {
+        if !is_safe_slug(&slug) {
             return None;
         }
         let after_colon = &rest[colon_pos + 1..];
@@ -456,7 +510,9 @@ fn parse_task_line(line: &str) -> Option<TaskEntry> {
         };
         (slug, description, after_colon.to_string())
     } else {
-        // No colon — informal checkbox task, generate slug from text
+        // No colon — informal checkbox task, generate slug from text.
+        // to_kebab_case uses c.is_alphanumeric() which already excludes control chars
+        // by construction; no additional validation needed.
         let description = match rest.find('[') {
             Some(bracket_pos) => rest[..bracket_pos].trim().to_string(),
             None => rest.trim().to_string(),
@@ -530,21 +586,41 @@ fn parse_task_line(line: &str) -> Option<TaskEntry> {
 
 #[tauri::command]
 pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTasksResult, String> {
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
 
     let tasks_path = Path::new(&project_path).join("TASKS.md");
     let content = fs::read_to_string(&tasks_path)
         .map_err(|e| format!("Failed to read TASKS.md: {}", e))?;
 
-    // Collect all checked slugs from the entire file (for dependency resolution)
-    let checked_slugs: HashSet<String> = content
+    // Collect all checked slugs (for dependency resolution).
+    // Source 1: TASKS.md `[x]` lines — covers stale `[x]` lines that may still
+    // linger from before the delete-on-complete migration semantics.
+    // Source 2: HISTORY.md `[x]` lines — the post-migration source of truth
+    // for completed work. Without this, every dep on historical work would
+    // silently block once `meta: complete` stops leaving `[x]` rows in TASKS.md.
+    let mut checked_slugs: HashSet<String> = content
         .lines()
         .filter_map(parse_task_line)
         .filter(|t| t.checked)
         .map(|t| t.slug)
         .collect();
+    checked_slugs.extend(read_history_md_slugs(Path::new(&project_path)));
 
-    // First pass: collect active task slugs from ## Active Tasks section (### headers)
+    // Build a slug -> mode map by parsing every task line in the entire file.
+    // This is intentionally NOT section-gated: the original tagged entry for
+    // an active slug typically lives outside `## Active Tasks` (e.g. checked
+    // off in `## Done` or still listed in `## Backlog`). We use this map only
+    // to populate `mode` on active slugs — backlog mode flows through
+    // `parse_task_line` directly.
+    let slug_to_mode: HashMap<String, Option<String>> = content
+        .lines()
+        .filter_map(parse_task_line)
+        .map(|t| (t.slug, t.mode))
+        .collect();
+
+    // First pass: collect active task slugs from ## Active Tasks section (### headers).
+    // Mode is filled in via the cross-reference map above; falls back to None
+    // when no original entry survives in the file.
     let mut active_slugs: Vec<ParallelizableTaskSlug> = Vec::new();
     {
         let mut in_active = false;
@@ -563,11 +639,12 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
             }
             if in_active && trimmed.starts_with("### ") {
                 let slug = trimmed["### ".len()..].trim().to_string();
-                if !slug.is_empty() {
+                if is_safe_slug(&slug) {
+                    let mode = slug_to_mode.get(&slug).cloned().unwrap_or(None);
                     active_slugs.push(ParallelizableTaskSlug {
                         slug,
                         tier: None,
-                        mode: None,
+                        mode,
                     });
                 }
             }
@@ -598,25 +675,55 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
         }
     }
 
-    // Filter to planned, unchecked tasks. Exclude manual-mode tasks: they require
-    // human-in-the-loop walk-through and must not be auto-dispatched.
-    let groomed: Vec<&TaskEntry> = backlog_tasks
-        .iter()
-        .filter(|t| t.planned && !t.checked && t.mode.as_deref() != Some("manual"))
-        .collect();
+    // Walk planned-unchecked backlog tasks, capturing per-task blocked reasons
+    // for the UI banner. Manual-mode tasks are excluded from `groomed` (they
+    // require human-in-the-loop walk-through) but recorded as `Manual` blockers
+    // so the frontend can surface them. Tasks with at least one unmet `depends:`
+    // are recorded as `BlockedBy(<first-unmet-dep>)`. Conflict-pruned tasks are
+    // intentionally not captured (rare; would require duplicating prune logic).
+    let mut blocked: HashMap<String, BlockedReason> = HashMap::new();
+    let mut groomed: Vec<&TaskEntry> = Vec::new();
+    for task in backlog_tasks.iter() {
+        if !task.planned || task.checked {
+            continue;
+        }
+        if task.mode.as_deref() == Some("manual") {
+            blocked.insert(task.slug.clone(), BlockedReason::Manual);
+            continue;
+        }
+        groomed.push(task);
+    }
     let total_groomed = groomed.len();
 
-    // Filter to ready tasks (all dependencies satisfied)
-    let mut ready: Vec<&TaskEntry> = groomed
-        .into_iter()
-        .filter(|t| t.depends.iter().all(|dep| checked_slugs.contains(dep)))
-        .collect();
+    // Filter to ready tasks (all dependencies satisfied). Tasks with any
+    // unmet dep are recorded into `blocked` with the first unmet slug.
+    let mut ready: Vec<&TaskEntry> = Vec::new();
+    for task in groomed.into_iter() {
+        let unmet = task
+            .depends
+            .iter()
+            .find(|dep| !checked_slugs.contains(dep.as_str()));
+        match unmet {
+            Some(dep) => {
+                blocked.insert(task.slug.clone(), BlockedReason::BlockedBy(dep.clone()));
+            }
+            None => ready.push(task),
+        }
+    }
 
     // Sort by priority (P1=1 first)
     ready.sort_by_key(|t| t.priority);
 
-    // Start with active slugs, then fill remaining capacity from backlog
-    let mut selected: Vec<ParallelizableTaskSlug> = active_slugs;
+    // Backlog-only conflict prune.
+    //
+    // Active slugs never feed the conflict prune; cross-domain backlog conflicts
+    // are intentionally preserved. Earlier this loop seeded `selected` with
+    // `active_slugs`, which silently dropped any backlog task that listed an
+    // active slug in its `[conflicts: ...]` tag (the cross-domain dispatch
+    // bug investigated in `.pipeline/investigate-cross-domain-batch-start`).
+    // Restricting to backlog-vs-backlog fixes that without weakening the
+    // user-authored conflict semantics within backlog.
+    let mut selected: Vec<ParallelizableTaskSlug> = Vec::new();
     let mut selected_conflicts: HashSet<String> = HashSet::new();
 
     for task in &ready {
@@ -642,8 +749,10 @@ pub fn get_parallelizable_tasks(project_path: String) -> Result<ParallelizableTa
     }
 
     Ok(ParallelizableTasksResult {
-        slugs: selected,
+        active_slugs,
+        backlog_slugs: selected,
         total_groomed,
+        blocked,
     })
 }
 
@@ -983,6 +1092,19 @@ pub fn append_ungroomed_tasks(
 /// non-Read-tool-friendly formats are rejected at the boundary.
 const ALLOWED_IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp"];
 
+/// Validate that a task slug contains only safe characters: `[A-Za-z0-9._-]`.
+/// Rejects empty strings, `.`, `..`, and any control characters (including `\r`,
+/// `\n`). Only applied to colon-style slugs and active-section headers — the
+/// no-colon kebab path uses `to_kebab_case` which already excludes control chars
+/// by construction, and restricting it would break Unicode task descriptions.
+fn is_safe_slug(name: &str) -> bool {
+    if name.is_empty() || name == "." || name == ".." {
+        return false;
+    }
+    name.chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-')
+}
+
 /// Validate that a directory name is safe to use as a single path component
 /// under `.reggie/attachments/`: non-empty, no path separators, no `..`, only
 /// `[a-zA-Z0-9_-]` characters.
@@ -1194,13 +1316,98 @@ fn extract_attachment_dir_refs(content: &str, out: &mut HashSet<String>) {
     }
 }
 
+/// Validate and canonicalize a path requested for recursive watching.
+///
+/// Rejects root, the user's home directory, and any ancestor of the user's
+/// home directory — recursively watching these would exhaust FSEvents/inotify
+/// resources. Both `path` and `home` are canonicalized so symlinked or
+/// otherwise-aliased home directories still match. Returns the canonical path
+/// on success.
+fn validate_watch_path(path: &Path, home: &Path) -> Result<PathBuf, String> {
+    let canonical = fs::canonicalize(path)
+        .map_err(|e| format!("Path cannot be canonicalized: {}: {}", path.display(), e))?;
+
+    // Canonicalize home for matching, but keep the raw form too — if home is
+    // unresolvable (e.g. a stale symlink) we still want to match the literal.
+    let canonical_home = fs::canonicalize(home).unwrap_or_else(|_| home.to_path_buf());
+
+    // Reject filesystem root.
+    if canonical.parent().is_none() {
+        return Err(format!("Path is too broad to watch: {}", canonical.display()));
+    }
+
+    // Reject equality with either form of home.
+    if canonical == canonical_home || canonical == home {
+        return Err(format!("Path is too broad to watch: {}", canonical.display()));
+    }
+
+    // Reject ancestors of canonical home (covers `/`, `/Users`, `/home`).
+    if canonical_home.starts_with(&canonical) {
+        return Err(format!("Path is too broad to watch: {}", canonical.display()));
+    }
+
+    Ok(canonical)
+}
+
+/// Start (or restart) the `TASKS.md` filesystem watcher rooted at `path`.
+///
+/// Replaces any existing watcher. Emits `tasks-md-changed` events on the app
+/// handle when any `TASKS.md` under the watched tree is modified. Tolerates
+/// missing `TASKS.md` files — events fire only when one is actually touched.
+#[tauri::command]
+pub async fn start_tasks_md_watch(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, crate::state::AppState>,
+    path: String,
+) -> Result<(), String> {
+    let path_buf = PathBuf::from(&path);
+    let home = dirs::home_dir()
+        .ok_or_else(|| "Could not determine home directory".to_string())?;
+    let canonical = validate_watch_path(&path_buf, &home)?;
+
+    // Lock first, drop the old watcher, THEN construct the new one — this
+    // avoids any window where two overlapping watchers are alive at once and
+    // could double-emit events. If `start()` fails we end up with no watcher,
+    // which is acceptable: the frontend has poll/focus fallbacks and a failure
+    // here means the path is bad anyway.
+    let mut guard = state.tasks_watcher.lock().await;
+    *guard = None;
+
+    let new_watcher = crate::watchers::tasks_md::start(app, canonical)
+        .map_err(|e| format!("Failed to start TASKS.md watcher: {}", e))?;
+    *guard = Some(new_watcher);
+    Ok(())
+}
+
+/// Stop the `TASKS.md` filesystem watcher, if one is active. No-op otherwise.
+#[tauri::command]
+pub async fn stop_tasks_md_watch(
+    state: tauri::State<'_, crate::state::AppState>,
+) -> Result<(), String> {
+    let mut guard = state.tasks_watcher.lock().await;
+    *guard = None;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     /// Extract slug names from a ParallelizableTasksResult for easy assertion.
+    /// Returns `active_slugs` concatenated with `backlog_slugs`, mirroring the
+    /// previous combined `slugs` field so existing assertions stay valid.
     fn slug_names(result: &ParallelizableTasksResult) -> Vec<String> {
-        result.slugs.iter().map(|s| s.slug.clone()).collect()
+        result
+            .active_slugs
+            .iter()
+            .chain(result.backlog_slugs.iter())
+            .map(|s| s.slug.clone())
+            .collect()
+    }
+
+    /// Just the backlog slug names.
+    fn backlog_slug_names(result: &ParallelizableTasksResult) -> Vec<String> {
+        result.backlog_slugs.iter().map(|s| s.slug.clone()).collect()
     }
 
     // --- merge_deps ---
@@ -1252,14 +1459,14 @@ mod tests {
     fn has_extension_in_dir_finds_extension() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::File::create(dir.path().join("project.xcodeproj")).unwrap();
-        assert!(has_extension_in_dir(&dir.path().to_path_buf(), "xcodeproj"));
+        assert!(has_extension_in_dir(dir.path(), "xcodeproj"));
     }
 
     #[test]
     fn has_extension_in_dir_no_match() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::File::create(dir.path().join("file.txt")).unwrap();
-        assert!(!has_extension_in_dir(&dir.path().to_path_buf(), "xcodeproj"));
+        assert!(!has_extension_in_dir(dir.path(), "xcodeproj"));
     }
 
     // --- read_file_truncated ---
@@ -1327,7 +1534,7 @@ mod tests {
             "# My Project\n\nThis is the description of the project.\n\n## Getting Started\n",
         ).unwrap();
 
-        let result = read_readme_excerpt(&dir.path().to_path_buf());
+        let result = read_readme_excerpt(dir.path());
         assert!(result.is_some());
         assert_eq!(result.unwrap(), "This is the description of the project.");
     }
@@ -1340,7 +1547,7 @@ mod tests {
             "# My Project\n\n[![Build](https://badge.svg)](https://link)\n![Logo](logo.png)\n\nActual description here.\n",
         ).unwrap();
 
-        let result = read_readme_excerpt(&dir.path().to_path_buf());
+        let result = read_readme_excerpt(dir.path());
         assert!(result.is_some());
         assert_eq!(result.unwrap(), "Actual description here.");
     }
@@ -1348,7 +1555,7 @@ mod tests {
     #[test]
     fn read_readme_excerpt_no_readme() {
         let dir = tempfile::tempdir().unwrap();
-        let result = read_readme_excerpt(&dir.path().to_path_buf());
+        let result = read_readme_excerpt(dir.path());
         assert!(result.is_none());
     }
 
@@ -2264,6 +2471,104 @@ mod tests {
         assert_eq!(task.depends, vec!["slug-a".to_string()]);
     }
 
+    // --- is_safe_slug ---
+
+    #[test]
+    fn is_safe_slug_accepts_valid_slugs() {
+        assert!(is_safe_slug("prepare-v2.0.0-release"));
+        assert!(is_safe_slug("add-jwt-auth"));
+        assert!(is_safe_slug("slug_with_under"));
+        assert!(is_safe_slug("a"));
+    }
+
+    #[test]
+    fn is_safe_slug_rejects_invalid_slugs() {
+        assert!(!is_safe_slug(""));
+        assert!(!is_safe_slug(".."));
+        assert!(!is_safe_slug("bad\rslug"));
+        assert!(!is_safe_slug("bad\nslug"));
+        assert!(!is_safe_slug("bad\tslug"));
+        assert!(!is_safe_slug("bad;slug"));
+        assert!(!is_safe_slug("bad/slug"));
+        assert!(!is_safe_slug("bad slug"));
+        assert!(!is_safe_slug("badé"));
+    }
+
+    #[test]
+    fn is_safe_slug_dot_edge_cases() {
+        // Single `.` is in the whitelist `[A-Za-z0-9._-]` and the function only
+        // special-cases empty / `.` / `..`. Pin that `.` is rejected (special-cased
+        // alongside `..`) and that strings consisting purely of allowed punctuation
+        // like `_` or `-` pass.
+        assert!(!is_safe_slug("."));
+        assert!(!is_safe_slug(".."));
+        assert!(is_safe_slug("_"));
+        assert!(is_safe_slug("-"));
+        assert!(is_safe_slug("..."));
+        assert!(is_safe_slug("v1.2.3"));
+    }
+
+    #[test]
+    fn parse_task_line_rejects_cr_in_colon_slug() {
+        assert!(parse_task_line("- [ ] bad\rslug: description").is_none());
+    }
+
+    #[test]
+    fn parse_task_line_accepts_clean_colon_slug() {
+        let task = parse_task_line("- [ ] good-slug: description [planned]").unwrap();
+        assert_eq!(task.slug, "good-slug");
+    }
+
+    #[test]
+    fn active_section_parser_drops_multiword_header() {
+        // A free-form header like "### slug with spaces" parses into a slug
+        // containing spaces, which `is_safe_slug` must reject so we don't
+        // launch a session against an attacker-controlled descriptive heading.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### slug with spaces\n\
+             ### good-slug\n\n\
+             ## Backlog\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        let active: Vec<String> = result.active_slugs.iter().map(|s| s.slug.clone()).collect();
+        assert_eq!(active, vec!["good-slug"]);
+    }
+
+    #[test]
+    fn active_section_parser_drops_dot_dot_header() {
+        // A header of `### ..` would, without the is_safe_slug guard, allow
+        // an attacker to traverse out of the worktree root.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### ..\n\
+             ### good-slug\n\n\
+             ## Backlog\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        let active: Vec<String> = result.active_slugs.iter().map(|s| s.slug.clone()).collect();
+        assert_eq!(active, vec!["good-slug"]);
+    }
+
+    #[test]
+    fn active_section_parser_drops_unsafe_slug_keeps_safe() {
+        // Active-section parser reads `### slug` lines under `## Active Tasks`.
+        // A header containing an embedded `\r` must be silently dropped while
+        // a clean header on the same page survives.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### bad\rslug\n\
+             ### good-slug\n\n\
+             ## Backlog\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        let active: Vec<String> = result.active_slugs.iter().map(|s| s.slug.clone()).collect();
+        assert_eq!(active, vec!["good-slug"]);
+    }
+
     // --- get_parallelizable_tasks ---
 
     /// Helper: create a temp dir with a TASKS.md file containing the given content.
@@ -2285,7 +2590,8 @@ mod tests {
     fn get_parallelizable_tasks_empty_backlog() {
         let dir = create_tasks_md("# TASKS\n\n## Backlog\n\n## Done\n");
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert!(result.slugs.is_empty());
+        assert!(result.active_slugs.is_empty());
+        assert!(result.backlog_slugs.is_empty());
         assert_eq!(result.total_groomed, 0);
     }
 
@@ -2362,6 +2668,211 @@ mod tests {
     }
 
     #[test]
+    fn get_parallelizable_tasks_history_md_dependency_resolves() {
+        // Dep slug lives only in HISTORY.md (post-migration source of truth).
+        // Without reading HISTORY.md, the dep would silently block.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] dependent: Needs hist-slug [P1] [depends: hist-slug] [planned]\n",
+        );
+        std::fs::write(
+            dir.path().join("HISTORY.md"),
+            "# Completed Tasks\n\n- [x] hist-slug Some completed work -- 2026-04-15\n",
+        )
+        .unwrap();
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["dependent"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_dependency_in_neither_file_blocked() {
+        // Sanity check: with HISTORY.md present but missing the dep, the task
+        // remains correctly blocked.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] dependent: Needs ghost-slug [P1] [depends: ghost-slug] [planned]\n\
+             - [ ] independent: No deps [P1] [planned]\n",
+        );
+        std::fs::write(
+            dir.path().join("HISTORY.md"),
+            "# Completed Tasks\n\n- [x] other-slug Unrelated -- 2026-04-15\n",
+        )
+        .unwrap();
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["independent"]);
+        assert_eq!(result.total_groomed, 2);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_history_md_missing_does_not_error() {
+        // No HISTORY.md present — helper returns empty set, dep resolution
+        // falls back to TASKS.md `[x]` lines only.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [x] in-tasks: Stale done row [P1] [planned]\n\
+             - [ ] dependent: Needs in-tasks [P1] [depends: in-tasks] [planned]\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["dependent"]);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_mixed_dependency_sources_resolve() {
+        // One dep in TASKS.md `[x]`, another in HISTORY.md — both must resolve.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [x] tasks-prereq: Stale [P1] [planned]\n\
+             - [ ] dependent: Needs both [P1] [depends: tasks-prereq, hist-prereq] [planned]\n",
+        );
+        std::fs::write(
+            dir.path().join("HISTORY.md"),
+            "# Completed Tasks\n\n- [x] hist-prereq Migrated work -- 2026-04-20\n",
+        )
+        .unwrap();
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["dependent"]);
+    }
+
+    // --- `blocked` field population (BlockedReason) ---
+
+    #[test]
+    fn get_parallelizable_tasks_blocked_only_manual() {
+        // Backlog has only [manual] planned-unchecked tasks. They should be
+        // captured into `blocked` as `Manual`; backlog_slugs is empty.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] setup-thing: Manual setup [P1] [planned] [manual]\n\
+             - [ ] configure-foo: Configure foo [P1] [planned] [manual]\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.backlog_slugs.is_empty());
+        assert_eq!(result.total_groomed, 0);
+        assert_eq!(result.blocked.len(), 2);
+        assert_eq!(
+            result.blocked.get("setup-thing"),
+            Some(&BlockedReason::Manual)
+        );
+        assert_eq!(
+            result.blocked.get("configure-foo"),
+            Some(&BlockedReason::Manual)
+        );
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_blocked_only_unmet_deps() {
+        // Code tasks each with one unmet dep — captured as
+        // `BlockedBy(<dep>)`. backlog_slugs is empty.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] task-a: A [P1] [depends: prereq-a] [planned] [code]\n\
+             - [ ] task-b: B [P1] [depends: prereq-b] [planned] [code]\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.backlog_slugs.is_empty());
+        // Both tasks are groomed (manual filter doesn't drop them) but blocked
+        // on deps. total_groomed counts non-manual planned-unchecked tasks.
+        assert_eq!(result.total_groomed, 2);
+        assert_eq!(result.blocked.len(), 2);
+        assert_eq!(
+            result.blocked.get("task-a"),
+            Some(&BlockedReason::BlockedBy("prereq-a".to_string()))
+        );
+        assert_eq!(
+            result.blocked.get("task-b"),
+            Some(&BlockedReason::BlockedBy("prereq-b".to_string()))
+        );
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_blocked_mixed_cases() {
+        // Mix of manual + dep-blocked + dispatchable. The dispatchable task
+        // shows up in backlog_slugs; the others go into `blocked` with the
+        // correct variants.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] go-now: Ready to dispatch [P1] [planned] [code]\n\
+             - [ ] manual-1: Walk through this [P1] [planned] [manual]\n\
+             - [ ] dep-stuck: Needs prereq [P1] [depends: missing-prereq] [planned] [code]\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["go-now"]);
+        assert_eq!(result.blocked.len(), 2);
+        assert_eq!(
+            result.blocked.get("manual-1"),
+            Some(&BlockedReason::Manual)
+        );
+        assert_eq!(
+            result.blocked.get("dep-stuck"),
+            Some(&BlockedReason::BlockedBy("missing-prereq".to_string()))
+        );
+        // Dispatchable task is NOT in blocked.
+        assert!(!result.blocked.contains_key("go-now"));
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_blocked_field_empty_when_no_blocking() {
+        // Pure dispatchable backlog — `blocked` is empty.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] task-1: One [P1] [planned] [code]\n\
+             - [ ] task-2: Two [P2] [planned] [code]\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(slug_names(&result), vec!["task-1", "task-2"]);
+        assert!(result.blocked.is_empty());
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_blocked_first_unmet_dep_when_multiple() {
+        // Task with multiple unmet deps — banner copy bounds to the first
+        // unmet dep so the message stays short. The dependency-list iteration
+        // order is the authored order, so we expect "a" not "b".
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] multi-dep: Many deps [P1] [depends: a, b] [planned] [code]\n",
+        );
+        let result =
+            get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert!(result.backlog_slugs.is_empty());
+        assert_eq!(
+            result.blocked.get("multi-dep"),
+            Some(&BlockedReason::BlockedBy("a".to_string()))
+        );
+    }
+
+    #[test]
+    fn read_history_md_slugs_parses_no_colon_format() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("HISTORY.md"),
+            "# Completed Tasks\n\n\
+             - [x] slug-one Some description -- 2026-04-01\n\
+             - [X] slug-two Capital X also accepted -- 2026-04-02\n\
+             - [x] slug-three: Tolerates trailing colon -- 2026-04-03\n\
+             - [ ] not-checked-skipped Should be ignored\n\
+             random line that is not a task\n",
+        )
+        .unwrap();
+        let slugs = read_history_md_slugs(dir.path());
+        assert!(slugs.contains("slug-one"));
+        assert!(slugs.contains("slug-two"));
+        assert!(slugs.contains("slug-three"));
+        assert!(!slugs.contains("not-checked-skipped"));
+        assert_eq!(slugs.len(), 3);
+    }
+
+    #[test]
+    fn read_history_md_slugs_missing_file_returns_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let slugs = read_history_md_slugs(dir.path());
+        assert!(slugs.is_empty());
+    }
+
+    #[test]
     fn get_parallelizable_tasks_conflict_selects_higher_priority() {
         let dir = create_tasks_md(
             "## Backlog\n\
@@ -2393,7 +2904,7 @@ mod tests {
         }
         let dir = create_tasks_md(&content);
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert_eq!(result.slugs.len(), 8);
+        assert_eq!(result.backlog_slugs.len(), 8);
         assert_eq!(result.total_groomed, 8);
     }
 
@@ -2408,9 +2919,9 @@ mod tests {
              ## Done\n"
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert_eq!(result.slugs.len(), 2);
-        assert_eq!(result.slugs[0].slug, "high");
-        assert_eq!(result.slugs[1].slug, "low");
+        assert_eq!(result.backlog_slugs.len(), 2);
+        assert_eq!(result.backlog_slugs[0].slug, "high");
+        assert_eq!(result.backlog_slugs[1].slug, "low");
     }
 
     #[test]
@@ -2422,8 +2933,8 @@ mod tests {
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
         // Only one should be selected; alpha appears first in the list at same priority
-        assert_eq!(result.slugs.len(), 1);
-        assert_eq!(result.slugs[0].slug, "alpha");
+        assert_eq!(result.backlog_slugs.len(), 1);
+        assert_eq!(result.backlog_slugs[0].slug, "alpha");
     }
 
     #[test]
@@ -2464,7 +2975,7 @@ mod tests {
         assert!(slug_names(&result).contains(&"ready-dep".to_string()));
         assert!(slug_names(&result).contains(&"docs".to_string()));
 
-        assert_eq!(result.slugs.len(), 4);
+        assert_eq!(result.backlog_slugs.len(), 4);
     }
 
     #[test]
@@ -2515,7 +3026,8 @@ mod tests {
              - [ ] task: Something [P1] [planned]\n\n## Done\n"
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert!(result.slugs.is_empty());
+        assert!(result.active_slugs.is_empty());
+        assert!(result.backlog_slugs.is_empty());
         assert_eq!(result.total_groomed, 0);
     }
 
@@ -2564,13 +3076,13 @@ mod tests {
              - [ ] task-c: Task C [P3] [planned]\n"
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
-        assert_eq!(result.slugs.len(), 3);
-        assert_eq!(result.slugs[0].slug, "task-a");
-        assert_eq!(result.slugs[0].tier, Some("opus:high".to_string()));
-        assert_eq!(result.slugs[1].slug, "task-b");
-        assert_eq!(result.slugs[1].tier, Some("sonnet:medium".to_string()));
-        assert_eq!(result.slugs[2].slug, "task-c");
-        assert_eq!(result.slugs[2].tier, None);
+        assert_eq!(result.backlog_slugs.len(), 3);
+        assert_eq!(result.backlog_slugs[0].slug, "task-a");
+        assert_eq!(result.backlog_slugs[0].tier, Some("opus:high".to_string()));
+        assert_eq!(result.backlog_slugs[1].slug, "task-b");
+        assert_eq!(result.backlog_slugs[1].tier, Some("sonnet:medium".to_string()));
+        assert_eq!(result.backlog_slugs[2].slug, "task-c");
+        assert_eq!(result.backlog_slugs[2].tier, None);
     }
 
     #[test]
@@ -2777,7 +3289,7 @@ mod tests {
         );
         let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
         let by_slug: std::collections::HashMap<&str, Option<&str>> = result
-            .slugs
+            .backlog_slugs
             .iter()
             .map(|s| (s.slug.as_str(), s.mode.as_deref()))
             .collect();
@@ -2785,6 +3297,108 @@ mod tests {
         assert_eq!(by_slug.get("debug-task"), Some(&Some("debug")));
         assert_eq!(by_slug.get("reggie-task"), Some(&Some("reggie-system")));
         assert_eq!(by_slug.get("no-mode"), Some(&None));
+    }
+
+    // --- active/backlog split + cross-domain dispatch regression tests ---
+
+    #[test]
+    fn get_parallelizable_tasks_splits_active_and_backlog() {
+        // One active `### header` slug + one backlog task → exactly one in each list.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### my-active\n\n\
+             ## Backlog\n\
+             - [ ] my-backlog: A backlog task [P1] [planned]\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.active_slugs.len(), 1);
+        assert_eq!(result.active_slugs[0].slug, "my-active");
+        assert_eq!(result.backlog_slugs.len(), 1);
+        assert_eq!(result.backlog_slugs[0].slug, "my-backlog");
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_active_mode_from_cross_reference() {
+        // The original tagged entry for `my-active` lives in `## Done` as a
+        // checked `[debug]` task. The cross-reference pass should populate
+        // `mode = Some("debug")` on the active slug.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### my-active\n\n\
+             ## Backlog\n\n\
+             ## Done\n\
+             - [x] my-active: An old debug task [P1] [planned] [debug]\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.active_slugs.len(), 1);
+        assert_eq!(result.active_slugs[0].slug, "my-active");
+        assert_eq!(result.active_slugs[0].mode, Some("debug".to_string()));
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_active_mode_none_when_unmatched() {
+        // No original entry anywhere in the file for the active slug → mode None.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### orphan-slug\n\n\
+             ## Backlog\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.active_slugs.len(), 1);
+        assert_eq!(result.active_slugs[0].slug, "orphan-slug");
+        assert_eq!(result.active_slugs[0].mode, None);
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_active_section_drops_cr_slug() {
+        // A `### slug` line containing a CR must be silently dropped.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### bad\rslug\n\n\
+             ### good-slug\n\n\
+             ## Backlog\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.active_slugs.len(), 1);
+        assert_eq!(result.active_slugs[0].slug, "good-slug");
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_conflict_prune_does_not_drop_cross_domain_backlog() {
+        // Live regression: an active code slug + a backlog `[debug]` task that
+        // lists the active slug in `[conflicts: ...]`. Previously the prune
+        // seeded `selected` with active_slugs and silently dropped the debug
+        // task. After the fix the backlog task must survive.
+        let dir = create_tasks_md(
+            "## Active Tasks\n\
+             ### code-active\n\n\
+             ## Backlog\n\
+             - [ ] debug-task: Cross-domain debug [P1] [conflicts: code-active] [planned] [debug]\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(result.active_slugs.len(), 1);
+        assert_eq!(result.active_slugs[0].slug, "code-active");
+        assert_eq!(
+            backlog_slug_names(&result),
+            vec!["debug-task".to_string()],
+            "backlog task must survive cross-domain conflict against active slug",
+        );
+    }
+
+    #[test]
+    fn get_parallelizable_tasks_conflict_prune_within_backlog_still_works() {
+        // Backlog-vs-backlog conflict prune is preserved on purpose.
+        let dir = create_tasks_md(
+            "## Backlog\n\
+             - [ ] first: Higher in priority order [P1] [conflicts: second] [planned]\n\
+             - [ ] second: Loses the prune [P1] [conflicts: first] [planned]\n",
+        );
+        let result = get_parallelizable_tasks(dir.path().to_string_lossy().to_string()).unwrap();
+        assert_eq!(
+            backlog_slug_names(&result),
+            vec!["first".to_string()],
+            "in-backlog conflicts still prune the lower-precedence task",
+        );
     }
 
     #[test]
@@ -3324,7 +3938,7 @@ mod tests {
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
         let parsed: Vec<TaskEntry> = content.lines()
-            .filter_map(|line| parse_task_line(line))
+            .filter_map(parse_task_line)
             .collect();
 
         assert_eq!(parsed.len(), 2);
@@ -3366,7 +3980,7 @@ mod tests {
 
         let content = std::fs::read_to_string(dir.path().join("TASKS.md")).unwrap();
         let parsed: Vec<TaskEntry> = content.lines()
-            .filter_map(|line| parse_task_line(line))
+            .filter_map(parse_task_line)
             .collect();
 
         assert_eq!(parsed.len(), 1);
@@ -3912,5 +4526,71 @@ mod tests {
         // Exactly one `- [ ]` line and zero annotation lines.
         assert_eq!(content.matches("- [ ]").count(), 1);
         assert_eq!(content.matches("> attachments:").count(), 0);
+    }
+
+    // --- validate_watch_path ---
+
+    #[test]
+    fn validate_watch_path_rejects_root() {
+        let home = tempfile::tempdir().unwrap();
+        let err = validate_watch_path(Path::new("/"), home.path()).unwrap_err();
+        assert!(err.contains("too broad"), "got: {}", err);
+    }
+
+    #[test]
+    fn validate_watch_path_rejects_home() {
+        let home = tempfile::tempdir().unwrap();
+        let err = validate_watch_path(home.path(), home.path()).unwrap_err();
+        assert!(err.contains("too broad"), "got: {}", err);
+    }
+
+    #[test]
+    fn validate_watch_path_rejects_ancestor_of_home() {
+        // Use the parent of a tempdir-based home as the watch target.
+        let home = tempfile::tempdir().unwrap();
+        let parent = home.path().parent().expect("tempdir has a parent");
+        let err = validate_watch_path(parent, home.path()).unwrap_err();
+        assert!(err.contains("too broad"), "got: {}", err);
+    }
+
+    #[test]
+    fn validate_watch_path_accepts_sibling_of_home() {
+        // Two distinct tempdirs with the same parent — sibling, not ancestor.
+        let home = tempfile::tempdir().unwrap();
+        let sibling = tempfile::tempdir().unwrap();
+        let result = validate_watch_path(sibling.path(), home.path());
+        assert!(result.is_ok(), "got: {:?}", result);
+    }
+
+    #[test]
+    fn validate_watch_path_accepts_nested_project_under_home() {
+        let home = tempfile::tempdir().unwrap();
+        let nested = home.path().join("projects").join("repo-a");
+        fs::create_dir_all(&nested).unwrap();
+        let result = validate_watch_path(&nested, home.path());
+        assert!(result.is_ok(), "got: {:?}", result);
+    }
+
+    #[test]
+    fn validate_watch_path_rejects_symlinked_home_via_canonical() {
+        // Create a real home dir, then a symlink pointing at it. Pass the
+        // canonical (real) home as the home arg and the symlink as the path —
+        // canonicalization should resolve them to the same path and reject.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let real_home = tempfile::tempdir().unwrap();
+            let link_parent = tempfile::tempdir().unwrap();
+            let link_path = link_parent.path().join("home-link");
+            symlink(real_home.path(), &link_path).unwrap();
+
+            // canonical-home arg, raw-symlink as path → reject.
+            let err = validate_watch_path(&link_path, real_home.path()).unwrap_err();
+            assert!(err.contains("too broad"), "got: {}", err);
+
+            // raw-symlink as home arg, raw-symlink as path → reject (canonicalize both).
+            let err = validate_watch_path(&link_path, &link_path).unwrap_err();
+            assert!(err.contains("too broad"), "got: {}", err);
+        }
     }
 }

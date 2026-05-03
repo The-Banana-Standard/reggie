@@ -1,10 +1,16 @@
 import { useCallback } from "react";
-import type { TaskItem } from "../../types/task";
+import type { TaskItem, TaskPipeline } from "../../types/task";
 
 interface TaskCardProps {
   task: TaskItem;
-  onStart: (slug: string) => void;
+  onStart: (slug: string, mode: TaskPipeline | null) => void;
   interactive: boolean;
+}
+
+function buttonLabelForMode(mode: TaskPipeline | null): string {
+  if (mode === "manual") return "Walk through";
+  if (mode === "debug") return "Debug";
+  return "Start";
 }
 
 export function TaskCard({
@@ -13,8 +19,10 @@ export function TaskCard({
   interactive,
 }: TaskCardProps) {
   const handleStart = useCallback(() => {
-    onStart(task.slug);
-  }, [onStart, task.slug]);
+    onStart(task.slug, task.pipeline);
+  }, [onStart, task.slug, task.pipeline]);
+
+  const buttonLabel = buttonLabelForMode(task.pipeline);
 
   return (
     <div className={`task-card ${task.checked ? "task-card-done" : ""}`}>
@@ -44,9 +52,9 @@ export function TaskCard({
           <button
             className="task-start-btn"
             onClick={handleStart}
-            title={`Start ${task.slug}`}
+            title={`${buttonLabel} ${task.slug}`}
           >
-            Start
+            {buttonLabel}
           </button>
         )}
       </div>

@@ -8,6 +8,14 @@ use tauri::{ipc::Channel, AppHandle, Emitter, State};
 
 const MAX_HEADLESS_BUFFER: usize = 2 * 1024 * 1024; // 2MB
 
+/// Strip ASCII control bytes (< 0x20) from a command string before writing to
+/// the PTY. Belt-and-suspenders against CR-injection from any code path that
+/// bypasses the slug validator. The trailing `\r` written separately is the
+/// legitimate submission signal and is not affected.
+fn strip_control_chars(s: &str) -> String {
+    s.chars().filter(|&c| c as u32 >= 0x20).collect()
+}
+
 const ALLOWED_MODELS: &[&str] = &["opus", "sonnet", "haiku"];
 const ALLOWED_EFFORTS: &[&str] = &["high", "medium", "low"];
 
@@ -276,7 +284,8 @@ pub fn spawn_terminal(
             std::thread::sleep(std::time::Duration::from_millis(2000));
             let Ok(mut terminals) = terminals_ref2.lock() else { return };
             if let Some(term) = terminals.get_mut(&tid2) {
-                let _ = term.writer.write_all(cmd.as_bytes());
+                let safe_cmd = strip_control_chars(&cmd);
+                let _ = term.writer.write_all(safe_cmd.as_bytes());
                 let _ = term.writer.write_all(b"\r");
                 let _ = term.writer.flush();
             }
@@ -631,7 +640,8 @@ pub fn spawn_headless_terminal(
                 return;
             };
             if let Some(term) = headless.get_mut(&tid3) {
-                let _ = term.writer.write_all(cmd.as_bytes());
+                let safe_cmd = strip_control_chars(&cmd);
+                let _ = term.writer.write_all(safe_cmd.as_bytes());
                 let _ = term.writer.write_all(b"\r");
                 let _ = term.writer.flush();
             }
@@ -764,4 +774,49 @@ pub fn get_all_headless_statuses(
         })
         .collect();
     Ok(statuses)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::strip_control_chars;
+
+    #[test]
+    fn strip_control_chars_removes_cr_lf_nul() {
+        assert_eq!(strip_control_chars("hello\rworld"), "helloworld");
+        assert_eq!(strip_control_chars("hello\nworld"), "helloworld");
+        assert_eq!(strip_control_chars("hello\0world"), "helloworld");
+        assert_eq!(strip_control_chars("hello\r\nworld"), "helloworld");
+    }
+
+    #[test]
+    fn strip_control_chars_passes_printable_and_unicode() {
+        assert_eq!(strip_control_chars("/reggie-code-workflow --yes my-slug"), "/reggie-code-workflow --yes my-slug");
+        assert_eq!(strip_control_chars("café résumé"), "café résumé");
+        assert_eq!(strip_control_chars(""), "");
+    }
+
+    #[test]
+    fn strip_control_chars_removes_other_c0_controls() {
+        // Bell, backspace, and escape are all < 0x20 and must be stripped.
+        // An attacker that smuggled an ESC (0x1B) into a command could otherwise
+        // start an ANSI/CSI sequence the terminal would interpret.
+        assert_eq!(strip_control_chars("ring\x07bell"), "ringbell");
+        assert_eq!(strip_control_chars("back\x08space"), "backspace");
+        assert_eq!(strip_control_chars("esc\x1Bape"), "escape");
+        // Sweep across the entire C0 range (0x00..=0x1F).
+        for b in 0u8..0x20 {
+            let s = format!("a{}b", b as char);
+            assert_eq!(strip_control_chars(&s), "ab", "byte 0x{:02X} should be stripped", b);
+        }
+    }
+
+    #[test]
+    fn strip_control_chars_preserves_del_and_high_bytes() {
+        // The function's contract is "< 0x20"; DEL (0x7F) is intentionally not
+        // stripped. Pin that so a future change to the predicate is a deliberate
+        // decision, not an accident.
+        assert_eq!(strip_control_chars("a\x7Fb"), "a\u{007F}b");
+        // Space (0x20) is the boundary and must pass.
+        assert_eq!(strip_control_chars("a b"), "a b");
+    }
 }

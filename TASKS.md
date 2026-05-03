@@ -12,24 +12,15 @@
 
 ### Pipeline System Expansion
 
+### Reggie UI
+- [ ] debug-promoted-session-no-respawn: Debug why UI doesn't spawn next session after a promoted headless session completes [P2] [complex] [tier: opus:high] [debug] [planned]
+  files: src/components/WorkspaceOverview/CodeWorkflowTab.tsx (READ), src/hooks/useTerminal.ts (READ), src-tauri/src/commands/terminal.rs (READ)
 
 ### Bug Fixes & Tech Debt
-- [x] vitest-env-hang-investigation: Diagnose and fix vitest hanging at 0% CPU [P2] [depends: add-pipeline-mode-tags-manual-reggie-system-and-debug] [conflicts: replace-sqlite-with-json-bookmarks] [complex] [tier: opus:high] [debug] [planned]
-  files: vite.config.ts (MOD), package.json (MOD)
-  > closed 2026-04-25: hang not reproducible — full suite runs 962 tests in 6.86s across 3 invocations. Diagnosis inconclusive (likely stale Vite dep-optimizer cache or sandbox-trapped stale processes, both since cleared). setupFiles AC item folded into vitest-setupfiles-and-contract-test-fixes. See .pipeline/vitest-env-hang-investigation/HANDOFF.md.
 
 ### Other
 
 ### Ungroomed
-- [ ] the-batch-start-button-isn-t-working-for-debug-and-possibly-reggie-system-changes: the batch start button isn’t working for debug and possibly reggie system changes
-- [ ] tasks-viewer-mode-tag-gap: TasksViewer ignores [manual], [reggie-system], and [debug] mode tags
-  > context: discovered 2026-04-25 while running wire-manual-reggie-system-and-debug-tags-runtime locally. The Rust parser (src-tauri/src/commands/projects.rs) and CodeWorkflowTab/RepoTaskRow surface all five mode tags correctly, but TasksViewer/TaskCard uses a separate TS parser at src/types/task.ts whose PIPELINE_RE only matches /\[(code|design)\]/. Result: groomed [debug] tasks render no mode badge and a hardcoded "Start" button (TaskCard.tsx:49) — same problem will hit [manual] and [reggie-system]. Fix touches: src/types/task.ts (broaden TaskPipeline + regex), TaskCard.tsx (mode-aware button: Debug / Walk through / Start, plus dispatch routing). Open question for grooming: should TasksViewer dispatch directly to /reggie-debug-workflow and /reggie-system-change like CodeWorkflowTab does, or always go through the per-domain path?
-
-- [ ] clicking-a-link-on-the-sessions-tab-doesn-t-open-the-link-in-a-browser: clicking a link on the sessions tab doesn’t open the link in a browser
-
-- [ ] ui-pipeline-button-rebinding: Let users bind any auto-discovered pipeline (not just `reggie-code-workflow`) to UI workflow buttons
-  > context: pipeline auto-discovery already works via frontmatter `type: pipeline` (PipelinesPanel.tsx + get_pipelines in reggie_data.rs). Substrate is small — just adding the rebinding layer on top. Open question for grooming: per-workspace or global persistence of the binding.
-
 - [ ] one-click-install-from-internet: One-click install of skills, agents, commands, plugins, hooks from internet sources
   > context: broad install surface for the Reggie UI. Per-unit-type install mechanics differ — skills/agents/commands = file copy to `~/.claude/`, hooks = edit `settings.json`, plugins = bundle. Hooks management folds into this rather than being a standalone feature. Existing `src-tauri/src/installer.rs` is hardcoded to `~/.claude/` system-level install; install/uninstall symmetry is a known footgun there. Also relates to Anthropic's own `/plugin install` — open Q whether to shell out vs. write files directly.
 
@@ -42,11 +33,13 @@
 - [ ] judge-driven-pipeline-comparison: Use `reggie-judge` to compare two pipelines or two agents on a real task
   > context: lowest priority of the marketplace cluster. Differentiator vs. other marketplaces — Reggie has `reggie-judge` baked into its architecture, so the marketplace can offer "evaluate these candidates against your codebase" as a recommendation surface. Nobody else can easily copy this. Needs the install/substrate features to exist first to have anything meaningful to compare.
 
-- [ ] squash-pipeline-stage-commits-on-complete: Collapse the per-stage `meta:` commits a pipeline emits into a single `feat:`/`fix:` commit on `complete`
-  > context: discovered 2026-04-28 while prepping the v2.1.0 release. `git log v2.0.1..HEAD` showed 59 commits since the last tag — roughly 5–6 features × ~10 stage commits each (PICKUP, IMPLEMENT, WRITE-TESTS, QUALITY-CHECK, SIMPLIFY, VERIFY-APP, REVIEW, SECURITY-REVIEW, SYNC-DOCS, UPDATE-CLAUDE, complete) plus the actual change commit. No merge commits in the range — pipelines commit straight to `main`. Stage commits are useful as mid-pipeline rewind checkpoints, but they pollute `main`'s history and make `git log`/`git blame`/release notes painful. Two candidate approaches: (a) run the pipeline on a worktree branch and squash-merge into `main` on `complete`, (b) on `complete`, `git reset --soft` to the pre-pipeline HEAD and recommit as one squashed commit. Open question for grooming: do we lose anything important by dropping the stage commits, or is the `.pipeline/<task>/` directory already a sufficient audit trail?
-
 - [ ] dev-build-symlinks-pollute-working-tree: The Tauri dev build replaces `resources/*` with symlinks into `src-tauri/target/debug/reggie-resources/`, creating ~73 typechange entries every release prep
   > context: discovered 2026-04-28 while prepping v2.1.0. After running the app locally for testing, `git status` showed 73 typechange entries — every file under `resources/agents/`, `resources/commands/`, and `resources/hooks/` had been flipped from regular file (100644) to symlink (120000) pointing into `src-tauri/target/debug/reggie-resources/...`. All 73 flipped at the same minute (Apr 26 17:11), so it's a single dev-build step doing this. This means every "test locally → push a release" cycle requires `git restore --staged resources/` before the release commit, which is fragile (easy to accidentally commit the symlinks and break the bundled distribution). Need to investigate: which Tauri build step is creating these symlinks, why source files are pointing into the build output (reverse of the usual pattern), and whether the dev build can use a separate output dir or copy instead of symlink. Likely fix touches: `src-tauri/build.rs`, `src-tauri/tauri.conf.json` resource bundling, or a custom build script. Workarounds to consider in the meantime: add `resources/` typechanges to a pre-commit guard, or have the dev script restore from HEAD on exit.
 
-<!-- folded into vitest-setupfiles-and-contract-test-fixes (2026-04-25). Original guess (scanner glob bug) was wrong — RUST_COMMANDS is a hand-maintained table; just needs the missing entry. -->
+- [ ] tauri-capabilities-no-per-command-allowlist: `src-tauri/capabilities/default.json` does not enumerate per-command allowlists, so every `#[tauri::command]` in the binary is reachable from any frontend script in the `main` window. Pre-existing posture; not introduced by any specific task. If the app ever loads third-party content (extensions, embedded webviews of remote pages), this becomes exploitable.
+  > context: discovered during security review of fix-groomed-tasks-refresh-stale (2026-04-30). Pre-existing in main. Severity LOW in current single-user trust model; HIGH if trust model expands.
 
+- [ ] depends-conflicts-tags-bypass-is-safe-slug: `[depends:]` and `[conflicts:]` tag values in `parse_task_line` are split on `,` and inserted into TaskEntry without `is_safe_slug` validation, while the colon-slug at the start of the line is validated. Pre-existing.
+  > context: discovered during security review of fix-dispatch-no-op-with-manual-tasks (2026-05-01). The new BlockedReason::BlockedBy(dep) path is the first surface where these unvalidated dep strings escape into a structured API and a UI text node. No exploit today (React JSX text-node escaping handles it; no shell/path/DB sinks), but the convention everywhere else in the parser is "validate slugs at parse time." Fix is non-trivial because filtering invalid deps would change "task is blocked forever" into "task has no deps" — silently unblocking it. Cleaner approach: skip the entire task line if any dep is invalid (matches the colon-slug behavior). Touches: `src-tauri/src/commands/projects.rs` parse_task_line at the depends/conflicts arms.
+
+<!-- folded into vitest-setupfiles-and-contract-test-fixes (2026-04-25). Original guess (scanner glob bug) was wrong — RUST_COMMANDS is a hand-maintained table; just needs the missing entry. -->

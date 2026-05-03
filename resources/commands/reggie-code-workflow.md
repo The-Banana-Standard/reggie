@@ -58,7 +58,7 @@ This command orchestrates the **full development pipeline** for a single task.
 
 **`--opus` flag**: If `$ARGUMENTS` contains `--opus`, strip it from arguments before further parsing and force `model: "opus"` on **every** Task tool agent launch for the entire pipeline run. This disables all Sonnet optimizations. Use when maximum quality is needed on every stage. When active, print `⚙ Mode: all-opus` during PICKUP.
 
-**`--yes` flag (Ralph Wiggum mode)**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL confirmation gates throughout the pipeline. Stage advancement, REVIEW-WITH-USER acceptance, merge strategy selection, and any other human confirmation prompts are auto-approved. Automated quality gates (9.0/10 reggie-judge scoring) still run normally. When active, print `⚙ Mode: --yes (Ralph Wiggum)` during PICKUP.
+**`--yes` flag**: If `$ARGUMENTS` contains `--yes`, strip it from arguments and skip ALL **in-session** confirmation gates for the current task. Stage advancement, REVIEW-WITH-USER acceptance, merge strategy selection, and any other human confirmation prompts are auto-approved. Automated quality gates (9.0/10 reggie-judge scoring) still run normally. The flag does **not** auto-continue across tasks: after the current task completes, the workflow emits the standard DONE marker and exits. Cross-task relaunch is the UI's job (per-repo / Batch Start sessions detect the DONE marker and launch the next backlog task in a fresh session). When active, print `⚙ Mode: --yes` during PICKUP.
 
 **`--tier` flag**: If `$ARGUMENTS` contains `--tier <model:effort>` (e.g., `--tier opus:high`), strip it from arguments and enable tier-filtered pickup. During PICKUP, only pick up backlog tasks whose `[tier: X]` tag matches the specified tier. Tasks without a tier tag are treated as `opus:high` (default to highest). When active, print `⚙ Tier: [model:effort]` during PICKUP. Valid tiers: `opus:high`, `opus:medium`, `sonnet:medium`. This enables parallel execution — The Reggie app launches terminals at different tiers and each filters to matching tasks.
 
@@ -108,7 +108,7 @@ This command orchestrates the **full development pipeline** for a single task.
 
 ### Workflow Execution
 
-Execute each stage, waiting for completion and confirmation before proceeding. After updating TASKS.md quality scores or stage status at each stage, commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: stage [slug] [STAGE-NAME]" --no-gpg-sign 2>/dev/null`. See reggie-code-manager.md → "Metadata Commit System" for all commit events.
+Execute each stage, waiting for completion and confirmation before proceeding. After each stage advance, rewrite `.pipeline/[slug]/STATE` with the new current stage and updated quality scores table. **Do NOT commit metadata for stage advancement** — STATE is gitignored runtime state, not TASKS.md. See reggie-code-manager.md → "Per-Task Pipeline State Files" for the STATE format and "Metadata Commit System" for the events that DO commit (pickup, files, complete, migrate-history, discovered-issues).
 
 ---
 
@@ -218,7 +218,7 @@ run /reggie-code-workflow to pick it up from the backlog.
 - Only resume a specific task if the user explicitly names it
 - Verify worktree exists; if missing, recreate from branch: `git worktree add .worktree/[slug] task/[slug]`
 - Read `.pipeline/[slug]/CONTEXT.md` and `.pipeline/[slug]/HANDOFF.md` to restore context
-- Continue from the stage recorded in TASKS.md
+- Continue from the stage recorded in `.pipeline/[slug]/STATE` (the `CURRENT:` line)
 
 Use **reggie-code-manager** agent to manage TASKS.md.
 
@@ -670,7 +670,7 @@ Ready to mark task complete? (y/n)
 **Actions to perform (not just display — actually do these):**
 
 1. Final commit in worktree (if uncommitted changes remain)
-2. Remove `### [slug]` section from `## Active Tasks` in TASKS.md
+2. **Remove the slug's line from TASKS.md** and any indented continuation lines beneath it (`files: ...`, `> ...`, until the next blank line or next task line). Also remove the `### [slug]` section from `## Active Tasks` if present. The slug's row must be deleted, not toggled to `[x]` — `meta: complete` is a true migration from TASKS.md to HISTORY.md.
 3. Append to `HISTORY.md` (same directory as TASKS.md): `- [x] [slug] [task name] -- [date]`. Create the file with a `# Completed Tasks` header if it doesn't exist.
 4. Commit metadata: `git add TASKS.md HISTORY.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: complete [slug]" --no-gpg-sign 2>/dev/null`
 5. **CRITICAL: `cd` to the repo root first** — the shell may be sitting in the worktree directory that is about to be removed. Run `cd [repo-root]` (use the known project root path) before any worktree removal. If `cd` fails, the shell CWD is already invalid — start a fresh shell.
@@ -741,7 +741,7 @@ Backlog ([X] tasks remaining):
   ```
   ~~REGGIE:DONE:reggie-code-workflow:success~~
   ```
-- **`--yes` mode (Ralph Wiggum)**: Auto-continue — **always** loop back to PICKUP for the next task, regardless of whether the just-completed task was specified by slug or auto-picked. A slug argument only controls which task is picked up first; it does not limit the session to one task. Run `/compact Discard all details from the completed task. Preserve only: this is a --yes mode code-workflow pipeline run, and I need to loop back to PICKUP to pick up the next backlog task from TASKS.md. Flags still active: --yes [and --tier X if set].` Then immediately proceed to PICKUP for the next backlog task (respecting `--tier` filter if active). If no matching tasks remain in the backlog, exit cleanly with "All tasks complete." and emit:
+- **`--yes` mode**: After successful completion of the task, emit the standard DONE marker and exit. Do **not** loop back to PICKUP, do **not** run `/compact`, do **not** pick up another backlog task in the same session. The Reggie UI handles task-to-task relaunch when the session was launched via per-repo or Batch Start (it detects the DONE marker and starts the next task in a fresh session). Emit:
   ```
   ~~REGGIE:DONE:reggie-code-workflow:success~~
   ```
@@ -772,36 +772,40 @@ At any stage, the user can say:
 
 ## State Tracking
 
-Track workflow state in TASKS.md under `## Active Tasks`:
+TASKS.md under `## Active Tasks` carries only static fields set once at PICKUP — the runtime stage, attempts counter, and quality scores table do NOT live here:
 
 ```markdown
 ## Active Tasks
 
 ### add-streak-tracking
 **Task**: Add streak tracking
-**Stage**: VERIFY
 **Pipeline**: code-workflow
 **Branch**: task/add-streak-tracking
 **Worktree**: .worktree/add-streak-tracking
 **Base**: main
 **Started**: 2026-02-05
-**Attempts**: 1
 **Files**:
 - NEW: src/services/StreakManager.swift
 - MOD: src/models/UserProgress.swift
-**Quality Scores**:
+```
+
+Runtime stage state lives in `.pipeline/add-streak-tracking/STATE` (gitignored, plain text):
+
+```
+CURRENT: VERIFY-APP
+
 | Stage | Score | Attempts | Status |
 |-------|-------|----------|--------|
 | IMPLEMENT | 9.3 | 1 | PASS |
-| VERIFY | - | 0 | CURRENT |
+| VERIFY-APP | - | 0 | CURRENT |
 ```
 
 Pipeline context lives in `.pipeline/add-streak-tracking/CONTEXT.md`.
 Code changes live in `.worktree/add-streak-tracking/` (branch `task/add-streak-tracking`).
 
-If verification/review fails, increment attempts in the quality scores table.
+If verification/review fails, increment the Attempts column in STATE — TASKS.md is not touched.
 
-**Metadata commits**: Every edit to TASKS.md or HISTORY.md is immediately committed on the base branch with a `meta:` prefix (e.g., `meta: pickup [slug]`, `meta: stage [slug] IMPLEMENT`, `meta: complete [slug]`). This prevents stash conflicts when multiple sessions edit metadata in parallel. See reggie-code-manager.md → "Metadata Commit System" for the full convention.
+**Metadata commits**: Edits to TASKS.md or HISTORY.md are immediately committed on the base branch with a `meta:` prefix (e.g., `meta: pickup [slug]`, `meta: files [slug]`, `meta: complete [slug]`). This prevents stash conflicts when multiple sessions edit metadata in parallel. **Per-stage advancement does not emit a metadata commit** — STATE is runtime-only and never written to TASKS.md. See reggie-code-manager.md → "Metadata Commit System" for the full event list and "Per-Task Pipeline State Files" for STATE format.
 
 ---
 
@@ -810,15 +814,15 @@ If verification/review fails, increment attempts in the quality scores table.
 ```
 /reggie-code-workflow                    # Start/continue workflow (picks from backlog)
 /reggie-code-workflow --opus             # Force Opus for all agents (no Sonnet overrides)
-/reggie-code-workflow --yes              # Auto-approve all confirmation gates (Ralph Wiggum mode)
+/reggie-code-workflow --yes              # Auto-approve all in-session confirmation gates
 /reggie-code-workflow status             # Show current workflow state
 /reggie-code-workflow pause              # Pause and save progress
 /reggie-code-workflow resume [slug]      # Resume paused workflow
 /reggie-code-workflow --opus resume [slug]  # Resume with all-opus mode
-/reggie-code-workflow --yes --tier opus:high           # --yes loop, only opus:high tasks
-/reggie-code-workflow --yes --tier sonnet:medium        # --yes loop, only sonnet:medium tasks
-/reggie-code-workflow --yes fix-toggle-alignment        # Start with this slug, then continue loop
-/reggie-code-workflow --yes --tier opus:high fix-auth   # Start with fix-auth, tier-filtered loop after
+/reggie-code-workflow --yes --tier opus:high           # Auto-approve gates, pick first opus:high task
+/reggie-code-workflow --yes --tier sonnet:medium        # Auto-approve gates, pick first sonnet:medium task
+/reggie-code-workflow --yes fix-toggle-alignment        # Run this slug to completion, auto-approving gates
+/reggie-code-workflow --yes --tier opus:high fix-auth   # Run fix-auth (tier-tagged) to completion, auto-approving gates
 ```
 
 ### Flags

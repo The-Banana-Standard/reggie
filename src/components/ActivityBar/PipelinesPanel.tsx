@@ -1,11 +1,24 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { PipelineInfo } from "../../types/reggie";
+import {
+  usePipelineBindings,
+  setBinding,
+  clearBinding,
+  type BindingMode,
+  type PipelineBindings,
+} from "../../lib/pipelineBindings";
 
 interface PipelinesPanelProps {
   onExecutePipeline: (pipelineName: string) => void;
   onEditPipeline: (filePath: string) => void;
 }
+
+const BINDABLE_MODES: ReadonlyArray<{ mode: BindingMode; label: string }> = [
+  { mode: "code", label: "Code" },
+  { mode: "debug", label: "Debug" },
+  { mode: "manual", label: "Manual" },
+];
 
 function formatPipelineName(name: string): string {
   return name
@@ -13,10 +26,27 @@ function formatPipelineName(name: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Modes whose bound pipeline name does not appear in the loaded pipeline list. */
+function findMissingBoundPipelines(
+  bindings: PipelineBindings,
+  pipelines: PipelineInfo[],
+): Array<{ mode: BindingMode; pipelineName: string }> {
+  const known = new Set(pipelines.map((p) => p.name));
+  const missing: Array<{ mode: BindingMode; pipelineName: string }> = [];
+  for (const { mode } of BINDABLE_MODES) {
+    const bound = bindings[mode];
+    if (bound && !known.has(bound)) {
+      missing.push({ mode, pipelineName: bound });
+    }
+  }
+  return missing;
+}
+
 export function PipelinesPanel({ onExecutePipeline, onEditPipeline }: PipelinesPanelProps) {
   const [pipelines, setPipelines] = useState<PipelineInfo[]>([]);
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const bindings = usePipelineBindings();
 
   const loadPipelines = useCallback(() => {
     setLoading(true);
@@ -39,6 +69,18 @@ export function PipelinesPanel({ onExecutePipeline, onEditPipeline }: PipelinesP
     setFilter(e.target.value);
   }, []);
 
+  const handleBind = useCallback(
+    (mode: BindingMode, pipelineName: string) => {
+      // Toggle off if already bound to this pipeline; otherwise bind to it.
+      if (bindings[mode] === pipelineName) {
+        clearBinding(mode).catch((err) => console.error("Failed to clear binding:", err));
+      } else {
+        setBinding(mode, pipelineName).catch((err) => console.error("Failed to set binding:", err));
+      }
+    },
+    [bindings],
+  );
+
   const filtered = useMemo(
     () =>
       filter
@@ -49,6 +91,11 @@ export function PipelinesPanel({ onExecutePipeline, onEditPipeline }: PipelinesP
           )
         : pipelines,
     [pipelines, filter]
+  );
+
+  const missingBound = useMemo(
+    () => findMissingBoundPipelines(bindings, pipelines),
+    [bindings, pipelines],
   );
 
   if (loading) {
@@ -75,6 +122,16 @@ export function PipelinesPanel({ onExecutePipeline, onEditPipeline }: PipelinesP
     <div className="pipelines-panel">
       <h3 className="pipelines-panel-title">Pipelines ({pipelines.length})</h3>
 
+      {missingBound.length > 0 && (
+        <div className="pipelines-binding-warnings" role="alert">
+          {missingBound.map(({ mode, pipelineName }) => (
+            <div key={mode} className="pipelines-binding-warning">
+              Bound pipeline '{pipelineName}' not found, using default
+            </div>
+          ))}
+        </div>
+      )}
+
       <input
         className="pipelines-search"
         type="text"
@@ -88,8 +145,10 @@ export function PipelinesPanel({ onExecutePipeline, onEditPipeline }: PipelinesP
           <PipelineCard
             key={pipeline.name}
             pipeline={pipeline}
+            bindings={bindings}
             onExecute={onExecutePipeline}
             onEdit={onEditPipeline}
+            onBind={handleBind}
           />
         ))}
       </div>
@@ -103,11 +162,13 @@ export function PipelinesPanel({ onExecutePipeline, onEditPipeline }: PipelinesP
 
 interface PipelineCardProps {
   pipeline: PipelineInfo;
+  bindings: PipelineBindings;
   onExecute: (pipelineName: string) => void;
   onEdit: (filePath: string) => void;
+  onBind: (mode: BindingMode, pipelineName: string) => void;
 }
 
-function PipelineCard({ pipeline, onExecute, onEdit }: PipelineCardProps) {
+function PipelineCard({ pipeline, bindings, onExecute, onEdit, onBind }: PipelineCardProps) {
   const handleExecuteClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -134,11 +195,19 @@ function PipelineCard({ pipeline, onExecute, onEdit }: PipelineCardProps) {
     [onEdit, pipeline.managerFilePath]
   );
 
+  // Modes this pipeline is currently the default for.
+  const boundModes = BINDABLE_MODES.filter(({ mode }) => bindings[mode] === pipeline.name);
+
   return (
     <div className="pipeline-card">
       <div className="pipeline-card-header">
         <div className="pipeline-card-title">
           <span className="pipeline-name">{formatPipelineName(pipeline.name)}</span>
+          {boundModes.length > 0 && (
+            <span className="pipeline-binding-badge" aria-label="Default for modes">
+              Default: {boundModes.map((b) => b.label).join(", ")}
+            </span>
+          )}
         </div>
         <div className="pipeline-card-actions">
           <button
@@ -188,6 +257,33 @@ function PipelineCard({ pipeline, onExecute, onEdit }: PipelineCardProps) {
           </button>
         </div>
       )}
+
+      <div className="pipeline-bind-row">
+        <span className="pipeline-bind-label">Bind to:</span>
+        {BINDABLE_MODES.map(({ mode, label }) => {
+          const isActive = bindings[mode] === pipeline.name;
+          return (
+            <button
+              key={mode}
+              type="button"
+              className={`pipeline-bind-btn${isActive ? " pipeline-bind-btn-active" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onBind(mode, pipeline.name);
+              }}
+              title={
+                isActive
+                  ? `Clear ${label} binding (revert to default)`
+                  : `Bind ${label} mode to ${pipeline.name}`
+              }
+              aria-pressed={isActive}
+              aria-label={`Bind ${pipeline.name} to ${label} mode`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

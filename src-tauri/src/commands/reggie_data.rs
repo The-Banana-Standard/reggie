@@ -150,7 +150,7 @@ pub fn get_commands(project_path: Option<String>) -> Result<Vec<CommandInfo>, St
         }
     }
 
-    commands.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    commands.sort_by_key(|a| a.name.to_lowercase());
 
     Ok(commands)
 }
@@ -252,7 +252,7 @@ pub fn get_agents() -> Result<Vec<AgentInfo>, String> {
         })
         .collect();
 
-    agents.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    agents.sort_by_key(|a| a.name.to_lowercase());
 
     Ok(agents)
 }
@@ -337,7 +337,7 @@ pub fn get_pipelines() -> Result<Vec<PipelineInfo>, String> {
         })
         .collect();
 
-    pipelines.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    pipelines.sort_by_key(|a| a.name.to_lowercase());
 
     Ok(pipelines)
 }

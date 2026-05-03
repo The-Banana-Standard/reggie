@@ -1,5 +1,21 @@
 # Completed Tasks
 
+- [x] fix-image-counter-resets-on-navigation Image counter rebuilds from surviving textarea content on project navigation -- 2026-05-01
+- [x] fix-meta-complete-removes-tasks-md-line Make `meta: complete` a true migration (delete from TASKS.md, append to HISTORY.md) and teach dep resolution to read HISTORY.md so deps on completed work continue to resolve -- 2026-05-01
+- [x] harden-init-tasks-plan-quality Upgrade init-tasks RESEARCH+PLAN with Plain-English Summary, Concept Glosses, Verified Facts, Out of Scope, Verification Strategy, Success Metric, Bail Conditions, 3-column Key Decisions; ownership-of-facts callout; plain-English protocol; verify-before-presenting + plan-quality self-check; explain-X 4th approval option; updated Task File Format spec and polish-settings worked example -- 2026-05-01
+- [x] preexisting-clippy-warnings-in-projects-rs-tests Fix 7 pre-existing clippy warnings + add CI gate -- 2026-05-01
+- [x] slug-control-char-whitelist Validate colon-style slugs + active-section headers with is_safe_slug; strip PTY control chars at write sites -- 2026-05-01
+- [x] codeworkflowtab-act-warnings-from-relaunch-effect Silence React act() warnings from auto-relaunch useEffect in CodeWorkflowTab tests — wrap fireEvent.click + rerender in act(async) for 12 affected tests -- 2026-05-01
+- [x] pipeline-bindings-concurrent-write-race Serialize set/clear of pipeline-bindings.json behind an AppState mutex; concurrent IPC writes can no longer lose mutations -- 2026-05-01
+- [x] fix-groomed-section-shows-done-tasks Fix debug-workflow Option 3 ("Done") to migrate slug to HISTORY.md via meta-commit, matching Option 2 — prevents orphan [x] tasks in Backlog -- 2026-05-01
+- [x] pipeline-bindings-css-unstyled Add CSS rules for pipeline binding UI + tokenize panel-purple (3 new tokens in :root + light theme; 11 hardcoded refs converted; 7 binding-UI rules added; inline styles removed from CodeWorkflowTab) -- 2026-05-01
+- [x] cross-domain-dispatch-followups Defensive cleanup from cross-domain dispatch fix review (slugFromLabel + activeSlugs filter in pickBacklogToLaunch + deterministic pickReggieSystemHolder) -- 2026-05-01
+- [x] harden-tasks-md-watcher Defensive cleanup of TASKS.md watcher chain (ref-guard frontend stop IPC + canonicalize/reject root/home in start_tasks_md_watch) -- 2026-05-01
+- [x] fix-sessions-fullpage-no-gap Make session terminal panes flush, edge-to-edge -- 2026-04-30
+- [x] eliminate-yes-loop-system-side Strip /compact + auto-loop from --yes mode in code-workflow and system-change; --yes now means only "skip in-session confirmation gates" -- 2026-04-30
+- [x] fix-cross-domain-dispatch-per-repo-and-batch Fix per-repo Start + Batch Start to honor per-domain caps (code:5, debug:3 per-repo; reggie-system:1 group-wide) -- 2026-04-30
+- [x] sessions-tab-link-not-opening Make clickable terminal links open in system browser -- 2026-04-29
+- [x] squash-pipeline-stage-commits-on-complete Eliminate `meta: stage` commits by moving runtime pipeline state out of TASKS.md -- 2026-04-29
 - [x] vitest-setupfiles-and-contract-test-fixes Populate vite setupFiles and add uninstall_reggie_files to RUST_COMMANDS -- 2026-04-26
 - [x] fix-sessions-tab-width-on-return Fix Sessions tab terminal width shrinking on return -- 2026-04-26
 - [x] wire-manual-reggie-system-and-debug-tags-runtime Wire [manual], [reggie-system], and [debug] tags into Rust parser and UI -- 2026-04-25
@@ -51,3 +67,11 @@
 - [x] replace-sqlite-with-json-bookmarks Replace tauri-plugin-sql with a JSON bookmark file -- 2026-04-25
 - [x] add-pipeline-mode-tags-manual-reggie-system-and-debug Introduce [manual], [reggie-system], and [debug] pipeline-mode tags -- 2026-04-25
 - [x] attach-images-to-ungroomed-tasks Paste/drop image attachments on ungroomed tasks consumed during init-tasks -- 2026-04-26
+- [x] wire-tasksviewer-mode-dispatch Make TasksViewer respect all 5 pipeline mode tags -- 2026-04-29
+- [x] fix-groomed-tasks-refresh-stale Add filesystem watcher so TASKS.md changes refresh the UI immediately -- 2026-04-30
+- [x] add-headless-auto-relaunch-on-done UI relaunches next backlog task when a Repo-Start session emits DONE-success -- 2026-04-30
+- [x] vitest-env-hang-investigation Diagnose and fix vitest hanging at 0% CPU -- 2026-04-25
+- [x] investigate-cross-domain-batch-start Diagnose why Batch Start Coding fails for [debug] and [reggie-system] tasks -- 2026-04-30
+- [x] add-session-list-divider Restore 1px grey separators between session grid cards -- 2026-05-01
+- [x] act-wrap-fireEvent-clicks-codeworkflowtab-tests Sweep all 29 bare fireEvent.click calls in CodeWorkflowTab.test.tsx into await act wrappers -- 2026-05-01
+- [x] fix-dispatch-no-op-with-manual-tasks Project-level Start dispatches eligible code tasks even when manual tasks exist; surfaces persistent reason banner when nothing is dispatchable -- 2026-05-01

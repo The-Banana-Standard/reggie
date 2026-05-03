@@ -1,6 +1,7 @@
 mod commands;
 mod installer;
 mod state;
+mod watchers;
 
 use state::AppState;
 use tauri::Manager;
@@ -37,6 +38,9 @@ pub fn run() {
             commands::terminal::get_all_headless_statuses,
             commands::bookmarks::read_bookmarks,
             commands::bookmarks::write_bookmarks,
+            commands::pipeline_bindings::get_pipeline_bindings,
+            commands::pipeline_bindings::set_pipeline_binding,
+            commands::pipeline_bindings::clear_pipeline_binding,
             commands::claude_data::get_sessions_for_project,
             commands::claude_data::read_claude_md,
             commands::projects::scan_workspace,
@@ -53,6 +57,8 @@ pub fn run() {
             commands::projects::save_attachment_image,
             commands::projects::cleanup_attachments,
             commands::projects::list_orphan_attachments,
+            commands::projects::start_tasks_md_watch,
+            commands::projects::stop_tasks_md_watch,
             commands::reggie_data::get_agents,
             commands::reggie_data::get_commands,
             commands::reggie_data::get_pipelines,

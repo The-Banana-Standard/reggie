@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { RepoTaskSummary, HeadlessSession, TerminalTab } from "../../types/terminal";
+import { domainForLabel, isWorkflowLabel } from "./sessionLabels";
 
 interface RepoTaskRowProps {
   repo: RepoTaskSummary;
@@ -24,18 +25,13 @@ interface RepoTaskRowProps {
   ) => void;
   /** Visible dispatch of a `[manual]` task — launches `/reggie-manual-task` and promotes the session. */
   onWalkThroughTask?: (repoPath: string, repoName: string, slug: string) => void;
-}
-
-/** Map a session label prefix to the domain ("code", "reggieSystem", "debug") for per-domain badges. */
-function domainForLabel(label: string): "code" | "reggieSystem" | "debug" | null {
-  if (label.startsWith("code --")) return "code";
-  if (label.startsWith("reggie-sys --")) return "reggieSystem";
-  if (label.startsWith("debug --")) return "debug";
-  return null;
-}
-
-function isWorkflowLabel(label: string): boolean {
-  return domainForLabel(label) !== null;
+  /**
+   * Whether this repo has a `[reggie-system]` backlog task that is currently blocked by
+   * another repo holding the workspace-wide reggie-system slot. Renders a "deferred" badge.
+   */
+  reggieSystemDeferred?: boolean;
+  /** Name of the repo currently holding the reggie-system slot. */
+  reggieSystemHolderName?: string | null;
 }
 
 function extractSlug(label: string): string {
@@ -67,6 +63,8 @@ export function RepoTaskRow({
   onKillPromotedSession,
   onStartTask,
   onWalkThroughTask,
+  reggieSystemDeferred = false,
+  reggieSystemHolderName = null,
 }: RepoTaskRowProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -348,15 +346,25 @@ export function RepoTaskRow({
 
         <div className="repo-task-row-actions">
           {/* Multi-session aggregate badges (collapsed or expanded) */}
-          {isExpandable && aggregateBadges && (
+          {((isExpandable && aggregateBadges) || (reggieSystemDeferred && reggieSystemHolderName)) && (
             <div className="repo-task-row-aggregate">
-              {aggregateBadges.map((badge) => (
-                <span key={badge.key} className={`repo-task-row-aggregate-badge ${badge.className}`}>
-                  {badge.className === "running" && <span className="repo-task-row-status-dot" />}
-                  {badge.className === "attention" && <span className="repo-task-row-status-pulse" />}
-                  {badge.label}
+              {isExpandable &&
+                aggregateBadges &&
+                aggregateBadges.map((badge) => (
+                  <span key={badge.key} className={`repo-task-row-aggregate-badge ${badge.className}`}>
+                    {badge.className === "running" && <span className="repo-task-row-status-dot" />}
+                    {badge.className === "attention" && <span className="repo-task-row-status-pulse" />}
+                    {badge.label}
+                  </span>
+                ))}
+              {reggieSystemDeferred && reggieSystemHolderName && (
+                <span
+                  className="repo-task-row-aggregate-badge deferred"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {`1 reggie-system task deferred — slot held by ${reggieSystemHolderName}`}
                 </span>
-              ))}
+              )}
             </div>
           )}
 

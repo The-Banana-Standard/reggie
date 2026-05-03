@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { RepoTaskSummary, HeadlessSession, TerminalTab } from "../../types/terminal";
 import { RepoTaskRow } from "./RepoTaskRow";
 import { groupByWorkspace } from "./groupByWorkspace";
+import { getCachedBindings, onBindingsChange } from "../../lib/pipelineBindings";
+import { domainForLabel, isWorkflowLabel, slugFromLabel } from "./sessionLabels";
 
 interface ParallelizableTaskSlug {
   slug: string;
@@ -10,9 +12,54 @@ interface ParallelizableTaskSlug {
   mode: string | null;
 }
 
+export type BlockedReason =
+  | { type: "manual" }
+  | { type: "blockedBy"; data: string };
+
 interface ParallelizableTasksResult {
-  slugs: ParallelizableTaskSlug[];
+  activeSlugs: ParallelizableTaskSlug[];
+  backlogSlugs: ParallelizableTaskSlug[];
   totalGroomed: number;
+  blocked: Record<string, BlockedReason>;
+}
+
+/**
+ * Build a human-readable banner string explaining why a repo had no
+ * dispatchable code tasks. Distinguishes manual-blocked, dep-blocked, and
+ * mixed cases. Returns a generic fallback when `blocked` is empty (the
+ * "literally no planned-unchecked tasks" case).
+ */
+export function formatBlockedReasons(
+  blocked: Record<string, BlockedReason>,
+  repoName: string,
+): string {
+  const entries = Object.entries(blocked);
+  if (entries.length === 0) {
+    return `No tasks available for ${repoName}`;
+  }
+  const manual: string[] = [];
+  const depBlocked: string[] = [];
+  for (const [slug, reason] of entries) {
+    if (reason.type === "manual") manual.push(slug);
+    else depBlocked.push(slug);
+  }
+  const total = entries.length;
+  const taskWord = total === 1 ? "task" : "tasks";
+  const parts: string[] = [];
+  if (manual.length > 0) {
+    const m = manual.length === 1 ? "manual task" : "manual tasks";
+    parts.push(`${manual.length} ${m} (${manual.join(", ")})`);
+  }
+  if (depBlocked.length > 0) {
+    const d = depBlocked.length === 1
+      ? "task blocked by an unmet dependency"
+      : "tasks blocked by unmet dependencies";
+    parts.push(`${depBlocked.length} ${d} (${depBlocked.join(", ")})`);
+  }
+  const tail = manual.length > 0
+    ? "Walk through manual tasks first."
+    : "Resolve dependencies (see HISTORY.md / TASKS.md) before dispatch.";
+  return `All ${total} ${taskWord} in ${repoName} blocked: ${parts.join(", ")}. ${tail}`;
 }
 
 function parseTier(tier: string | null): { model: string | undefined; effort: string | undefined } {
@@ -32,27 +79,31 @@ export function commandForMode(mode: string | null | undefined): {
   command: string;
   labelPrefix: string;
 } {
+  // reggie-system is never bindable — always uses the hardcoded command.
   if (mode === "reggie-system") {
     return { command: "/reggie-system-change --yes", labelPrefix: "reggie-sys --" };
   }
+  const bindings = getCachedBindings();
   if (mode === "debug") {
-    return { command: "/reggie-debug-workflow --yes", labelPrefix: "debug --" };
+    const command = bindings.debug ? `/${bindings.debug} --yes` : "/reggie-debug-workflow --yes";
+    return { command, labelPrefix: "debug --" };
   }
-  return { command: "/reggie-code-workflow --yes", labelPrefix: "code --" };
+  if (mode === "manual") {
+    // Manual mode dispatch via commandForMode is a fallback path
+    // (handleWalkThroughTask owns the primary manual flow). Label prefix
+    // stays "code --" per the mode-driven label-prefix rule.
+    const command = bindings.manual ? `/${bindings.manual}` : "/reggie-manual-task";
+    return { command, labelPrefix: "code --" };
+  }
+  // code, design, null/undefined → code workflow
+  const command = bindings.code ? `/${bindings.code} --yes` : "/reggie-code-workflow --yes";
+  return { command, labelPrefix: "code --" };
 }
 
-/**
- * Whether a session label belongs to one of the dispatched workflows
- * (code, reggie-system, or debug). Used to filter sessions per-repo and to
- * skip repos in batch start that already have a workflow session running.
- */
-export function isWorkflowLabel(label: string): boolean {
-  return (
-    label.startsWith("code --") ||
-    label.startsWith("reggie-sys --") ||
-    label.startsWith("debug --")
-  );
-}
+// `isWorkflowLabel` and `domainForLabel` live in `./sessionLabels` — single source
+// of truth shared with `RepoTaskRow.tsx`. Re-export here for any external consumers
+// that imported `isWorkflowLabel` from this module historically.
+export { isWorkflowLabel };
 
 /** Per-domain caps applied client-side after the backend returns parallelizable slugs. */
 const DOMAIN_CAPS = {
@@ -62,23 +113,133 @@ const DOMAIN_CAPS = {
 } as const;
 
 /**
- * Partition slugs by domain (code/design vs. reggie-system vs. debug) and apply per-domain caps.
- * Returns the concatenated slug list in dispatch order: code/design first, then reggie-system, then debug.
+ * Pick the slugs to launch from `backlog`, capped per-domain by `remaining` slots.
+ *
+ * Returns the concatenated list in dispatch order: code/design, then reggie-system, then debug.
+ *
+ * `activeSlugs` is a defensive consumer-side filter: any backlog entry whose slug is
+ * already in the set is dropped before per-domain slicing. This makes the no-duplicate-
+ * launch invariant explicit at the call site rather than inherited from the backend's
+ * `activeSlugs`/`backlogSlugs` split — a regression in `get_parallelizable_tasks`
+ * cannot re-introduce double launches as long as callers pass a correct active set.
+ *
+ * The set is keyed by slug only because `pickBacklogToLaunch` is invoked per-repo;
+ * cross-repo slug collisions cannot occur within a single call's scope.
  */
-function partitionAndCap(slugs: ParallelizableTaskSlug[]): ParallelizableTaskSlug[] {
-  const codeDesign = slugs
+export function pickBacklogToLaunch(
+  backlog: ParallelizableTaskSlug[],
+  remaining: { code: number; reggieSystem: number; debug: number },
+  activeSlugs: Set<string> = new Set(),
+): ParallelizableTaskSlug[] {
+  const eligible = activeSlugs.size === 0
+    ? backlog
+    : backlog.filter((s) => !activeSlugs.has(s.slug));
+  const codeDesign = eligible
     .filter((s) => !s.mode || s.mode === "code" || s.mode === "design")
-    .slice(0, DOMAIN_CAPS.code);
-  const reggieSystem = slugs.filter((s) => s.mode === "reggie-system").slice(0, DOMAIN_CAPS.reggieSystem);
-  const debug = slugs.filter((s) => s.mode === "debug").slice(0, DOMAIN_CAPS.debug);
+    .slice(0, Math.max(0, remaining.code));
+  const reggieSystem = eligible
+    .filter((s) => s.mode === "reggie-system")
+    .slice(0, Math.max(0, remaining.reggieSystem));
+  const debug = eligible
+    .filter((s) => s.mode === "debug")
+    .slice(0, Math.max(0, remaining.debug));
   return [...codeDesign, ...reggieSystem, ...debug];
+}
+
+/**
+ * Pick the repo currently holding the workspace-wide reggie-system slot.
+ *
+ * Iterates both running headless sessions and promoted-but-still-running terminal
+ * tabs, sorts the candidates by `terminalId` ascending, and returns the first match's
+ * `{ repoPath, repoName }`. Sorting by UUID makes the result deterministic across
+ * renders even during the transient mid-promotion window when the same session
+ * appears in both arrays — the previous "iterate headless first, then sessions"
+ * approach gave a non-deterministic badge name depending on which array's iteration
+ * resolved first. The order is stable, not chronological — that's all the badge needs.
+ */
+export function pickReggieSystemHolder(
+  headlessSessions: HeadlessSession[],
+  sessions: TerminalTab[],
+): { repoPath: string; repoName: string } | null {
+  const candidates: { terminalId: string; projectPath: string }[] = [];
+  for (const s of headlessSessions) {
+    if (s.exited || s.completed) continue;
+    if (domainForLabel(s.label) !== "reggieSystem") continue;
+    candidates.push({ terminalId: s.terminalId, projectPath: s.projectPath });
+  }
+  for (const s of sessions) {
+    if (!s.isHeadlessPromoted) continue;
+    if (s.dead || s.headlessCompleted) continue;
+    if (s.terminalId === null) continue;
+    if (domainForLabel(s.label) !== "reggieSystem") continue;
+    candidates.push({ terminalId: s.terminalId, projectPath: s.projectPath });
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => (a.terminalId < b.terminalId ? -1 : a.terminalId > b.terminalId ? 1 : 0));
+  const winner = candidates[0];
+  const repoName = winner.projectPath.split(/[/\\]/).pop() ?? "";
+  return { repoPath: winner.projectPath, repoName };
+}
+
+/**
+ * Count currently-running sessions per domain (code / reggie-system / debug).
+ *
+ * Counts both:
+ *   - headless sessions where `!s.exited && !s.completed` (still running, not yet finished)
+ *   - promoted sessions where `s.isHeadlessPromoted && !s.dead && !s.headlessCompleted`
+ *
+ * When `repoPath` is provided, filter to that repo. When undefined, count workspace-wide.
+ *
+ * Sessions whose label has no domain (e.g. `init-tasks --` or any custom label) are
+ * ignored — they do not count toward any of the three domain caps.
+ */
+export function countRunningByDomain(
+  headlessSessions: HeadlessSession[],
+  sessions: TerminalTab[],
+  repoPath?: string,
+): { code: number; reggieSystem: number; debug: number } {
+  const counts = { code: 0, reggieSystem: 0, debug: 0 };
+  const matchesRepo = (path: string) => repoPath === undefined || path === repoPath;
+
+  for (const s of headlessSessions) {
+    if (s.exited || s.completed) continue;
+    if (!matchesRepo(s.projectPath)) continue;
+    const domain = domainForLabel(s.label);
+    if (domain === "code") counts.code++;
+    else if (domain === "reggieSystem") counts.reggieSystem++;
+    else if (domain === "debug") counts.debug++;
+  }
+  for (const s of sessions) {
+    if (!s.isHeadlessPromoted) continue;
+    if (s.dead || s.headlessCompleted) continue;
+    if (!matchesRepo(s.projectPath)) continue;
+    const domain = domainForLabel(s.label);
+    if (domain === "code") counts.code++;
+    else if (domain === "reggieSystem") counts.reggieSystem++;
+    else if (domain === "debug") counts.debug++;
+  }
+  return counts;
+}
+
+/**
+ * Count currently-running reggie-system sessions across the entire workspace.
+ *
+ * Used for the group-wide reggie-system cap (1 across all repos) — reggie-system
+ * tasks modify shared `~/.claude/`, so only one may run at a time regardless of
+ * which repo it belongs to.
+ */
+export function countRunningReggieSystemAcrossWorkspace(
+  headlessSessions: HeadlessSession[],
+  sessions: TerminalTab[],
+): number {
+  return countRunningByDomain(headlessSessions, sessions).reggieSystem;
 }
 
 interface CodeWorkflowTabProps {
   activeLevelPath: string | null;
   headlessSessions: HeadlessSession[];
   sessions: TerminalTab[];
-  onLaunchHeadless: (projectPath: string, initialCommand: string, label: string, model?: string, effort?: string) => Promise<string | null>;
+  onLaunchHeadless: (projectPath: string, initialCommand: string, label: string, model?: string, effort?: string, autoRelaunch?: boolean) => Promise<string | null>;
   onPromoteHeadless: (terminalId: string) => string | null;
   onPromoteSession: (tabId: string) => void;
   onRemoveHeadless: (terminalId: string) => void;
@@ -115,9 +276,13 @@ export function CodeWorkflowTab({
   const [localRepos, setLocalRepos] = useState<RepoTaskSummary[]>([]);
   const [localLoading, setLocalLoading] = useState(true);
   const [batchRunning, setBatchRunning] = useState(false);
-  const [noTasksMessage, setNoTasksMessage] = useState<string | null>(null);
-  const noTasksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Per-repo banner explaining why dispatch found nothing. Persistent — cleared
+  // explicitly on refresh, batch start, and successful launches. Not triggered
+  // from the auto-relaunch path (would flash banners during normal completion).
+  const [blockedBanner, setBlockedBanner] = useState<Map<string, string>>(new Map());
   const mountedRef = useRef(true);
+  const relaunchedTerminalIdsRef = useRef<Set<string>>(new Set());
+  const recentlyCompletedSlugsRef = useRef<Map<string, number>>(new Map());
 
   const loadTasks = useCallback(() => {
     if (useTracked) return;
@@ -166,41 +331,134 @@ export function CodeWorkflowTab({
 
   const repos = useTracked ? trackedRepos : localRepos;
   const loading = useTracked ? (reposLoading ?? false) : localLoading;
-  const handleRefresh = useTracked ? (onRefreshRepos ?? (() => {})) : loadTasks;
+  const baseRefresh = useTracked ? (onRefreshRepos ?? (() => {})) : loadTasks;
+  const handleRefresh = useCallback(() => {
+    setBlockedBanner(new Map());
+    baseRefresh();
+  }, [baseRefresh]);
 
-  const showNoTasksMessage = useCallback((repoName: string) => {
-    if (noTasksTimerRef.current) clearTimeout(noTasksTimerRef.current);
-    setNoTasksMessage(`No tasks available for ${repoName}`);
-    noTasksTimerRef.current = setTimeout(() => {
-      setNoTasksMessage(null);
-      noTasksTimerRef.current = null;
-    }, 4000);
+  const setRepoBlockedBanner = useCallback((repoPath: string, message: string) => {
+    setBlockedBanner((prev) => {
+      const next = new Map(prev);
+      next.set(repoPath, message);
+      return next;
+    });
   }, []);
 
-  // Clean up timer on unmount
+  const clearRepoBlockedBanner = useCallback((repoPath: string) => {
+    setBlockedBanner((prev) => {
+      if (!prev.has(repoPath)) return prev;
+      const next = new Map(prev);
+      next.delete(repoPath);
+      return next;
+    });
+  }, []);
+
+  // Drop banner entries for repos that are no longer in the list (e.g. when
+  // the active level path changes or a repo is removed). Without this the
+  // banner could orphan a stale message keyed at a path that nothing renders.
   useEffect(() => {
-    return () => {
-      if (noTasksTimerRef.current) clearTimeout(noTasksTimerRef.current);
-    };
-  }, []);
+    setBlockedBanner((prev) => {
+      if (prev.size === 0) return prev;
+      const live = new Set(repos.map((r) => r.path));
+      let changed = false;
+      const next = new Map<string, string>();
+      for (const [path, msg] of prev) {
+        if (live.has(path)) next.set(path, msg);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [repos]);
 
-  const handleLaunchSession = useCallback(
-    async (repoPath: string, repoName: string) => {
-      // Use smart agent count to determine which tasks to start
+  /**
+   * Launch backlog tasks for a single repo, capped per-domain by remaining slots.
+   *
+   * `reggieSystemRemainingOverride` is used by Batch Start to thread a global
+   * (workspace-wide) reggie-system slot allocation that accounts for in-flight
+   * launches earlier in the same batch iteration. When undefined, we compute
+   * a fresh global value from the current `headlessSessions` + `sessions` snapshot.
+   *
+   * Returns `{ reggieSystemLaunched }` so Batch Start can advance its in-flight
+   * counter between iterations.
+   */
+  const launchForRepo = useCallback(
+    async (
+      repoPath: string,
+      repoName: string,
+      reggieSystemRemainingOverride?: number,
+      suppressBanner: boolean = false,
+    ): Promise<{ reggieSystemLaunched: number }> => {
+      const reportNoDispatch = (blocked: Record<string, BlockedReason> | undefined) => {
+        if (suppressBanner) return;
+        setRepoBlockedBanner(repoPath, formatBlockedReasons(blocked ?? {}, repoName));
+      };
       try {
         const result = await invoke<ParallelizableTasksResult>("get_parallelizable_tasks", {
           projectPath: repoPath,
         });
-        if (result.slugs.length === 0) {
-          showNoTasksMessage(repoName);
-          return;
+        if (result.activeSlugs.length === 0 && result.backlogSlugs.length === 0) {
+          reportNoDispatch(result.blocked);
+          return { reggieSystemLaunched: 0 };
         }
-        // Partition by domain (code/design, reggie-system, debug) and apply per-domain caps.
-        const toLaunch = partitionAndCap(result.slugs);
+
+        // Defense-in-depth filter against the race where TASKS.md re-scan happens
+        // before the backend's meta-commit lands. Drop slugs we just relaunched off of.
+        // Keyed by `${repoPath}::${slug}` so a same-named slug in another repo isn't suppressed.
+        const now = Date.now();
+        for (const [key, ts] of recentlyCompletedSlugsRef.current) {
+          if (now - ts > 5000) recentlyCompletedSlugsRef.current.delete(key);
+        }
+        const filteredBacklog = result.backlogSlugs.filter(
+          (s) => !recentlyCompletedSlugsRef.current.has(`${repoPath}::${s.slug}`),
+        );
+
+        // Per-domain remaining slots: cap minus currently-running per repo for code/debug,
+        // cap minus currently-running across the whole workspace for reggie-system.
+        // Active slugs never reach the launch loop — backend splits them into
+        // `activeSlugs` precisely so the frontend can count them as already-running and
+        // never re-dispatch them.
+        const runningPerRepo = countRunningByDomain(headlessSessions, sessions, repoPath);
+        const reggieSystemRemaining =
+          reggieSystemRemainingOverride !== undefined
+            ? reggieSystemRemainingOverride
+            : Math.max(
+                0,
+                DOMAIN_CAPS.reggieSystem -
+                  countRunningReggieSystemAcrossWorkspace(headlessSessions, sessions),
+              );
+        const remaining = {
+          code: Math.max(0, DOMAIN_CAPS.code - runningPerRepo.code),
+          reggieSystem: reggieSystemRemaining,
+          debug: Math.max(0, DOMAIN_CAPS.debug - runningPerRepo.debug),
+        };
+
+        // Defensive slug filter: build the set of slugs already running for this
+        // repo across both headless sessions and promoted terminal tabs. Passed
+        // to `pickBacklogToLaunch` so a backend regression in `activeSlugs`/
+        // `backlogSlugs` partitioning cannot re-introduce duplicate launches.
+        const activeSlugs = new Set<string>();
+        for (const s of headlessSessions) {
+          if (s.exited || s.completed) continue;
+          if (s.projectPath !== repoPath) continue;
+          const slug = slugFromLabel(s.label);
+          if (slug) activeSlugs.add(slug);
+        }
+        for (const s of sessions) {
+          if (!s.isHeadlessPromoted) continue;
+          if (s.dead || s.headlessCompleted) continue;
+          if (s.projectPath !== repoPath) continue;
+          const slug = slugFromLabel(s.label);
+          if (slug) activeSlugs.add(slug);
+        }
+
+        const toLaunch = pickBacklogToLaunch(filteredBacklog, remaining, activeSlugs);
         if (toLaunch.length === 0) {
-          showNoTasksMessage(repoName);
-          return;
+          reportNoDispatch(result.blocked);
+          return { reggieSystemLaunched: 0 };
         }
+
+        let reggieSystemLaunched = 0;
         for (const entry of toLaunch) {
           const { model, effort } = parseTier(entry.tier);
           const { command, labelPrefix } = commandForMode(entry.mode);
@@ -210,14 +468,67 @@ export function CodeWorkflowTab({
             `${labelPrefix} ${repoName}/${entry.slug}`,
             model,
             effort,
+            true,
           );
+          if (entry.mode === "reggie-system") reggieSystemLaunched++;
         }
+        clearRepoBlockedBanner(repoPath);
+        return { reggieSystemLaunched };
       } catch (err) {
         console.error("Failed to get parallelizable tasks:", err);
+        return { reggieSystemLaunched: 0 };
       }
     },
-    [onLaunchHeadless, showNoTasksMessage]
+    [onLaunchHeadless, setRepoBlockedBanner, clearRepoBlockedBanner, headlessSessions, sessions]
   );
+
+  const handleLaunchSession = useCallback(
+    async (repoPath: string, repoName: string) => {
+      await launchForRepo(repoPath, repoName);
+    },
+    [launchForRepo]
+  );
+
+  // Auto-relaunch: when a session originally launched with autoRelaunch:true completes
+  // successfully, kick off a fresh launchForRepo for the same repo. Idempotent on
+  // terminalId via relaunchedTerminalIdsRef so a session only ever triggers one relaunch.
+  useEffect(() => {
+    void (async () => {
+      for (const session of headlessSessions) {
+        if (!session.completed || !session.autoRelaunch) continue;
+        if (relaunchedTerminalIdsRef.current.has(session.terminalId)) continue;
+        relaunchedTerminalIdsRef.current.add(session.terminalId);
+        const slug = session.label.split("/").pop();
+        if (slug) recentlyCompletedSlugsRef.current.set(`${session.projectPath}::${slug}`, Date.now());
+
+        const ownResult = await launchForRepo(
+          session.projectPath,
+          session.projectName,
+          undefined,
+          true,
+        );
+
+        // reggie-system has a workspace-wide cap of 1. The just-completed session
+        // freed the slot — fan out to peers sequentially with a threaded in-flight
+        // counter so two peers can't race into the same slot from parallel calls.
+        if (domainForLabel(session.label) === "reggieSystem") {
+          let inFlight = ownResult.reggieSystemLaunched;
+          for (const other of repos) {
+            if (other.path === session.projectPath) continue;
+            const remaining = Math.max(0, DOMAIN_CAPS.reggieSystem - inFlight);
+            if (remaining === 0) break;
+            const { reggieSystemLaunched } = await launchForRepo(
+              other.path,
+              other.name,
+              remaining,
+              true,
+            );
+            inFlight += reggieSystemLaunched;
+          }
+        }
+      }
+    })();
+  }, [headlessSessions, launchForRepo, repos]);
 
   const handleStartIndividualTask = useCallback(
     async (repoPath: string, repoName: string, slug: string, tier?: string, mode?: string | null) => {
@@ -244,9 +555,10 @@ export function CodeWorkflowTab({
   const handleWalkThroughTask = useCallback(
     async (repoPath: string, repoName: string, slug: string) => {
       try {
+        const { command } = commandForMode("manual");
         const terminalId = await onLaunchHeadless(
           repoPath,
-          `/reggie-manual-task ${slug}`,
+          `${command} ${slug}`,
           `code -- ${repoName}/${slug}`,
           undefined,
           undefined,
@@ -262,33 +574,49 @@ export function CodeWorkflowTab({
   );
 
   const handleBatchStart = useCallback(async () => {
+    setBlockedBanner(new Map());
     const reposWithTasks = repos.filter((r) => r.groomedCount + r.activeCount > 0);
     if (reposWithTasks.length === 0) return;
 
     setBatchRunning(true);
+    // Snapshot reggie-system running once before the loop. We then track
+    // in-flight launches with a local counter, because React's batched
+    // state updates may not flush between `await` points — relying on
+    // `headlessSessions` re-snapshots within the loop would let two repos
+    // both observe "0 running" and double-launch the workspace-wide slot.
+    const reggieSystemGlobalRunning = countRunningReggieSystemAcrossWorkspace(
+      headlessSessions,
+      sessions,
+    );
+    let inFlightReggieSystem = 0;
+
     for (const repo of reposWithTasks) {
-      // Skip repos that already have a headless workflow session running for any domain
-      // (code, reggie-system, or debug).
-      const existingHeadless = headlessSessions.find(
-        (s) => s.projectPath === repo.path && isWorkflowLabel(s.label) && !s.exited
+      // No per-repo skip here: cross-domain dispatch must work even when the repo
+      // already has a workflow session running for one domain (e.g. an active
+      // [code] session must not block the [reggie-system] backlog task from this
+      // repo, and must not block the [debug] backlog tasks). Per-domain remaining
+      // slots in `launchForRepo` enforce the right thing.
+      const reggieSystemRemainingOverride = Math.max(
+        0,
+        DOMAIN_CAPS.reggieSystem - reggieSystemGlobalRunning - inFlightReggieSystem,
       );
-      if (existingHeadless) continue;
-
-      // Skip repos that have a promoted (visible) workflow session still running.
-      const existingPromoted = sessions.find(
-        (s) =>
-          s.projectPath === repo.path &&
-          s.isHeadlessPromoted &&
-          isWorkflowLabel(s.label) &&
-          !s.dead &&
-          !s.headlessCompleted
+      const { reggieSystemLaunched } = await launchForRepo(
+        repo.path,
+        repo.name,
+        reggieSystemRemainingOverride,
       );
-      if (existingPromoted) continue;
-
-      await handleLaunchSession(repo.path, repo.name);
+      inFlightReggieSystem += reggieSystemLaunched;
     }
     setBatchRunning(false);
-  }, [repos, headlessSessions, sessions, handleLaunchSession]);
+  }, [repos, headlessSessions, sessions, launchForRepo]);
+
+  // Identify the repo that currently holds the workspace-wide reggie-system slot.
+  // Other repos with a `[reggie-system]` task in their backlog will show a
+  // "deferred — slot held by <repo>" badge.
+  const reggieSystemHolder = useMemo<{ repoPath: string; repoName: string } | null>(
+    () => pickReggieSystemHolder(headlessSessions, sessions),
+    [headlessSessions, sessions],
+  );
 
   // Group repos by workspace
   const grouped = groupByWorkspace(repos);
@@ -310,6 +638,7 @@ export function CodeWorkflowTab({
 
   return (
     <div className="dashboard-tab-content">
+      <BindingsStatusStrip />
       <div className="dashboard-tab-header">
         <div className="dashboard-tab-header-info">
           <span className="dashboard-tab-header-count">{totalGroomed} tasks</span>
@@ -339,8 +668,26 @@ export function CodeWorkflowTab({
         </div>
       </div>
 
-      {noTasksMessage && (
-        <div style={{ fontSize: "11px", color: "var(--text-muted)", padding: "6px 0" }}>{noTasksMessage}</div>
+      {blockedBanner.size > 0 && (
+        <div
+          role="status"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+            padding: "8px 10px",
+            margin: "8px 0",
+            border: "1px solid var(--border-warning, var(--border-color, #c97c00))",
+            borderRadius: "4px",
+            background: "var(--bg-warning, rgba(201, 124, 0, 0.08))",
+            color: "var(--text-warning, var(--text-primary, inherit))",
+            fontSize: "12px",
+          }}
+        >
+          {Array.from(blockedBanner.entries()).map(([repoPath, message]) => (
+            <div key={repoPath}>{message}</div>
+          ))}
+        </div>
       )}
 
       <div className="dashboard-tab-list">
@@ -362,6 +709,20 @@ export function CodeWorkflowTab({
                 (s) => s.projectPath === repo.path
               );
 
+              // A repo's reggie-system task is "deferred" when another repo currently holds
+              // the workspace-wide slot. We only show the badge when this repo actually has
+              // a [reggie-system] task in its backlog, otherwise the message is meaningless.
+              const hasReggieSystemBacklog = (repo.groomedTasks ?? []).some(
+                (t) => t.mode === "reggie-system",
+              );
+              const reggieSystemDeferred =
+                reggieSystemHolder !== null &&
+                reggieSystemHolder.repoPath !== repo.path &&
+                hasReggieSystemBacklog;
+              const reggieSystemHolderName = reggieSystemDeferred
+                ? reggieSystemHolder!.repoName
+                : null;
+
               return (
                 <RepoTaskRow
                   key={repo.path}
@@ -379,6 +740,8 @@ export function CodeWorkflowTab({
                   onTrashSession={onTrashSession}
                   onStartTask={handleStartIndividualTask}
                   onWalkThroughTask={handleWalkThroughTask}
+                  reggieSystemDeferred={reggieSystemDeferred}
+                  reggieSystemHolderName={reggieSystemHolderName}
                 />
               );
             })}
@@ -388,3 +751,26 @@ export function CodeWorkflowTab({
     </div>
   );
 }
+
+/**
+ * Small read-only strip showing the active pipeline bindings for each mode.
+ * Reggie-system is omitted because it is not bindable.
+ */
+function BindingsStatusStrip() {
+  // Re-render on any cache change; read the validated view directly so the
+  // strip reflects the effective dispatch command, not the raw (possibly
+  // uninstalled) binding name.
+  const [, setTick] = useState(0);
+  useEffect(() => onBindingsChange(() => setTick((n) => n + 1)), []);
+  const bindings = getCachedBindings();
+  const code = bindings.code ?? "reggie-code-workflow";
+  const debug = bindings.debug ?? "reggie-debug-workflow";
+  const manual = bindings.manual ?? "reggie-manual-task";
+  return (
+    <div className="pipeline-bindings-strip">
+      <span>Code: {code} · Debug: {debug} · Manual: {manual}</span>
+      <div className="pipeline-bindings-strip-hint">configure in Pipelines panel</div>
+    </div>
+  );
+}
+

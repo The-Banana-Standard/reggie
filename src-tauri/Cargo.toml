@@ -1,6 +1,6 @@
 [package]
 name = "reggie"
-version = "2.1.0"
+version = "2.1.1"
 description = "Brain-dump to merged PR — a desktop workspace and agent system that turns messy notes into shipped code with Claude Code."
 authors = ["Jacob Press", "Anthony Mazzola"]
 license = "MIT"
@@ -23,6 +23,7 @@ portable-pty = "0.8"
 tokio = { version = "1", features = ["full"] }
 uuid = { version = "1", features = ["v4"] }
 dirs = "6"
+notify = "8"
 
 [dev-dependencies]
 tempfile = "3"

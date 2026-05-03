@@ -23,16 +23,16 @@ You handle multiple pipeline entry points:
 | `/reggie-code-workflow` | Tasks already exist | PICKUP | code |
 | `/reggie-brainstorm` | Start from an idea | BRAINSTORM | brainstorm |
 
-## --yes Flag Handling (Ralph Wiggum Mode)
+## --yes Flag Handling
 
-When `--yes` is present in $ARGUMENTS (from `/reggie-code-workflow --yes`), the orchestrator skips ALL confirmation prompts:
+When `--yes` is present in $ARGUMENTS (from `/reggie-code-workflow --yes`), the orchestrator skips ALL **in-session** confirmation prompts for the current task:
 
 - Stage advancement prompts → auto-advance
 - REVIEW-WITH-USER acceptance → all criteria auto-approved
 - Merge strategy selection → default to local merge
 - Conflict warnings → auto-proceed
 - Any other yes/no or multi-choice gate → treated as approved
-- Next task prompt → auto-continue: run `/compact` with aggressive purge, then loop back to PICKUP for next backlog task
+- Next task prompt → **does not loop**. After COMPLETE, emit `~~REGGIE:DONE:reggie-code-workflow:success~~` and exit. The Reggie UI is responsible for launching the next backlog task in a fresh session (per-repo / Batch Start sessions detect the DONE marker and relaunch).
 
 **Does NOT affect**:
 - Quality gates (9.0/10 reggie-judge scoring) — these still run and iterate
@@ -55,11 +55,11 @@ The pipeline supports multiple modes that share all infrastructure (worktrees, T
 | reggie-system | INTAKE → BRAINSTORM → PLAN → IMPLEMENT → VERIFY (slug-mode skips INTAKE/BRAINSTORM) | `/reggie-system-change --yes <slug>` (NOT picked up by `/reggie-code-workflow`) |
 | debug | INTAKE → DEBUG-DIALOGUE → HANDOFF (slug-mode auto-approves stage gates) | `/reggie-debug-workflow --yes <slug>` (NOT picked up by `/reggie-code-workflow`) |
 
-**Cross-pipeline contract**: `[manual]`, `[reggie-system]`, and `[debug]` tasks are tagged in TASKS.md the same way as `[code]` and `[design]`, but they are **invisible** to `/reggie-code-workflow` — code-workflow's PICKUP stage filters them out and prints a redirect to the appropriate pipeline. Each non-code pipeline owns its own slug-mode entry and its own auto-continue (Wiggum) loop:
+**Cross-pipeline contract**: `[manual]`, `[reggie-system]`, and `[debug]` tasks are tagged in TASKS.md the same way as `[code]` and `[design]`, but they are **invisible** to `/reggie-code-workflow` — code-workflow's PICKUP stage filters them out and prints a redirect to the appropriate pipeline. Each non-code pipeline owns its own slug-mode entry. None of them auto-continue across slugs in-session; cross-task relaunch is the Reggie UI's job (it detects the DONE marker and launches the next eligible slug in a fresh session):
 
-- `/reggie-manual-task <slug>` — interactive only; never auto-continues across slugs.
-- `/reggie-system-change --yes <slug>` — autonomous; auto-continues to next `[reggie-system]` slug serially (cap=1 concurrent).
-- `/reggie-debug-workflow --yes <slug>` — autonomous within stages, but ends each slug with a HANDOFF summary + checkpoint prompt; only auto-continues to the next `[debug]` slug on explicit user "Next" / "Move to next".
+- `/reggie-manual-task <slug>` — interactive only; emits DONE on success and exits.
+- `/reggie-system-change --yes <slug>` — autonomous within the slug; emits DONE on success and exits. UI workspace-wide cap = 1 concurrent run (every change touches `~/.claude/`, so parallel runs would race).
+- `/reggie-debug-workflow --yes <slug>` — autonomous within stages, ends each slug with a HANDOFF summary + checkpoint prompt; never auto-continues across slugs (HANDOFF always pauses for user review).
 
 **Mode affects:**
 1. **Stage sequence**: Which stages run and in what order
@@ -232,10 +232,11 @@ The `git diff --cached --quiet ||` guard ensures we only commit when there are a
 |-------|---------|------|
 | `meta: pickup [slug]` | After adding to Active Tasks + removing from Backlog | PICKUP step 13 |
 | `meta: migrate-history` | After moving Completed section to HISTORY.md | TASKS.md migration |
-| `meta: stage [slug] [STAGE]` | After updating Quality Scores table | Advance Stage step 6 |
 | `meta: files [slug]` | After writing file list to TASKS.md | PICKUP Conflict Detection step 1 |
 | `meta: complete [slug]` | After removing from Active + appending to HISTORY.md | Complete Task step 5 |
 | `meta: discovered-issues [slug]` | After appending discovered issues to Backlog | Discovered Issues → Backlog |
+
+**Note**: Per-stage advancement does NOT emit a metadata commit. Stage state, attempts, and quality scores are runtime-only — they live in `.pipeline/[slug]/STATE` (gitignored, dies with the run), not in TASKS.md. See **Per-Task Pipeline State Files** below.
 
 ### Rules
 
@@ -254,15 +255,40 @@ Each active task gets its own isolated directory at `.pipeline/[task-slug]/`:
     CONTEXT.md          # Pipeline context (verbatim stage outputs)
     HANDOFF.md          # Compaction artifact
     DECISIONS.md        # Decision log
+    STATE               # Runtime stage state + quality scores (plain text)
+    SKIP                # Optional: stages to skip (plain text)
   fix-color-rendering/
     CONTEXT.md
     ...
 ```
 
-- **Created at PICKUP**: `mkdir -p .pipeline/[slug]/` with `CONTEXT.md` (seeded with pre-existing context if available — see Context Seeding below)
+- **Created at PICKUP**: `mkdir -p .pipeline/[slug]/` with `CONTEXT.md` (seeded with pre-existing context if available — see Context Seeding below) and `STATE` (initial stage marker — see Per-Task Pipeline State Files below)
 - **Deleted at COMPLETE**: `rm -rf .pipeline/[slug]/`
 - `.pipeline/` and `.worktree/` should be added to `.gitignore`
 - Replaces root-level CONTEXT.md, HANDOFF.md, DECISIONS.md
+
+### Per-Task Pipeline State Files
+
+Two plain-text files at the root of `.pipeline/[slug]/` carry runtime pipeline state. Both are gitignored, both die with the run (deleted at COMPLETE alongside the rest of the directory). Neither is parsed by anything outside the pipeline orchestrator.
+
+**`SKIP`** — set once at PICKUP. One stage per line with reason. Read at the top of every Advance Stage check. Example:
+```
+WRITE-TESTS: config-only task, no testable code
+SIMPLIFY: config-only task, no code to refactor
+```
+
+**`STATE`** — written at PICKUP, updated at every stage advance, read on resume after compaction. Carries the current stage, attempts counter, and quality scores table. Replaces what used to be the `**Stage**`, `**Attempts**`, and `**Quality Scores**` block in TASKS.md. Format:
+```
+CURRENT: IMPLEMENT
+
+| Stage | Score | Attempts | Status |
+|-------|-------|----------|--------|
+| IMPLEMENT | - | 0 | CURRENT |
+```
+
+As stages complete, append rows to the table and update the `CURRENT:` line. On a SKIP, append a row with `Score: SKIP` and the reason in place of `Status`. The orchestrator overwrites the file each advance — no diff history is preserved.
+
+**Why a STATE file (not TASKS.md)**: per-stage state is pure runtime state of an in-flight pipeline. No other session needs to see it, no PR review depends on it, and committing it on every advance creates ~6 `meta:` commits per task on the base branch for no durable value. TASKS.md retains only the static fields set once at PICKUP — fields that other sessions and post-mortem readers genuinely need.
 
 ## Worktree Management
 
@@ -574,9 +600,9 @@ Agents working on a task will often discover unrelated problems in the codebase 
 ## Context Compaction
 
 When context gets large:
-1. Write current state to TASKS.md
+1. Ensure `.pipeline/[slug]/STATE` reflects the current stage and scores (it should already — every advance rewrites it)
 2. Write latest handoff artifact to `.pipeline/[slug]/HANDOFF.md`
-3. On resume after compaction: re-read TASKS.md + `.pipeline/[slug]/HANDOFF.md`
+3. On resume after compaction: re-read `.pipeline/[slug]/CONTEXT.md`, `.pipeline/[slug]/HANDOFF.md`, and `.pipeline/[slug]/STATE` (the `CURRENT:` line is the resume point)
 4. Critical decisions persist in `.pipeline/[slug]/DECISIONS.md`
 
 ## TASKS.md Format
@@ -588,38 +614,25 @@ When context gets large:
 
 ### add-streak-tracking
 **Task**: Add streak tracking
-**Stage**: IMPLEMENT
 **Pipeline**: code-workflow
 **Branch**: task/add-streak-tracking
 **Worktree**: .worktree/add-streak-tracking
 **Base**: main
 **Started**: 2026-02-05
-**Attempts**: 1
 **Files**:
 - NEW: src/services/StreakManager.swift
 - MOD: src/models/UserProgress.swift
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
-| WRITE-TESTS | SKIP | 0 | task is writing tests |
 
 ---
 
 ### fix-color-rendering
 **Task**: Fix Android color rendering
-**Stage**: IMPLEMENT
 **Pipeline**: code-workflow
 **Branch**: task/fix-color-rendering
 **Worktree**: .worktree/fix-color-rendering
 **Base**: main
 **Started**: 2026-02-05
-**Attempts**: 0
 **Files**: (from task.md plan)
-**Quality Scores**:
-| Stage | Score | Attempts | Status |
-|-------|-------|----------|--------|
-| IMPLEMENT | - | 0 | CURRENT |
 
 ---
 
@@ -635,6 +648,8 @@ When context gets large:
 ```
 
 Completed tasks are stored in `HISTORY.md` (same directory as TASKS.md), not in TASKS.md. This keeps TASKS.md lean for agent context windows.
+
+**Note on Active Task fields**: The Active Tasks block carries only static fields set once at PICKUP. Runtime fields (`**Stage**`, `**Attempts**`, `**Quality Scores**`) used to live here, but they are now kept in `.pipeline/[slug]/STATE` instead — they're per-run state, not project state, and committing them on every advance polluted base-branch history with `meta: stage` commits. See **Per-Task Pipeline State Files** above.
 
 ### Grouped Backlog Format
 
@@ -745,7 +760,14 @@ This runs once, automatically, whenever a pipeline first reads a TASKS.md with t
    done
    ```
 8. If project uses `node_modules/`, run install command in worktree
-9. Create `.pipeline/[slug]/` with seeded `CONTEXT.md` and `STAGE` file containing `IMPLEMENT` (in main repo). See **Context Seeding** below.
+9. Create `.pipeline/[slug]/` with seeded `CONTEXT.md` and initial `STATE` file (in main repo). See **Context Seeding** below for CONTEXT.md and **Per-Task Pipeline State Files** above for the STATE format. Initial STATE for a fresh code-workflow pickup:
+   ```
+   CURRENT: IMPLEMENT
+
+   | Stage | Score | Attempts | Status |
+   |-------|-------|----------|--------|
+   | IMPLEMENT | - | 0 | CURRENT |
+   ```
 10. Compute skip list. See **Skip List** below. Write to `.pipeline/[slug]/SKIP` if any stages should be skipped.
 11. Ensure `.pipeline/` and `.worktree/` are in `.gitignore`
 12. Add `### [slug]` section to `## Active Tasks` in TASKS.md (include **Branch**, **Worktree**, **Base** fields)
@@ -821,7 +843,7 @@ SIMPLIFY: config-only task, no code to refactor
 
 If no stages should be skipped, do not create the SKIP file.
 
-**Resuming your own task**: Only if the user explicitly says to resume a specific slug (e.g., after context compaction or returning to a paused task). Verify the worktree exists; if missing, recreate from the branch: `git worktree add .worktree/[slug] task/[slug]`. Read `.pipeline/[slug]/CONTEXT.md` + `.pipeline/[slug]/HANDOFF.md` to restore context, continue from the stage in TASKS.md.
+**Resuming your own task**: Only if the user explicitly says to resume a specific slug (e.g., after context compaction or returning to a paused task). Verify the worktree exists; if missing, recreate from the branch: `git worktree add .worktree/[slug] task/[slug]`. Read `.pipeline/[slug]/CONTEXT.md` + `.pipeline/[slug]/HANDOFF.md` to restore context. Read the current stage from the `CURRENT:` line of `.pipeline/[slug]/STATE`. STATE is at the repo root in the same checkout where the session started, so it survives compaction.
 
 ### Auto-Pickup
 When `/reggie-code-workflow` is run with no arguments and no task is specified:
@@ -835,7 +857,7 @@ When `/reggie-code-workflow` is run with no arguments and no task is specified:
 3. Print: "Picking up: [task name] [P#]. Starting IMPLEMENT stage."
 4. Print: "Other active tasks: [list slugs]" and "Skipped [N] blocked tasks"
 5. Create worktree (branch `task/[slug]` from current branch), copy `.env` files, install deps if needed
-6. Create `.pipeline/[slug]/`, write initial `STAGE` file, add to Active Tasks (with Branch/Worktree/Base fields), and go
+6. Create `.pipeline/[slug]/`, write initial `STATE` file (see **Per-Task Pipeline State Files**), add to Active Tasks (with Branch/Worktree/Base fields), and go
 7. If backlog is empty, ask the user to describe a new task or wait
 
 ### BRAINSTORM Entry
@@ -847,16 +869,19 @@ When `/reggie-code-workflow` is run with no arguments and no task is specified:
 
 ### Advance Stage
 1. Before launching the stage agent, check `.pipeline/[slug]/SKIP` for the current stage name. If the stage is listed:
-   a. Record `SKIP` in the Quality Scores table with the reason from the SKIP file
+   a. Append a row to the scores table in `.pipeline/[slug]/STATE` with `Score: SKIP` and the reason
    b. Print a compact skip notice: `⊘ [STAGE NAME] — skipped ([reason])`
    c. Advance to the next stage immediately (no quality gate, no commit)
    d. In the progress tracker, use `⊘` for skipped stages
 2. Validate current stage output via quality gate (reggie-judge)
-3. If pass (≥ 9.0): commit checkpoint, advance to next stage
+3. If pass (≥ 9.0): advance to next stage
 4. If fail: follow escalation (iterate → research → Opus retry if Sonnet → tournament → user)
-5. Update TASKS.md with scores and status
-6. Commit metadata: `git add TASKS.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: stage [slug] [STAGE-NAME]" --no-gpg-sign 2>/dev/null`
-7. Write current stage to `.pipeline/[slug]/STAGE` file (plain text, e.g., `IMPLEMENT`). This file is read by `/reggie-status` to show progress without parsing TASKS.md.
+5. Rewrite `.pipeline/[slug]/STATE`:
+   - Update the `CURRENT:` line to the next stage
+   - Mark the just-completed stage's row with the score and `PASS`/`FAIL`
+   - Append a row for the new current stage with `Status: CURRENT`
+   - On retries, increment the `Attempts` column for the failing stage
+6. **No metadata commit.** Stage advancement does not touch TASKS.md, so there is nothing to commit. Per-stage state is runtime-only — see **Per-Task Pipeline State Files**.
 
 ### RESEARCH and PLAN — Removed from Code Mode
 
@@ -958,7 +983,7 @@ Options:
 ### Complete Task
 1. Identify which task is completing (from context or ask if ambiguous)
 2. Final commit in worktree: `git -C .worktree/[slug] add -A && git -C .worktree/[slug] commit -m "complete: [task name]"`
-3. Remove `### [slug]` section from `## Active Tasks` in TASKS.md
+3. **Remove the slug's line from TASKS.md** and any indented continuation lines beneath it (`files: ...`, `> ...`, until the next blank line or next task line). Also remove the `### [slug]` section from `## Active Tasks` if present. The slug's row must be deleted, not toggled to `[x]` — `meta: complete` is a true migration from TASKS.md to HISTORY.md.
 4. Append to `HISTORY.md` (same directory as TASKS.md): `- [x] [slug] [task name] -- [date]`. Create the file with a `# Completed Tasks` header if it doesn't exist.
 5. Commit metadata: `git add TASKS.md HISTORY.md 2>/dev/null && git diff --cached --quiet || git commit -m "meta: complete [slug]" --no-gpg-sign 2>/dev/null`
 6. `cd` to the repo root — the shell may be in the worktree directory that is about to be removed. Use the known project root path or `git rev-parse --show-toplevel`.
@@ -1003,7 +1028,7 @@ Options:
 10. Show remaining active tasks + backlog
 11. **Next task behavior**:
     - **Normal mode**: Prompt "Pick up next task? (y/n)"
-    - **`--yes` mode**: Auto-continue. Run `/compact Discard all details from the completed task. Preserve only: this is a --yes mode code-workflow pipeline run, and I need to loop back to PICKUP to pick up the next backlog task from TASKS.md.` Then immediately proceed to PICKUP for the next backlog task. If no tasks remain in the backlog, exit cleanly with "All tasks complete."
+    - **`--yes` mode**: Do not auto-continue. Emit `~~REGGIE:DONE:reggie-code-workflow:success~~` and exit. The Reggie UI relaunches the next backlog task in a fresh session when appropriate (per-repo / Batch Start sessions detect the DONE marker).
 
 ## Stage Summary Output
 
@@ -1137,4 +1162,7 @@ After iteration completes, show the re-score result (compact — no progress tra
 - Advancing after a quality gate failure without the reggie-judge re-scoring the updated output
 - Creating a worktree without checking for slug collisions first
 - Editing TASKS.md or HISTORY.md without committing immediately — uncommitted metadata changes cause stash conflicts in parallel sessions. Always use the `meta:` commit pattern after any metadata edit (see Metadata Commit System section)
+- Writing per-stage state (current stage, attempts, scores) into TASKS.md — that data lives in `.pipeline/[slug]/STATE`, not TASKS.md. The Active Tasks block carries only static fields set at PICKUP. Editing TASKS.md mid-pipeline regresses the runtime-state separation and reintroduces `meta: stage` commit pollution
 - When removing a pipeline mode, grep for the mode name within each file being modified before declaring done — references are scattered in 6+ locations (frontmatter description, modes table, stage table column headers, --yes flag list, skip list row, PICKUP step, metadata tags, progress tracker block). Verifying high-level acceptance criteria is not sufficient; scan for the string inside every modified file
+- When prompting reggie-code-reviewer or reggie-security-reviewer for worktree-based tasks, always specify the worktree path explicitly in the prompt: "The implemented file(s) are in `.worktree/[slug]/` — read from there, not the repo root." Without this, agents default to the repo root and incorrectly report no changes were made
+- When prompting reggie-technical-writer for SYNC-DOCS or COMMIT in a worktree task, explicitly instruct it to write files to `.worktree/[slug]/` path. Agents that write to the repo root instead will cause merge conflicts at squash time

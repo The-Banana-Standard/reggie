@@ -95,7 +95,7 @@ pub fn get_skills(_project_path: Option<String>) -> Result<Vec<Skill>, String> {
         }
     }
 
-    skills.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    skills.sort_by_key(|a| a.name.to_lowercase());
     Ok(skills)
 }
 
