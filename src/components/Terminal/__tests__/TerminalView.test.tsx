@@ -939,6 +939,38 @@ describe("TerminalView WebLinksAddon click handler", () => {
     expect(capturedWebLinksHandler).toBeTypeOf("function");
   });
 
+  it("launches Codex tabs as Codex rather than shell sessions", () => {
+    const codexTab = makeTab({ isCodexSession: true, label: "Codex session" });
+    render(<TerminalView {...defaultProps} tab={codexTab} isVisible={true} />);
+
+    expect(mockSpawnTerminal).toHaveBeenCalledWith(
+      "/home/user/project",
+      false,
+      true,
+      null,
+      expect.any(Function),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+  });
+
+  it("shows a Codex-specific error and does not spawn when the CLI is unavailable", () => {
+    const codexTab = makeTab({ isCodexSession: true, label: "Codex session" });
+    render(
+      <TerminalView
+        {...defaultProps}
+        tab={codexTab}
+        isVisible={true}
+        codexCliAvailable={false}
+      />
+    );
+
+    expect(mockSpawnTerminal).not.toHaveBeenCalled();
+    expect(mockXtermWrite).toHaveBeenCalledWith(expect.stringContaining("Codex CLI not found"));
+  });
+
   it("click handler calls shell.open() with the URI", async () => {
     render(<TerminalView {...defaultProps} isVisible={true} />);
 

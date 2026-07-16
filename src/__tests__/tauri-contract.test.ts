@@ -18,9 +18,11 @@ import * as path from "node:path";
 const RUST_COMMANDS: Record<string, string[]> = {
   // terminal.rs
   check_claude_cli: [],
+  check_codex_cli: [],
   spawn_terminal: [
     "projectPath",
     "isClaudeSession",
+    "isCodexSession",
     "sessionId",
     "initialCommand",
     "systemPrompt",

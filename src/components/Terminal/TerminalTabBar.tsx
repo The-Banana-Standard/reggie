@@ -12,6 +12,7 @@ interface TerminalTabBarProps {
   onKillTab: (id: string) => void;
   onNewTerminal: () => void;
   onNewClaudeSession: () => void;
+  onNewCodexSession: () => void;
   onCloseAllTabs: () => void;
   onKillAllTerminals: () => void;
 }
@@ -26,6 +27,7 @@ export function TerminalTabBar({
   onKillTab,
   onNewTerminal,
   onNewClaudeSession,
+  onNewCodexSession,
   onCloseAllTabs,
   onKillAllTerminals,
 }: TerminalTabBarProps) {
@@ -73,6 +75,7 @@ export function TerminalTabBar({
             label={tab.label}
             isActive={tab.id === activeTabId}
             isClaudeSession={tab.isClaudeSession}
+            isCodexSession={tab.isCodexSession}
             isProjectOverview={tab.isProjectOverview}
             onClick={() => onSelectTab(tab.id)}
             onClose={() => onCloseTab(tab.id)}
@@ -100,7 +103,10 @@ export function TerminalTabBar({
         <button className="new-tab-btn" onClick={onNewClaudeSession} title="New Claude Session">
           + Claude
         </button>
-        <button className="new-tab-btn shell" onClick={onNewTerminal} title="New Terminal">
+        <button className="new-tab-btn codex" onClick={onNewCodexSession} title="New Codex Session">
+          + Codex
+        </button>
+        <button className="new-tab-btn shell" onClick={onNewTerminal} title="New Shell">
           + Shell
         </button>
       </div>

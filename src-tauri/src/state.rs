@@ -15,6 +15,8 @@ pub struct TerminalInstance {
     pub project_path: String,
     #[allow(dead_code)]
     pub is_claude_session: bool,
+    #[allow(dead_code)]
+    pub is_codex_session: bool,
 }
 
 /// A headless terminal that buffers PTY output until a frontend tab attaches.

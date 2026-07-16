@@ -3,6 +3,7 @@ export interface TerminalTab {
   terminalId: string | null; // null until spawned
   label: string;
   isClaudeSession: boolean;
+  isCodexSession?: boolean;
   isProjectOverview?: boolean; // Project overview tab (no terminal, shows ProjectSummaryPanel)
   sessionId?: string;
   projectPath: string;
@@ -15,6 +16,19 @@ export interface TerminalTab {
   headlessTerminalId?: string; // The headless terminal ID (for promoted tabs)
   headlessCompleted?: boolean; // Carried from headless session on promote (for demote round-trip)
   visible?: boolean; // Whether this session is shown on the Sessions tab (undefined = true for backward compat)
+}
+
+export type TerminalKind = "claude" | "codex" | "shell";
+
+export function terminalKindForTab(tab: Pick<TerminalTab, "isClaudeSession" | "isCodexSession">): TerminalKind {
+  if (tab.isClaudeSession) return "claude";
+  if (tab.isCodexSession) return "codex";
+  return "shell";
+}
+
+export function terminalIconForTab(tab: Pick<TerminalTab, "isClaudeSession" | "isCodexSession">): string {
+  const kind = terminalKindForTab(tab);
+  return kind === "claude" ? ">" : kind === "codex" ? "C" : "$";
 }
 
 export type TerminalEvent =

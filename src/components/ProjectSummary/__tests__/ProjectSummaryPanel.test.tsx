@@ -51,7 +51,8 @@ const defaultProps = {
   projectName: "test-project",
   projectPath: "/test/project",
   onResumeSession: vi.fn(),
-  onNewSession: vi.fn(),
+  onNewClaudeSession: vi.fn(),
+  onNewCodexSession: vi.fn(),
   onNewShell: vi.fn(),
 };
 
@@ -59,6 +60,30 @@ describe("ProjectSummaryPanel", () => {
   beforeEach(() => {
     resetTauriMocks();
     vi.restoreAllMocks();
+  });
+
+  it("labels and launches each interactive terminal kind explicitly", async () => {
+    setupInvokeMock();
+    const onNewClaudeSession = vi.fn();
+    const onNewCodexSession = vi.fn();
+    const onNewShell = vi.fn();
+    render(
+      <ProjectSummaryPanel
+        {...defaultProps}
+        onNewClaudeSession={onNewClaudeSession}
+        onNewCodexSession={onNewCodexSession}
+        onNewShell={onNewShell}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByText("> New Claude Session")).toBeTruthy());
+    fireEvent.click(screen.getByText("> New Claude Session"));
+    fireEvent.click(screen.getByText("C New Codex Session"));
+    fireEvent.click(screen.getByText("$ New Shell"));
+
+    expect(onNewClaudeSession).toHaveBeenCalledTimes(1);
+    expect(onNewCodexSession).toHaveBeenCalledTimes(1);
+    expect(onNewShell).toHaveBeenCalledTimes(1);
   });
 
   it("renders the Add Tasks section with textarea and button", async () => {

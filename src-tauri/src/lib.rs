@@ -29,6 +29,7 @@ pub fn run() {
             commands::terminal::resize_terminal,
             commands::terminal::close_terminal,
             commands::terminal::check_claude_cli,
+            commands::terminal::check_codex_cli,
             commands::terminal::spawn_headless_terminal,
             commands::terminal::get_terminal_buffer,
             commands::terminal::attach_terminal_channel,
