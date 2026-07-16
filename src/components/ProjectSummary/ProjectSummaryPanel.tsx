@@ -116,7 +116,8 @@ interface ProjectSummaryPanelProps {
   projectName: string;
   projectPath: string;
   onResumeSession: (sessionId: string) => void;
-  onNewSession?: () => void;
+  onNewClaudeSession?: () => void;
+  onNewCodexSession?: () => void;
   onNewShell?: () => void;
   onRunLocally?: (port: number, hasScript: boolean) => void;
   onStopLocally?: () => void;
@@ -131,7 +132,8 @@ export function ProjectSummaryPanel({
   projectName,
   projectPath,
   onResumeSession,
-  onNewSession,
+  onNewClaudeSession,
+  onNewCodexSession,
   onNewShell,
   onRunLocally,
   onStopLocally,
@@ -428,11 +430,16 @@ export function ProjectSummaryPanel({
       </div>
 
       {/* Action Buttons */}
-      {(onNewSession || onNewShell || onRunLocally) && (
+      {(onNewClaudeSession || onNewCodexSession || onNewShell || onRunLocally) && (
         <div className="project-actions">
-          {onNewSession && (
-            <button className="project-action-btn claude" onClick={onNewSession}>
-              &gt; New Session
+          {onNewClaudeSession && (
+            <button className="project-action-btn claude" onClick={onNewClaudeSession}>
+              &gt; New Claude Session
+            </button>
+          )}
+          {onNewCodexSession && (
+            <button className="project-action-btn codex" onClick={onNewCodexSession}>
+              C New Codex Session
             </button>
           )}
           {onNewShell && (

@@ -112,35 +112,56 @@ pub(crate) fn ensure_full_path() -> String {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ClaudeCliStatus {
+pub struct CliStatus {
     pub available: bool,
     pub path: Option<String>,
 }
 
-#[tauri::command]
-pub fn check_claude_cli() -> ClaudeCliStatus {
+fn check_cli(binary: &str) -> CliStatus {
     let full_path = ensure_full_path();
-    let (cmd, arg) = if cfg!(target_os = "windows") {
-        ("where", "claude")
+    let lookup_command = if cfg!(target_os = "windows") {
+        "where"
     } else {
-        ("which", "claude")
+        "which"
     };
-    match std::process::Command::new(cmd)
-        .arg(arg)
+    match std::process::Command::new(lookup_command)
+        .arg(binary)
         .env("PATH", &full_path)
         .output()
     {
         Ok(output) if output.status.success() => {
             let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            ClaudeCliStatus {
+            CliStatus {
                 available: true,
                 path: Some(path),
             }
         }
-        _ => ClaudeCliStatus {
+        _ => CliStatus {
             available: false,
             path: None,
         },
+    }
+}
+
+#[tauri::command]
+pub fn check_claude_cli() -> CliStatus {
+    check_cli("claude")
+}
+
+#[tauri::command]
+pub fn check_codex_cli() -> CliStatus {
+    check_cli("codex")
+}
+
+fn terminal_program(
+    is_claude_session: bool,
+    is_codex_session: bool,
+) -> Result<&'static str, String> {
+    match (is_claude_session, is_codex_session) {
+        (true, true) => Err("A terminal cannot be both a Claude and Codex session".to_string()),
+        (true, false) => Ok("claude"),
+        (false, true) => Ok("codex"),
+        (false, false) => Ok("shell"),
     }
 }
 
@@ -157,6 +178,7 @@ pub fn spawn_terminal(
     state: State<'_, AppState>,
     project_path: String,
     is_claude_session: bool,
+    is_codex_session: bool,
     session_id: Option<String>,
     initial_command: Option<String>,
     system_prompt: Option<String>,
@@ -164,6 +186,7 @@ pub fn spawn_terminal(
     effort: Option<String>,
     on_event: Channel<TerminalEvent>,
 ) -> Result<String, String> {
+    let program = terminal_program(is_claude_session, is_codex_session)?;
     validate_model(&model)?;
     validate_effort(&effort)?;
 
@@ -180,7 +203,7 @@ pub fn spawn_terminal(
         })
         .map_err(|e| format!("Failed to open PTY: {}", e))?;
 
-    let mut cmd = if is_claude_session {
+    let mut cmd = if program == "claude" {
         let mut c = CommandBuilder::new("claude");
         if let Some(ref m) = model {
             c.arg("--model");
@@ -200,6 +223,8 @@ pub fn spawn_terminal(
             c.arg(sp);
         }
         c
+    } else if program == "codex" {
+        CommandBuilder::new("codex")
     } else {
         let shell = if cfg!(target_os = "windows") {
             std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string())
@@ -240,6 +265,7 @@ pub fn spawn_terminal(
                 child,
                 project_path: project_path.clone(),
                 is_claude_session,
+                is_codex_session,
             },
         );
     }
@@ -778,7 +804,19 @@ pub fn get_all_headless_statuses(
 
 #[cfg(test)]
 mod tests {
-    use super::strip_control_chars;
+    use super::{strip_control_chars, terminal_program};
+
+    #[test]
+    fn terminal_program_selects_each_supported_terminal_kind() {
+        assert_eq!(terminal_program(true, false).unwrap(), "claude");
+        assert_eq!(terminal_program(false, true).unwrap(), "codex");
+        assert_eq!(terminal_program(false, false).unwrap(), "shell");
+    }
+
+    #[test]
+    fn terminal_program_rejects_ambiguous_agent_kind() {
+        assert!(terminal_program(true, true).is_err());
+    }
 
     #[test]
     fn strip_control_chars_removes_cr_lf_nul() {

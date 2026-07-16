@@ -13,6 +13,7 @@ const defaultProps = {
   onKillTab: vi.fn(),
   onNewTerminal: vi.fn(),
   onNewClaudeSession: vi.fn(),
+  onNewCodexSession: vi.fn(),
   onCloseAllTabs: vi.fn(),
   onKillAllTerminals: vi.fn(),
 };
@@ -140,6 +141,15 @@ describe("TerminalTabBar", () => {
     );
     fireEvent.click(screen.getByText("+ Shell"));
     expect(onNewTerminal).toHaveBeenCalled();
+  });
+
+  it("calls onNewCodexSession when + Codex clicked", () => {
+    const onNewCodexSession = vi.fn();
+    render(
+      <TerminalTabBar {...defaultProps} onNewCodexSession={onNewCodexSession} />
+    );
+    fireEvent.click(screen.getByText("+ Codex"));
+    expect(onNewCodexSession).toHaveBeenCalled();
   });
 
   it("shows close-all button when visibleSessionCount > 0", () => {

@@ -6,6 +6,7 @@ import {
   resizeTerminal,
   closeTerminal,
   checkClaudeCli,
+  checkCodexCli,
   spawnHeadlessTerminal,
 } from "../terminal-service";
 
@@ -22,6 +23,7 @@ describe("terminal-service", () => {
       const result = await spawnTerminal(
         "/home/user/project",
         true,
+        false,
         "session-1",
         onEvent
       );
@@ -30,6 +32,7 @@ describe("terminal-service", () => {
       expect(mockInvoke).toHaveBeenCalledWith("spawn_terminal", {
         projectPath: "/home/user/project",
         isClaudeSession: true,
+        isCodexSession: false,
         sessionId: "session-1",
         initialCommand: null,
         systemPrompt: null,
@@ -46,6 +49,7 @@ describe("terminal-service", () => {
       await spawnTerminal(
         "/path",
         false,
+        false,
         null,
         onEvent,
         "echo hello",
@@ -55,6 +59,7 @@ describe("terminal-service", () => {
       expect(mockInvoke).toHaveBeenCalledWith("spawn_terminal", {
         projectPath: "/path",
         isClaudeSession: false,
+        isCodexSession: false,
         sessionId: null,
         initialCommand: "echo hello",
         systemPrompt: "You are helpful",
@@ -71,6 +76,7 @@ describe("terminal-service", () => {
       await spawnTerminal(
         "/path",
         true,
+        false,
         "s-1",
         onEvent,
         null,
@@ -82,6 +88,7 @@ describe("terminal-service", () => {
       expect(mockInvoke).toHaveBeenCalledWith("spawn_terminal", {
         projectPath: "/path",
         isClaudeSession: true,
+        isCodexSession: false,
         sessionId: "s-1",
         initialCommand: null,
         systemPrompt: null,
@@ -95,10 +102,22 @@ describe("terminal-service", () => {
       mockInvoke.mockResolvedValue("term-789");
       const onEvent = vi.fn();
 
-      await spawnTerminal("/path", false, null, onEvent);
+      await spawnTerminal("/path", false, false, null, onEvent);
 
       const channelInstance = mockChannel.mock.results[0].value;
       expect(channelInstance.onmessage).toBe(onEvent);
+    });
+
+    it("marks Codex sessions explicitly", async () => {
+      mockInvoke.mockResolvedValue("codex-term");
+
+      await spawnTerminal("/path", false, true, null, vi.fn());
+
+      expect(mockInvoke).toHaveBeenCalledWith("spawn_terminal", expect.objectContaining({
+        projectPath: "/path",
+        isClaudeSession: false,
+        isCodexSession: true,
+      }));
     });
   });
 
@@ -171,6 +190,16 @@ describe("terminal-service", () => {
       const result = await checkClaudeCli();
       expect(result).toEqual(expected);
       expect(mockInvoke).toHaveBeenCalledWith("check_claude_cli");
+    });
+  });
+
+  describe("checkCodexCli", () => {
+    it("invokes check_codex_cli and returns result", async () => {
+      const expected = { available: true, path: "/opt/homebrew/bin/codex" };
+      mockInvoke.mockResolvedValue(expected);
+      const result = await checkCodexCli();
+      expect(result).toEqual(expected);
+      expect(mockInvoke).toHaveBeenCalledWith("check_codex_cli");
     });
   });
 });

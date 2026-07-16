@@ -21,6 +21,11 @@
 ### Other
 
 ### Ungroomed
+- [ ] need-to-figure-out-a-better-way-to-visualize-the-hidden-tabs-once-they-are-hidden-so-we-have-much-more-space-for-the-non-hidden-terminals-image-1: need to figure out a better way to visualize the hidden tabs once they are hidden so we have much more space for the non hidden terminals [Image 1]
+  > attachments: [Image 1]=.reggie/attachments/need-to-figure-out-a-better-way-to-visualize-the-hidden-tabs-once-they-are-hidden-so-we-have-much-more-space-for-the-non-hidden-terminals-image-1-rezyi0/1.png
+- [ ] enable-tool-search-setting-is-showing-not-set-when-it-is-set: enable_tool_search setting is showing not set when it is set
+- [ ] cannot-add-this-grouop-of-things-to-ungroomed-image-1: cannot add this grouop of things to ungroomed [Image 1]
+  > attachments: [Image 1]=.reggie/attachments/cannot-add-this-grouop-of-things-to-ungroomed-image-1-ig5fo5/1.png
 - [ ] one-click-install-from-internet: One-click install of skills, agents, commands, plugins, hooks from internet sources
   > context: broad install surface for the Reggie UI. Per-unit-type install mechanics differ — skills/agents/commands = file copy to `~/.claude/`, hooks = edit `settings.json`, plugins = bundle. Hooks management folds into this rather than being a standalone feature. Existing `src-tauri/src/installer.rs` is hardcoded to `~/.claude/` system-level install; install/uninstall symmetry is a known footgun there. Also relates to Anthropic's own `/plugin install` — open Q whether to shell out vs. write files directly.
 
@@ -41,5 +46,8 @@
 
 - [ ] depends-conflicts-tags-bypass-is-safe-slug: `[depends:]` and `[conflicts:]` tag values in `parse_task_line` are split on `,` and inserted into TaskEntry without `is_safe_slug` validation, while the colon-slug at the start of the line is validated. Pre-existing.
   > context: discovered during security review of fix-dispatch-no-op-with-manual-tasks (2026-05-01). The new BlockedReason::BlockedBy(dep) path is the first surface where these unvalidated dep strings escape into a structured API and a UI text node. No exploit today (React JSX text-node escaping handles it; no shell/path/DB sinks), but the convention everywhere else in the parser is "validate slugs at parse time." Fix is non-trivial because filtering invalid deps would change "task is blocked forever" into "task has no deps" — silently unblocking it. Cleaner approach: skip the entire task line if any dep is invalid (matches the colon-slug behavior). Touches: `src-tauri/src/commands/projects.rs` parse_task_line at the depends/conflicts arms.
+
+- [ ] enforce-planned-tag-requires-task-md: The `[planned]` tag in TASKS.md is supposed to mean "refined enough to pick up" but in practice drifts: items get tagged `[planned]` from the brainstorm step before `/reggie-init-tasks` has written `.pipeline/<slug>/task.md`. Caught 2026-05-06 in personal_website when `/reggie-manual-task add-canonical-answers-for-identity-queries` failed because the slug was `[planned]` but had no task.md (5 of 7 `[planned]` tasks in that repo were in that state). Proposal: enforce the invariant `[planned]` ⇒ `.pipeline/<slug>/task.md` exists.
+  > context: surfaced 2026-05-06 from personal_website. Options: (a) PostToolUse hook on Edit/Write to TASKS.md that rejects adding `[planned]` to a line whose slug has no task.md; (b) make `/reggie-init-tasks` the only path that writes the `[planned]` tag (brainstorm step writes the line untagged; init-tasks adds the tag after writing task.md); (c) lint step in `/reggie-status` that flags drift. Option (b) is cleanest — single writer for the tag — but requires updating brainstorm/init-tasks templates in `~/.claude/agents/`.
 
 <!-- folded into vitest-setupfiles-and-contract-test-fixes (2026-04-25). Original guess (scanner glob bug) was wrong — RUST_COMMANDS is a hand-maintained table; just needs the missing entry. -->

@@ -58,6 +58,32 @@ describe("useTerminal", () => {
     expect(tab.projectName).toBe("myproject");
   });
 
+  it("addTab creates a distinct Codex session kind", () => {
+    const { result } = renderHook(() => useTerminal());
+
+    act(() => {
+      result.current.addTab("/home/user/myproject", "codex");
+    });
+
+    const tab = result.current.tabs[0];
+    expect(tab.isClaudeSession).toBe(false);
+    expect(tab.isCodexSession).toBe(true);
+  });
+
+  it("numbers duplicate labels independently for Claude, Codex, and shell", () => {
+    const { result } = renderHook(() => useTerminal());
+
+    act(() => { result.current.addTab("/home/user/myproject", true); });
+    act(() => { result.current.addTab("/home/user/myproject", "codex"); });
+    act(() => { result.current.addTab("/home/user/myproject", false); });
+
+    expect(result.current.tabs.map((tab) => tab.label)).toEqual([
+      "myproject",
+      "myproject",
+      "myproject",
+    ]);
+  });
+
   it("addTab adds numeric suffix for duplicates", () => {
     const { result } = renderHook(() => useTerminal());
 

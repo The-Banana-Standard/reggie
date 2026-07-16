@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import type { TerminalTab, HeadlessSession, HeadlessTerminalStatus } from "../types/terminal";
+import { terminalKindForTab } from "../types/terminal";
+import type { TerminalTab, TerminalKind, HeadlessSession, HeadlessTerminalStatus } from "../types/terminal";
 import { closeTerminal, spawnHeadlessTerminal, closeHeadlessTerminal } from "../services/terminal-service";
 import { listen } from "@tauri-apps/api/event";
 
@@ -76,9 +77,16 @@ export function useTerminal() {
   }, []);
 
   const addTab = useCallback(
-    (projectPath: string, isClaudeSession: boolean, sessionId?: string, initialPrompt?: string, model?: string, effort?: string) => {
+    (projectPath: string, kindOrClaude: TerminalKind | boolean, sessionId?: string, initialPrompt?: string, model?: string, effort?: string) => {
       const id = crypto.randomUUID();
       const projectName = projectPath.split(/[/\\]/).pop() || projectPath;
+      // Keep boolean support for existing Claude/shell workflow call sites while
+      // allowing generic launchers to request the third interactive kind: Codex.
+      const terminalKind: TerminalKind = typeof kindOrClaude === "boolean"
+        ? kindOrClaude ? "claude" : "shell"
+        : kindOrClaude;
+      const isClaudeSession = terminalKind === "claude";
+      const isCodexSession = terminalKind === "codex";
       const isSlashCommand = initialPrompt?.startsWith("/");
       const label = initialPrompt
         ? isSlashCommand
@@ -87,9 +95,9 @@ export function useTerminal() {
         : projectName;
 
       setTabs((prev) => {
-        // Count existing tabs for the same project + type to add a suffix
+        // Count existing tabs for the same project + terminal kind to add a suffix.
         const sameCount = prev.filter(
-          (t) => t.projectName === projectName && t.isClaudeSession === isClaudeSession
+          (t) => t.projectName === projectName && terminalKindForTab(t) === terminalKind
         ).length;
         const finalLabel = sameCount > 0 ? `${label} ${sameCount + 1}` : label;
 
@@ -98,6 +106,7 @@ export function useTerminal() {
           terminalId: null,
           label: finalLabel,
           isClaudeSession,
+          isCodexSession,
           sessionId,
           projectPath,
           projectName,

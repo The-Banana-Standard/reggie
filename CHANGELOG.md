@@ -6,6 +6,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-07-16
+
+### Added
+- **Codex sessions.** Terminals now support three kinds — Claude, Codex, and shell — instead of a Claude/not-Claude boolean. Spawn a Codex session from the same tab bar you use for Claude and shell sessions; each kind renders its own icon in the tab bar, hidden-sessions list, and project summary.
+- **`check_codex_cli` command.** Detects the `codex` binary on `PATH` the same way `check_claude_cli` detects `claude`. Both now share a single `check_cli(binary)` implementation.
+
+### Changed
+- **`spawn_terminal` takes `is_codex_session`.** Program selection routes through `terminal_program()`, which returns an error for the ambiguous "both Claude and Codex" case rather than silently preferring one.
+- **`ClaudeCliStatus` renamed to `CliStatus`** now that it describes any CLI, not just Claude.
+
+### Fixed
+- **Agent learnings no longer stranded in the build directory.** Dev-mode install symlinked `~/.claude/{agents,commands}` into the gitignored `src-tauri/target/debug/reggie-resources/`. Combined with a local `~/.claude/agents` → `resources/agents` symlink, `installer.rs` replaced 73 repo files with links to their own build copies, inverting the source of truth. Since agents declare `memory: user`, self-improvement learnings were written into `target/debug/` — where a `cargo clean` would have destroyed them. All 73 files are restored as real files, and 49 lines of recovered learnings are now tracked.
+- **`package-lock.json` version resynced.** It had drifted to `2.1.0` and was never updated for the `2.1.1` release.
+
 ## [2.1.1] - 2026-05-03
 
 ### Added

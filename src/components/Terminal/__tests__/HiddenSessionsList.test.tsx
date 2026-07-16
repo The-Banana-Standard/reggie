@@ -165,6 +165,14 @@ describe("HiddenSessionsList", () => {
     expect(icons[2].textContent).toBe(">");
   });
 
+  it("renders a distinct icon for Codex sessions", () => {
+    const sessions = [makeTab({ id: "tab-codex", isCodexSession: true, label: "Codex" })];
+    const { container } = render(
+      <HiddenSessionsList hiddenSessions={sessions} onShow={vi.fn()} onKill={vi.fn()} />
+    );
+    expect(container.querySelector(".hidden-session-icon")?.textContent).toBe("C");
+  });
+
   it("returns null after re-rendering with an empty list", () => {
     const sessions = [makeTab({ id: "tab-1", label: "Session" })];
     const { container, rerender } = render(

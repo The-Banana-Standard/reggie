@@ -491,10 +491,9 @@ fn parse_task_line(line: &str) -> Option<TaskEntry> {
 
     let (checked, rest) = if let Some(rest) = trimmed.strip_prefix("- [x] ").or_else(|| trimmed.strip_prefix("- [X] ")) {
         (true, rest)
-    } else if let Some(rest) = trimmed.strip_prefix("- [ ] ") {
-        (false, rest)
     } else {
-        return None;
+        let rest = trimmed.strip_prefix("- [ ] ")?;
+        (false, rest)
     };
 
     // Try slug: description format (colon separator), else informal checkbox task

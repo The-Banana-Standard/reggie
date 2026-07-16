@@ -4,6 +4,7 @@ import type { TerminalEvent, HeadlessTerminalStatus } from "../types/terminal";
 export async function spawnTerminal(
   projectPath: string,
   isClaudeSession: boolean,
+  isCodexSession: boolean,
   sessionId: string | null,
   onEvent: (event: TerminalEvent) => void,
   initialCommand?: string | null,
@@ -17,6 +18,7 @@ export async function spawnTerminal(
   const terminalId = await invoke<string>("spawn_terminal", {
     projectPath,
     isClaudeSession,
+    isCodexSession,
     sessionId,
     initialCommand: initialCommand || null,
     systemPrompt: systemPrompt || null,
@@ -49,6 +51,10 @@ export async function closeTerminal(terminalId: string): Promise<void> {
 
 export async function checkClaudeCli(): Promise<{ available: boolean; path: string | null }> {
   return await invoke<{ available: boolean; path: string | null }>("check_claude_cli");
+}
+
+export async function checkCodexCli(): Promise<{ available: boolean; path: string | null }> {
+  return await invoke<{ available: boolean; path: string | null }>("check_codex_cli");
 }
 
 // ── Headless terminal commands ──

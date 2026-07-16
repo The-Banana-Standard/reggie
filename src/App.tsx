@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
-import { checkClaudeCli, writeToTerminal, openInBrowser } from "./services/terminal-service";
+import { checkClaudeCli, checkCodexCli, writeToTerminal, openInBrowser } from "./services/terminal-service";
 import { AppLayout } from "./components/Layout/AppLayout";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { WorkspaceOverview } from "./components/WorkspaceOverview/WorkspaceOverview";
@@ -119,11 +119,17 @@ function App() {
 
   // Claude CLI availability — default true to avoid false-blocking before check completes
   const [claudeCliAvailable, setClaudeCliAvailable] = useState<boolean | null>(true);
+  const [codexCliAvailable, setCodexCliAvailable] = useState<boolean | null>(true);
 
   // Defer CLI check so it doesn't compete with initial data loading
   useEffect(() => {
     const timer = setTimeout(() => {
-      checkClaudeCli().then((status) => setClaudeCliAvailable(status.available));
+      checkClaudeCli()
+        .then((status) => setClaudeCliAvailable(status.available))
+        .catch((err) => console.error("Failed to check Claude CLI:", err));
+      checkCodexCli()
+        .then((status) => setCodexCliAvailable(status.available))
+        .catch((err) => console.error("Failed to check Codex CLI:", err));
     }, 500);
     return () => clearTimeout(timer);
   }, []);
@@ -266,6 +272,16 @@ function App() {
     }
   }, [tabs, activeTabId, addTab, setActiveTabId, removeTab]);
 
+  const handleNewCodexFromOverview = useCallback(() => {
+    const tab = tabs.find((t) => t.id === activeTabId);
+    const path = tab?.projectPath;
+    if (path) {
+      addTab(path, "codex");
+      setActiveTabId(SESSIONS_TAB_ID);
+      if (tab) removeTab(tab.id);
+    }
+  }, [tabs, activeTabId, addTab, setActiveTabId, removeTab]);
+
   const handleNewShellFromOverview = useCallback(() => {
     const tab = tabs.find((t) => t.id === activeTabId);
     const path = tab?.projectPath;
@@ -291,6 +307,15 @@ function App() {
     const path = getActiveProjectPath();
     if (path) {
       const tabId = addTab(path, true);
+      setActiveTabId(SESSIONS_TAB_ID);
+      return tabId;
+    }
+  }, [getActiveProjectPath, addTab, setActiveTabId]);
+
+  const handleNewCodex = useCallback(() => {
+    const path = getActiveProjectPath();
+    if (path) {
+      const tabId = addTab(path, "codex");
       setActiveTabId(SESSIONS_TAB_ID);
       return tabId;
     }
@@ -538,6 +563,7 @@ function App() {
             onKillTab={handleKillTab}
             onNewTerminal={handleNewTerminal}
             onNewClaudeSession={handleNewClaude}
+            onNewCodexSession={handleNewCodex}
             onCloseAllTabs={closeAllTabs}
             onKillAllTerminals={killAllTerminals}
           />
@@ -585,7 +611,8 @@ function App() {
               projectName={activeTab.projectName || activeTab.label}
               projectPath={activeTab.projectPath}
               onResumeSession={handleResumeSession}
-              onNewSession={handleNewSessionFromOverview}
+              onNewClaudeSession={handleNewSessionFromOverview}
+              onNewCodexSession={handleNewCodexFromOverview}
               onNewShell={handleNewShellFromOverview}
               onRunLocally={handleRunLocally}
               onStopLocally={handleStopLocally}
@@ -613,8 +640,10 @@ function App() {
                   >
                     {isTabVisible && (
                       <div className="session-grid-card-header">
-                        <span className="session-grid-card-icon">
-                          {tab.isClaudeSession ? ">" : "$"}
+                        <span
+                          className={`session-grid-card-icon ${tab.isClaudeSession ? "claude" : tab.isCodexSession ? "codex" : "shell"}`}
+                        >
+                          {tab.isClaudeSession ? ">" : tab.isCodexSession ? "C" : "$"}
                         </span>
                         <span className="session-grid-card-label">{tab.label}</span>
                         <div className="session-grid-card-actions">
@@ -662,6 +691,7 @@ function App() {
                       expanded={isExpanded}
                       onTerminalSpawned={setTerminalId}
                       claudeCliAvailable={claudeCliAvailable ?? true}
+                      codexCliAvailable={codexCliAvailable ?? true}
                       onTabDied={() => markTabDead(tab.id)}
                       isDragging={isTabVisible && isDragging}
                       currentTheme={currentTheme}

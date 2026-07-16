@@ -678,6 +678,7 @@ html, body, #root {
 /* ── Project Action Buttons ── */
 .project-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 20px;
 }
@@ -710,6 +711,17 @@ html, body, #root {
 .project-action-btn.claude:hover {
   background: var(--accent-bg-medium);
   border-color: var(--accent-border-strong);
+}
+
+.project-action-btn.codex {
+  background: var(--accent-purple-bg-soft);
+  border-color: var(--accent-purple-border-soft);
+  color: var(--accent-purple);
+}
+
+.project-action-btn.codex:hover {
+  background: var(--accent-purple-bg-soft);
+  border-color: var(--accent-purple);
 }
 
 /* ── Project Description ── */
@@ -1350,6 +1362,11 @@ html, body, #root {
   color: var(--accent-orange);
 }
 
+.terminal-tab.active.codex,
+.terminal-tab.codex .terminal-tab-icon {
+  color: var(--accent-purple);
+}
+
 .terminal-tab.home {
   border-color: var(--border-color);
 }
@@ -1483,6 +1500,14 @@ html, body, #root {
 
 .new-tab-btn:hover {
   background: var(--accent-orange-glow);
+}
+
+.new-tab-btn.codex {
+  color: var(--accent-purple);
+}
+
+.new-tab-btn.codex:hover {
+  background: var(--accent-purple-bg-soft);
 }
 
 .new-tab-btn.shell {
@@ -1652,6 +1677,11 @@ html, body, #root {
   font-weight: bold;
   color: var(--accent-orange);
   font-family: var(--font-mono);
+}
+
+.session-grid-card-icon.codex,
+.hidden-session-icon.codex {
+  color: var(--accent-purple);
 }
 
 .session-grid-card-label {
@@ -4501,4 +4531,3 @@ html, body, #root {
 .settings-modal-actions .settings-btn {
   flex: 1;
 }
-

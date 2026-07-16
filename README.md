@@ -29,7 +29,7 @@ For a new project, run `/reggie-new-repo` first. For an existing project, run `/
 ## Features
 
 - **Workspace management** — group projects into workspaces and switch between them
-- **Terminal multiplexer** — run multiple Claude Code sessions and shell terminals side by side with split view
+- **Terminal multiplexer** — run Claude Code, Codex, and shell sessions side by side with split view
 - **Session history** — browse past Claude Code sessions per project
 - **Skills manager** — install, uninstall, and browse Claude Code slash-command skills
 - **Daily planner** — built-in task management

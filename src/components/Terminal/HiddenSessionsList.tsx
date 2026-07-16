@@ -1,3 +1,4 @@
+import { terminalIconForTab, terminalKindForTab } from "../../types/terminal";
 import type { TerminalTab } from "../../types/terminal";
 
 export function HiddenSessionsList({
@@ -19,8 +20,8 @@ export function HiddenSessionsList({
       <div className="hidden-sessions-list">
         {hiddenSessions.map((tab) => (
           <div key={tab.id} className="hidden-session-row">
-            <span className="hidden-session-icon">
-              {tab.isClaudeSession ? ">" : "$"}
+            <span className={`hidden-session-icon ${terminalKindForTab(tab)}`}>
+              {terminalIconForTab(tab)}
             </span>
             <span className="hidden-session-label">{tab.label}</span>
             <div className="hidden-session-actions">

@@ -493,6 +493,24 @@ function processData(data: unknown): ProcessedResult {
 }
 ```
 
+### Plan-Stated Observability as Concrete Deliverable
+When a plan's `## Success Metric` or `## Acceptance Criteria` mentions logging, monitoring, or observability (e.g. "rejections are logged", "server logs show no unexpected errors", "any failures are debuggable"), that log/warn/metric call is a concrete deliverable — not aspirational phrasing. The IMPLEMENT diff must include the log statement. Never defer observability hooks to a follow-up; SECURITY-REVIEW treats a missing log on a rejection/error branch as a MEDIUM finding if the plan said it would be there.
+
+### JSDoc Contract Drift When a Plan Inverts a Documented Contract
+When a plan inverts a contract documented in JSDoc on adjacent helper files (e.g., a comment that says "server-derived; never trust client input" that becomes load-bearingly false after your change), update those JSDoc lines as part of the IMPLEMENT diff — even if the helper file is otherwise outside the plan's MOD scope. Stale JSDoc that actively misleads future contributors is an in-scope fix, not a doc-only afterthought. If you skip it, SECURITY-REVIEW will reclassify it as MEDIUM.
+
+### Fixing One Instance of a Pattern Without Auditing the Siblings
+When you tighten one instance of a buggy pattern, grep and fix ALL instances of that pattern in the same pass — do not fix them one-by-one as successive review rounds surface them. In one run, over-broad identity aliases were fixed in three separate rounds (`'path'` by WRITE-TESTS QA, then `'work with'` and `'background'` by REVIEW) — the same bare-substring class the developer had already fixed for `'path'` but did not generalize. Bare-substring match table, magic number, missing guard, etc.: once you identify the failure mode, grep the whole table/file for siblings and fix them together.
+
+### Attributing a Transient Failure to the Suite/Environment
+Before filing a "pre-existing failure" or "environment requires X" Discovered Issue, verify it with a clean, isolated reproduction — run the exact failing command once with nothing else loaded. In one run a developer filed "`CI=true npm test` OOMs, requires a heap bump (pre-existing)"; a clean isolated run did NOT reproduce it — the OOM was self-inflicted mid-iteration (require()-ing a 40MB embeddings artifact in a dev script) and was stale by the time it was reported as standing. Do not attribute a transient mid-iteration resource failure to the suite/environment.
+
+### Base64url Canonical Re-Encode Guard
+When implementing a no-padding base64url codec, `atob` and equivalent decoders accept NON-CANONICAL input — the final char of a no-padding encoding carries unused trailing bits the decoder silently discards, so two different last characters can decode to byte-identical output and pass a checksum. This yields a "wrong-but-plausible / undetected single-char tamper" hole. After decoding: re-encode the decoded bytes back to base64url and require an exact string match before accepting the input. Front-load this guard in the FIRST implementation of any base64url codec; don't discover it via an exhaustive flip test after the fact.
+
+### Untrusted-Input Decoder Length Cap
+An untrusted-input decoder (parsing a URL fragment, query param, or any external string) must cap input LENGTH before any allocation or decode work — not only validate the decoded result. A known-fixed-length codec should reject `input.length > CEILING` as its very first guard. Without this, a multi-MB adversarial-but-valid-alphabet string forces large allocation and CPU before rejection (a cheap DoS lever for any server/edge consumer). Bake this up-front check into any decoder for an externally-supplied encoded value.
+
 ## Output Format
 
 When implementing TypeScript features, always provide:

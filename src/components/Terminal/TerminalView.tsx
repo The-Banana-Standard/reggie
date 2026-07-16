@@ -88,6 +88,7 @@ interface TerminalViewProps {
   expanded?: boolean;
   onTerminalSpawned: (tabId: string, terminalId: string) => void;
   claudeCliAvailable?: boolean;
+  codexCliAvailable?: boolean;
   onTabDied?: () => void;
   isDragging?: boolean;
   currentTheme?: "dark" | "light";
@@ -99,6 +100,7 @@ export function TerminalView({
   expanded,
   onTerminalSpawned,
   claudeCliAvailable,
+  codexCliAvailable,
   onTabDied,
   isDragging,
   currentTheme,
@@ -155,6 +157,13 @@ export function TerminalView({
       return;
     }
 
+    if (tab.isCodexSession && codexCliAvailable === false) {
+      xterm.write("\x1b[31mCodex CLI not found.\x1b[0m\r\n\r\n");
+      xterm.write("Install the Codex CLI, then close this tab and try again.\r\n");
+      onTabDiedRef.current?.();
+      return;
+    }
+
     // Handle promoted headless sessions — replay buffer and attach live channel
     if (tab.isHeadlessPromoted && tab.headlessTerminalId) {
       const headlessId = tab.headlessTerminalId;
@@ -197,6 +206,7 @@ export function TerminalView({
     spawnTerminal(
       tab.projectPath,
       tab.isClaudeSession,
+      tab.isCodexSession === true,
       tab.sessionId || null,
       (event) => {
         if (event.type === "output") {

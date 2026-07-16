@@ -2,6 +2,7 @@ interface TerminalTabProps {
   label: string;
   isActive: boolean;
   isClaudeSession: boolean;
+  isCodexSession?: boolean;
   isHomePage?: boolean;
   isSessionsTab?: boolean;
   isProjectOverview?: boolean;
@@ -15,6 +16,7 @@ export function TerminalTab({
   label,
   isActive,
   isClaudeSession,
+  isCodexSession,
   isHomePage,
   isSessionsTab,
   isProjectOverview,
@@ -23,8 +25,8 @@ export function TerminalTab({
   onClose,
   onKill,
 }: TerminalTabProps) {
-  const typeClass = isHomePage ? "home" : isSessionsTab ? "sessions" : isProjectOverview ? "overview" : isClaudeSession ? "claude" : "shell";
-  const icon = isHomePage ? "\u2302" : isSessionsTab ? "\u25A6" : isProjectOverview ? "\u2261" : isClaudeSession ? ">" : "$";
+  const typeClass = isHomePage ? "home" : isSessionsTab ? "sessions" : isProjectOverview ? "overview" : isClaudeSession ? "claude" : isCodexSession ? "codex" : "shell";
+  const icon = isHomePage ? "\u2302" : isSessionsTab ? "\u25A6" : isProjectOverview ? "\u2261" : isClaudeSession ? ">" : isCodexSession ? "C" : "$";
 
   return (
     <div
