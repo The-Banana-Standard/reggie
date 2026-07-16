@@ -81,14 +81,14 @@ pub fn run() {
                 // Kill all PTY child processes, then drop terminal instances
                 if let Some(state) = window.try_state::<AppState>() {
                     if let Ok(mut terminals) = state.terminals.lock() {
-                        for (_, term) in terminals.iter_mut() {
+                        for term in terminals.values_mut() {
                             let _ = term.child.kill();
                         }
                         terminals.clear();
                     }
                     // Also clean up headless terminals
                     if let Ok(mut headless) = state.headless_terminals.lock() {
-                        for (_, term) in headless.iter_mut() {
+                        for term in headless.values_mut() {
                             let _ = term.child.kill();
                         }
                         headless.clear();
