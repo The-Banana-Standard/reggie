@@ -493,6 +493,15 @@ After `git merge --squash`, the staged changes need a single well-written commit
    )"
    ```
 
+#### Post-Conflict Syntax & Test Sanity Check
+
+When the merge required resolving conflicts in any source/test file — especially when two branches each APPEND a block to the same end-of-file (merge tools commonly drop one closing delimiter at the seam) — before committing the merge:
+
+1. Run a syntax/balance check on every conflict-resolved file (`node --check <file>` for JS, or the language's equivalent).
+2. Run the FULL test suite and check the reported test COUNT, not just pass/fail. A passing run with a suspiciously low count is the tell that a file aborted parsing mid-way (e.g. `node --test` ran 31 tests instead of the expected ~32 because one `});` was dropped at the boundary between two appended test blocks, and the file failed with "Unexpected end of input" without erroring loudly).
+
+Only commit the merge once both pass.
+
 ### Resuming After Compaction
 
 If the worktree is missing on resume, recreate from the existing branch:
@@ -502,7 +511,9 @@ git worktree add .worktree/[slug] task/[slug]
 
 ### Dependencies
 
-Each worktree needs its own `node_modules/` (if applicable). After creating the worktree, run the project's install command (e.g., `npm install`, `pnpm install`) in `.worktree/[slug]/`.
+Each worktree needs its own `node_modules/` (if applicable). After creating the worktree, run the project's install command (e.g., `npm install`, `pnpm install`) **directly in `.worktree/[slug]/`** so the worktree gets a real, independent `node_modules/`.
+
+**Do NOT symlink the worktree's `node_modules` to the main repo's `node_modules`.** A symlinked `node_modules` breaks Turbopack and silently crashes Vitest's forks-pool workers (the workers resolve modules through the symlink and die without a clear error). If a faster setup is needed, prefer a package-manager store/hardlink mechanism (pnpm store, `npm ci` cache) over a bare symlink — never a `ln -s` of the whole directory.
 
 ### Slug Generation
 
@@ -786,6 +797,8 @@ When creating `.pipeline/[slug]/CONTEXT.md`, seed it with pre-existing context i
    - MOD files: check they still exist. If any are missing, warn: "⚠ Stale plan: [file] no longer exists. Plan may need updating."
    - NEW files: check they don't already exist. If any do, warn: "⚠ Stale plan: [file] already exists. Plan may need updating."
    - Warnings are informational — don't block pickup, but do note them in CONTEXT.md under `## Staleness Warnings`
+   - **Depth check (not just existence)**: File-existence is necessary but not sufficient. A task.md's "Verified Facts" / "Implementation Plan" can cite function names, line numbers, file shapes, or **gate expressions** that went stale when the task was planned BEFORE its dependency refactors landed — the file still exists but its internals moved. Trigger a deeper re-grounding when EITHER heuristic fires: (a) the task carries `[depends: <other-slug>]` on a dependency whose completion date is AFTER task.md's mtime, or (b) task.md's mtime predates the last-modified date of files it references. When triggered, re-read the cited code at PICKUP and verify each quoted symbol / line-number / gate condition against HEAD before launching IMPLEMENT — and pay special attention to **gating/conditional claims** ("X drives the follow-up", "this field triggers Y"): cite and re-verify the exact gate expression (e.g. `topDoc.is_summary === true`, not "the field is present"), because a frontmatter field existing is not the same as the runtime reading it. If facts are stale, rewrite CONTEXT.md with an "ARCHITECTURE CORRECTION" note before IMPLEMENT.
+   - **Registry-slug dependency**: If task.md asserts a vocabulary/registry entry (a topic slug, source slug, config key) "was added by another task" but that other task is still in the backlog, treat it as a missing dependency: declare an explicit `[depends: <other-slug>]` (checked against backlog/active state) or flag the gap to the user up-front so they can decide whether to bundle the registry addition into this task — don't let IMPLEMENT discover it as a build hard-fail.
 
 3. **Fall back to `>` blocks** (legacy format): If no task.md exists, read the backlog entry being picked up. If it has indented `>` lines, extract them and write them into `## Pre-existing Context` in CONTEXT.md. Preserve any markdown headers (`## Problem`, `## Vision`, etc.) verbatim.
 
@@ -1166,3 +1179,4 @@ After iteration completes, show the re-score result (compact — no progress tra
 - When removing a pipeline mode, grep for the mode name within each file being modified before declaring done — references are scattered in 6+ locations (frontmatter description, modes table, stage table column headers, --yes flag list, skip list row, PICKUP step, metadata tags, progress tracker block). Verifying high-level acceptance criteria is not sufficient; scan for the string inside every modified file
 - When prompting reggie-code-reviewer or reggie-security-reviewer for worktree-based tasks, always specify the worktree path explicitly in the prompt: "The implemented file(s) are in `.worktree/[slug]/` — read from there, not the repo root." Without this, agents default to the repo root and incorrectly report no changes were made
 - When prompting reggie-technical-writer for SYNC-DOCS or COMMIT in a worktree task, explicitly instruct it to write files to `.worktree/[slug]/` path. Agents that write to the repo root instead will cause merge conflicts at squash time
+- When prompting reggie-code-reviewer or reggie-security-reviewer to diff a worktree task's changes, instruct them to diff against the MERGE BASE, not the base-branch tip: `git diff $(git merge-base HEAD <base-branch>)`. On a fast-moving base where other sessions merge in parallel, `git diff <base>` shows PHANTOM changes (alias drops, eval swaps, test deletions) that belong to those other merged sessions, not this task — causing reviewers to flag out-of-scope changes the task never made. The 3-way squash merge at COMPLETE handles the drift correctly; only review-stage diff SCOPING needs the merge base. (Post-IMPLEMENT Scope Validation already uses `merge-base` — apply the same to reviewer-facing diffs.)
