@@ -77,3 +77,22 @@ When you run `npm run tauri dev`, the built-in installer picks up changes to `re
 ## Questions?
 
 Open an issue if you're unsure about an approach before investing time in a PR.
+
+## Track C — The repo-manager branch (v3)
+
+The `repo-manager` branch holds the next version of Reggie: a TypeScript CLI and MCP server under `packages/reggie/` that keeps tasks, plans, notes, and journals inside each repo and reads task state from git. Start with [docs/getting-started.md](docs/getting-started.md) and [docs/repo-manager-vision.md](docs/repo-manager-vision.md).
+
+**Work on it in a git worktree, never by checking the branch out in your main clone.** Many contributors symlink `~/.claude/{agents,commands,hooks}` into `resources/*` of their main checkout; switching that checkout to another branch swaps the live agents for every project on the machine.
+
+```bash
+git worktree add .worktree/repo-manager repo-manager
+cd .worktree/repo-manager/packages/reggie
+npm install --legacy-peer-deps
+npm test
+npm run build
+```
+
+Guidelines for this track:
+- Reggie owns state, contracts, policy, and glue. Procedures that Anthropic, OpenAI, or the community maintain (plan mode, `/code-review`, `/security-review`, `/simplify`, `/init`) are borrowed by name, never copied in.
+- Nothing durable is gitignored. If a feature needs state, it is a file under `.reggie/` or something git already records.
+- Every command must work for a team, not only for one person: attribution, no shared-file conflicts, no silent takeovers.

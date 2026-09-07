@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "reggie": {
+      "command": "reggie",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}

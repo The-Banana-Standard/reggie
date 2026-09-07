@@ -10,6 +10,8 @@ Dump features, bugs, and half-formed ideas into `TASKS.md`. Run `/reggie-init-ta
 
 See [resources/docs/REGGIE.md](resources/docs/REGGIE.md) for the agent-system philosophy and principles.
 
+> **Preview: Reggie v3, the repo manager.** The `repo-manager` branch replaces the desktop app with a small CLI and MCP server that keep tasks, plans, notes, and a plain-English journal inside each repo and read task state from git. It works with Claude Code and Codex. Start at [docs/getting-started.md](docs/getting-started.md); the design is in [docs/repo-manager-vision.md](docs/repo-manager-vision.md).
+
 ---
 
 ## Daily Driver Loop

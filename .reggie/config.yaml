@@ -1,0 +1,28 @@
+# Reggie configuration.
+# mode: solo (approvals implicit, no PR required for plans) or team (deciders by risk, PR by default).
+# risk: path or keyword patterns that raise a task's risk class when its files match.
+mode: solo
+mcpServerName: reggie
+risk:
+  high:
+    - auth
+    - login
+    - session
+    - password
+    - payment
+    - billing
+    - schema
+    - migration
+    - secret
+    - token
+    - security
+    - rules
+  medium:
+    - shared
+    - common
+    - core
+    - lib
+    - util
+    - api
+    - model
+    - store

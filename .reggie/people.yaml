@@ -1,0 +1,7 @@
+# People who work in this repo. Identity is the git author email.
+# Roles: maintainer (may approve), contributor.
+people:
+  - name: jacobpress
+    email: jacob.press3@gmail.com
+    handle: jacobpress
+    role: maintainer

@@ -1,0 +1,131 @@
+import YAML from "yaml";
+import { gitUser } from "./git.js";
+import type { RepoPaths } from "./paths.js";
+import { readText, slugify, writeText } from "./util.js";
+
+export type Role = "maintainer" | "contributor";
+export type Mode = "solo" | "team";
+
+export interface Person {
+  name: string;
+  email: string;
+  handle: string;
+  role: Role;
+}
+
+export interface PeopleFile {
+  people: Person[];
+}
+
+export interface RiskRules {
+  high: string[];
+  medium: string[];
+}
+
+export interface ReggieConfig {
+  mode: Mode;
+  defaultBranch?: string;
+  mcpServerName: string;
+  risk: RiskRules;
+}
+
+export const DEFAULT_RISK: RiskRules = {
+  high: ["auth", "login", "session", "password", "payment", "billing", "schema", "migration", "secret", "token", "security", "rules"],
+  medium: ["shared", "common", "core", "lib", "util", "api", "model", "store"],
+};
+
+export function handleFor(name: string, email: string): string {
+  const first = name.trim().split(/\s+/)[0] ?? "";
+  const local = email.split("@")[0] ?? "";
+  return slugify(first || local || "someone", 24);
+}
+
+export function loadPeople(paths: RepoPaths): PeopleFile {
+  const raw = readText(paths.people);
+  if (!raw) return { people: [] };
+  const parsed: unknown = YAML.parse(raw);
+  const people: Person[] = [];
+  if (parsed && typeof parsed === "object" && Array.isArray((parsed as { people?: unknown }).people)) {
+    for (const item of (parsed as { people: unknown[] }).people) {
+      if (!item || typeof item !== "object") continue;
+      const p = item as Partial<Person>;
+      const name = typeof p.name === "string" ? p.name : "";
+      const email = typeof p.email === "string" ? p.email : "";
+      if (!name && !email) continue;
+      people.push({
+        name,
+        email,
+        handle: typeof p.handle === "string" && p.handle ? p.handle : handleFor(name, email),
+        role: p.role === "contributor" ? "contributor" : "maintainer",
+      });
+    }
+  }
+  return { people };
+}
+
+export function savePeople(paths: RepoPaths, file: PeopleFile): void {
+  const header = "# People who work in this repo. Identity is the git author email.\n# Roles: maintainer (may approve), contributor.\n";
+  writeText(paths.people, header + YAML.stringify({ people: file.people }));
+}
+
+/** The person running Reggie right now, from git config, falling back to the OS user. */
+export function currentPerson(root: string, people?: PeopleFile): Person {
+  const { name, email } = gitUser(root);
+  const known = people?.people.find((p) => (email && p.email === email) || (name && p.name === name));
+  if (known) return known;
+  const fallbackName = name || process.env.USER || process.env.USERNAME || "someone";
+  return { name: fallbackName, email, handle: handleFor(fallbackName, email), role: "maintainer" };
+}
+
+/** Make sure the current git user is listed. First person in becomes maintainer. */
+export function ensureCurrentPerson(paths: RepoPaths): { person: Person; added: boolean } {
+  const file = loadPeople(paths);
+  const me = currentPerson(paths.root, file);
+  const exists = file.people.some((p) => p.email === me.email && p.name === me.name);
+  if (exists) return { person: me, added: false };
+  file.people.push(me);
+  savePeople(paths, file);
+  return { person: me, added: true };
+}
+
+export function inferMode(people: PeopleFile): Mode {
+  return people.people.length > 1 ? "team" : "solo";
+}
+
+export function loadConfig(paths: RepoPaths): ReggieConfig {
+  const raw = readText(paths.config);
+  const base: ReggieConfig = { mode: "solo", mcpServerName: "reggie", risk: { ...DEFAULT_RISK } };
+  if (!raw) return base;
+  const parsed: unknown = YAML.parse(raw);
+  if (!parsed || typeof parsed !== "object") return base;
+  const c = parsed as Record<string, unknown>;
+  if (c.mode === "team" || c.mode === "solo") base.mode = c.mode;
+  if (typeof c.defaultBranch === "string" && c.defaultBranch) base.defaultBranch = c.defaultBranch;
+  if (typeof c.mcpServerName === "string" && c.mcpServerName) base.mcpServerName = c.mcpServerName;
+  if (c.risk && typeof c.risk === "object") {
+    const r = c.risk as Record<string, unknown>;
+    if (Array.isArray(r.high)) base.risk.high = r.high.filter((x): x is string => typeof x === "string");
+    if (Array.isArray(r.medium)) base.risk.medium = r.medium.filter((x): x is string => typeof x === "string");
+  }
+  return base;
+}
+
+export function saveConfig(paths: RepoPaths, config: ReggieConfig): void {
+  const header = [
+    "# Reggie configuration.",
+    "# mode: solo (approvals implicit, no PR required for plans) or team (deciders by risk, PR by default).",
+    "# risk: path or keyword patterns that raise a task's risk class when its files match.",
+    "",
+  ].join("\n");
+  const body: Record<string, unknown> = { mode: config.mode, mcpServerName: config.mcpServerName, risk: config.risk };
+  if (config.defaultBranch) body.defaultBranch = config.defaultBranch;
+  writeText(paths.config, header + YAML.stringify(body));
+}
+
+export function ensureConfig(paths: RepoPaths, mode: Mode): { config: ReggieConfig; created: boolean } {
+  const existing = readText(paths.config);
+  if (existing) return { config: loadConfig(paths), created: false };
+  const config: ReggieConfig = { mode, mcpServerName: "reggie", risk: { ...DEFAULT_RISK } };
+  saveConfig(paths, config);
+  return { config, created: true };
+}

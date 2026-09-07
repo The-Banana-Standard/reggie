@@ -1,0 +1,38 @@
+{
+  "name": "reggie",
+  "version": "3.0.0-alpha.1",
+  "private": true,
+  "description": "Reggie: a repo manager for Claude Code and Codex. Keeps tasks, plans, notes, and journals in the repo; derives state from git.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "reggie": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "templates",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "commander": "^15.0.0",
+    "yaml": "^2.9.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
