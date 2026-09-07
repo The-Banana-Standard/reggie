@@ -11,6 +11,7 @@ import { createIssue, createPullRequest, ghAvailable } from "./gh.js";
 import { currentBranch, defaultBranch, git } from "./git.js";
 import { appendJournal, detectTool, readJournal, renderJournalEntry } from "./journal.js";
 import { startMcpServer } from "./mcp.js";
+import { startServer } from "./serve.js";
 import { addNote, findNotes, NOTE_TYPES, notesForPath, renderNoteFile, staleEntries, type Confidence, type NoteType } from "./notes.js";
 import { onboard, refreshDocs } from "./onboard.js";
 import { decidePacket, scaffoldPacket } from "./packet.js";
@@ -414,6 +415,19 @@ program
   .action(async () => {
     const c = ctx(program.opts<{ root?: string }>().root);
     await startMcpServer(c.root);
+  });
+
+program
+  .command("serve")
+  .description("Start a local read-only web view: import graph with notes and tasks overlaid, task board, notes, journal")
+  .option("--port <n>", "port to listen on", (v) => parseIntOption(v, "--port"), 4310)
+  .option("--host <host>", "interface to bind", "127.0.0.1")
+  .action(async (opts: { port: number; host: string }) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    const { url } = await startServer(c.paths, c.config, { port: opts.port, host: opts.host });
+    out(`Reggie is serving ${c.root}`);
+    out(`Open ${url}`);
+    out("Press Ctrl+C to stop.");
   });
 
 function planningPrompt(c: Ctx, slug: string): string {

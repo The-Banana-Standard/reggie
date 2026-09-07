@@ -176,6 +176,14 @@ The generated block in `CLAUDE.md` tells every agent session exactly this, so yo
 - `reggie pr` fails: you need `gh auth login`, a GitHub remote, and to be on the `task/<slug>` branch.
 - Codex cannot see the tools: run `codex mcp add reggie -- reggie mcp` once, then start a new session.
 
+## Seeing the connections
+
+```bash
+reggie serve
+```
+
+Opens a local page at `http://127.0.0.1:4310/` with the repo drawn as a graph: files as nodes sized by length, imports as arrows, a green ring on files that have a note, an amber ring on files whose folder has one, and task plans as diamonds linked to the files they will touch. Click a node to see the notes an agent would read before editing it and what imports it. The other tabs list tasks by state, every note, and the journal. TypeScript, JavaScript, and Rust imports are resolved in this version; other languages appear as nodes without edges.
+
 ## What this version does not do yet
 
-This is the first release of the repo-manager direction. It does not yet draw the code graph and visualizations, generate podcast episodes, drain voice notes, or mirror tasks to GitHub Issues and Projects. Those are planned and tracked in `TASKS.md`. Everything here is designed so those features read the same files you are creating now.
+This is the first release of the repo-manager direction. The graph is imports only: no call graph, data flow, cross-repo map, or ownership overlays yet. It does not generate podcast episodes, drain voice notes, or mirror tasks to GitHub Issues and Projects. Those are planned and tracked in `TASKS.md`. Everything here is designed so those features read the same files you are creating now.

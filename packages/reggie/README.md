@@ -43,6 +43,7 @@ npm link            # puts `reggie` on your PATH
 | `reggie pr <slug> [--draft]` | Push the task branch and open a PR whose body is the packet. Needs `gh`. |
 | `reggie people` | Who is registered and which mode is active. |
 | `reggie mcp` | Start the MCP server on stdio. |
+| `reggie serve [--port 4310] [--host 127.0.0.1]` | Local read-only web view: the import graph (TypeScript, JavaScript, Rust) with notes and task plans overlaid, plus tabs for tasks, notes, and the journal. Click a node for its read-before-edit note chain and its imports. |
 
 Every command accepts `-C <dir>` to run against another repo. Text that starts with a dash must follow `--`, for example `reggie capture -- "--legacy-peer-deps is required"`.
 

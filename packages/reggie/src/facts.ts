@@ -123,8 +123,12 @@ const MANIFEST_FILES = [
 
 const TEST_HINTS = [/(^|\/)__tests__\//, /(^|\/)tests?\//, /\.test\.[cm]?[jt]sx?$/, /\.spec\.[cm]?[jt]sx?$/, /_test\.go$/, /Tests?\.swift$/, /Test\.kt$/, /test_.*\.py$/, /_test\.py$/];
 
-function isIgnored(file: string): boolean {
+export function isIgnoredPath(file: string): boolean {
   return file.split("/").some((seg) => IGNORED_SEGMENTS.has(seg));
+}
+
+function isIgnored(file: string): boolean {
+  return isIgnoredPath(file);
 }
 
 function readJson(file: string): Record<string, unknown> | null {
