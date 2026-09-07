@@ -47,18 +47,44 @@ export function currentBranch(root: string): string {
   return r.stdout.trim() || "HEAD";
 }
 
-/** Best guess at the integration branch: origin/HEAD, then main, then master, then the current branch. */
+/** Task and plan branches are work branches; they can never be the integration branch. */
+export function isWorkBranch(name: string): boolean {
+  return name.startsWith("task/") || name.startsWith("plan/");
+}
+
+export function listLocalBranchNames(root: string): string[] {
+  const r = git(["for-each-ref", "--format=%(refname:short)", "refs/heads"], { cwd: root, allowFailure: true });
+  return r.stdout.split("\n").map((l) => l.trim()).filter(Boolean);
+}
+
+/**
+ * The integration branch: the config override, then origin/HEAD, then main, then master,
+ * then the current branch if it is not a work branch, then the only non-work local branch.
+ * Throws rather than guessing a task branch, because every state derivation depends on it.
+ */
 export function defaultBranch(root: string, override?: string): string {
   if (override) return override;
   const sym = git(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], { cwd: root, allowFailure: true });
   if (sym.ok) {
     const name = sym.stdout.trim().replace(/^origin\//, "");
-    if (name) return name;
+    if (name && !isWorkBranch(name)) return name;
   }
   for (const candidate of ["main", "master"]) {
     if (branchExists(root, candidate)) return candidate;
   }
-  return currentBranch(root);
+  const locals = listLocalBranchNames(root).filter((n) => !isWorkBranch(n));
+  const current = currentBranch(root);
+  if (current !== "HEAD" && !isWorkBranch(current) && locals.includes(current)) return current;
+  if (locals.length === 1 && locals[0]) return locals[0];
+  throw new Error(
+    "Cannot determine the integration branch: no origin/HEAD, no main or master, and the current branch is a task or plan branch (or HEAD is detached). Set `defaultBranch:` in .reggie/config.yaml.",
+  );
+}
+
+/** Paths present under a directory at a ref, relative to the repo root. One git call. */
+export function treePaths(root: string, ref: string, dir: string): Set<string> {
+  const r = git(["ls-tree", "-r", "--name-only", ref, "--", dir], { cwd: root, allowFailure: true });
+  return new Set(r.stdout.split("\n").map((l) => l.trim()).filter(Boolean));
 }
 
 export function branchExists(root: string, name: string): boolean {

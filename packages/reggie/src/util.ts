@@ -68,15 +68,53 @@ export function uniq<T>(items: Iterable<T>): T[] {
   return Array.from(new Set(items));
 }
 
-/** Parse a simple YAML-ish front matter block. Returns body and raw front matter text. */
+/**
+ * Split a front matter block from its body. The block opens with a line that is exactly `---`
+ * and closes with the next such line. CRLF input is normalized. Returns front=null when absent.
+ */
 export function splitFrontMatter(content: string): { front: string | null; body: string } {
-  if (!content.startsWith("---")) return { front: null, body: content };
-  const end = content.indexOf("\n---", 3);
-  if (end === -1) return { front: null, body: content };
-  const front = content.slice(4, end);
-  let body = content.slice(end + 4);
-  if (body.startsWith("\n")) body = body.slice(1);
-  return { front, body };
+  const text = content.replace(/\r\n/g, "\n");
+  const lines = text.split("\n");
+  if (!/^---\s*$/.test(lines[0] ?? "")) return { front: null, body: text };
+  for (let i = 1; i < lines.length; i += 1) {
+    if (/^---\s*$/.test(lines[i] ?? "")) {
+      return { front: lines.slice(1, i).join("\n"), body: lines.slice(i + 1).join("\n") };
+    }
+  }
+  return { front: null, body: text };
+}
+
+/** Set or add simple `key: value` fields in a front matter block, creating the block when missing. */
+export function upsertFrontMatter(content: string, fields: Record<string, string>): string {
+  const { front, body } = splitFrontMatter(content);
+  const lines = front === null ? [] : front.split("\n");
+  for (const [key, value] of Object.entries(fields)) {
+    const idx = lines.findIndex((l) => l.startsWith(`${key}:`));
+    if (idx >= 0) lines[idx] = `${key}: ${value}`;
+    else lines.push(`${key}: ${value}`);
+  }
+  return `---\n${lines.join("\n")}\n---\n${body}`;
+}
+
+/** Resolve target and refuse anything that escapes baseDir. Returns the resolved path. */
+export function assertInside(baseDir: string, target: string, what: string): string {
+  const base = path.resolve(baseDir);
+  const resolved = path.resolve(target);
+  if (resolved !== base && !resolved.startsWith(base + path.sep)) {
+    throw new Error(`${what} resolves outside ${base}: ${target}`);
+  }
+  return resolved;
+}
+
+/** Body lines that would be mistaken for an entry header or a trailer are indented so parsers ignore them. */
+export function escapeBodyLine(line: string): string {
+  return /^(##\s|###\s|sources:|evidence:)/i.test(line) ? `  ${line}` : line;
+}
+
+export function parseIntOption(value: string, name: string): number {
+  const n = Number.parseInt(value, 10);
+  if (!Number.isFinite(n) || n < 0 || String(n) !== value.trim()) throw new Error(`${name} must be a non-negative integer, got "${value}"`);
+  return n;
 }
 
 export function truncateLines(text: string, maxLines: number): string {

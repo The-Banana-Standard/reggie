@@ -2,7 +2,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { lastCommitDate } from "./git.js";
 import type { RepoPaths } from "./paths.js";
-import { appendText, readText, relPosix, slugify, splitFrontMatter, today, writeText } from "./util.js";
+import { appendText, assertInside, escapeBodyLine, readText, relPosix, slugify, splitFrontMatter, today, writeText } from "./util.js";
 
 export const NOTE_TYPES = ["why", "how", "gotcha", "verify", "data-source", "decision"] as const;
 export type NoteType = (typeof NOTE_TYPES)[number];
@@ -54,15 +54,27 @@ export function resolveNoteTarget(paths: RepoPaths, rawEntity: string): NoteTarg
   if (kindMatch && (ENTITY_KINDS as readonly string[]).includes(kindMatch[1] ?? "")) {
     const kind = kindMatch[1] ?? "concept";
     const name = kindMatch[2] ?? "";
-    return { entity: `${kind}:${name}`, kind: "entity", file: path.join(paths.notes, "_entities", kind, `${slugify(name, 80)}.md`) };
+    const file = path.join(paths.notes, "_entities", kind, `${slugify(name, 80)}.md`);
+    return { entity: `${kind}:${name}`, kind: "entity", file: assertInside(paths.notes, file, "note path") };
   }
   const clean = entity.replace(/\/+$/, "");
-  const absolute = path.join(paths.root, clean);
-  const isDir = entity.endsWith("/") || (existsSync(absolute) && statSync(absolute).isDirectory());
-  if (isDir) {
-    return { entity: `${clean}/`, kind: "dir", file: path.join(paths.notes, clean, "_dir.md") };
+  if (clean === "" || path.isAbsolute(clean) || clean.split("/").some((seg) => seg === "..")) {
+    throw new Error(`"${rawEntity}" is not a repo-relative path. Use a path inside the repo, "_repo", or "<kind>:<name>".`);
   }
-  return { entity: clean, kind: "file", file: path.join(paths.notes, `${clean}.md`) };
+  const fileNote = path.join(paths.notes, `${clean}.md`);
+  const dirNote = path.join(paths.notes, clean, "_dir.md");
+  let isDir: boolean;
+  if (entity.endsWith("/")) isDir = true;
+  else if (existsSync(dirNote) && !existsSync(fileNote)) isDir = true;
+  else if (existsSync(fileNote)) isDir = false;
+  else {
+    const absolute = path.join(paths.root, clean);
+    isDir = existsSync(absolute) && statSync(absolute).isDirectory();
+  }
+  if (isDir) {
+    return { entity: `${clean}/`, kind: "dir", file: assertInside(paths.notes, dirNote, "note path") };
+  }
+  return { entity: clean, kind: "file", file: assertInside(paths.notes, fileNote, "note path") };
 }
 
 function renderHeader(entry: NoteEntry): string {
@@ -70,7 +82,8 @@ function renderHeader(entry: NoteEntry): string {
 }
 
 export function renderEntry(entry: NoteEntry): string {
-  const lines = [renderHeader(entry), entry.text.trim()];
+  const body = entry.text.trim().split("\n").map(escapeBodyLine).join("\n");
+  const lines = [renderHeader(entry), body];
   if (entry.sources.length > 0) lines.push(`sources: ${entry.sources.join(", ")}`);
   return `${lines.join("\n")}\n\n`;
 }
@@ -213,10 +226,13 @@ export function notesForPath(paths: RepoPaths, filePath: string): NoteFile[] {
     const note = readNoteFile(paths, dir);
     if (note) chain.push(note);
   }
-  const leafAsDir = readNoteFile(paths, `${clean}/`);
-  if (leafAsDir && !chain.includes(leafAsDir)) chain.push(leafAsDir);
-  const leaf = readNoteFile(paths, clean);
-  if (leaf) chain.push(leaf);
+  const seen = new Set(chain.map((n) => n.file));
+  for (const candidate of [readNoteFile(paths, `${clean}/`), readNoteFile(paths, clean)]) {
+    if (candidate && !seen.has(candidate.file)) {
+      chain.push(candidate);
+      seen.add(candidate.file);
+    }
+  }
   return chain;
 }
 
@@ -229,8 +245,13 @@ export interface StaleEntry {
 
 /** Entries whose entity changed in git after the entry was written. Only files and folders can go stale this way. */
 export function staleEntries(paths: RepoPaths): StaleEntry[] {
+  return staleEntriesFor(paths, allNoteFiles(paths));
+}
+
+/** Same check restricted to the given notes; one git call per note, so pass only what will be shown. */
+export function staleEntriesFor(paths: RepoPaths, notes: NoteFile[]): StaleEntry[] {
   const out: StaleEntry[] = [];
-  for (const note of allNoteFiles(paths)) {
+  for (const note of notes) {
     if (note.kind !== "file" && note.kind !== "dir") continue;
     const target = note.entity.replace(/\/$/, "");
     if (!existsSync(path.join(paths.root, target))) continue;

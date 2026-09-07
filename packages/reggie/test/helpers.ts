@@ -10,10 +10,10 @@ export interface TempRepo {
   cleanup(): void;
 }
 
-/** A throwaway git repo with a main branch and a configured user. */
-export function makeTempRepo(prefix = "reggie-test-"): TempRepo {
+/** A throwaway git repo with a configured user. The integration branch defaults to main. */
+export function makeTempRepo(prefix = "reggie-test-", branch = "main"): TempRepo {
   const root = mkdtempSync(path.join(os.tmpdir(), prefix));
-  git(["init", "-q", "-b", "main"], { cwd: root });
+  git(["init", "-q", "-b", branch], { cwd: root });
   git(["config", "user.name", "Test Person"], { cwd: root });
   git(["config", "user.email", "test@example.com"], { cwd: root });
   git(["config", "commit.gpgsign", "false"], { cwd: root });

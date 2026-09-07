@@ -104,7 +104,7 @@ const COMMANDS: Record<string, string> = {
 description: Onboard this repo to Reggie, then write the first real notes so agents can find good information.
 ---
 
-Run \`npx reggie onboard\` in the repo root and read \`.reggie/ONBOARDING.md\`. It lists exactly which notes to write.
+Run \`reggie onboard\` in the repo root and read \`.reggie/ONBOARDING.md\`. It lists exactly which notes to write.
 
 Then, working from the code itself, not from memory:
 
@@ -122,10 +122,10 @@ description: Plan a task in plan mode against Reggie's plan contract. Usage: /re
 
 Slug: $ARGUMENTS
 
-1. Run \`npx reggie context $ARGUMENTS\` and read all of it. Then run \`npx reggie plan new $ARGUMENTS\` if no plan exists yet.
+1. Run \`reggie context $ARGUMENTS\` and read all of it. Then run \`reggie plan new $ARGUMENTS\` if no plan exists yet.
 2. Enter plan mode. Explore the code read-only. Ask the user every question whose answer would change the approach; if the user is not available, answer it yourself and record it under Assumptions.
 3. Write the plan into \`.reggie/tasks/$ARGUMENTS/plan.md\`, filling every section. Each acceptance criterion must be a statement a reviewer can check without asking. Each criterion needs a line in Verification strategy naming the evidence that will prove it.
-4. Run \`npx reggie plan risk $ARGUMENTS\` to set the risk class from the files, then \`npx reggie plan lint $ARGUMENTS\` and fix every error.
+4. Run \`reggie plan risk $ARGUMENTS\` to set the risk class from the files, then \`reggie plan lint $ARGUMENTS\` and fix every error.
 5. Solo mode: commit the plan to the default branch. Team mode: commit on a \`plan/$ARGUMENTS\` branch and open a draft PR so others can comment on the plan lines.
 6. Write one journal entry with \`--stage plan\`.
 `,
@@ -135,18 +135,18 @@ description: Execute an approved plan, produce its evidence, run the review poli
 
 Slug: $ARGUMENTS
 
-1. \`npx reggie context $ARGUMENTS\`; read the plan and the notes it points at. Then \`npx reggie claim $ARGUMENTS\` (add \`--worktree\` when other work is active in this checkout).
+1. \`reggie context $ARGUMENTS\`; read the plan and the notes it points at. Then \`reggie claim $ARGUMENTS\` (add \`--worktree\` when other work is active in this checkout).
 2. Execute the plan. You may deviate; record every deviation and its reason for the packet.
 3. Produce the evidence the plan's Verification strategy names. Save outputs under \`.reggie/tasks/$ARGUMENTS/evidence/\` (test logs, command output, screenshots). Never claim a test passed without its output saved.
 4. Reviews by risk class (from the plan's front matter): low, run the repo's own checks; medium, also run \`/code-review\`; high, also run \`/security-review\` and have a second pass execute the tests. Run \`/simplify\` when the diff is large. Resolve findings before continuing.
-5. After each file change, add or correct its note in \`.reggie/notes/\`. After each step, one journal entry with \`--stage execute\`. Unrelated problems: \`npx reggie capture "..."\`, do not fix them.
-6. \`npx reggie packet $ARGUMENTS\`, then fill every section of \`packet.md\` honestly. Commit. Open a PR whose body is the packet (\`npx reggie pr $ARGUMENTS\`), or in solo mode ask the user to decide with \`reggie decide\`.
+5. After each file change, add or correct its note in \`.reggie/notes/\`. After each step, one journal entry with \`--stage execute\`. Unrelated problems: \`reggie capture "..."\`, do not fix them.
+6. \`reggie packet $ARGUMENTS\` creates \`packet.md\` from the plan, the diff, and the evidence folder (it never overwrites an existing packet; edit that in place). Fill every section honestly. Commit. Open a PR whose body is the packet (\`reggie pr $ARGUMENTS\`), or in solo mode ask the user to decide with \`reggie decide\`.
 `,
   "reggie-capture.md": `---
 description: Capture an idea, bug, or discovered issue into Reggie's intake without structuring it. Usage: /reggie-capture <text>
 ---
 
-Run \`npx reggie capture "$ARGUMENTS"\`. If the user gave detail, pass it with \`--detail\`. Confirm the slug that was created. Do not plan or fix anything.
+Run \`reggie capture "$ARGUMENTS"\`. If the user gave detail, pass it with \`--detail\`. Confirm the slug that was created. Do not plan or fix anything.
 `,
 };
 

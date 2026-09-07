@@ -15,10 +15,10 @@ import { addNote, findNotes, NOTE_TYPES, notesForPath, renderNoteFile, staleEntr
 import { onboard, refreshDocs } from "./onboard.js";
 import { decidePacket, scaffoldPacket } from "./packet.js";
 import { findRepoRoot, packetFile, planFile, repoPaths, type RepoPaths } from "./paths.js";
-import { currentPerson, ensureCurrentPerson, loadConfig, loadPeople, type Person, type ReggieConfig } from "./people.js";
+import { currentPerson, loadConfig, loadPeople, type Person, type ReggieConfig } from "./people.js";
 import { lintPlan, parsePlan, renderPlanTemplate, riskFromFiles, RISKS, setPlanRisk, type Risk } from "./plan.js";
-import { getTask, listTasks, renderTaskLine } from "./tasks.js";
-import { isSafeSlug, readText, slugify, writeIfMissing, writeText } from "./util.js";
+import { getTask, listTasks, readIntake, renderTaskLine } from "./tasks.js";
+import { isSafeSlug, parseIntOption, readText, slugify, writeIfMissing, writeText } from "./util.js";
 
 const VERSION = "3.0.0-alpha.1";
 
@@ -69,7 +69,8 @@ program
   .alias("init")
   .description("Create .reggie/, generate the CLAUDE.md and AGENTS.md blocks, install project commands, and write the onboarding brief")
   .action((dir?: string) => {
-    const start = dir ? path.resolve(dir) : process.cwd();
+    const rootOpt = program.opts<{ root?: string }>().root;
+    const start = dir ? path.resolve(dir) : rootOpt ? path.resolve(rootOpt) : process.cwd();
     const root = findRepoRoot(start);
     const r = onboard(root);
     out(`Onboarded ${r.facts.name} (${r.config.mode} mode) as ${r.person.handle}.`);
@@ -178,11 +179,10 @@ plan
     const c = ctx(program.opts<{ root?: string }>().root);
     const s = requireSlug(slug);
     const file = planFile(c.paths, s);
-    const intake = readText(c.paths.intake) ?? "";
-    const intakeLine = new RegExp(`^- ${s}:\\s+(.+?)(\\s\\(.*\\))?$`, "m").exec(intake);
-    const input: Parameters<typeof renderPlanTemplate>[0] = { slug: s, title: opts.title ?? intakeLine?.[1] ?? s, author: c.person.handle };
+    const intakeItem = readIntake(c.paths).find((i) => i.slug === s);
+    const input: Parameters<typeof renderPlanTemplate>[0] = { slug: s, title: opts.title ?? intakeItem?.text ?? s, author: c.person.handle };
     if (opts.problem) input.problem = opts.problem;
-    else if (intakeLine?.[1]) input.problem = intakeLine[1];
+    else if (intakeItem) input.problem = [intakeItem.text, ...intakeItem.detail].join("\n");
     if (opts.files) input.files = opts.files.split(",").map((f) => f.trim()).filter(Boolean);
     if (opts.risk) {
       if (!(RISKS as string[]).includes(opts.risk)) fail("risk must be low, medium, or high");
@@ -246,24 +246,24 @@ program
   .option("--worktree", "use a separate worktree under .worktree/<slug>")
   .action((slug: string, opts: { worktree?: boolean }) => {
     const c = ctx(program.opts<{ root?: string }>().root);
-    ensureCurrentPerson(c.paths);
     const r = claimTask(c.paths, c.config, requireSlug(slug), { person: c.person, ...(opts.worktree ? { worktree: true } : {}) });
     out(`${r.alreadyExisted ? "Resumed" : "Claimed"} ${slug} on ${r.branch}${r.worktree ? ` in ${r.worktree}` : ""}`);
   });
 
 program
   .command("release <slug>")
-  .description("Drop your local claim: delete the local task branch and worktree")
-  .action((slug: string) => {
+  .description("Drop your local claim: delete the local task branch and worktree (refuses others' branches and unmerged work unless --force)")
+  .option("--force", "release someone else's branch or discard unmerged commits")
+  .action((slug: string, opts: { force?: boolean }) => {
     const c = ctx(program.opts<{ root?: string }>().root);
-    for (const a of releaseTask(c.paths, c.config, requireSlug(slug), c.person)) out(a);
+    for (const a of releaseTask(c.paths, c.config, requireSlug(slug), c.person, { force: Boolean(opts.force) })) out(a);
   });
 
 program
   .command("context [slug]")
   .description("The pack to read before working: notes, plan, related tasks, recent commits, active work, journal")
   .option("-p, --path <paths...>", "files or folders in scope")
-  .option("--max-lines <n>", "truncate output", (v) => Number.parseInt(v, 10))
+  .option("--max-lines <n>", "truncate output", (v) => parseIntOption(v, "--max-lines"))
   .action((slug: string | undefined, opts: { path?: string[]; maxLines?: number }) => {
     const c = ctx(program.opts<{ root?: string }>().root);
     const req: Parameters<typeof buildContext>[2] = {};
@@ -342,7 +342,7 @@ journal
 journal
   .command("show")
   .description("Recent entries, newest first")
-  .option("--days <n>", "how far back", (v) => Number.parseInt(v, 10), 7)
+  .option("--days <n>", "how far back", (v) => parseIntOption(v, "--days"), 7)
   .option("--slug <slug>")
   .option("--person <handle>")
   .action((opts: { days: number; slug?: string; person?: string }) => {
@@ -357,10 +357,12 @@ journal
 
 program
   .command("packet <slug>")
-  .description("Scaffold the completion packet from the plan, the diff, and the evidence folder")
-  .action((slug: string) => {
+  .description("Scaffold the completion packet from the plan, the diff, and the evidence folder (never overwrites without --force)")
+  .option("--force", "overwrite an existing packet, discarding its contents and verdict")
+  .action((slug: string, opts: { force?: boolean }) => {
     const c = ctx(program.opts<{ root?: string }>().root);
-    const r = scaffoldPacket(c.paths, c.config, { slug: requireSlug(slug), author: c.person.handle });
+    const r = scaffoldPacket(c.paths, c.config, { slug: requireSlug(slug), author: c.person.handle, force: Boolean(opts.force) });
+    if (r.skipped) return out(`${path.relative(c.root, r.file)} already exists; edit it in place, or pass --force to regenerate it from scratch.`);
     out(`${r.created ? "Created" : "Rewrote"} ${path.relative(c.root, r.file)}. Fill every section honestly, commit, then open a PR with: reggie pr ${slug}`);
   });
 
@@ -415,8 +417,8 @@ program
   });
 
 function planningPrompt(c: Ctx, slug: string): string {
-  const intake = readText(c.paths.intake) ?? "";
-  const line = new RegExp(`^- ${slug}:\\s+(.+)$`, "m").exec(intake)?.[1] ?? "(no intake line; the user will describe the task)";
+  const item = readIntake(c.paths).find((i) => i.slug === slug);
+  const line = item ? [item.text, ...item.detail].join(" ") : "(no intake line; the user will describe the task)";
   return [
     `You are planning the task "${slug}" for the repository at ${c.root}.`,
     `Intake: ${line}`,

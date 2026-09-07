@@ -58,8 +58,24 @@ export function repoPaths(root: string): RepoPaths {
   };
 }
 
+/** Slugs are the only user input that becomes a path segment; validate every time. */
+export function assertSlug(slug: string): string {
+  if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)) {
+    throw new Error(`"${slug}" is not a valid slug. Use lowercase letters, digits, and hyphens.`);
+  }
+  return slug;
+}
+
 export function taskDir(paths: RepoPaths, slug: string): string {
-  return path.join(paths.tasks, slug);
+  return path.join(paths.tasks, assertSlug(slug));
+}
+
+export function claimFile(paths: RepoPaths, slug: string): string {
+  return path.join(taskDir(paths, slug), "claim.md");
+}
+
+export function claimRelPath(slug: string): string {
+  return `${REGGIE_DIR}/tasks/${assertSlug(slug)}/claim.md`;
 }
 
 export function planFile(paths: RepoPaths, slug: string): string {
@@ -76,9 +92,11 @@ export function evidenceDir(paths: RepoPaths, slug: string): string {
 
 /** Repo-relative path of a task's plan file, for git lookups. */
 export function planRelPath(slug: string): string {
-  return `${REGGIE_DIR}/tasks/${slug}/plan.md`;
+  return `${REGGIE_DIR}/tasks/${assertSlug(slug)}/plan.md`;
 }
 
 export function packetRelPath(slug: string): string {
-  return `${REGGIE_DIR}/tasks/${slug}/packet.md`;
+  return `${REGGIE_DIR}/tasks/${assertSlug(slug)}/packet.md`;
 }
+
+export const TASKS_REL_DIR = `${REGGIE_DIR}/tasks`;

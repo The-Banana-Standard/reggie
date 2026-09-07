@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import type { RepoPaths } from "./paths.js";
-import { appendText, clock, readText, today, writeText } from "./util.js";
+import { appendText, clock, escapeBodyLine, readText, today, writeText } from "./util.js";
 
 export type ToolName = "claude" | "codex" | "human" | string;
 
@@ -56,7 +56,7 @@ export function appendJournal(paths: RepoPaths, input: AppendJournalInput): Jour
   const slug = input.slug ?? null;
   const stage = input.stage ?? null;
   const header = ["###", time, "·", input.person, "·", input.tool, "·", slug ?? "-", "·", stage ?? "-"].join(" ");
-  const lines = [header, input.text.trim()];
+  const lines = [header, input.text.trim().split("\n").map(escapeBodyLine).join("\n")];
   const evidence = input.evidence ?? [];
   if (evidence.length > 0) lines.push(`evidence: ${evidence.join(", ")}`);
   appendText(file, `${lines.join("\n")}\n\n`);

@@ -2,7 +2,7 @@
 description: Onboard this repo to Reggie, then write the first real notes so agents can find good information.
 ---
 
-Run `npx reggie onboard` in the repo root and read `.reggie/ONBOARDING.md`. It lists exactly which notes to write.
+Run `reggie onboard` in the repo root and read `.reggie/ONBOARDING.md`. It lists exactly which notes to write.
 
 Then, working from the code itself, not from memory:
 

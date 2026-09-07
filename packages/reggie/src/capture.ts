@@ -1,7 +1,7 @@
 import { INTAKE_HEADER } from "./layout.js";
 import type { RepoPaths } from "./paths.js";
 import type { Person } from "./people.js";
-import { readIntake } from "./tasks.js";
+import { knownSlugs } from "./tasks.js";
 import { appendText, readText, slugify, today, writeText } from "./util.js";
 
 export interface CaptureInput {
@@ -20,7 +20,7 @@ export interface CaptureResult {
 /** Append one raw item to intake.md. Slugs are derived from the text and made unique. */
 export function capture(paths: RepoPaths, input: CaptureInput): CaptureResult {
   if (!readText(paths.intake)) writeText(paths.intake, INTAKE_HEADER);
-  const existing = new Set(readIntake(paths).map((i) => i.slug));
+  const existing = knownSlugs(paths);
   let slug = input.slug ? slugify(input.slug) : slugify(input.text, 48);
   if (existing.has(slug)) {
     let n = 2;

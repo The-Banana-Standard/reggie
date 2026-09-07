@@ -73,12 +73,20 @@ export function applyGeneratedBlock(file: string, block: string, template: (bloc
   return { file, action: "updated" };
 }
 
+/** The real block is the LAST start marker that begins a line and its following end marker; prose may quote the markers above it. */
+function locateBlock(content: string): { start: number; end: number } | null {
+  const re = new RegExp(`^${START_MARKER.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}\\s*$`, "gm");
+  let start = -1;
+  for (const m of content.matchAll(re)) start = m.index;
+  if (start === -1) return null;
+  const end = content.indexOf(END_MARKER, start);
+  if (end === -1) return null;
+  return { start, end: end + END_MARKER.length };
+}
+
 export function replaceBlock(content: string, block: string): string {
-  const start = content.indexOf(START_MARKER);
-  const end = content.indexOf(END_MARKER);
-  if (start !== -1 && end !== -1 && end > start) {
-    return content.slice(0, start) + block + content.slice(end + END_MARKER.length);
-  }
+  const loc = locateBlock(content);
+  if (loc) return content.slice(0, loc.start) + block + content.slice(loc.end);
   const sep = content.endsWith("\n") ? "\n" : "\n\n";
   return `${content}${sep}${block}\n`;
 }
@@ -87,10 +95,9 @@ export function replaceBlock(content: string, block: string): string {
 export function checkGeneratedBlock(file: string, block: string): { file: string; status: "missing" | "stale" | "fresh" } {
   const existing = readText(file);
   if (existing === null) return { file, status: "missing" };
-  const start = existing.indexOf(START_MARKER);
-  const end = existing.indexOf(END_MARKER);
-  if (start === -1 || end === -1) return { file, status: "missing" };
-  const current = normalizeBlock(existing.slice(start, end + END_MARKER.length));
+  const loc = locateBlock(existing);
+  if (!loc) return { file, status: "missing" };
+  const current = normalizeBlock(existing.slice(loc.start, loc.end));
   return { file, status: current === normalizeBlock(block) ? "fresh" : "stale" };
 }
 

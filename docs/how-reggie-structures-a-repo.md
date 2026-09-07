@@ -91,7 +91,7 @@ Reggie does not store task status anywhere. It reads it:
 | A pull request from that branch is open | awaiting decision |
 | That pull request is merged | done |
 
-The last commit on a task branch says who owns the task and when they last touched it. That is the whole claim system. In team mode branches are pushed so everyone sees them; in solo mode they can stay local. A pull request whose body is the completion packet is the review, and approving it is the decision.
+When a task is claimed, Reggie commits a small `claim.md` on the branch naming the person, the machine, and the tool. That record says who holds the task; the branch's last commit says when they last touched it. That is the whole claim system. In team mode branches are pushed so everyone sees them; in solo mode they can stay local. A pull request whose body is the completion packet is the review, and approving it is the decision.
 
 ### .reggie/people.yaml and config.yaml: who, and which mode
 

@@ -140,7 +140,7 @@ For Claude Code it uses `claude -p --permission-mode plan`, which can read but n
 
 Reggie reads `.reggie/people.yaml`. One person means **solo** mode: your commits are your approvals, and no PR is required for plans. Two or more people means **team** mode: plans go up as draft PRs so others can comment on the plan lines, task branches are pushed so claims are visible, and completion packets are decided in PR review. Override the mode in `.reggie/config.yaml`.
 
-Claims are branches. If a `task/<slug>` branch exists with someone else's commits, `reggie claim` refuses and tells you who has it.
+Claims are branches with a record on them. `reggie claim` commits a small `claim.md` naming the person, machine, and tool, so ownership is explicit from the first commit. If a `task/<slug>` branch is held by someone else, `reggie claim` refuses and tells you who has it, and `reggie release` refuses to delete their work or anyone's unmerged commits unless you pass `--force`.
 
 ## 6. The habits that make it work
 

@@ -3,7 +3,7 @@ import path from "node:path";
 import { collectFacts, summarizeFacts } from "./facts.js";
 import { recentCommits } from "./git.js";
 import { readJournal, renderJournalEntry } from "./journal.js";
-import { notesForPath, readNoteFile, renderNoteFile, staleEntries } from "./notes.js";
+import { notesForPath, readNoteFile, renderNoteFile, staleEntriesFor, type NoteFile } from "./notes.js";
 import { planFile, type RepoPaths } from "./paths.js";
 import type { ReggieConfig } from "./people.js";
 import { parsePlan } from "./plan.js";
@@ -45,23 +45,25 @@ export function buildContext(paths: RepoPaths, config: ReggieConfig, req: Contex
     }
   }
 
-  const stale = new Set(staleEntries(paths).map((s) => `${s.entity}|${s.entry.date}|${s.entry.type}`));
-
-  out.push("## Notes to read first");
-  const repoNote = readNoteFile(paths, "_repo");
+  const shown: NoteFile[] = [];
   const seen = new Set<string>();
+  const repoNote = readNoteFile(paths, "_repo");
   if (repoNote) {
-    out.push(renderNoteFile(repoNote, { markStale: stale }));
+    shown.push(repoNote);
     seen.add(repoNote.file);
   }
   for (const f of files) {
     for (const note of notesForPath(paths, f)) {
       if (seen.has(note.file)) continue;
       seen.add(note.file);
-      out.push(renderNoteFile(note, { markStale: stale }));
+      shown.push(note);
     }
   }
-  if (seen.size === 0) out.push("(no notes yet; this area is undocumented. Write the first `why` and `how` notes as you learn it.)");
+  const stale = new Set(staleEntriesFor(paths, shown).map((s) => `${s.entity}|${s.entry.date}|${s.entry.type}`));
+
+  out.push("## Notes to read first");
+  for (const note of shown) out.push(renderNoteFile(note, { markStale: stale }));
+  if (shown.length === 0) out.push("(no notes yet; this area is undocumented. Write the first `why` and `how` notes as you learn it.)");
   out.push("");
 
   if (files.length > 0) {

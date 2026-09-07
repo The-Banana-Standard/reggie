@@ -4,17 +4,21 @@ import { changedFiles, currentBranch, defaultBranch, diffStat } from "./git.js";
 import { evidenceDir, packetFile, planFile, type RepoPaths } from "./paths.js";
 import type { ReggieConfig } from "./people.js";
 import { parsePlan } from "./plan.js";
-import { readText, relPosix, splitFrontMatter, today, writeText } from "./util.js";
+import { readText, relPosix, splitFrontMatter, today, upsertFrontMatter, writeText } from "./util.js";
 
 export type Verdict = "pending" | "approved" | "needs-work";
 
 export interface PacketInput {
   slug: string;
   author: string;
+  /** Overwrite an existing packet. Without it, an existing packet is left untouched. */
+  force?: boolean;
 }
 
 /** Scaffold packet.md from the plan: criteria become a checklist, changes come from git, evidence is listed. */
-export function scaffoldPacket(paths: RepoPaths, config: ReggieConfig, input: PacketInput): { file: string; created: boolean } {
+export function scaffoldPacket(paths: RepoPaths, config: ReggieConfig, input: PacketInput): { file: string; created: boolean; skipped: boolean } {
+  const file = packetFile(paths, input.slug);
+  if (existsSync(file) && !input.force) return { file, created: false, skipped: true };
   const plan = readText(planFile(paths, input.slug));
   if (!plan) throw new Error(`No plan for ${input.slug}. Write one with \`reggie plan new ${input.slug}\` first.`);
   const parsed = parsePlan(plan);
@@ -68,10 +72,9 @@ export function scaffoldPacket(paths: RepoPaths, config: ReggieConfig, input: Pa
     "",
   ].join("\n");
 
-  const file = packetFile(paths, input.slug);
   const created = !existsSync(file);
   writeText(file, content);
-  return { file, created };
+  return { file, created, skipped: false };
 }
 
 function evidenceHint(evidence: string[], index: number): string {
@@ -100,10 +103,8 @@ export function decidePacket(paths: RepoPaths, slug: string, verdict: Exclude<Ve
   const file = packetFile(paths, slug);
   const content = readText(file);
   if (!content) throw new Error(`No packet for ${slug}. Create one with \`reggie packet ${slug}\`.`);
-  let next = content
-    .replace(/^verdict:\s*.*$/m, `verdict: ${verdict}`)
-    .replace(/^decided_by:.*$/m, `decided_by: ${decidedBy}`)
-    .replace(/^decided_at:.*$/m, `decided_at: ${new Date().toISOString()}`);
+  let next = upsertFrontMatter(content, { verdict, decided_by: decidedBy, decided_at: new Date().toISOString() });
+  if (parsePacketVerdict(next) !== verdict) throw new Error(`Could not record the verdict in ${file}; its front matter is malformed.`);
   if (comment && comment.trim()) {
     next += `\n## Decision\n- ${verdict} by ${decidedBy} on ${today()}: ${comment.trim()}\n`;
   }

@@ -29,8 +29,8 @@ npm link            # puts `reggie` on your PATH
 | `reggie plan risk <slug>` | Set `risk:` from the files the plan touches and the rules in `config.yaml`. |
 | `reggie plan prompt <slug>` | Print the planning prompt and the exact interactive and headless commands for Claude Code and Codex. |
 | `reggie plan done <slug>` | Remove the intake line after the plan exists. |
-| `reggie claim <slug> [--worktree]` | Create or switch to `task/<slug>`; refuses a branch owned by someone else. |
-| `reggie release <slug>` | Delete your local task branch and worktree. |
+| `reggie claim <slug> [--worktree]` | Create or switch to `task/<slug>` and commit a claim record on it; refuses a branch someone else holds. |
+| `reggie release <slug> [--force]` | Delete your local task branch and worktree. Refuses someone else's branch and unmerged commits unless forced. |
 | `reggie context [slug] [-p path...] [--max-lines n]` | The pack to read before working. |
 | `reggie note add <entity> -t <type> [-c conf] [-s a,b] <text>` | Add a dated entry. Entities: a file, a folder, `_repo`, `store:name`, `service:name`, `env:NAME`, `route:name`. |
 | `reggie note find [query]` | Notes whose entity contains the query. |
@@ -38,13 +38,15 @@ npm link            # puts `reggie` on your PATH
 | `reggie note stale` | Entries whose code changed after they were written. |
 | `reggie journal add <text> [--slug] [--stage] [--evidence a,b] [--session s]` | Append a plain-English entry. |
 | `reggie journal show [--days n] [--slug] [--person]` | Recent entries, newest first. |
-| `reggie packet <slug>` | Scaffold the completion packet from the plan, the diff, and the evidence folder. |
+| `reggie packet <slug> [--force]` | Scaffold the completion packet from the plan, the diff, and the evidence folder. Never overwrites an existing packet unless forced. |
 | `reggie decide <slug> approved\|needs-work [--comment t]` | Record a verdict in the packet (solo mode or no-PR review). |
 | `reggie pr <slug> [--draft]` | Push the task branch and open a PR whose body is the packet. Needs `gh`. |
 | `reggie people` | Who is registered and which mode is active. |
 | `reggie mcp` | Start the MCP server on stdio. |
 
-Every command accepts `-C <dir>` to run against another repo.
+Every command accepts `-C <dir>` to run against another repo. Text that starts with a dash must follow `--`, for example `reggie capture -- "--legacy-peer-deps is required"`.
+
+Claims are explicit: `reggie claim` commits a small `claim.md` on the task branch naming the person, machine, and tool. Ownership is read from that record, not guessed from the last commit's author.
 
 ## Task states
 

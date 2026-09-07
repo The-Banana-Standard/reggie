@@ -33,6 +33,9 @@ function text(value: string) {
   return { content: [{ type: "text" as const, text: value }] };
 }
 
+/** Slugs become path segments; the schema refuses anything else before a handler runs. */
+const slugSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/, "lowercase letters, digits, and hyphens only");
+
 /** Start the Reggie MCP server on stdio. Never write to stdout here except through the transport. */
 export async function startMcpServer(root: string): Promise<void> {
   const server = new McpServer({ name: "reggie", version: VERSION });
@@ -57,7 +60,7 @@ export async function startMcpServer(root: string): Promise<void> {
     {
       title: "Show one task",
       description: "State, owner, branch, PR, and the full plan for a task slug.",
-      inputSchema: { slug: z.string().describe("Task slug") },
+      inputSchema: { slug: slugSchema.describe("Task slug") },
     },
     async ({ slug }) => {
       const task = getTask(c.paths, c.config, slug);
@@ -73,7 +76,7 @@ export async function startMcpServer(root: string): Promise<void> {
       title: "Context pack",
       description: "Everything to read before working on a task or an area: notes (repo, folders, files), plan, related tasks, recent commits, active work, journal. Call this first.",
       inputSchema: {
-        slug: z.string().optional().describe("Task slug"),
+        slug: slugSchema.optional().describe("Task slug"),
         paths: z.array(z.string()).optional().describe("Repo-relative files or folders in scope"),
         maxLines: z.number().int().positive().optional(),
       },
@@ -131,8 +134,8 @@ export async function startMcpServer(root: string): Promise<void> {
       description: "Append a plain-English record of what just happened, for people to read or hear later. No file paths in the prose; list evidence files separately. Two to six sentences.",
       inputSchema: {
         text: z.string().min(10),
-        slug: z.string().optional(),
-        stage: z.string().optional().describe("plan, execute, review, packet, onboard, ..."),
+        slug: slugSchema.optional(),
+        stage: z.string().max(40).optional().describe("plan, execute, review, packet, onboard, ..."),
         evidence: z.array(z.string()).optional(),
       },
     },
@@ -171,7 +174,7 @@ export async function startMcpServer(root: string): Promise<void> {
       title: "Scaffold a plan",
       description: "Create .reggie/tasks/<slug>/plan.md from the plan contract template if it does not exist. Fill it in plan mode afterwards.",
       inputSchema: {
-        slug: z.string(),
+        slug: slugSchema,
         title: z.string().optional(),
         problem: z.string().optional(),
         files: z.array(z.string()).optional(),
@@ -194,7 +197,7 @@ export async function startMcpServer(root: string): Promise<void> {
     {
       title: "Lint a plan against the contract",
       description: "Check that a plan has every section, checkable acceptance criteria, a verification strategy, a risk class, and no placeholders.",
-      inputSchema: { slug: z.string() },
+      inputSchema: { slug: slugSchema },
     },
     async ({ slug }) => {
       const plan = readText(planFile(c.paths, slug));
