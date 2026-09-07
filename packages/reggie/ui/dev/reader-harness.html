@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Reader drawer harness · Reggie</title>
+<link rel="stylesheet" href="/ui/styles.css">
+<link rel="stylesheet" href="/ui/reader.css">
+<style>
+  /* Harness-only layout: a fake map column so the drawer behaves as it will under the map. */
+  .hx { display: grid; grid-template-columns: 380px 1fr; min-height: 100vh; }
+  .hx__side { padding: var(--s-4); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: var(--s-3); }
+  .hx__side h1 { font-size: var(--fs-h2); margin: 0; }
+  .hx__side h2 { font-size: var(--fs-label); font-weight: 600; margin: var(--s-2) 0 0; color: var(--muted); }
+  .hx__btns { display: flex; flex-wrap: wrap; gap: var(--s-1); }
+  .hx__col { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--panel); min-width: 0; }
+  .hx__stage { flex: 1 1 auto; min-height: 0; position: relative; display: grid; place-items: center; color: var(--faint); border: 1px dashed var(--line-strong); margin: var(--s-3); border-radius: var(--radius); }
+  .hx__log { font-family: var(--mono); font-size: var(--fs-sub); color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: var(--s-2); max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 0; }
+  .hx__form textarea { width: 100%; min-height: 64px; }
+  .hx__kv { font-size: var(--fs-meta); color: var(--muted); }
+</style>
+</head>
+<body>
+<!-- The three icons the reader uses, copied from index.html's set. -->
+<svg xmlns="http://www.w3.org/2000/svg" id="icons" aria-hidden="true" focusable="false" style="display:none">
+  <defs>
+    <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8l-5-5z"/><path d="M14 3v5h5M8.5 13h7M8.5 17h7"/>
+    </symbol>
+    <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5.5"/>
+    </symbol>
+    <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 6l12 12M18 6 6 18"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="hx">
+  <aside class="hx__side">
+    <h1>Reader drawer harness</h1>
+    <p class="hint">Exercises <code>ui/reader.js</code> against <code>ui/dev/sample-file.json</code> (a <code>/api/file</code> payload) and the live server. Serve with <code>npx tsx src/cli.ts serve --port 4423</code> and open <code>/ui/dev/reader-harness.html</code>.</p>
+
+    <h2>Open</h2>
+    <div class="hx__btns">
+      <button class="btn" type="button" data-act="open">Sample (paths.ts)</button>
+      <button class="btn" type="button" data-act="open-line">Sample at findRepoRoot</button>
+      <button class="btn" type="button" data-act="open-sym">Sample, highlight repoPaths</button>
+      <button class="btn" type="button" data-act="open-trunc">Truncated sample</button>
+      <button class="btn" type="button" data-act="open-trunc-late">Truncated, line 900</button>
+      <button class="btn" type="button" data-act="open-missing">Missing file (404)</button>
+      <button class="btn" type="button" data-act="open-slow">Slow fetch (1.5 s)</button>
+      <button class="btn" type="button" data-act="open-live">Live /api/file (graph.ts)</button>
+      <button class="btn" type="button" data-act="open-empty">Empty file</button>
+    </div>
+
+    <h2>While open</h2>
+    <div class="hx__btns">
+      <button class="btn" type="button" data-act="scroll">scrollTo(94, 96)</button>
+      <button class="btn" type="button" data-act="scroll-one">scrollTo(5)</button>
+      <button class="btn" type="button" data-act="scroll-past">scrollTo(5000)</button>
+      <button class="btn" type="button" data-act="close">close()</button>
+      <button class="btn" type="button" data-act="reset-height">Forget stored height</button>
+    </div>
+    <div class="hx__kv" id="status">isOpen: false</div>
+
+    <h2>Note form (receives the prefill)</h2>
+    <div class="form hx__form">
+      <textarea id="note" class="form__textarea" placeholder="Select some source lines in the drawer, then click the floating button."></textarea>
+    </div>
+
+    <h2>Log</h2>
+    <pre class="hx__log" id="log"></pre>
+  </aside>
+
+  <section class="hx__col" aria-label="Fake map column">
+    <div class="hx__stage">map stage (placeholder) — the drawer slides in below</div>
+    <div id="reader" class="reader" hidden></div>
+  </section>
+</div>
+
+<script type="module">
+  import { createReader } from "/ui/reader.js";
+
+  const logEl = document.getElementById("log");
+  const statusEl = document.getElementById("status");
+  const noteEl = document.getElementById("note");
+  const log = (msg) => {
+    logEl.textContent = `${new Date().toISOString().slice(11, 23)} ${msg}\n${logEl.textContent}`.slice(0, 6000);
+  };
+
+  const sample = await fetch("/ui/dev/sample-file.json").then((r) => r.json());
+
+  // A >20 000-character variant: the sample repeated, cut at 20 000 chars, with totals from the full text.
+  const full = Array.from({ length: 14 }, () => sample.text).join("\n");
+  const truncated = {
+    ...sample,
+    path: "packages/reggie/dev/paths-long.ts",
+    text: full.slice(0, 20000),
+    truncated: true,
+    totalChars: full.length,
+    totalLines: full.split("\n").length,
+    editorUrl: sample.editorUrl.replace("paths.ts", "paths-long.ts"),
+  };
+
+  const reader = createReader(document.getElementById("reader"), {
+    fetchJson: async (url) => {
+      log(`fetchJson ${url}`);
+      const u = new URL(url, location.origin);
+      const p = u.searchParams.get("path");
+      if (p === sample.path) return sample;
+      if (p === truncated.path) return truncated;
+      if (p === "packages/reggie/dev/empty.ts") return { ...sample, path: p, text: "", symbols: [], totalChars: 0, totalLines: 0, truncated: false };
+      if (p === "packages/reggie/dev/slow.ts") {
+        await new Promise((r) => setTimeout(r, 1500));
+        return { ...sample, path: p };
+      }
+      const res = await fetch(url, { headers: { accept: "application/json" } });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        const err = new Error(body?.error ?? `${res.status} ${res.statusText}`);
+        err.status = res.status;
+        throw err;
+      }
+      return body;
+    },
+    onNoteRequest: (prefill, ctx) => {
+      noteEl.value = prefill;
+      noteEl.focus();
+      noteEl.setSelectionRange(prefill.length, prefill.length);
+      log(`onNoteRequest ${JSON.stringify(prefill)} ${ctx.path} ${ctx.from}–${ctx.to} (${ctx.text.length} chars)`);
+    },
+    editorScheme: "vscode://file",
+  });
+  window.reader = reader; // for poking from the console
+
+  const acts = {
+    open: () => reader.open(sample.path),
+    "open-line": () => reader.open(sample.path, { line: 26, endLine: 38 }),
+    "open-sym": () => reader.open(sample.path, { highlight: "repoPaths" }),
+    "open-trunc": () => reader.open(truncated.path),
+    "open-trunc-late": () => reader.open(truncated.path, { line: 900 }),
+    "open-missing": () => reader.open("packages/reggie/dev/does-not-exist.ts"),
+    "open-slow": () => reader.open("packages/reggie/dev/slow.ts", { line: 62, endLine: 67 }),
+    "open-live": () => reader.open("packages/reggie/src/graph.ts"),
+    "open-empty": () => reader.open("packages/reggie/dev/empty.ts"),
+    scroll: () => reader.scrollTo(94, 96),
+    "scroll-one": () => reader.scrollTo(5),
+    "scroll-past": () => reader.scrollTo(5000),
+    close: () => reader.close(),
+    "reset-height": () => {
+      localStorage.removeItem("reggie.reader.height");
+      log("removed reggie.reader.height");
+    },
+  };
+  for (const btn of document.querySelectorAll("[data-act]")) {
+    btn.addEventListener("click", async () => {
+      const act = btn.dataset.act;
+      log(`→ ${act}`);
+      try {
+        await acts[act]();
+        log(`  ${act} done`);
+      } catch (err) {
+        log(`  ${act} threw: ${err.message}`);
+      }
+      tick();
+    });
+  }
+
+  function tick() {
+    const c = reader.current();
+    statusEl.textContent = `isOpen: ${reader.isOpen()} · path: ${c.path ?? "—"} · loaded: ${c.loaded} · height: ${c.height ?? "—"}px · stored: ${localStorage.getItem("reggie.reader.height") ?? "—"}`;
+  }
+  setInterval(tick, 500);
+  tick();
+  log(`sample loaded: ${sample.path}, ${sample.totalLines} lines, ${sample.symbols.length} symbols`);
+</script>
+</body>
+</html>

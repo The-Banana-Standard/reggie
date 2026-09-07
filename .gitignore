@@ -70,4 +70,5 @@ articles/
 
 # Reggie: derived caches only. Everything else in .reggie/ is committed.
 .reggie/graph/
+.reggie/.cache/
 .reggie/**/*.tmp

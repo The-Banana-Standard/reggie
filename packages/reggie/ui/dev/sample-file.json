@@ -1,0 +1,685 @@
+{
+  "path": "packages/reggie/src/paths.ts",
+  "text": "import { existsSync } from \"node:fs\";\nimport path from \"node:path\";\nimport { git } from \"./git.js\";\n\nexport const REGGIE_DIR = \".reggie\";\n\nexport interface RepoPaths {\n  root: string;\n  reggie: string;\n  readme: string;\n  config: string;\n  people: string;\n  intake: string;\n  tasks: string;\n  notes: string;\n  journal: string;\n  discussions: string;\n  onboarding: string;\n  claudeMd: string;\n  agentsMd: string;\n  claudeCommands: string;\n  mcpJson: string;\n}\n\n/** Locate the repository root for a starting directory. Works inside git worktrees. */\nexport function findRepoRoot(start: string = process.cwd()): string {\n  const r = git([\"rev-parse\", \"--show-toplevel\"], { cwd: start, allowFailure: true });\n  const top = r.stdout.trim();\n  if (r.ok && top) return top;\n  let dir = path.resolve(start);\n  for (;;) {\n    if (existsSync(path.join(dir, \".git\"))) return dir;\n    const parent = path.dirname(dir);\n    if (parent === dir) break;\n    dir = parent;\n  }\n  throw new Error(`Not inside a git repository: ${start}`);\n}\n\nexport function repoPaths(root: string): RepoPaths {\n  const reggie = path.join(root, REGGIE_DIR);\n  return {\n    root,\n    reggie,\n    readme: path.join(reggie, \"README.md\"),\n    config: path.join(reggie, \"config.yaml\"),\n    people: path.join(reggie, \"people.yaml\"),\n    intake: path.join(reggie, \"intake.md\"),\n    tasks: path.join(reggie, \"tasks\"),\n    notes: path.join(reggie, \"notes\"),\n    journal: path.join(reggie, \"journal\"),\n    discussions: path.join(reggie, \"discussions\"),\n    onboarding: path.join(reggie, \"ONBOARDING.md\"),\n    claudeMd: path.join(root, \"CLAUDE.md\"),\n    agentsMd: path.join(root, \"AGENTS.md\"),\n    claudeCommands: path.join(root, \".claude\", \"commands\"),\n    mcpJson: path.join(root, \".mcp.json\"),\n  };\n}\n\n/** Slugs are the only user input that becomes a path segment; validate every time. */\nexport function assertSlug(slug: string): string {\n  if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)) {\n    throw new Error(`\"${slug}\" is not a valid slug. Use lowercase letters, digits, and hyphens.`);\n  }\n  return slug;\n}\n\nexport function taskDir(paths: RepoPaths, slug: string): string {\n  return path.join(paths.tasks, assertSlug(slug));\n}\n\nexport function claimFile(paths: RepoPaths, slug: string): string {\n  return path.join(taskDir(paths, slug), \"claim.md\");\n}\n\nexport function claimRelPath(slug: string): string {\n  return `${REGGIE_DIR}/tasks/${assertSlug(slug)}/claim.md`;\n}\n\nexport function planFile(paths: RepoPaths, slug: string): string {\n  return path.join(taskDir(paths, slug), \"plan.md\");\n}\n\nexport function packetFile(paths: RepoPaths, slug: string): string {\n  return path.join(taskDir(paths, slug), \"packet.md\");\n}\n\nexport function evidenceDir(paths: RepoPaths, slug: string): string {\n  return path.join(taskDir(paths, slug), \"evidence\");\n}\n\n/** Repo-relative path of a task's plan file, for git lookups. */\nexport function planRelPath(slug: string): string {\n  return `${REGGIE_DIR}/tasks/${assertSlug(slug)}/plan.md`;\n}\n\nexport function packetRelPath(slug: string): string {\n  return `${REGGIE_DIR}/tasks/${assertSlug(slug)}/packet.md`;\n}\n\nexport const TASKS_REL_DIR = `${REGGIE_DIR}/tasks`;\n",
+  "truncated": false,
+  "totalChars": 3157,
+  "totalLines": 102,
+  "lang": "ts",
+  "role": "source",
+  "area": "dir:packages/reggie/",
+  "symbols": [
+    {
+      "name": "REGGIE_DIR",
+      "kind": "const",
+      "line": 5,
+      "endLine": 5,
+      "exported": true,
+      "usedBy": [
+        {
+          "file": "packages/reggie/src/tasks.ts",
+          "line": 7
+        }
+      ],
+      "confidence": "exact"
+    },
+    {
+      "name": "RepoPaths",
+      "kind": "interface",
+      "line": 7,
+      "endLine": 23,
+      "exported": true,
+      "usedBy": [
+        {
+          "file": "packages/reggie/src/capture.ts",
+          "line": 2
+        },
+        {
+          "file": "packages/reggie/src/claim.ts",
+          "line": 6
+        },
+        {
+          "file": "packages/reggie/src/cli.ts",
+          "line": 18
+        },
+        {
+          "file": "packages/reggie/src/context.ts",
+          "line": 7
+        },
+        {
+          "file": "packages/reggie/src/graph.ts",
+          "line": 6
+        },
+        {
+          "file": "packages/reggie/src/journal.ts",
+          "line": 3
+        },
+        {
+          "file": "packages/reggie/src/layout.ts",
+          "line": 3
+        },
+        {
+          "file": "packages/reggie/src/mcp.ts",
+          "line": 8
+        },
+        {
+          "file": "packages/reggie/src/notes.ts",
+          "line": 4
+        },
+        {
+          "file": "packages/reggie/src/onboard.ts",
+          "line": 8
+        },
+        {
+          "file": "packages/reggie/src/packet.ts",
+          "line": 4
+        },
+        {
+          "file": "packages/reggie/src/people.ts",
+          "line": 3
+        },
+        {
+          "file": "packages/reggie/src/serve.ts",
+          "line": 11
+        },
+        {
+          "file": "packages/reggie/src/tasks.ts",
+          "line": 7
+        },
+        {
+          "file": "packages/reggie/src/workspace.ts",
+          "line": 8
+        },
+        {
+          "file": "packages/reggie/test/fixtures.ts",
+          "line": 8
+        }
+      ],
+      "confidence": "exact"
+    },
+    {
+      "name": "findRepoRoot",
+      "kind": "function",
+      "line": 26,
+      "endLine": 38,
+      "exported": true,
+      "usedBy": [
+        {
+          "file": "packages/reggie/src/cli.ts",
+          "line": 18
+        }
+      ],
+      "confidence": "exact"
+    },
+    {
+      "name": "repoPaths",
+      "kind": "function",
+      "line": 40,
+      "endLine": 59,
+      "exported": true,
+      "usedBy": [
+        {
+          "file": "packages/reggie/src/capture.test.ts",
+          "line": 5
+        },
+        {
+          "file": "packages/reggie/src/cli.ts",
+          "line": 18
+        },
+        {
+          "file": "packages/reggie/src/docs.test.ts",
+          "line": 6
+        },
+        {
+          "file": "packages/reggie/src/graph.test.ts",
+          "line": 6
+        },
+        {
+          "file": "packages/reggie/src/history.test.ts",
+          "line": 26
+        },
+        {
+          "file": "packages/reggie/src/history.ts",
+          "line": 4
+        },
+        {
+          "file": "packages/reggie/src/journal.test.ts",
+          "line": 5
+        },
+        {
+          "file": "packages/reggie/src/mcp.ts",
+          "line": 8
+        },
+        {
+          "file": "packages/reggie/src/notes.test.ts",
+          "line": 5
+        },
+        {
+          "file": "packages/reggie/src/onboard.ts",
+          "line": 8
+        },
+        {
+          "file": "packages/reggie/src/robustness.test.ts",
+          "line": 14
+        },
+        {
+          "file": "packages/reggie/src/tasks.test.ts",
+          "line": 9
+        },
+        {
+          "file": "packages/reggie/src/workspace.test.ts",
+          "line": 9
+        },
+        {
+          "file": "packages/reggie/src/workspace.ts",
+          "line": 8
+        },
+        {
+          "file": "packages/reggie/test/fixtures.ts",
+          "line": 8
+        }
+      ],
+      "confidence": "exact"
+    },
+    {
+      "name": "assertSlug",
+      "kind": "function",
+      "line": 62,
+      "endLine": 67,
+      "exported": true,
+      "usedBy": [],
+      "confidence": "exact"
+    },
+    {
+      "name": "taskDir",
+      "kind": "function",
+      "line": 69,
+      "endLine": 71,
+      "exported": true,
+      "usedBy": [
+        {
+          "file": "packages/reggie/src/robustness.test.ts",
+          "line": 14
+        }
+      ],
+      "confidence": "exact"
+    },
+    {
+      "name": "claimFile",
+      "kind": "function",
+      "line": 73,
+      "endLine": 75,
+      "exported": true,
+      "usedBy": [],
+      "confidence": "exact"
+    },
+    {
+      "name": "claimRelPath",
+      "kind": "function",
+      "line": 77,
+      "endLine": 79,
+      "exported": true,
+      "usedBy": [
+        {
+          "file": "packages/reggie/src/claim.ts",
+          "line": 6
+        },
+        {
+          "file": "packages/reggie/src/tasks.ts",
+          "line": 7
+        }
+      ],
+      "confidence": "exact"
+    },
+    {
+      "name": "planFile",
+      "kind": "function",
+      "line": 81,
+      "endLine": 83,
+      "exported": true,
+      "usedBy": [
+        {
+          "file": "packages/reggie/src/cli.ts",
+          "line": 18
+        },
+        {
+          "file": "packages/reggie/src/context.ts",
+          "line": 7
+        },
+        {
+          "file": "packages/reggie/src/graph.test.ts",
+          "line": 6
+        },
+        {
+          "file": "packages/reggie/src/graph.ts",
+          "line": 6
+        },
+        {
+          "file": "packages/reggie/src/mcp.ts",
+          "line": 8
+        },
+        {
+          "file": "packages/reggie/src/packet.ts",
+          "line": 4
+        },
+        {
+          "file": "packages/reggie/src/robustness.test.ts",
+          "line": 14
+        },
+        {
+          "file": "packages/reggie/src/tasks.test.ts",
+          "line": 9
+        },
+        {
+          "file": "packages/reggie/src/tasks.ts",
+          "line": 7
+        },
+        {
+          "file": "packages/reggie/test/fixtures.ts",
+          "line": 8
+        }
+      ],
+      "confidence": "exact"
+    },
+    {
+      "name": "packetFile",
+      "kind": "function",
+      "line": 85,
+      "endLine": 87,
+      "exported": true,
+      "usedBy": [
+        {
+          "file": "packages/reggie/src/cli.ts",
+          "line": 18
+        },
+        {
+          "file": "packages/reggie/src/packet.ts",
+          "line": 4
+        },
+        {
+          "file": "packages/reggie/src/robustness.test.ts",
+          "line": 14
+        },
+        {
+          "file": "packages/reggie/src/tasks.test.ts",
+          "line": 9
+        },
+        {
+          "file": "packages/reggie/src/tasks.ts",
+          "line": 7
+        }
+      ],
+      "confidence": "exact"
+    },
+    {
+      "name": "evidenceDir",
+      "kind": "function",
+      "line": 89,
+      "endLine": 91,
+      "exported": true,
+      "usedBy": [
+        {
+          "file": "packages/reggie/src/packet.ts",
+          "line": 4
+        }
+      ],
+      "confidence": "exact"
+    },
+    {
+      "name": "planRelPath",
+      "kind": "function",
+      "line": 94,
+      "endLine": 96,
+      "exported": true,
+      "usedBy": [
+        {
+          "file": "packages/reggie/src/tasks.ts",
+          "line": 7
+        }
+      ],
+      "confidence": "exact"
+    },
+    {
+      "name": "packetRelPath",
+      "kind": "function",
+      "line": 98,
+      "endLine": 100,
+      "exported": true,
+      "usedBy": [
+        {
+          "file": "packages/reggie/src/tasks.ts",
+          "line": 7
+        }
+      ],
+      "confidence": "exact"
+    },
+    {
+      "name": "TASKS_REL_DIR",
+      "kind": "const",
+      "line": 102,
+      "endLine": 102,
+      "exported": true,
+      "usedBy": [
+        {
+          "file": "packages/reggie/src/tasks.ts",
+          "line": 7
+        }
+      ],
+      "confidence": "exact"
+    }
+  ],
+  "notes": [],
+  "importers": [
+    {
+      "id": "packages/reggie/src/capture.test.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "repoPaths"
+      ],
+      "role": "test"
+    },
+    {
+      "id": "packages/reggie/src/capture.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/claim.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "claimRelPath",
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/cli.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "findRepoRoot",
+        "packetFile",
+        "planFile",
+        "repoPaths",
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/context.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "planFile",
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/docs.test.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "repoPaths"
+      ],
+      "role": "test"
+    },
+    {
+      "id": "packages/reggie/src/graph.test.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "planFile",
+        "repoPaths"
+      ],
+      "role": "test"
+    },
+    {
+      "id": "packages/reggie/src/graph.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "planFile",
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/history.test.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "repoPaths"
+      ],
+      "role": "test"
+    },
+    {
+      "id": "packages/reggie/src/history.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "repoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/journal.test.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "repoPaths"
+      ],
+      "role": "test"
+    },
+    {
+      "id": "packages/reggie/src/journal.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/layout.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/mcp.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "planFile",
+        "repoPaths",
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/notes.test.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "repoPaths"
+      ],
+      "role": "test"
+    },
+    {
+      "id": "packages/reggie/src/notes.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/onboard.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "repoPaths",
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/packet.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "evidenceDir",
+        "packetFile",
+        "planFile",
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/people.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/robustness.test.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "packetFile",
+        "planFile",
+        "repoPaths",
+        "taskDir"
+      ],
+      "role": "test"
+    },
+    {
+      "id": "packages/reggie/src/serve.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/tasks.test.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "packetFile",
+        "planFile",
+        "repoPaths"
+      ],
+      "role": "test"
+    },
+    {
+      "id": "packages/reggie/src/tasks.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "claimRelPath",
+        "packetFile",
+        "packetRelPath",
+        "planFile",
+        "planRelPath",
+        "REGGIE_DIR",
+        "TASKS_REL_DIR",
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/src/workspace.test.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "repoPaths"
+      ],
+      "role": "test"
+    },
+    {
+      "id": "packages/reggie/src/workspace.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "repoPaths",
+        "RepoPaths"
+      ],
+      "role": "source"
+    },
+    {
+      "id": "packages/reggie/test/fixtures.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "planFile",
+        "repoPaths",
+        "RepoPaths"
+      ],
+      "role": "test"
+    }
+  ],
+  "imports": [
+    {
+      "id": "node:fs",
+      "area": null,
+      "names": [
+        "existsSync"
+      ],
+      "external": "node:fs"
+    },
+    {
+      "id": "node:path",
+      "area": null,
+      "names": [
+        "path"
+      ],
+      "external": "node:path"
+    },
+    {
+      "id": "packages/reggie/src/git.ts",
+      "area": "dir:packages/reggie/",
+      "names": [
+        "git"
+      ]
+    }
+  ],
+  "testedBy": [
+    "packages/reggie/src/capture.test.ts",
+    "packages/reggie/src/docs.test.ts",
+    "packages/reggie/src/graph.test.ts",
+    "packages/reggie/src/history.test.ts",
+    "packages/reggie/src/journal.test.ts",
+    "packages/reggie/src/notes.test.ts",
+    "packages/reggie/src/robustness.test.ts",
+    "packages/reggie/src/tasks.test.ts",
+    "packages/reggie/src/workspace.test.ts",
+    "packages/reggie/test/fixtures.ts"
+  ],
+  "tasks": [],
+  "history": {
+    "commits30": 2,
+    "commits90": 2,
+    "commits365": 2,
+    "linesChanged": 102,
+    "lastTouched": "2026-09-06T20:56:13-04:00",
+    "authors": [
+      {
+        "handle": "jacobpress",
+        "name": "jacobpress",
+        "email": "jacob.press3@gmail.com",
+        "lines": 102,
+        "commits": 2,
+        "share": 1
+      }
+    ],
+    "busFactor": 1,
+    "recent": [
+      {
+        "sha": "41ac02c56509abaa0e55df0b3cb012308fa8b3db",
+        "author": "jacobpress",
+        "handle": "jacobpress",
+        "date": "2026-09-06T20:56:13-04:00",
+        "subject": "fix(v3): address review blockers and majors in packages/reggie",
+        "task": null
+      },
+      {
+        "sha": "8d1bac37aa4e48aca6b5bcf8f992029c5a055ed8",
+        "author": "jacobpress",
+        "handle": "jacobpress",
+        "date": "2026-09-06T20:34:58-04:00",
+        "subject": "feat(v3): repo-manager MVP — TypeScript CLI + MCP server, information paradigm, docs",
+        "task": null
+      }
+    ]
+  },
+  "editorUrl": "vscode://file//Users/jacobpress/Desktop/Projects/Reggie%20Workspace/reggie/.worktree/repo-manager/packages/reggie/src/paths.ts"
+}

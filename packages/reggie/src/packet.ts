@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { changedFiles, currentBranch, defaultBranch, diffStat } from "./git.js";
-import { evidenceDir, packetFile, planFile, type RepoPaths } from "./paths.js";
+import { changedFiles, currentBranch, defaultBranch, diffStat, fileAtRef } from "./git.js";
+import { evidenceDir, packetFile, packetRelPath, planFile, type RepoPaths } from "./paths.js";
 import type { ReggieConfig } from "./people.js";
 import { parsePlan } from "./plan.js";
 import { readText, relPosix, splitFrontMatter, today, upsertFrontMatter, writeText } from "./util.js";
@@ -96,6 +96,49 @@ export function parsePacketVerdict(content: string): Verdict | null {
   if (!front) return null;
   const m = /^verdict:\s*(pending|approved|needs-work)\s*$/m.exec(front);
   return (m?.[1] as Verdict | undefined) ?? null;
+}
+
+export interface PacketSource {
+  /** Where the packet lives, or would live, in the working tree. */
+  file: string;
+  content: string;
+  /** The ref the content was read from; null when it came from the working tree. */
+  ref: string | null;
+}
+
+/**
+ * Where the packet for a slug can be read: the working tree, then `task/<slug>` (local, then
+ * origin), then the integration branch. In solo mode the awaiting-decision state is defined by a
+ * packet on the task branch while the server runs from the integration branch, so a decision has
+ * to reach past the working tree to find it.
+ */
+export function locatePacket(paths: RepoPaths, config: ReggieConfig, slug: string): PacketSource | null {
+  const root = paths.root;
+  const file = packetFile(paths, slug);
+  const local = readText(file);
+  if (local !== null) return { file, content: local, ref: null };
+  const rel = packetRelPath(slug);
+  const refs = [`task/${slug}`, `origin/task/${slug}`];
+  try {
+    refs.push(defaultBranch(root, config.defaultBranch));
+  } catch {
+    // No integration branch to fall back on; the task branch is the only place left to look.
+  }
+  for (const ref of refs) {
+    const content = fileAtRef(root, ref, rel);
+    if (content !== null) return { file, content, ref };
+  }
+  return null;
+}
+
+/**
+ * Copy a packet read from a ref into the working tree so a decision can be recorded on it.
+ * Returns the file written.
+ */
+export function materializePacket(paths: RepoPaths, slug: string, content: string): string {
+  const file = packetFile(paths, slug);
+  writeText(file, content);
+  return file;
 }
 
 /** Record a decision in the packet front matter. */

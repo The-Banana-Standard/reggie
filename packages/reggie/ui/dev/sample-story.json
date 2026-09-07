@@ -1,0 +1,235 @@
+{
+  "scope": "repo",
+  "id": "reggie",
+  "title": "reggie",
+  "subtitle": "Multi-agent system for Claude Code and its desktop companion. Branch `repo-manager`.",
+  "crumbs": [
+    { "label": "Workspace", "route": "#/ws" },
+    { "label": "reggie", "route": "#/repo/reggie" }
+  ],
+  "sections": [
+    {
+      "id": "needs-you",
+      "heading": "Needs you",
+      "paragraphs": [
+        {
+          "id": "needs-you-1",
+          "kind": "decision",
+          "text": "[[#/repo/reggie/task/story-column|Story column for the guidebook]] is waiting for a decision. The plan says the story column should render every paragraph kind with chips and links; the packet reports all six criteria pass. Owner [[#/repo/reggie/person/jacobpress|jacobpress]], 2 days.",
+          "refs": ["task:story-column", "person:jacobpress", "packages/reggie/ui/story.js"],
+          "chips": [
+            { "label": "Risk", "value": "medium", "tone": "warn", "tip": "Risk: medium — touches the UI shell." },
+            { "label": "Age", "value": "2 days", "tone": "muted", "tip": "Age: 2 days since the last activity." }
+          ],
+          "decision": { "slug": "story-column", "canDecide": true, "deciders": ["jacobpress"] }
+        },
+        {
+          "id": "needs-you-2",
+          "kind": "decision",
+          "text": "[[#/repo/reggie/task/vendor-fallback|Vendor-first script loading]] is waiting for a decision. Only a maintainer can approve it.",
+          "refs": ["task:vendor-fallback"],
+          "chips": [{ "label": "Risk", "value": "low", "tone": "ok" }],
+          "decision": { "slug": "vendor-fallback", "canDecide": false, "deciders": ["jacobpress", "taylor"] }
+        }
+      ]
+    },
+    {
+      "id": "what",
+      "heading": "What this is",
+      "paragraphs": [
+        {
+          "id": "what-1",
+          "kind": "fact",
+          "text": "Reggie is a multi-agent system for Claude Code: 37 agents, 36 commands and a pipeline with quality gates. The product is [[#/repo/reggie/area/packages/reggie|packages/reggie]]; the Tauri desktop app under [[#/repo/reggie/area/src-tauri|src-tauri]] and [[#/repo/reggie/area/src/components|src/components]] is legacy.",
+          "refs": ["repo:reggie", "dir:packages/reggie/", "dir:src-tauri/", "dir:src/components/"]
+        },
+        {
+          "id": "what-2",
+          "kind": "note",
+          "text": "The product is the CLI in packages/reggie. The Tauri app (src/, src-tauri/) is the legacy Forge GUI that will be folded into the same package; do not add features to it.",
+          "refs": ["repo:reggie", "dir:packages/reggie/", "dir:src-tauri/"],
+          "chips": [
+            { "label": "Type", "value": "why" },
+            { "label": "Confidence", "value": "high" },
+            { "label": "Written by", "value": "Claude via jacobpress", "tip": "Written by: Claude via jacobpress" },
+            { "label": "Date", "value": "6 Sep", "tip": "Date: 2026-09-06" }
+          ],
+          "source": { "entity": "_repo", "type": "why", "confidence": "high", "author": "Claude via jacobpress", "date": "2026-09-06" }
+        },
+        {
+          "id": "what-3",
+          "kind": "note",
+          "text": "Run `npm test` inside packages/reggie; the UI has no build step and is served straight from `ui/`.",
+          "refs": ["repo:reggie", "dir:packages/reggie/"],
+          "source": { "entity": "_repo", "type": "how", "confidence": "medium", "author": "jacobpress", "date": "2026-09-05" }
+        }
+      ]
+    },
+    {
+      "id": "made-of",
+      "heading": "What it is made of",
+      "paragraphs": [
+        {
+          "id": "made-of-1",
+          "kind": "fact",
+          "text": "[[#/repo/reggie/area/src/components|src/components]] is a TypeScript area: [[#/repo/reggie/area/src/components?lens=structure|29 source files]] ([[#/repo/reggie/area/src/components?lens=tests|54 with tests]]), [[#/repo/reggie/area/src/components?lens=knowledge|none with a note]], [[#/repo/reggie/area/src/components?lens=heat|changed 12 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]].",
+          "refs": ["dir:src/components/", "person:jacobpress"]
+        },
+        {
+          "id": "made-of-2",
+          "kind": "fact",
+          "text": "[[#/repo/reggie/area/packages/reggie|packages/reggie]] is a TypeScript package: [[#/repo/reggie/area/packages/reggie|21 source files]] ([[#/repo/reggie/area/packages/reggie?lens=tests|32 with tests]]), [[#/repo/reggie/area/packages/reggie?lens=knowledge|seven with a note]], [[#/repo/reggie/area/packages/reggie?lens=heat|changed 41 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]]. It stands alone: nothing else in the repo imports it.",
+          "refs": ["dir:packages/reggie/", "person:jacobpress"]
+        },
+        {
+          "id": "made-of-3",
+          "kind": "fact",
+          "text": "[[#/repo/reggie/area/src-tauri|src-tauri]] is a Rust crate: 18 source files, [[#/repo/reggie/area/src-tauri?lens=knowledge|two with a note]], [[#/repo/reggie/area/src-tauri?lens=heat|changed three times]] in the last 30 days.",
+          "refs": ["dir:src-tauri/"]
+        },
+        {
+          "id": "made-of-4",
+          "kind": "list",
+          "text": "[[#/repo/reggie/area/src/hooks|src/hooks]] — five source files, no note\n[[#/repo/reggie/area/src/types|src/types]] — seven source files, no note\n[[#/repo/reggie/area/src/services|src/services]] — three source files, one with a note\n[[#/repo/reggie/area/src|src (other)]] — five loose source files including [[#/repo/reggie/file/src/main.tsx|main.tsx]]",
+          "refs": ["dir:src/hooks/", "dir:src/types/", "dir:src/services/", "dir:src/"]
+        }
+      ]
+    },
+    {
+      "id": "starts",
+      "heading": "Where it starts",
+      "paragraphs": [
+        {
+          "id": "starts-1",
+          "kind": "fact",
+          "text": "A user action starts in [[#/repo/reggie/file/src/main.tsx?dir=down&depth=2|src/main.tsx]] and reaches the Rust side through 48 Tauri commands defined in [[#/repo/reggie/area/src-tauri|src-tauri]].",
+          "refs": ["src/main.tsx", "dir:src-tauri/"],
+          "chips": [{ "label": "Kind", "value": "main", "tone": "info", "tip": "Entry kind: main — the file the bundler starts from." }]
+        },
+        {
+          "id": "starts-2",
+          "kind": "fact",
+          "text": "The command line starts in [[#/repo/reggie/file/packages/reggie/src/cli.ts?dir=down&depth=2|cli.ts]] (27 commands); agents reach the same code through [[#/repo/reggie/file/packages/reggie/src/mcp.ts?dir=down&depth=2|mcp.ts]] (10 tools); the web view is served by [[#/repo/reggie/file/packages/reggie/src/serve.ts?dir=down&depth=2|serve.ts]] (8 routes).",
+          "refs": ["packages/reggie/src/cli.ts", "packages/reggie/src/mcp.ts", "packages/reggie/src/serve.ts"]
+        }
+      ]
+    },
+    {
+      "id": "talks",
+      "heading": "How the pieces talk",
+      "paragraphs": [
+        {
+          "id": "talks-1",
+          "kind": "fact",
+          "text": "[[#/repo/reggie/area/src/components|src/components]] leans on [[#/repo/reggie/area/src/types|src/types]] 41 times, mostly for [[#/repo/reggie/file/src/types/terminal.ts|terminal.ts]] (21).",
+          "refs": ["dir:src/components/", "dir:src/types/"]
+        },
+        {
+          "id": "talks-2",
+          "kind": "fact",
+          "text": "[[#/repo/reggie/area/src/components|src/components]] calls into [[#/repo/reggie/area/src-tauri|src-tauri]] through 27 Tauri commands (matched by name).",
+          "refs": ["dir:src/components/", "dir:src-tauri/"],
+          "chips": [{ "label": "Confidence", "value": "heuristic", "tone": "muted" }]
+        },
+        {
+          "id": "talks-3",
+          "kind": "fact",
+          "text": "[[#/repo/reggie/area/src/hooks|src/hooks]] and [[#/repo/reggie/area/src/services|src/services]] depend on each other.",
+          "refs": ["dir:src/hooks/", "dir:src/services/"],
+          "chips": [{ "label": "Cycle", "value": "yes", "tone": "bad", "tip": "These two areas import each other; changes ripple both ways." }]
+        }
+      ]
+    },
+    {
+      "id": "flight",
+      "heading": "What is in flight",
+      "paragraphs": [
+        {
+          "id": "flight-1",
+          "kind": "list",
+          "text": "[[#/repo/reggie/task/story-column|story-column]] (awaiting decision, jacobpress, 2 days): Story column for the guidebook\n[[#/repo/reggie/task/map-lenses|map-lenses]] (in process, jacobpress, 1 day): Lenses and generated legends\n[[#/repo/reggie/task/try-the-new-guidebook|try-the-new-guidebook]] (ungroomed, captured 7 Sep): Try the new guidebook",
+          "refs": ["task:story-column", "task:map-lenses", "task:try-the-new-guidebook"]
+        }
+      ]
+    },
+    {
+      "id": "recent",
+      "heading": "What happened recently",
+      "paragraphs": [
+        {
+          "id": "recent-1",
+          "kind": "journal",
+          "text": "Wired the story column to the map: hovering a paragraph highlights its refs, scrolling soft-highlights. Screenshots in evidence/story-1.png.",
+          "refs": ["task:story-column", "packages/reggie/ui/story.js"],
+          "source": { "person": "jacobpress", "tool": "claude", "stage": "execute", "slug": "story-column", "date": "2026-09-07" }
+        },
+        {
+          "id": "recent-2",
+          "kind": "journal",
+          "text": "Decided to keep positions in localStorage per level so Back never re-randomises the map.",
+          "refs": ["task:map-lenses", "packages/reggie/ui/map.js"],
+          "chips": [
+            { "label": "Person", "value": "jacobpress" },
+            { "label": "Tool", "value": "human" },
+            { "label": "Stage", "value": "plan" },
+            { "label": "Task", "value": "map-lenses" }
+          ],
+          "source": { "person": "jacobpress", "tool": "human", "stage": "plan", "slug": "map-lenses", "date": "2026-09-06" }
+        },
+        {
+          "id": "recent-3",
+          "kind": "commit",
+          "text": "serve.ts: serve /ui and /vendor statically, drop the PAGE template",
+          "refs": ["packages/reggie/src/serve.ts"],
+          "source": { "sha": "1fb7aa2c9d0e4b6f8a1c2d3e4f5a6b7c8d9e0f1a", "author": "jacobpress", "handle": "jacobpress", "date": "2026-09-07", "slug": "repo-manager-mvp" }
+        },
+        {
+          "id": "recent-4",
+          "kind": "commit",
+          "text": "graph.ts: hierarchy nodes with aggregates and roles",
+          "refs": ["packages/reggie/src/graph.ts", "packages/reggie/src/roles.ts"],
+          "source": { "sha": "a9c3e11", "author": "jacobpress", "date": "2026-09-06" }
+        }
+      ]
+    },
+    {
+      "id": "gaps",
+      "heading": "What nobody has written down",
+      "paragraphs": [
+        {
+          "id": "gaps-1",
+          "kind": "gap",
+          "text": "[[#/repo/reggie/area/src/components?lens=knowledge|src/components]] has 29 source files and none of them has a note.",
+          "refs": ["dir:src/components/"]
+        },
+        {
+          "id": "gaps-2",
+          "kind": "gap",
+          "text": "The note on [[#/repo/reggie/area/packages/reggie?lens=knowledge|packages/reggie/]] was written on 6 Sep but the folder changed on 7 Sep; it may be out of date.",
+          "refs": ["dir:packages/reggie/"],
+          "source": { "entity": "packages/reggie/", "stale": true, "date": "2026-09-06", "codeChanged": "2026-09-07" }
+        },
+        {
+          "id": "gaps-3",
+          "kind": "note",
+          "text": "paths.ts owns every path under .reggie/; add new files there, never in cli.ts.",
+          "refs": ["dir:packages/reggie/", "packages/reggie/src/paths.ts"],
+          "source": { "entity": "packages/reggie/", "type": "gotcha", "confidence": "high", "author": "Claude via jacobpress", "date": "2026-09-06", "stale": true, "codeChanged": "2026-09-07" }
+        }
+      ]
+    },
+    {
+      "id": "run",
+      "heading": "How to run it",
+      "paragraphs": [
+        { "id": "run-1", "kind": "list", "text": "npm test\nnpm run build\nnpx tsx src/cli.ts serve --port 4310", "refs": ["dir:packages/reggie/"] },
+        { "id": "run-2", "kind": "list", "text": "npm run tauri dev", "refs": ["dir:src-tauri/"] }
+      ]
+    }
+  ],
+  "next": [
+    { "label": "packages/reggie", "route": "#/repo/reggie/area/packages/reggie" },
+    { "label": "src/components", "route": "#/repo/reggie/area/src/components" },
+    { "label": "Task board", "route": "#/repo/reggie/tasks" }
+  ]
+}

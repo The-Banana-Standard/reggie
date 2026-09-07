@@ -1,0 +1,103 @@
+/* reader.css — styles owned by ui/reader.js (spec §2 Level 3 "Reader drawer", §5.2, §5.6).
+   Tokens and shared classes (.reader shell, .btn, .chip, .card, .skeleton) live in styles.css; see DOM-CONTRACT.md.
+   The drawer's height is set inline by reader.js (default 40 % of the map column, min 120 px, persisted). */
+
+/* The shell in styles.css gives .reader `height: 40%; min-height: 120px` and the 200 ms height transition.
+   The slide animates from 0, so the minimum is enforced by reader.js instead of CSS. */
+.reader { position: relative; height: 0; min-height: 0; }
+.reader.is-resizing { transition: none; }
+.reader.is-resizing, .reader.is-resizing * { cursor: row-resize; user-select: none; -webkit-user-select: none; }
+
+/* ---------- Drag handle (top edge) ---------- */
+.reader__handle {
+  flex: 0 0 auto; height: 10px; margin-top: -1px;
+  display: flex; align-items: center; justify-content: center;
+  border-top: 1px solid transparent;
+  cursor: row-resize; touch-action: none;
+  transition: border-color var(--t-highlight) var(--ease);
+}
+.reader__grip { width: 36px; height: 3px; border-radius: 2px; background: var(--line-strong); transition: background var(--t-highlight) var(--ease); }
+.reader__handle:hover, .reader__handle:focus-visible, .reader.is-resizing .reader__handle { border-top-color: var(--info); }
+.reader__handle:hover .reader__grip, .reader__handle:focus-visible .reader__grip, .reader.is-resizing .reader__grip { background: var(--info); }
+.reader__handle:focus-visible { outline-offset: -2px; border-radius: 0; }
+
+/* ---------- Head: path, chips, Open in editor, close ---------- */
+.reader__head {
+  flex: 0 0 auto; display: flex; align-items: center; gap: var(--s-2);
+  min-height: 32px; padding: 0 var(--s-3) var(--s-1);
+  border-bottom: 1px solid var(--line); background: var(--panel);
+  font-size: var(--fs-label); font-weight: 500;
+}
+.reader__head > .i { color: var(--muted); }
+.reader__path {
+  display: flex; align-items: baseline; min-width: 0; flex: 0 1 auto;
+  font-family: var(--mono); font-size: var(--fs-meta); font-weight: 400;
+}
+.reader__dir { color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reader__base { color: var(--text); flex: 0 0 auto; white-space: nowrap; }
+.reader__chips { display: flex; gap: var(--s-1); flex: 0 1 auto; min-width: 0; overflow: hidden; }
+.reader__actions { margin-left: auto; display: flex; align-items: center; gap: var(--s-1); flex: 0 0 auto; }
+.reader__editor { color: var(--info); }
+.reader__editor .i { color: currentColor; }
+.reader__close { color: var(--muted); }
+.reader__close:hover { color: var(--text); }
+
+/* ---------- Truncation banner ---------- */
+.reader__banner {
+  flex: 0 0 auto; display: flex; align-items: center; gap: var(--s-2) var(--s-3); flex-wrap: wrap;
+  padding: 6px var(--s-3); border-left: 3px solid var(--warn); border-bottom: 1px solid var(--line);
+  background: var(--panel-2); color: var(--muted); font-size: var(--fs-meta);
+}
+.reader__banner strong { color: var(--text); font-weight: 500; }
+.reader__banner-link { font-size: var(--fs-meta); }
+.reader__banner-extra { color: var(--warn); }
+
+/* ---------- Source body: monospace 12 px, line numbers, gutter marks ---------- */
+.reader__body {
+  position: relative; flex: 1 1 auto; min-height: 0;
+  overflow: auto; overscroll-behavior: contain;
+  font-family: var(--mono); font-size: var(--fs-meta); line-height: 18px;
+  tab-size: 4; -moz-tab-size: 4;
+  background: var(--bg);
+}
+.reader__body:focus-visible { outline-offset: -2px; border-radius: 0; }
+.reader__code { width: max-content; min-width: 100%; padding: var(--s-1) 0 var(--s-4); }
+.reader__line { display: flex; align-items: stretch; white-space: pre; }
+.reader__line.is-hl { background: var(--panel-2); }
+.reader__ln {
+  position: sticky; left: 0; z-index: 1;
+  display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto;
+  padding: 0 var(--s-2) 0 var(--s-1);
+  background: var(--bg); color: var(--faint-text);
+  user-select: none; -webkit-user-select: none;
+}
+.reader__line.is-hl .reader__ln { background: var(--panel-2); color: var(--muted); }
+.reader__mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 18px; padding: 0; border: 0; border-radius: 3px;
+  background: none; color: var(--info); font: inherit; line-height: 1; cursor: pointer;
+}
+.reader__mark--none { cursor: default; }
+.reader__mark:not(.reader__mark--none):hover { color: var(--text); background: var(--line); }
+.reader__mark:focus-visible { outline-offset: 0; }
+.reader__num { display: inline-block; min-width: var(--reader-gutter, 3ch); text-align: right; font-variant-numeric: tabular-nums; }
+.reader__src { display: block; flex: 1 0 auto; padding: 0 var(--s-3) 0 var(--s-2); font: inherit; color: var(--text); }
+.reader__src::selection { background: rgba(125, 207, 255, 0.28); }
+
+/* ---------- Floating "Add a note about lines a–b" ---------- */
+.reader__note {
+  position: absolute; z-index: 3; white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  animation: reader-note-in var(--t-highlight) var(--ease);
+}
+@keyframes reader-note-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+/* ---------- Loading, error, empty ---------- */
+.reader__loading { padding: var(--s-3); }
+.reader__error { margin: var(--s-3); font-family: var(--font); font-size: var(--fs-label); }
+.reader__empty { margin: 0; padding: var(--s-3); color: var(--muted); font-family: var(--font); font-size: var(--fs-label); }
+
+/* Dense mode keeps the drawer usable at narrow widths: drop the chips first. */
+@media (max-width: 1100px) {
+  .reader__chips { display: none; }
+}

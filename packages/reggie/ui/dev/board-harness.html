@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Board harness · Reggie</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../map.css">
+<link rel="stylesheet" href="../board.css">
+<style>
+  /* Harness-only chrome. The shell classes below come from styles.css; there is no #app on purpose so app.js does not boot. */
+  .harness-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 16px; background: var(--panel-2); border-bottom: 1px solid var(--line); font-size: var(--fs-meta); color: var(--muted); }
+  .harness-bar .seg { height: 24px; }
+  .harness-bar .seg__btn { padding: 0 8px; }
+  .harness-log { position: fixed; left: 16px; bottom: 16px; z-index: 40; max-width: 420px; max-height: 32vh; overflow: auto; padding: 8px 10px; border-radius: 8px; background: var(--float-bg); border: 1px solid var(--line); font: 11px/1.4 var(--mono); color: var(--muted); }
+  .harness-log:empty { display: none; }
+  .harness-log b { color: var(--info); font-weight: 500; }
+  .stub-map { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 16px; gap: 6px; color: var(--muted); font-size: var(--fs-meta); overflow: auto; }
+  .stub-map__title { color: var(--text); font-weight: 500; }
+  .stub-map__list { display: flex; flex-wrap: wrap; gap: 4px; }
+  .stub-map__node { padding: 1px 6px; border-radius: 10px; border: 1px solid var(--line-strong); font-family: var(--mono); font-size: 11px; }
+  .stub-map__node.is-planned { border-color: var(--warn); }
+  .stub-map__node.is-actual { background: rgba(224, 175, 104, 0.35); border-color: var(--warn); }
+  .stub-map__node.is-collision { border-color: var(--bad); }
+  .stub-map__node.is-hl { outline: 2px solid #fff; }
+</style>
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" id="icons" class="icons" aria-hidden="true" focusable="false" style="display:none">
+  <defs>
+    <symbol id="i-repo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>
+    </symbol>
+    <symbol id="i-area" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 7.5V18a1.5 1.5 0 0 0 1.5 1.5h15A1.5 1.5 0 0 0 21 18V9.5A1.5 1.5 0 0 0 19.5 8H12l-2-2.5H4.5A1.5 1.5 0 0 0 3 7z"/>
+    </symbol>
+    <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8l-5-5z"/><path d="M14 3v5h5M8.5 13h7M8.5 17h7"/>
+    </symbol>
+    <symbol id="i-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 4c-2 0-3 1-3 3v3c0 1-1 2-2 2 1 0 2 1 2 2v3c0 2 1 3 3 3M16 4c2 0 3 1 3 3v3c0 1 1 2 2 2-1 0-2 1-2 2v3c0 2-1 3-3 3"/>
+    </symbol>
+    <symbol id="i-task" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3l9 9-9 9-9-9 9-9z"/>
+    </symbol>
+    <symbol id="i-person" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+    </symbol>
+    <symbol id="i-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 3.5h12v17l-6-4-6 4v-17z"/>
+    </symbol>
+    <symbol id="i-journal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>
+    </symbol>
+    <symbol id="i-entry" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 4.5v15l12-7.5-12-7.5z"/>
+    </symbol>
+    <symbol id="i-test" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 2">
+      <circle cx="12" cy="12" r="8"/>
+    </symbol>
+    <symbol id="i-stale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3.5 21 20H3l9-16.5z"/><path d="M12 9.5v5M12 17.5v.5"/>
+    </symbol>
+    <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5.5"/>
+    </symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/>
+    </symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>
+    </symbol>
+    <symbol id="i-zoom-in" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8M10.5 7.5v6M7.5 10.5h6"/>
+    </symbol>
+    <symbol id="i-zoom-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8M7.5 10.5h6"/>
+    </symbol>
+    <symbol id="i-relayout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 12a8 8 0 0 1-14.5 4.6M4 12a8 8 0 0 1 14.5-4.6"/><path d="M4 4v4.5h4.5M20 20v-4.5h-4.5"/>
+    </symbol>
+    <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 6l12 12M18 6 6 18"/>
+    </symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M15 9V5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15H9"/>
+    </symbol>
+    <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 12H5M11 6l-6 6 6 6"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="harness-bar" role="toolbar" aria-label="Harness scenarios">
+  <span>Scenario</span>
+  <div class="seg" id="scenarios">
+    <button class="seg__btn is-active" type="button" data-scn="board">Board</button>
+    <button class="seg__btn" type="button" data-scn="board-empty">Empty board</button>
+    <button class="seg__btn" type="button" data-scn="board-team">Team mode (contributor)</button>
+    <button class="seg__btn" type="button" data-scn="task">Task page</button>
+    <button class="seg__btn" type="button" data-scn="task-ungroomed">Ungroomed task</button>
+    <button class="seg__btn" type="button" data-scn="task-approved">Approved task</button>
+  </div>
+  <label><input type="checkbox" id="fail-posts"> POSTs fail (409 / 403)</label>
+  <span id="map-kind" class="faint"></span>
+</div>
+
+<div class="app" style="min-height: calc(100vh - 37px);">
+  <header id="header" class="header">
+    <nav id="crumbs" class="crumbs" aria-label="Breadcrumb"><span class="crumbs__item is-muted">Workspace</span><span class="crumbs__sep">›</span><a class="crumbs__item" href="#">reggie</a><span class="crumbs__sep">›</span><span class="crumbs__last" id="crumb-last">Tasks</span></nav>
+    <div class="header__tools"><span class="hint">board.js harness · port 4424</span></div>
+  </header>
+  <main id="main" class="main">
+    <section id="story" class="story" aria-label="Story">
+      <div id="spotlight" class="spotlight-slot"></div>
+      <div id="sections" class="sections"></div>
+    </section>
+    <section id="map-col" class="map-col" aria-label="Map">
+      <div id="map-tabs" class="tabs" role="tablist">
+        <button id="tab-map" class="tabs__tab is-active" type="button" role="tab" aria-selected="true">Map</button>
+        <button id="tab-treemap" class="tabs__tab" type="button" role="tab" aria-selected="false" disabled>Treemap</button>
+      </div>
+      <div id="map-stage" class="map-stage">
+        <div id="cy" class="map-canvas" aria-label="Map canvas"></div>
+        <div id="toolbar" class="float float--toolbar" role="toolbar" aria-label="Map tools">
+          <button id="tb-fit" class="btn btn--tool" type="button" aria-label="Fit (F)" title="Fit (F)"><svg class="i"><use href="#i-fit"/></svg><span>Fit</span></button>
+          <button id="tb-zoom-out" class="btn btn--tool" type="button" aria-label="Zoom out"><svg class="i"><use href="#i-zoom-out"/></svg></button>
+          <button id="tb-zoom-in" class="btn btn--tool" type="button" aria-label="Zoom in"><svg class="i"><use href="#i-zoom-in"/></svg></button>
+          <button id="tb-relayout" class="btn btn--tool" type="button" aria-label="Re-layout"><svg class="i"><use href="#i-relayout"/></svg><span>Re-layout</span></button>
+          <button id="tb-tests" class="btn btn--tool" type="button" aria-pressed="false" aria-label="Show tests (T)"><svg class="i"><use href="#i-test"/></svg><span>Show tests</span></button>
+          <div id="tb-extra" class="float__extra"></div>
+        </div>
+        <div id="legend" class="float float--legend" aria-label="Legend"></div>
+        <div id="map-footer" class="map-footer" aria-live="polite"></div>
+        <div id="map-tip" class="tip" role="tooltip" hidden></div>
+      </div>
+      <div id="reader" class="reader" hidden></div>
+    </section>
+  </main>
+</div>
+
+<div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
+<pre id="log" class="harness-log" aria-live="polite"></pre>
+
+<!-- Vendor-first with CDN fallback (spec §7) so the blast radius draws on the real map.js when it loads; otherwise the stub below. -->
+<script src="/vendor/cytoscape.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.4/cytoscape.min.js'"></script>
+<script src="/vendor/dagre.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js'"></script>
+<script src="/vendor/cytoscape-dagre.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js'"></script>
+
+<script type="module">
+import { renderBoard, renderTaskPage, unmountBoard, filterImpactView } from "../board.js";
+
+const $ = (id) => document.getElementById(id);
+const log = (label, obj) => {
+  const el = $("log");
+  const line = document.createElement("div");
+  line.innerHTML = `<b>${label}</b> ${obj === undefined ? "" : JSON.stringify(obj)}`;
+  el.prepend(line);
+};
+
+// --- samples ----------------------------------------------------------------
+const [board, taskDetail] = await Promise.all([
+  fetch("./sample-board.json").then((r) => r.json()),
+  fetch("./sample-task.json").then((r) => r.json()),
+]);
+
+const clone = (x) => JSON.parse(JSON.stringify(x));
+const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
+let captured = [];
+const decided = new Map(); // slug → verdict, so /api/tasks reflects decisions like packet.md would
+
+/** Synthesize the impact payload at depth 2 and 3 from the depth-1 sample: each hop-N importer gains two importers at hop N+1. */
+function impactAtDepth(depth) {
+  const view = clone(taskDetail.view);
+  const base = view.nodes.filter((n) => n.kind === "file" && n.side === "up" && n.hop === 1);
+  let prev = base;
+  for (let hop = 2; hop <= depth; hop += 1) {
+    const next = [];
+    prev.forEach((p, i) => {
+      for (let k = 0; k < 2; k += 1) {
+        const id = `src/big/b${hop}${i}${k}.ts`;
+        const node = { ...clone(p), id, label: `b${hop}${i}${k}.ts`, path: id, hop, side: "up", parent: "dir:src/big/", area: "dir:src/big/", task: undefined, collision: undefined, entry: false, entryKinds: [] };
+        view.nodes.push(node);
+        view.edges.push({ source: id, target: p.id, kind: "import", names: [p.label.replace(".ts", "")] });
+        next.push(node);
+      }
+    });
+    prev = next;
+    view.counts.up.push(next.length);
+  }
+  return view;
+}
+
+// --- mock transport ----------------------------------------------------------------
+async function post(url, body) {
+  log(`POST ${url}`, body);
+  await new Promise((r) => setTimeout(r, 250));
+  if ($("fail-posts").checked) {
+    const err = new Error(url.includes("decide") ? "no packet for this task" : "forbidden");
+    err.status = url.includes("decide") ? 409 : 403;
+    throw err;
+  }
+  if (url.startsWith("/api/capture")) {
+    const slug = body.slug ?? slugify(body.text);
+    captured.push({ slug, text: body.text, detail: body.detail ?? "" });
+    return { slug, line: `- ${slug}: ${body.text} (jacobpress, web, 2026-09-07)` };
+  }
+  if (url.startsWith("/api/decide")) {
+    decided.set(body.slug, body.verdict);
+    return { slug: body.slug, verdict: body.verdict, file: `.reggie/tasks/${body.slug}/packet.md` };
+  }
+  return {};
+}
+
+function currentTasks(scn) {
+  const base = scn === "board-empty" ? [] : clone(board.tasks);
+  for (const t of base) {
+    const v = decided.get(t.slug);
+    if (v === "needs-work") Object.assign(t, { state: "in-process", reason: "packet sent back: needs work" });
+    // "approved" stays awaiting-decision here, as the real server does until the PR merges; board.js keeps the optimistic move.
+  }
+  for (const c of captured) {
+    if (base.some((t) => t.slug === c.slug)) continue;
+    base.push({ slug: c.slug, title: c.text, state: "ungroomed", risk: "unset", owner: null, ownerEmail: null, lastActivity: null, branch: null, pr: null, planExists: false, planOnDefault: false, planLintOk: null, packetExists: false, intake: { slug: c.slug, rawSlug: null, text: c.text, meta: "jacobpress, web, 2026-09-07", detail: c.detail ? [c.detail] : [], line: 9 }, reason: "intake item with no plan", stateDefinition: "An intake line or task folder with no plan yet.", age: 0, planFiles: [], changedFiles: [] });
+  }
+  return base;
+}
+
+let scenario = "board";
+async function fetchJson(url) {
+  log(`GET ${url}`);
+  await new Promise((r) => setTimeout(r, 200));
+  const u = new URL(url, location.origin);
+  if (u.pathname === "/api/tasks") return currentTasks(scenario);
+  if (u.pathname.startsWith("/api/task/")) {
+    const slug = decodeURIComponent(u.pathname.slice("/api/task/".length));
+    if (slug === taskDetail.task.slug) return clone(taskDetail);
+    const t = currentTasks(scenario).find((x) => x.slug === slug);
+    if (!t) { const e = new Error("unknown task"); e.status = 404; throw e; }
+    return { task: t, plan: t.planExists ? { meta: { slug, title: t.title, risk: t.risk, deciders: [], author: t.owner ?? "", created: "2026-09-01" }, sections: { Problem: `The ${t.title.toLowerCase()} is needed because the current behaviour surprises people. Second sentence is not shown.` }, criteria: [], files: [] } : null, packet: null, claim: null, journal: [], impact: { planned: [], actual: [], plannedButUntouched: [], touchedButUnplanned: [], downstream: [], collisions: [], riskRules: [] }, contextRoute: `/api/context?slug=${slug}` };
+  }
+  if (u.pathname === "/api/impact") return impactAtDepth(Number(u.searchParams.get("depth") ?? 1));
+  if (u.pathname === "/api/context") return { text: `# Context for ${u.searchParams.get("slug")}\n\nNotes, related tasks, recent commits and active work would follow here.\n` };
+  const e = new Error("not found");
+  e.status = 404;
+  throw e;
+}
+
+// --- map: real map.js when it loads, else a stub that lists what it was shown ----------
+let map = null;
+try {
+  const mod = await import("../map.js");
+  if (window.cytoscape && typeof mod.createMap === "function") {
+    map = mod.createMap($("cy"));
+    $("map-kind").textContent = "map: ../map.js";
+  }
+} catch (e) {
+  console.info("map.js not used in the harness:", e.message);
+}
+if (!map) {
+  const stubEl = document.createElement("div");
+  stubEl.className = "stub-map";
+  $("cy").appendChild(stubEl);
+  let shown = null;
+  const draw = (hl = []) => {
+    if (!shown) { stubEl.replaceChildren(); return; }
+    const { view, opts } = shown;
+    const centers = new Set(view.centers ?? []);
+    const nodes = view.nodes.filter((n) => n.kind !== "dir");
+    stubEl.replaceChildren();
+    const title = document.createElement("div");
+    title.className = "stub-map__title";
+    title.textContent = `stub map · level ${opts.level} · lens ${opts.lens} · mode ${opts.mode ?? "?"} · depth ${opts.depth ?? "?"} · ${nodes.length} nodes / ${view.edges.length} edges`;
+    stubEl.appendChild(title);
+    const legend = document.createElement("div");
+    legend.textContent = "amber ring = planned · amber fill = changed on the branch · red = overlap with another task · white = story hover";
+    stubEl.appendChild(legend);
+    for (const hop of [0, 1, 2, 3]) {
+      const list = nodes.filter((n) => (n.hop ?? (centers.has(n.id) ? 0 : 1)) === hop);
+      if (!list.length) continue;
+      const row = document.createElement("div");
+      row.className = "stub-map__list";
+      const lab = document.createElement("span");
+      lab.textContent = hop === 0 ? "centres:" : `hop ${hop}:`;
+      row.appendChild(lab);
+      for (const n of list) {
+        const s = document.createElement("span");
+        s.className = `stub-map__node${n.planned ? " is-planned" : ""}${n.actual ? " is-actual" : ""}${n.collision?.length ? " is-collision" : ""}${hl.includes(n.id) ? " is-hl" : ""}`;
+        s.textContent = n.kind === "fold" ? n.label : n.label + (n.task && n.task !== opts.slug ? ` (${n.task})` : "");
+        s.title = n.id;
+        row.appendChild(s);
+      }
+      stubEl.appendChild(row);
+    }
+    $("map-footer").textContent = `${nodes.length} nodes · ${view.edges.length} edges · ${view.counts?.hiddenTests ?? 0} tests hidden`;
+  };
+  map = {
+    show(view, opts) { log("map.show", { nodes: view.nodes.length, edges: view.edges.length, centers: view.centers, opts }); shown = { view, opts }; draw(); },
+    highlight(ids) { draw(ids); },
+    softHighlight() {},
+    clearHighlight() { draw(); },
+    fit() { log("map.fit"); },
+    setLens() {},
+    select() {},
+    resolveRef(id) { return shown?.view.nodes.some((n) => n.id === id) ? { id, folded: false, label: id } : null; },
+    relayout() {},
+    zoom() {},
+    on() { return () => {}; },
+    destroy() {},
+  };
+  $("map-kind").textContent = "map: stub (../map.js not available)";
+}
+$("tb-fit").addEventListener("click", () => map.fit());
+
+// --- scenarios ----------------------------------------------------------------
+let handle = null;
+function run(scn) {
+  scenario = scn;
+  handle?.destroy?.();
+  handle = null;
+  unmountBoard($("map-stage"));
+  $("sections").replaceChildren();
+  $("tb-extra").replaceChildren();
+  for (const b of document.querySelectorAll("#scenarios .seg__btn")) b.classList.toggle("is-active", b.dataset.scn === scn);
+  const deps = { repo: "reggie", post, fetchJson, map, onDecide: (slug, verdict) => log("onDecide", { slug, verdict }), onCapture: (res) => log("onCapture", res) };
+  if (scn.startsWith("board")) {
+    $("crumb-last").textContent = "Tasks";
+    const data = clone(board);
+    data.tasks = currentTasks(scn);
+    if (scn === "board-empty") data.stateMachine.counts = {};
+    if (scn === "board-team") {
+      data.mode = "team";
+      data.people.mode = "team";
+      data.people.current = "taylor";
+    }
+    handle = renderBoard($("story"), $("map-stage"), data, deps);
+    return;
+  }
+  const data = clone(taskDetail);
+  data.people = clone(board.people);
+  if (scn === "task-ungroomed") {
+    const t = currentTasks("board").find((x) => x.slug === "split-big-area");
+    Object.assign(data, { task: t, plan: null, packet: null, claim: null, journal: [], impact: { planned: [], actual: [], plannedButUntouched: [], touchedButUnplanned: [], downstream: [], collisions: [], riskRules: [] }, view: { level: "impact", root: "", centers: [], nodes: [], edges: [], areas: [], cycles: [], counts: { totalCodeFiles: 54, shown: 0, folded: 0, hiddenTests: 0, up: [], down: [] } } });
+  }
+  if (scn === "task-approved") {
+    data.task.state = "done";
+    data.task.reason = "packet approved on main";
+    data.packet.verdict = "approved";
+    data.packet.decidedBy = "jacobpress";
+    data.packet.decidedAt = "2026-09-07T03:10:00-04:00";
+    data.packet.criteria[1].pass = true;
+    data.packet.criteria[2].pass = true;
+  }
+  $("crumb-last").textContent = data.task.title;
+  handle = renderTaskPage($("story"), $("map-stage"), data, { ...deps, depth: 1, show: "both" });
+}
+
+$("scenarios").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-scn]");
+  if (b) run(b.dataset.scn);
+});
+window.harness = { run, filterImpactView, get handle() { return handle; }, board, taskDetail };
+run(new URLSearchParams(location.search).get("scn") ?? "board");
+</script>
+</body>
+</html>

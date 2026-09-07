@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>map.js harness</title>
+<link rel="stylesheet" href="/ui/styles.css">
+<link rel="stylesheet" href="/ui/map.css">
+<style>
+  .harness { display: grid; grid-template-columns: 300px 1fr; height: 100vh; }
+  .harness__side { padding: 12px; border-right: 1px solid var(--line); overflow: auto; font-size: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .harness__side h1 { font-size: 15px; margin: 0 0 4px; }
+  .harness__side label { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+  .harness__log { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: pre-wrap; max-height: 40vh; overflow: auto; border-top: 1px solid var(--line); padding-top: 8px; }
+  .harness__log b { color: var(--text); }
+  .harness .map-col { position: static; height: 100vh; border-left: 0; }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" id="icons" style="display:none" aria-hidden="true">
+  <defs>
+    <symbol id="i-fit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></symbol>
+    <symbol id="i-zoom-in" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8M10.5 7.5v6M7.5 10.5h6"/></symbol>
+    <symbol id="i-zoom-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8M7.5 10.5h6"/></symbol>
+    <symbol id="i-relayout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 0 1-14.5 4.6M4 12a8 8 0 0 1 14.5-4.6"/><path d="M4 4v4.5h4.5M20 20v-4.5h-4.5"/></symbol>
+    <symbol id="i-test" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 2"><circle cx="12" cy="12" r="8"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  </defs>
+</svg>
+
+<div class="harness">
+  <aside class="harness__side">
+    <h1>map.js harness</h1>
+    <label>Sample <select id="sample" class="select">
+      <option value="sample-container.json">container (Level 1)</option>
+      <option value="sample-dir.json">dir: src/components (Level 2)</option>
+      <option value="sample-impact.json">impact: paths.ts (Level 3)</option>
+      <option value="sample-blast.json">task blast radius</option>
+      <option value="sample-workspace.json">workspace (Level 0)</option>
+    </select></label>
+    <label>Lens <select id="lens-select" class="select">
+      <option>structure</option><option>knowledge</option><option>tests</option><option>heat</option><option>owners</option>
+    </select></label>
+    <div class="row">
+      <button id="hl" class="btn btn--small" type="button">highlight(components, types)</button>
+      <button id="soft" class="btn btn--small" type="button">softHighlight(hooks)</button>
+      <button id="clear" class="btn btn--small" type="button">clear</button>
+    </div>
+    <div class="row">
+      <button id="sel" class="btn btn--small" type="button">select(src/types)</button>
+      <button id="resolve" class="btn btn--small" type="button">resolveRef(terminal.ts)</button>
+      <button id="swap" class="btn btn--small" type="button">ghost swap → src/types</button>
+      <button id="reset-pos" class="btn btn--small" type="button">clear position cache</button>
+    </div>
+    <div id="log" class="harness__log"></div>
+  </aside>
+
+  <section id="map-col" class="map-col" aria-label="Map">
+    <div id="map-stage" class="map-stage">
+      <div id="cy" class="map-canvas" aria-label="Map canvas"></div>
+      <div id="toolbar" class="float float--toolbar" role="toolbar" aria-label="Map tools">
+        <button id="tb-fit" class="btn btn--tool" type="button" aria-label="Fit (F)" title="Fit (F)"><svg class="i"><use href="#i-fit"/></svg><span>Fit</span></button>
+        <button id="tb-zoom-out" class="btn btn--tool" type="button" aria-label="Zoom out"><svg class="i"><use href="#i-zoom-out"/></svg></button>
+        <button id="tb-zoom-in" class="btn btn--tool" type="button" aria-label="Zoom in"><svg class="i"><use href="#i-zoom-in"/></svg></button>
+        <button id="tb-relayout" class="btn btn--tool" type="button" aria-label="Re-layout"><svg class="i"><use href="#i-relayout"/></svg><span>Re-layout</span></button>
+        <button id="tb-tests" class="btn btn--tool" type="button" aria-pressed="false" aria-label="Show tests (T)"><svg class="i"><use href="#i-test"/></svg><span>Show tests</span></button>
+        <div id="tb-extra" class="float__extra"></div>
+      </div>
+      <div id="legend" class="float float--legend" aria-label="Legend"></div>
+      <div id="map-footer" class="map-footer" aria-live="polite"></div>
+      <div id="map-tip" class="tip" role="tooltip" hidden></div>
+    </div>
+  </section>
+</div>
+
+<script src="/vendor/cytoscape.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.4/cytoscape.min.js'"></script>
+<script src="/vendor/dagre.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js'"></script>
+<script src="/vendor/cytoscape-dagre.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js'"></script>
+<script type="module">
+  import { createMap, legendFor, lensColor } from "/ui/map.js";
+  const $ = (id) => document.getElementById(id);
+  const log = (...a) => { const el = $("log"); el.innerHTML = `<b>${a[0]}</b> ${a.slice(1).map((x) => typeof x === "string" ? x : JSON.stringify(x)).join(" ")}\n` + el.innerHTML; };
+
+  const map = createMap($("cy"), { repo: "reggie", wireToolbar: true, motion: new URLSearchParams(location.search).get("motion") !== "0" });
+  window.map = map;
+  window.legendFor = legendFor;
+  window.lensColor = lensColor;
+  let current = null;
+  let tests = false;
+
+  for (const ev of ["hover", "leave", "tap", "dbltap", "edgeTap", "fold", "depth", "direction", "mode", "back", "tapBackground"]) {
+    map.on(ev, (...args) => log(ev, ...args.slice(0, 1).map((x) => (x && x.sentence) ? x.sentence : x)));
+  }
+  map.on("tests", (on) => { tests = on; log("tests", on); load(); });
+  map.on("depth", (d) => log("depth →", d));
+
+  async function load() {
+    const name = $("sample").value;
+    const file = name === "sample-dir.json" && tests ? "sample-dir-tests.json" : name;
+    const view = await fetch(`/ui/dev/${file}?t=${Date.now()}`).then((r) => r.json());
+    current = view;
+    const lens = $("lens-select").value;
+    map.show(view, { lens, tests, depth: 1, direction: "both", task: "repo-manager-mvp" });
+    const q = new URLSearchParams(location.search);
+    log("show", file, "lens", lens);
+    window.__legend = legendFor(view, lens);
+  }
+  $("sample").addEventListener("change", load);
+  $("lens-select").addEventListener("change", () => map.setLens($("lens-select").value));
+  $("hl").addEventListener("click", () => map.highlight(["dir:src/components/", "dir:src/types/"]));
+  $("soft").addEventListener("click", () => map.softHighlight(["dir:src/hooks/"]));
+  $("clear").addEventListener("click", () => map.clearHighlight());
+  $("sel").addEventListener("click", () => map.select("dir:src/types/"));
+  $("resolve").addEventListener("click", () => log("resolveRef", map.resolveRef("src/types/terminal.ts")));
+  $("reset-pos").addEventListener("click", () => { for (const k of Object.keys(localStorage)) if (k.startsWith("reggie.pos.")) localStorage.removeItem(k); log("cleared", "positions"); });
+  $("swap").addEventListener("click", async () => {
+    // Simulates navigating from src/components to src/types: components becomes a ghost above.
+    const view = await fetch(`/ui/dev/sample-dir.json`).then((r) => r.json());
+    const T = "dir:src/types/";
+    const files = ["terminal.ts", "workspace.ts", "project.ts", "session.ts", "settings.ts", "skills.ts", "index.ts"].map((b) => `src/types/${b}`);
+    const kn = { own: 1, inherited: 1, stale: 0, byType: {}, lastNoteDate: null, lowestConfidence: null };
+    const swapped = {
+      level: "dir", root: T, areas: view.areas, cycles: [], generatedAt: view.generatedAt,
+      counts: { totalCodeFiles: 140, shown: 7, folded: 0, hiddenTests: 1 },
+      nodes: [
+        ...files.map((p, i) => ({ id: p, kind: "file", label: p.split("/").pop(), path: p, parent: T, lang: "TypeScript", lines: 80, role: "source", area: T, knowledge: kn, tasks: [], inDegree: [21, 8, 5, 3, 2, 1, 9][i], outDegree: 1, testedBy: [], entry: false, entryKinds: [], history: { commits30: i, commits90: i, commits365: i, linesChanged: 10, lastTouched: null, authors: [], busFactor: 1 }, dir: "src/types", noteCount: 0, dirNoteCount: 0 })),
+        { id: "ghost:up:dir:src/components/", kind: "dir", label: "src/components · 12 files used", path: "src/components", parent: null, lang: "TypeScript", lines: 0, role: "source", area: "dir:src/components/", knowledge: kn, tasks: [], inDegree: 0, outDegree: 0, testedBy: [], entry: false, entryKinds: [], aggregates: { files: 12, source: 12, tests: 0, config: 0, lines: 0, documented: 0, stale: 0, testedSource: 0, tasks: [] }, ghost: true, side: "up", dir: "", noteCount: 0, dirNoteCount: 0 },
+        { id: "ghost:up:dir:src/hooks/", kind: "dir", label: "src/hooks · 4 files used", path: "src/hooks", parent: null, lang: "TypeScript", lines: 0, role: "source", area: "dir:src/hooks/", knowledge: kn, tasks: [], inDegree: 0, outDegree: 0, testedBy: [], entry: false, entryKinds: [], aggregates: { files: 4, source: 4, tests: 0, config: 0, lines: 0, documented: 0, stale: 0, testedSource: 0, tasks: [] }, ghost: true, side: "up", dir: "", noteCount: 0, dirNoteCount: 0 },
+      ],
+      edges: [
+        { source: "ghost:up:dir:src/components/", target: "src/types/terminal.ts", kind: "import", weight: 21, names: ["TerminalSession", "TerminalEvent"] },
+        { source: "ghost:up:dir:src/components/", target: "src/types/workspace.ts", kind: "import", weight: 8 },
+        { source: "ghost:up:dir:src/components/", target: "src/types/project.ts", kind: "import", weight: 5 },
+        { source: "ghost:up:dir:src/hooks/", target: "src/types/terminal.ts", kind: "import", weight: 12 },
+        { source: "src/types/index.ts", target: "src/types/terminal.ts", kind: "import", names: ["*"] },
+        { source: "src/types/index.ts", target: "src/types/workspace.ts", kind: "import", names: ["*"] },
+        { source: "src/types/session.ts", target: "src/types/terminal.ts", kind: "import", names: ["TerminalId"] },
+      ],
+    };
+    map.show(swapped, { lens: $("lens-select").value, tests });
+    log("swap", "→ src/types");
+  });
+  const params = new URLSearchParams(location.search);
+  if (params.get("sample")) $("sample").value = params.get("sample");
+  if (params.get("lens")) $("lens-select").value = params.get("lens");
+  load();
+</script>
+</body>
+</html>

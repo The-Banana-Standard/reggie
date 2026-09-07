@@ -207,6 +207,15 @@ function guessEntityFromRel(rel: string): { entity: string; kind: NoteKind } {
   return { entity: rel.replace(/\.md$/, ""), kind: "file" };
 }
 
+/** Every note file keyed by entity (`_repo`, `src/auth/`, `src/auth/login.ts`, `store:users`), read once for the graph join. */
+export function notesIndex(paths: RepoPaths): Map<string, NoteFile> {
+  const out = new Map<string, NoteFile>();
+  for (const note of allNoteFiles(paths)) {
+    if (!out.has(note.entity)) out.set(note.entity, note);
+  }
+  return out;
+}
+
 /** Case-insensitive substring search over entity names. */
 export function findNotes(paths: RepoPaths, query: string): NoteFile[] {
   const q = query.trim().toLowerCase().replace(/^\.\//, "");
@@ -248,14 +257,19 @@ export function staleEntries(paths: RepoPaths): StaleEntry[] {
   return staleEntriesFor(paths, allNoteFiles(paths));
 }
 
-/** Same check restricted to the given notes; one git call per note, so pass only what will be shown. */
-export function staleEntriesFor(paths: RepoPaths, notes: NoteFile[]): StaleEntry[] {
+/**
+ * Same check restricted to the given notes. With `lastTouched` (entity → ISO date of its newest
+ * commit, from history.ts: files as `src/a.ts`, folders as `src/`) staleness costs no git calls;
+ * an entity missing from the map falls back to one `git log -1` so a file untouched for longer
+ * than the history window is still judged correctly. Without the map: one git call per note.
+ */
+export function staleEntriesFor(paths: RepoPaths, notes: NoteFile[], lastTouched?: Map<string, string>): StaleEntry[] {
   const out: StaleEntry[] = [];
   for (const note of notes) {
     if (note.kind !== "file" && note.kind !== "dir") continue;
     const target = note.entity.replace(/\/$/, "");
     if (!existsSync(path.join(paths.root, target))) continue;
-    const changed = lastCommitDate(paths.root, target);
+    const changed = lastTouched?.get(note.entity) ?? lastTouched?.get(note.kind === "dir" ? `${target}/` : target) ?? lastCommitDate(paths.root, target);
     if (!changed) continue;
     const changedDay = changed.slice(0, 10);
     for (const entry of note.entries) {

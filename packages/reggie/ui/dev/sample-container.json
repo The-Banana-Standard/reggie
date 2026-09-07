@@ -1,0 +1,734 @@
+{
+  "level": "container",
+  "root": "dir:./",
+  "nodes": [
+    {
+      "id": "dir:packages/reggie/",
+      "kind": "dir",
+      "label": "reggie",
+      "path": "packages/reggie",
+      "parent": "dir:./",
+      "lang": "TypeScript",
+      "lines": 4200,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 1,
+        "stale": 1,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 0,
+      "outDegree": 0,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "aggregates": {
+        "files": 32,
+        "source": 21,
+        "tests": 11,
+        "config": 0,
+        "lines": 4200,
+        "documented": 7,
+        "stale": 1,
+        "testedSource": 12,
+        "tasks": [],
+        "history": {
+          "commits30": 41,
+          "commits90": 82,
+          "commits365": 205,
+          "linesChanged": 400,
+          "lastTouched": "2026-09-07",
+          "authors": [
+            {
+              "handle": "jacobpress",
+              "name": "jacobpress",
+              "email": "jacobpress@example.com",
+              "lines": 392,
+              "commits": 40,
+              "share": 0.98
+            }
+          ],
+          "busFactor": 1
+        }
+      },
+      "manifest": "package.json",
+      "residual": false,
+      "dir": "packages/reggie",
+      "noteCount": 1,
+      "dirNoteCount": 0,
+      "entries": [
+        "packages/reggie/src/cli.ts"
+      ]
+    },
+    {
+      "id": "dir:src-tauri/",
+      "kind": "dir",
+      "label": "src-tauri",
+      "path": "src-tauri",
+      "parent": "dir:./",
+      "lang": "Rust",
+      "lines": 3100,
+      "role": "source",
+      "area": "dir:src-tauri/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 0,
+      "outDegree": 0,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "aggregates": {
+        "files": 19,
+        "source": 18,
+        "tests": 1,
+        "config": 0,
+        "lines": 3100,
+        "documented": 12,
+        "stale": 0,
+        "testedSource": 2,
+        "tasks": [],
+        "history": {
+          "commits30": 2,
+          "commits90": 4,
+          "commits365": 10,
+          "linesChanged": 400,
+          "lastTouched": "2026-09-07",
+          "authors": [
+            {
+              "handle": "jacobpress",
+              "name": "jacobpress",
+              "email": "jacobpress@example.com",
+              "lines": 392,
+              "commits": 2,
+              "share": 0.98
+            }
+          ],
+          "busFactor": 1
+        }
+      },
+      "manifest": "Cargo.toml",
+      "residual": false,
+      "dir": "src-tauri",
+      "noteCount": 1,
+      "dirNoteCount": 0,
+      "entries": [
+        "src-tauri/src/main.rs"
+      ]
+    },
+    {
+      "id": "dir:src/components/",
+      "kind": "dir",
+      "label": "components",
+      "path": "src/components",
+      "parent": "dir:./",
+      "lang": "TypeScript",
+      "lines": 5100,
+      "role": "source",
+      "area": "dir:src/components/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 0,
+      "outDegree": 0,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "aggregates": {
+        "files": 54,
+        "source": 29,
+        "tests": 25,
+        "config": 0,
+        "lines": 5100,
+        "documented": 0,
+        "stale": 0,
+        "testedSource": 20,
+        "tasks": [],
+        "history": {
+          "commits30": 9,
+          "commits90": 18,
+          "commits365": 45,
+          "linesChanged": 400,
+          "lastTouched": "2026-09-07",
+          "authors": [
+            {
+              "handle": "jacobpress",
+              "name": "jacobpress",
+              "email": "jacobpress@example.com",
+              "lines": 392,
+              "commits": 9,
+              "share": 0.98
+            }
+          ],
+          "busFactor": 1
+        }
+      },
+      "manifest": null,
+      "residual": false,
+      "dir": "src/components",
+      "noteCount": 0,
+      "dirNoteCount": 0
+    },
+    {
+      "id": "dir:src/hooks/",
+      "kind": "dir",
+      "label": "hooks",
+      "path": "src/hooks",
+      "parent": "dir:./",
+      "lang": "TypeScript",
+      "lines": 700,
+      "role": "source",
+      "area": "dir:src/hooks/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 0,
+      "outDegree": 0,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "aggregates": {
+        "files": 10,
+        "source": 5,
+        "tests": 5,
+        "config": 0,
+        "lines": 700,
+        "documented": 3,
+        "stale": 0,
+        "testedSource": 5,
+        "tasks": [],
+        "history": {
+          "commits30": 4,
+          "commits90": 8,
+          "commits365": 20,
+          "linesChanged": 400,
+          "lastTouched": "2026-09-07",
+          "authors": [
+            {
+              "handle": "jacobpress",
+              "name": "jacobpress",
+              "email": "jacobpress@example.com",
+              "lines": 392,
+              "commits": 4,
+              "share": 0.98
+            }
+          ],
+          "busFactor": 1
+        }
+      },
+      "manifest": null,
+      "residual": false,
+      "dir": "src/hooks",
+      "noteCount": 1,
+      "dirNoteCount": 0
+    },
+    {
+      "id": "dir:src/types/",
+      "kind": "dir",
+      "label": "types",
+      "path": "src/types",
+      "parent": "dir:./",
+      "lang": "TypeScript",
+      "lines": 500,
+      "role": "source",
+      "area": "dir:src/types/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 0,
+      "outDegree": 0,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "aggregates": {
+        "files": 8,
+        "source": 7,
+        "tests": 1,
+        "config": 0,
+        "lines": 500,
+        "documented": 5,
+        "stale": 0,
+        "testedSource": 1,
+        "tasks": [],
+        "history": {
+          "commits30": 1,
+          "commits90": 2,
+          "commits365": 5,
+          "linesChanged": 400,
+          "lastTouched": "2026-09-07",
+          "authors": [
+            {
+              "handle": "jacobpress",
+              "name": "jacobpress",
+              "email": "jacobpress@example.com",
+              "lines": 392,
+              "commits": 1,
+              "share": 0.98
+            }
+          ],
+          "busFactor": 1
+        }
+      },
+      "manifest": null,
+      "residual": false,
+      "dir": "src/types",
+      "noteCount": 1,
+      "dirNoteCount": 0
+    },
+    {
+      "id": "dir:src/services/",
+      "kind": "dir",
+      "label": "services",
+      "path": "src/services",
+      "parent": "dir:./",
+      "lang": "TypeScript",
+      "lines": 400,
+      "role": "source",
+      "area": "dir:src/services/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 0,
+      "outDegree": 0,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "aggregates": {
+        "files": 6,
+        "source": 3,
+        "tests": 3,
+        "config": 0,
+        "lines": 400,
+        "documented": 1,
+        "stale": 0,
+        "testedSource": 3,
+        "tasks": [],
+        "history": {
+          "commits30": 6,
+          "commits90": 12,
+          "commits365": 30,
+          "linesChanged": 400,
+          "lastTouched": "2026-09-07",
+          "authors": [
+            {
+              "handle": "jacobpress",
+              "name": "jacobpress",
+              "email": "jacobpress@example.com",
+              "lines": 240,
+              "commits": 4,
+              "share": 0.6
+            },
+            {
+              "handle": "claude",
+              "name": "claude",
+              "email": "claude@example.com",
+              "lines": 160,
+              "commits": 2,
+              "share": 0.4
+            }
+          ],
+          "busFactor": 2
+        }
+      },
+      "manifest": null,
+      "residual": false,
+      "dir": "src/services",
+      "noteCount": 0,
+      "dirNoteCount": 0
+    },
+    {
+      "id": "dir:src/",
+      "kind": "dir",
+      "label": "src (other)",
+      "path": "src",
+      "parent": "dir:./",
+      "lang": "TypeScript",
+      "lines": 600,
+      "role": "source",
+      "area": "dir:src/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 0,
+      "outDegree": 0,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "aggregates": {
+        "files": 9,
+        "source": 5,
+        "tests": 3,
+        "config": 0,
+        "lines": 600,
+        "documented": 0,
+        "stale": 0,
+        "testedSource": 2,
+        "tasks": [],
+        "history": {
+          "commits30": 12,
+          "commits90": 24,
+          "commits365": 60,
+          "linesChanged": 400,
+          "lastTouched": "2026-09-07",
+          "authors": [
+            {
+              "handle": "jacobpress",
+              "name": "jacobpress",
+              "email": "jacobpress@example.com",
+              "lines": 392,
+              "commits": 12,
+              "share": 0.98
+            }
+          ],
+          "busFactor": 1
+        }
+      },
+      "manifest": null,
+      "residual": true,
+      "dir": "src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "entries": [
+        "src/main.tsx"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "source": "dir:src/components/",
+      "target": "dir:src/types/",
+      "kind": "import",
+      "weight": 41,
+      "via": [
+        {
+          "source": "src/components/Terminal/Terminal.tsx",
+          "target": "src/types/terminal.ts",
+          "names": [
+            "TerminalSession",
+            "TerminalEvent",
+            "PtySize",
+            "TerminalTheme",
+            "TerminalId",
+            "ScrollbackLine",
+            "TerminalMode"
+          ]
+        },
+        {
+          "source": "src/components/Sidebar/Sidebar.tsx",
+          "target": "src/types/terminal.ts",
+          "names": [
+            "TerminalSession",
+            "TerminalId",
+            "TerminalMode",
+            "TerminalTheme",
+            "PtySize",
+            "TerminalEvent",
+            "TerminalState"
+          ]
+        },
+        {
+          "source": "src/components/ActivityBar/ActivityBar.tsx",
+          "target": "src/types/terminal.ts",
+          "names": [
+            "TerminalSession",
+            "TerminalId",
+            "TerminalMode",
+            "TerminalEvent",
+            "TerminalState",
+            "ScrollbackLine",
+            "PtySize"
+          ]
+        },
+        {
+          "source": "src/components/WorkspaceOverview/WorkspaceOverview.tsx",
+          "target": "src/types/workspace.ts",
+          "names": [
+            "Workspace",
+            "WorkspaceProject",
+            "ProjectSummary",
+            "WorkspaceId",
+            "ProjectId"
+          ]
+        },
+        {
+          "source": "src/components/ProjectSummary/ProjectSummary.tsx",
+          "target": "src/types/project.ts",
+          "names": [
+            "Project",
+            "ProjectSummary",
+            "ProjectStatus",
+            "GitStatus"
+          ]
+        }
+      ]
+    },
+    {
+      "source": "dir:src/components/",
+      "target": "dir:src/hooks/",
+      "kind": "import",
+      "weight": 18,
+      "via": [
+        {
+          "source": "src/components/Terminal/Terminal.tsx",
+          "target": "src/hooks/useTerminal.ts",
+          "names": [
+            "useTerminal"
+          ]
+        }
+      ]
+    },
+    {
+      "source": "dir:src/components/",
+      "target": "dir:src/services/",
+      "kind": "import",
+      "weight": 7,
+      "via": [
+        {
+          "source": "src/components/Sidebar/Sidebar.tsx",
+          "target": "src/services/sessions.ts",
+          "names": [
+            "listSessions",
+            "createSession"
+          ]
+        }
+      ]
+    },
+    {
+      "source": "dir:src/hooks/",
+      "target": "dir:src/types/",
+      "kind": "import",
+      "weight": 12
+    },
+    {
+      "source": "dir:src/hooks/",
+      "target": "dir:src/services/",
+      "kind": "import",
+      "weight": 4,
+      "cycle": true
+    },
+    {
+      "source": "dir:src/services/",
+      "target": "dir:src/hooks/",
+      "kind": "import",
+      "weight": 1,
+      "cycle": true
+    },
+    {
+      "source": "dir:src/services/",
+      "target": "dir:src/types/",
+      "kind": "import",
+      "weight": 6
+    },
+    {
+      "source": "dir:src/",
+      "target": "dir:src/components/",
+      "kind": "import",
+      "weight": 9,
+      "via": [
+        {
+          "source": "src/App.tsx",
+          "target": "src/components/Sidebar/Sidebar.tsx",
+          "names": [
+            "Sidebar"
+          ]
+        }
+      ]
+    },
+    {
+      "source": "dir:src/",
+      "target": "dir:src/hooks/",
+      "kind": "import",
+      "weight": 3
+    },
+    {
+      "source": "dir:src/",
+      "target": "dir:src/types/",
+      "kind": "import",
+      "weight": 2
+    },
+    {
+      "source": "dir:src/components/",
+      "target": "dir:src-tauri/",
+      "kind": "ipc",
+      "weight": 27,
+      "names": [
+        "spawn_terminal",
+        "write_terminal",
+        "resize_terminal",
+        "kill_terminal",
+        "list_sessions",
+        "open_workspace",
+        "read_claude_md",
+        "save_layout",
+        "git_status",
+        "list_projects",
+        "watch_folder",
+        "open_in_editor",
+        "copy_path",
+        "session_history",
+        "restore_session",
+        "rename_session",
+        "close_workspace",
+        "pin_project",
+        "unpin_project",
+        "reorder_tabs",
+        "set_theme",
+        "get_settings",
+        "save_settings",
+        "install_skill",
+        "list_skills",
+        "remove_skill",
+        "check_update"
+      ]
+    },
+    {
+      "source": "dir:src/hooks/",
+      "target": "dir:src-tauri/",
+      "kind": "ipc",
+      "weight": 12,
+      "names": [
+        "spawn_terminal",
+        "write_terminal",
+        "resize_terminal",
+        "kill_terminal",
+        "list_sessions",
+        "session_history",
+        "restore_session",
+        "watch_folder",
+        "git_status",
+        "open_workspace",
+        "read_claude_md",
+        "save_layout"
+      ]
+    },
+    {
+      "source": "dir:src/services/",
+      "target": "dir:src-tauri/",
+      "kind": "ipc",
+      "weight": 6,
+      "names": [
+        "list_sessions",
+        "create_session",
+        "git_status",
+        "list_projects",
+        "open_in_editor",
+        "copy_path"
+      ]
+    },
+    {
+      "source": "dir:src/",
+      "target": "dir:src-tauri/",
+      "kind": "ipc",
+      "weight": 3,
+      "names": [
+        "get_settings",
+        "save_settings",
+        "check_update"
+      ]
+    }
+  ],
+  "areas": [
+    {
+      "id": "dir:packages/reggie/",
+      "label": "packages/reggie",
+      "hue": 2,
+      "source": 21,
+      "files": 32
+    },
+    {
+      "id": "dir:src-tauri/",
+      "label": "src-tauri",
+      "hue": 3,
+      "source": 18,
+      "files": 19
+    },
+    {
+      "id": "dir:src/components/",
+      "label": "src/components",
+      "hue": 1,
+      "source": 29,
+      "files": 54
+    },
+    {
+      "id": "dir:src/hooks/",
+      "label": "src/hooks",
+      "hue": 4,
+      "source": 5,
+      "files": 10
+    },
+    {
+      "id": "dir:src/types/",
+      "label": "src/types",
+      "hue": 5,
+      "source": 7,
+      "files": 8
+    },
+    {
+      "id": "dir:src/services/",
+      "label": "src/services",
+      "hue": 0,
+      "source": 3,
+      "files": 6
+    },
+    {
+      "id": "dir:src/",
+      "label": "src (other)",
+      "hue": 0,
+      "source": 5,
+      "files": 9
+    }
+  ],
+  "cycles": [
+    [
+      "dir:src/hooks/",
+      "dir:src/services/"
+    ]
+  ],
+  "counts": {
+    "totalCodeFiles": 140,
+    "shown": 7,
+    "folded": 0,
+    "hiddenTests": 49
+  },
+  "generatedAt": "2026-09-07T12:00:00.000Z"
+}

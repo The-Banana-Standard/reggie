@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { listRepoFiles } from "./git.js";
+import { TEST_HINTS } from "./roles.js";
 import { nowIso, uniq } from "./util.js";
 
 export interface LanguageCount {
@@ -121,7 +122,6 @@ const MANIFEST_FILES = [
   "src-tauri/tauri.conf.json",
 ];
 
-const TEST_HINTS = [/(^|\/)__tests__\//, /(^|\/)tests?\//, /\.test\.[cm]?[jt]sx?$/, /\.spec\.[cm]?[jt]sx?$/, /_test\.go$/, /Tests?\.swift$/, /Test\.kt$/, /test_.*\.py$/, /_test\.py$/];
 
 export function isIgnoredPath(file: string): boolean {
   return file.split("/").some((seg) => IGNORED_SEGMENTS.has(seg));

@@ -1,0 +1,101 @@
+/* map.css — styles owned by ui/map.js. Tokens and shared classes live in styles.css; see DOM-CONTRACT.md.
+   Everything drawn on the canvas itself is styled by the Cytoscape stylesheet in map.js (spec §3.4);
+   this file covers the HTML around it: toolbar extras, legend swatches, tooltip, footer, motion. */
+
+/* ---------- Canvas ---------- */
+.map-canvas { cursor: default; touch-action: none; }
+.map-canvas:active { cursor: grabbing; }
+.map-col.is-disabled .map-canvas { opacity: 0.25; pointer-events: none; }
+
+/* ---------- Toolbar extras (depth / direction / planned-actual / back) ---------- */
+.float--toolbar .btn--tool span { font-size: var(--fs-label); }
+.float--toolbar .range { height: var(--tool-h); }
+.float--toolbar .range output { min-width: 1ch; color: var(--text); font-variant-numeric: tabular-nums; }
+.float--toolbar .seg--tool { height: 24px; margin: 0 2px; }
+.float--toolbar .seg--tool .seg__btn { padding: 0 8px; font-size: var(--fs-sub); }
+#tb-back span { font-size: var(--fs-label); }
+
+/* ---------- Legend (§5.5 rules 7–8) ---------- */
+.float--legend { max-height: 45%; overflow: auto; }
+/* Short canvases (the stacked breakpoint, a tall reader drawer): 45% of the height clips the last
+   rows with no affordance, so map.js switches the card to one horizontal row under the toolbar (F04). */
+/* It wraps rather than scrolling sideways: at 1000px the nowrap version measured 1196px of content
+   in a 974px card, so a fifth of the legend — and with it a fifth of the isolate-on-click controls —
+   sat outside the box with no scrollbar, no fade and no hint that it was there (F10). */
+.float--legend.is-row {
+  top: calc(var(--s-3) + 54px); bottom: auto; left: var(--s-3); right: var(--s-3);
+  max-width: none; max-height: 4.6em;
+  display: flex; align-items: center; gap: var(--s-2) var(--s-3);
+  flex-wrap: wrap; row-gap: 6px;
+  overflow-x: hidden; overflow-y: auto; padding: 5px 10px; white-space: nowrap;
+  scrollbar-width: thin;
+}
+.float--legend.is-row .legend__title { margin: 0 var(--s-2) 0 0; flex: 0 0 auto; }
+.float--legend.is-row .legend__row { flex: 0 0 auto; padding: 0; }
+.float--legend.is-row .legend__count { margin-left: 4px; }
+.float--legend.is-row .legend__note { margin: 0; flex: 0 0 auto; }
+.legend__row { outline-offset: -2px; }
+.legend__row:focus-visible { outline: 2px solid var(--info); }
+.legend__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend__swatch--ring { border: 2px solid currentColor; background: transparent; border-radius: 50%; }
+/* Matches the canvas hatch in map.js: a wide, low-contrast pitch that reads as a texture without
+   striping the label underneath it. */
+.legend__swatch--hatch {
+  background-color: var(--panel-2);
+  background-image: repeating-linear-gradient(45deg, currentColor 0 1px, transparent 1px 6px);
+  opacity: 0.85;
+}
+.legend__swatch--notch {
+  position: relative; background: var(--know-none); border-color: var(--line-strong);
+}
+.legend__swatch--notch::after {
+  content: ""; position: absolute; right: -2px; top: -2px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--bad);
+}
+.legend__swatch--edge.is-dashed { background: none; border-top: 2px dashed currentColor; height: 0; }
+.legend__swatch--edge.is-dotted { height: 0; }
+.legend__row.is-isolated .legend__swatch { box-shadow: 0 0 0 2px var(--info); }
+
+/* ---------- Empty map (a view with nothing to draw; map.js renderEmptyState) ----------
+   Same dashed card as the story column's empty states (.card--empty in styles.css), centred in the
+   stage the way the renderer-failure card is. It is a message, not a control: clicks belong to the
+   canvas under it. */
+.map-empty {
+  max-width: 360px; text-align: center;
+  pointer-events: none;
+}
+.map-empty .empty__text { margin: 0 0 var(--s-2); color: var(--text); }
+.map-empty .empty__hint { margin: 0; color: var(--muted); }
+
+/* ---------- Footer ---------- */
+.map-footer { font-variant-numeric: tabular-nums; max-width: 60%; text-align: right; }
+
+/* ---------- Tooltip ---------- */
+.tip { transition: opacity var(--t-highlight) var(--ease); }
+.tip__path { white-space: normal; }
+
+/* ---------- Motion (§5.6): everything in the canvas is animated by map.js; reduced motion zeroes it ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .tip { transition: none; }
+}
+
+/* ---------- Workspace tile strip (spec §2 Level 0; app.js renderWorkspaceTiles) ---------- */
+.ws-tiles {
+  flex: 0 0 auto; max-height: 34%; overflow: auto;
+  display: flex; gap: var(--s-2); flex-wrap: wrap; align-items: flex-start;
+  padding: var(--s-3);
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+.ws-tile {
+  flex: 1 1 180px; max-width: 260px; display: block;
+  padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  color: var(--text); text-decoration: none;
+}
+.ws-tile:hover { border-color: var(--line-strong); text-decoration: none; }
+.ws-tile__name { display: flex; align-items: center; gap: 6px; font-size: var(--fs-label); font-weight: 600; }
+.ws-tile__name .i { color: var(--muted); }
+.ws-tile__meta { font-size: var(--fs-tile, 11px); color: var(--muted); margin: 2px 0; }
+.ws-tile__bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--line); margin-top: 4px; }
+.ws-tile__seg { display: block; height: 100%; }

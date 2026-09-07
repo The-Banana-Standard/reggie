@@ -11,3 +11,4 @@ Format Reggie writes (angle brackets are placeholders):
 Reggie turns items into plans under `tasks/<slug>/plan.md`. Once a plan is
 merged, the intake line is removed.
 
+- try-the-new-guidebook: Try the new guidebook (jacobpress, web, 2026-09-07)

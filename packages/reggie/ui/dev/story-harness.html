@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Story column harness · Reggie</title>
+<link rel="stylesheet" href="/ui/styles.css">
+<link rel="stylesheet" href="/ui/story.css">
+<style>
+  /* Harness-only layout: the story column at its real width next to a fake map column that logs calls. */
+  .hx { display: grid; grid-template-columns: minmax(380px, 44%) 1fr; min-height: 100vh; }
+  .hx__story { padding: var(--s-5) var(--s-6) var(--s-7); min-width: 0; }
+  .hx__side { position: sticky; top: 0; height: 100vh; overflow: auto; padding: var(--s-4); border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; gap: var(--s-3); }
+  .hx__side h1 { font-size: var(--fs-h2); margin: 0; }
+  .hx__side h2 { font-size: var(--fs-label); font-weight: 600; margin: var(--s-2) 0 0; color: var(--muted); }
+  .hx__btns { display: flex; flex-wrap: wrap; gap: var(--s-1); align-items: center; }
+  .hx__log { font-family: var(--mono); font-size: var(--fs-sub); color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: var(--s-2); min-height: 120px; max-height: 40vh; overflow: auto; white-space: pre-wrap; margin: 0; }
+  .hx__map { border: 1px dashed var(--line-strong); border-radius: var(--radius); padding: var(--s-3); font-size: var(--fs-meta); color: var(--muted); display: flex; flex-direction: column; gap: var(--s-1); }
+  .hx__map b { color: var(--text); font-weight: 500; }
+  .hx__map .hl { color: var(--info); }
+  .hx__map .soft { color: var(--faint); }
+  .hx__kv { font-size: var(--fs-meta); color: var(--muted); display: flex; gap: var(--s-2); flex-wrap: wrap; align-items: center; }
+  .hx__kv label { display: inline-flex; gap: 4px; align-items: center; }
+  .app.is-dense .hx { grid-template-columns: minmax(380px, 25%) 1fr; }
+</style>
+</head>
+<body>
+<div id="hx-app" class="app" data-harness="story">
+  <div class="hx">
+    <section id="story" class="hx__story" aria-label="Story">
+      <div id="spotlight" class="spotlight-slot"></div>
+      <div id="sections" class="sections"></div>
+    </section>
+
+    <aside class="hx__side">
+      <h1>Story column harness</h1>
+      <p class="hint">Exercises <code>ui/story.js</code> against the sample payloads in <code>ui/dev/</code>. Serve with <code>npx tsx src/cli.ts serve --port 4422</code> and open <code>/ui/dev/story-harness.html</code>. The fake map on the right logs every highlight call; POSTs are mocked.</p>
+
+      <h2>Story payload</h2>
+      <div class="hx__btns">
+        <select id="payload" class="select" aria-label="Story payload">
+          <option value="sample-story.json">repo, every paragraph kind</option>
+          <option value="sample-story-empty.json">repo, every empty state (forms)</option>
+          <option value="sample-story-file.json">file scope (paths.ts)</option>
+        </select>
+        <button class="btn btn--primary" type="button" data-act="render">Render</button>
+        <button class="btn" type="button" data-act="skeleton">Skeleton</button>
+        <button class="btn" type="button" data-act="skeleton-then-render">Skeleton → render (600 ms)</button>
+      </div>
+      <div class="hx__kv">
+        <label><input type="checkbox" id="days60"> route has <code>?days=60</code></label>
+        <label><input type="checkbox" id="failPost"> POSTs fail</label>
+        <label><input type="checkbox" id="dense"> Dense</label>
+      </div>
+
+      <h2>Spotlight</h2>
+      <div class="hx__btns">
+        <button class="btn" type="button" data-act="spot">Pin sample-explain.json</button>
+        <button class="btn" type="button" data-act="spot-file">Pin a file explain</button>
+        <button class="btn" type="button" data-act="spot-close">closeSpotlight()</button>
+      </div>
+
+      <h2>Map → story</h2>
+      <div class="hx__btns">
+        <button class="btn btn--small" type="button" data-tint="dir:src/types/">hover src/types</button>
+        <button class="btn btn--small" type="button" data-tint="dir:src/components/">hover src/components</button>
+        <button class="btn btn--small" type="button" data-tint="packages/reggie/src/paths.ts">hover paths.ts</button>
+        <button class="btn btn--small" type="button" data-tint="person:jacobpress">hover jacobpress</button>
+        <button class="btn btn--small" type="button" data-tint="">hoverEnd</button>
+      </div>
+
+      <h2>Fake map state</h2>
+      <div class="hx__map" id="fakemap">
+        <div>highlight: <b class="hl" id="m-hl">—</b></div>
+        <div>soft: <b class="soft" id="m-soft">—</b></div>
+        <div>reading: <b id="m-reading">—</b></div>
+      </div>
+
+      <h2>Log</h2>
+      <pre class="hx__log" id="log"></pre>
+    </aside>
+  </div>
+</div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script type="module">
+  import { renderStory, renderSpotlight, renderSkeleton, sectionHeadingsFor, tintForNode, closeSpotlight, focusNoteForm } from "/ui/story.js";
+  import { GLOSSARY, entityLink, parseRoute } from "/ui/app.js";
+
+  // ---- icon set: reuse index.html's <svg id="icons"> so the harness never drifts from the real set ----
+  {
+    const html = await fetch("/ui/index.html").then((r) => r.text());
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const icons = doc.getElementById("icons");
+    if (icons) document.body.prepend(document.importNode(icons, true));
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const logEl = $("log");
+  function log(...parts) {
+    const line = parts.map((p) => (typeof p === "string" ? p : JSON.stringify(p))).join(" ");
+    logEl.textContent = `${new Date().toISOString().slice(11, 23)} ${line}\n${logEl.textContent}`.slice(0, 20000);
+  }
+
+  // ---- fake map: the surface story.js needs (DOM-CONTRACT §4) with a hover emitter ----
+  const listeners = new Map();
+  const map = {
+    highlight(ids) { $("m-hl").textContent = ids.join(" ") || "—"; log("map.highlight", ids); },
+    softHighlight(ids) { $("m-soft").textContent = ids.join(" ") || "—"; log("map.softHighlight", ids); },
+    clearHighlight() { $("m-hl").textContent = "—"; log("map.clearHighlight"); },
+    // Pretend the canvas is the container map: files fold into their area; dirs and tasks are drawn as-is.
+    resolveRef(id) {
+      if (id.startsWith("dir:") || id.startsWith("task:") || id.startsWith("person:") || id.startsWith("repo:")) return { id, folded: false, label: id };
+      const m = /^(packages\/reggie|src-tauri|src\/[a-z]+)\//.exec(id);
+      if (m) return { id: `dir:${m[1]}/`, folded: true, label: m[1] };
+      if (id.startsWith("src/")) return { id: "dir:src/", folded: true, label: "src (other)" };
+      return null;
+    },
+    on(event, fn) {
+      if (!listeners.has(event)) listeners.set(event, new Set());
+      listeners.get(event).add(fn);
+      return () => listeners.get(event).delete(fn);
+    },
+    emit(event, payload) { for (const fn of listeners.get(event) ?? []) fn(payload); },
+  };
+
+  // ---- fake POST: logs the body, answers after 400 ms with a contract-shaped response ----
+  async function post(url, body) {
+    log("POST", url, body);
+    await new Promise((r) => setTimeout(r, 400));
+    if ($("failPost").checked) throw new Error("409 no packet exists for this task");
+    const today = new Date().toISOString().slice(0, 10);
+    if (url.startsWith("/api/capture")) return { slug: body.text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40), line: `- [ ] ${body.text}` };
+    if (url.startsWith("/api/note")) return { entity: body.entity, kind: "dir", created: true, entry: { type: body.type, text: body.text, confidence: body.confidence, author: "jacobpress (web)", date: today } };
+    if (url.startsWith("/api/decide")) return { slug: body.slug, verdict: body.verdict, file: `.reggie/tasks/${body.slug}/packet.md` };
+    if (url.startsWith("/api/journal")) return { at: `${today}T10:00:00Z`, person: "jacobpress", tool: "human", stage: body.stage ?? "execute", slug: body.slug ?? null, text: body.text, evidence: [] };
+    return {};
+  }
+
+  function toast(text, opts = {}) {
+    const el = document.createElement("div");
+    el.className = `toast toast--${opts.tone ?? "info"}`;
+    el.textContent = text.replace(/`/g, "");
+    $("toasts").appendChild(el);
+    setTimeout(() => el.remove(), opts.ms ?? 3000);
+    log("toast", text);
+  }
+
+  function deps() {
+    const hash = $("days60").checked ? "#/repo/reggie?days=60" : "#/repo/reggie";
+    return {
+      map,
+      repo: "reggie",
+      route: parseRoute(hash),
+      GLOSSARY,
+      entityLink,
+      post,
+      toast,
+      navigate: (to) => log("navigate", to),
+      onDecide: (r) => log("onDecide", r),
+      onCapture: (r) => log("onCapture", r),
+      onNote: (r) => log("onNote", r),
+      onJournal: (r) => log("onJournal", r),
+      onWiden: (days) => log("onWiden", days),
+      onClose: () => log("spotlight closed"),
+      onAddNote: () => { log("Add a note → focusNoteForm"); if (!focusNoteForm()) toast("No note form on this page", { tone: "warn" }); },
+    };
+  }
+
+  let story = null;
+  async function load() {
+    story = await fetch(`/ui/dev/${$("payload").value}`).then((r) => r.json());
+    return story;
+  }
+  async function render() {
+    const s = await load();
+    renderStory($("sections"), s, deps());
+    log("renderStory", `${s.scope}:${s.id}`, `${s.sections.length} sections`, `${$("sections").querySelectorAll("[data-para]").length} paragraphs`);
+  }
+
+  const acts = {
+    render,
+    skeleton: async () => { const s = await load(); renderSkeleton($("sections"), sectionHeadingsFor(s.scope, "structure")); log("renderSkeleton", sectionHeadingsFor(s.scope)); },
+    "skeleton-then-render": async () => { await acts.skeleton(); await new Promise((r) => setTimeout(r, 600)); await render(); },
+    spot: async () => { const ex = await fetch("/ui/dev/sample-explain.json").then((r) => r.json()); renderSpotlight($("spotlight"), ex, deps()); log("renderSpotlight", ex.id); },
+    "spot-file": () => {
+      renderSpotlight($("spotlight"), {
+        id: "packages/reggie/src/paths.ts", title: "paths.ts", kind: "file", route: "#/repo/reggie/file/packages/reggie/src/paths.ts",
+        crumbs: [{ label: "reggie", route: "#/repo/reggie" }, { label: "packages/reggie", route: "#/repo/reggie/area/packages/reggie" }, { label: "src", route: "#/repo/reggie/area/packages/reggie/src" }],
+        sentences: [
+          { text: "[[#/repo/reggie/file/packages/reggie/src/paths.ts|paths.ts]] is a TypeScript file of 98 lines in [[#/repo/reggie/area/packages/reggie|packages/reggie]].", refs: ["packages/reggie/src/paths.ts"] },
+          { text: "It is used by 19 files, among them [[#/repo/reggie/file/packages/reggie/src/cli.ts|cli.ts]], [[#/repo/reggie/file/packages/reggie/src/serve.ts|serve.ts]] and [[#/repo/reggie/file/packages/reggie/src/graph.ts|graph.ts]]; it imports [[#/repo/reggie/file/packages/reggie/src/util.ts|util.ts]].", refs: ["packages/reggie/src/cli.ts", "packages/reggie/src/serve.ts", "packages/reggie/src/graph.ts", "packages/reggie/src/util.ts"] },
+          { text: "No note is written on it; two are inherited from [[#/repo/reggie/area/packages/reggie|packages/reggie]] and the repo, and one may be out of date.", refs: ["dir:packages/reggie/"] },
+          { text: "No task plans to touch it; it changed three times in the last 30 days, all by [[#/repo/reggie/person/jacobpress|jacobpress]].", refs: ["person:jacobpress"] },
+        ],
+        actions: [
+          { label: "Go deeper", route: "#/repo/reggie/file/packages/reggie/src/paths.ts" },
+          { label: "Show what breaks if it changes", route: "#/repo/reggie/file/packages/reggie/src/paths.ts?dir=up&depth=2" },
+          { label: "Add a note", route: "#/repo/reggie/file/packages/reggie/src/paths.ts" },
+        ],
+      }, deps());
+      log("renderSpotlight", "file");
+    },
+    "spot-close": () => log("closeSpotlight →", closeSpotlight()),
+  };
+  for (const b of document.querySelectorAll("[data-act]")) b.addEventListener("click", () => acts[b.dataset.act]());
+  for (const b of document.querySelectorAll("[data-tint]")) b.addEventListener("click", () => {
+    const id = b.dataset.tint;
+    if (id) { map.emit("hover", id); log("map hover", id, "→ tinted", document.querySelectorAll(".is-tinted").length); }
+    else { map.emit("hoverEnd"); log("map hoverEnd → tinted", document.querySelectorAll(".is-tinted").length); }
+  });
+  $("dense").addEventListener("change", (ev) => $("hx-app").classList.toggle("is-dense", ev.target.checked));
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeSpotlight(); });
+
+  // Mirror the reading paragraph in the side panel.
+  new MutationObserver(() => { $("m-reading").textContent = document.querySelector(".is-reading")?.dataset.para ?? "—"; })
+    .observe($("sections"), { subtree: true, attributes: true, attributeFilter: ["class"] });
+
+  window.harness = { map, renderStory, renderSpotlight, renderSkeleton, tintForNode, closeSpotlight, deps, acts };
+  await render();
+</script>
+</body>
+</html>

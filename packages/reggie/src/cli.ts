@@ -20,6 +20,7 @@ import { currentPerson, loadConfig, loadPeople, type Person, type ReggieConfig }
 import { lintPlan, parsePlan, renderPlanTemplate, riskFromFiles, RISKS, setPlanRisk, type Risk } from "./plan.js";
 import { getTask, listTasks, readIntake, renderTaskLine } from "./tasks.js";
 import { isSafeSlug, parseIntOption, readText, slugify, writeIfMissing, writeText } from "./util.js";
+import { autoDetectWorkspace, discoverWorkspace, type Workspace } from "./workspace.js";
 
 const VERSION = "3.0.0-alpha.1";
 
@@ -419,14 +420,31 @@ program
 
 program
   .command("serve")
-  .description("Start a local read-only web view: import graph with notes and tasks overlaid, task board, notes, journal")
+  .description("Start a local read-only web view: the repo guidebook, its map, the task board, notes and journal")
   .option("--port <n>", "port to listen on", (v) => parseIntOption(v, "--port"), 4310)
   .option("--host <host>", "interface to bind", "127.0.0.1")
-  .action(async (opts: { port: number; host: string }) => {
+  .option("--workspace <dir>", "serve every repo listed in the CLAUDE.md of this workspace directory")
+  .option("--no-workspace", "serve only this repo, even when a workspace CLAUDE.md names it")
+  .action(async (opts: { port: number; host: string; workspace?: string | boolean }) => {
     const c = ctx(program.opts<{ root?: string }>().root);
-    const { url } = await startServer(c.paths, c.config, { port: opts.port, host: opts.host });
-    out(`Reggie is serving ${c.root}`);
-    out(`Open ${url}`);
+    let workspace: Workspace | null = null;
+    if (typeof opts.workspace === "string") {
+      const dir = path.resolve(opts.workspace);
+      workspace = discoverWorkspace(dir);
+      if (!workspace) fail(`No workspace found at ${dir}. Expected a CLAUDE.md there with a "## Repos" section.`);
+    } else if (opts.workspace !== false) {
+      workspace = autoDetectWorkspace(c.root);
+    }
+    const server = await startServer(c.paths, c.config, { port: opts.port, host: opts.host, workspace });
+    if (workspace) {
+      out(`Reggie is serving the ${workspace.name} workspace from ${workspace.root}`);
+      for (const name of server.repos) out(`  ${name}`);
+      for (const s of workspace.skipped) out(`  (skipped ${s.name}: ${s.reason})`);
+    } else {
+      out(`Reggie is serving ${c.root}`);
+      for (const name of server.repos) out(`  ${name}`);
+    }
+    out(`Open ${server.url}`);
     out("Press Ctrl+C to stop.");
   });
 

@@ -119,13 +119,23 @@ export function ensureLayout(paths: RepoPaths): LayoutResult {
   return { created, gitignoreUpdated };
 }
 
-/** Ignore only derived caches. Everything else under .reggie/ is meant to be committed. */
+/** The derived-cache paths onboard ignores. `.reggie/.cache/` holds history.ts's `history-<sha>.json`. */
+export const GITIGNORE_LINES = [".reggie/graph/", ".reggie/.cache/", ".reggie/**/*.tmp"] as const;
+
+/**
+ * Ignore only derived caches. Everything else under .reggie/ is meant to be committed.
+ * Lines already present are kept as they are; only the missing ones are appended, so a repo
+ * onboarded before a cache directory existed picks it up on the next onboard.
+ */
 export function ensureGitignore(root: string): boolean {
   const file = path.join(root, ".gitignore");
   const existing = readText(file) ?? "";
-  if (existing.includes(".reggie/graph/")) return false;
-  const block = ["# Reggie: derived caches only. Everything else in .reggie/ is committed.", ".reggie/graph/", ".reggie/**/*.tmp", ""];
+  const present = new Set(existing.split(/\r?\n/).map((l) => l.trim()));
+  const missing = GITIGNORE_LINES.filter((l) => !present.has(l));
+  if (missing.length === 0) return false;
+  const header = present.has(".reggie/graph/") ? [] : ["# Reggie: derived caches only. Everything else in .reggie/ is committed."];
+  const block = [...header, ...missing, ""];
   const prefix = existing === "" || existing.endsWith("\n") ? "" : "\n";
-  appendText(file, `${prefix}${existing === "" ? "" : "\n"}${block.join("\n")}`);
+  appendText(file, `${prefix}${existing === "" || header.length === 0 ? "" : "\n"}${block.join("\n")}`);
   return true;
 }

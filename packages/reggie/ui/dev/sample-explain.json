@@ -1,0 +1,34 @@
+{
+  "id": "dir:src/types/",
+  "title": "src/types",
+  "kind": "dir",
+  "crumbs": [
+    { "label": "reggie", "route": "#/repo/reggie" },
+    { "label": "src", "route": "#/repo/reggie/area/src" },
+    { "label": "types", "route": "#/repo/reggie/area/src/types" }
+  ],
+  "route": "#/repo/reggie/area/src/types",
+  "sentences": [
+    {
+      "text": "[[#/repo/reggie/area/src/types|src/types]] is a TypeScript area of seven source files (eight with tests) holding the shared types of the desktop app.",
+      "refs": ["dir:src/types/"]
+    },
+    {
+      "text": "It is used by [[#/repo/reggie/area/src/components|src/components]] 41 times, mostly for [[#/repo/reggie/file/src/types/terminal.ts|terminal.ts]] (21), and by [[#/repo/reggie/area/src/hooks|src/hooks]] 12 times; it imports nothing from the rest of the repo.",
+      "refs": ["dir:src/types/", "dir:src/components/", "dir:src/hooks/", "src/types/terminal.ts"]
+    },
+    {
+      "text": "Nobody has written a note on it; the only note that applies is the repo note by [[#/repo/reggie/person/jacobpress|jacobpress]].",
+      "refs": ["dir:src/types/", "person:jacobpress"]
+    },
+    {
+      "text": "No task plans to touch it; it changed twice in the last 30 days, last by [[#/repo/reggie/person/jacobpress|jacobpress]] on 4 Sep.",
+      "refs": ["dir:src/types/", "person:jacobpress"]
+    }
+  ],
+  "actions": [
+    { "label": "Go deeper", "route": "#/repo/reggie/area/src/types" },
+    { "label": "Show what breaks if it changes", "route": "#/repo/reggie/file/src/types/terminal.ts?dir=up&depth=2" },
+    { "label": "Add a note", "route": "#/repo/reggie/area/src/types#add-note" }
+  ]
+}

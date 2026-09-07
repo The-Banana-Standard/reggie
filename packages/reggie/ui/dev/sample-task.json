@@ -1,0 +1,129 @@
+{
+  "task": {
+    "slug": "share-shape-helpers",
+    "title": "Share the shape helpers",
+    "state": "awaiting-decision",
+    "risk": "medium",
+    "owner": "jacobpress",
+    "ownerEmail": "jacob.press3@gmail.com",
+    "lastActivity": "2026-09-06T22:05:00-04:00",
+    "branch": "task/share-shape-helpers",
+    "pr": { "number": 42, "url": "https://github.com/The-Banana-Standard/reggie/pull/42", "state": "OPEN", "headRefName": "task/share-shape-helpers", "title": "Share the shape helpers" },
+    "planExists": true,
+    "planOnDefault": true,
+    "planLintOk": true,
+    "packetExists": true,
+    "intake": null,
+    "reason": "PR #42 open",
+    "stateDefinition": "The work is finished and waits for a maintainer.",
+    "age": 1,
+    "planFiles": ["src/big/a01.ts", "src/types/shape.ts"],
+    "changedFiles": ["src/types/shape.ts", "src/big/a01.ts", "src/big/__tests__/shape.test.ts"]
+  },
+  "plan": {
+    "meta": { "slug": "share-shape-helpers", "title": "Share the shape helpers", "risk": "medium", "deciders": ["jacobpress"], "author": "Jacob Press", "created": "2026-09-01" },
+    "sections": {
+      "Problem": "Three files in the big area re-implement `sizeOf` for a `Shape`, and two of them disagree about empty shapes. The disagreement showed up as a flaky assertion in `src/big/__tests__/chain.test.ts`.\n\nA single helper next to the type removes the duplication and gives the tests one answer.",
+      "Approach": "Add `sizeOf` and `emptyShape` to `src/types/shape.ts` and switch the callers over one at a time. Rejected: a `ShapeUtils` class, because the callers only need two functions and a class would force every importer to change its import style.",
+      "Files to touch": "- src/big/a01.ts (MOD)\n- src/types/shape.ts (MOD)",
+      "Acceptance criteria": "- [ ] Every caller in the big area uses the shared sizeOf helper and the duplicate implementations are deleted\n- [ ] The chain test passes ten times in a row without a flaky assertion\n- [ ] A unit test covers sizeOf for an empty shape",
+      "Verification strategy": "- Run the big area tests ten times and save the output to evidence/tests.txt\n- Grep for local sizeOf definitions and save the empty result to evidence/grep.txt",
+      "Assumptions": "- A shape with no points has size 0; the alternative (size 1 for the origin) was rejected because no caller wants it",
+      "Out of scope": "- Renaming Shape to Polygon\n- Touching the Rust side of the IPC boundary",
+      "Bail conditions": "- If the helper needs to know about the tiny area too, stop and re-plan with its owner\n- If more than five callers turn up, split the task"
+    },
+    "criteria": [
+      "Every caller in the big area uses the shared sizeOf helper and the duplicate implementations are deleted",
+      "The chain test passes ten times in a row without a flaky assertion",
+      "A unit test covers sizeOf for an empty shape"
+    ],
+    "files": [
+      { "path": "src/big/a01.ts", "op": "MOD", "exists": true, "nodeId": "src/big/a01.ts" },
+      { "path": "src/types/shape.ts", "op": "MOD", "exists": true, "nodeId": "src/types/shape.ts" },
+      { "path": "src/big/a07.ts", "op": "MOD", "exists": true, "nodeId": "src/big/a07.ts" },
+      { "path": "src/types/shape-utils.ts", "op": "DEL", "exists": false, "nodeId": "src/types/shape-utils.ts" }
+    ]
+  },
+  "packet": {
+    "verdict": "pending",
+    "decidedBy": null,
+    "decidedAt": null,
+    "criteria": [
+      { "text": "Every caller in the big area uses the shared sizeOf helper and the duplicate implementations are deleted", "pass": true, "evidence": ["evidence/grep.txt"] },
+      { "text": "The chain test passes ten times in a row without a flaky assertion", "pass": false, "evidence": ["evidence/tests.txt"] },
+      { "text": "A unit test covers sizeOf for an empty shape", "pass": null, "evidence": [] }
+    ],
+    "sections": {
+      "Changes": "3 files changed against main:\n\n```\n src/big/__tests__/shape.test.ts | 14 ++++++++++++++\n src/big/a01.ts                  |  9 +++------\n src/types/shape.ts              |  8 ++++++++\n 3 files changed, 25 insertions(+), 6 deletions(-)\n```",
+      "Reviews": "- /code-review: one finding (unused import in a01.ts), fixed in the second commit\n- /security-review: nothing to report",
+      "Deviations from plan": "- `src/big/a07.ts` was not changed: its local sizeOf already delegated to the shared one after the first commit\n- `src/types/shape-utils.ts` did not exist, so nothing was deleted",
+      "Discovered issues": "- The chain test still flakes once in ten runs for an unrelated reason (timer ordering); captured as `chain-test-timer-flake`",
+      "Open risks": "- Callers outside the big area that construct shapes by hand still bypass emptyShape; a reviewer would notice a shape with points undefined"
+    },
+    "evidence": ["evidence/tests.txt", "evidence/grep.txt"]
+  },
+  "claim": { "person": "Jacob Press", "email": "jacob.press3@gmail.com", "machine": "jacobs-mbp.local", "tool": "claude", "date": "2026-09-05T14:02:11-04:00" },
+  "journal": [
+    { "date": "2026-09-05", "time": "14:02", "person": "jacobpress", "tool": "claude", "slug": "share-shape-helpers", "stage": "claim", "text": "Claimed the task and started the branch; the plan only names two files.", "evidence": [], "file": ".reggie/journal/2026-09-05.md", "taskExists": true, "nodeIds": ["src/big/a01.ts", "src/types/shape.ts"] },
+    { "date": "2026-09-06", "time": "17:41", "person": "jacobpress", "tool": "claude", "slug": "share-shape-helpers", "stage": "execute", "text": "Moved sizeOf next to the type and switched the first caller. The second caller already delegated, so it needed no change, which is why the file list in the packet is shorter than the plan.", "evidence": ["evidence/grep.txt"], "file": ".reggie/journal/2026-09-06.md", "taskExists": true, "nodeIds": ["src/types/shape.ts"] },
+    { "date": "2026-09-06", "time": "22:05", "person": "jacobpress", "tool": "human", "slug": "share-shape-helpers", "stage": "packet", "text": "Wrote the packet and opened the PR. One criterion is not met: the chain test still flakes once in ten runs, for a timer reason unrelated to this change. Uncertain whether to hold the merge for it.", "evidence": ["evidence/tests.txt"], "file": ".reggie/journal/2026-09-06.md", "taskExists": true, "nodeIds": [] }
+  ],
+  "impact": {
+    "planned": ["src/big/a01.ts", "src/types/shape.ts", "src/big/a07.ts"],
+    "actual": ["src/types/shape.ts", "src/big/a01.ts", "src/big/__tests__/shape.test.ts"],
+    "plannedButUntouched": ["src/big/a07.ts"],
+    "touchedButUnplanned": ["src/big/__tests__/shape.test.ts"],
+    "downstream": [
+      { "id": "src/big/a02.ts", "hop": 1 },
+      { "id": "src/big/a03.ts", "hop": 1 },
+      { "id": "src/big/a04.ts", "hop": 1 },
+      { "id": "src/tiny/t01.ts", "hop": 1 },
+      { "id": "src/big/a05.ts", "hop": 2 }
+    ],
+    "collisions": [{ "file": "src/big/a01.ts", "slug": "cache-chain-shape", "owner": "jacobpress" }],
+    "riskRules": [{ "level": "medium", "pattern": "types", "file": "src/types/shape.ts" }]
+  },
+  "contextRoute": "/api/context?slug=share-shape-helpers",
+  "view": {
+    "level": "impact",
+    "root": "src/types/shape.ts",
+    "centers": ["src/big/a01.ts", "src/types/shape.ts", "src/big/a07.ts", "src/big/__tests__/shape.test.ts"],
+    "areas": [
+      { "id": "dir:src/big/", "label": "src/big", "hue": 1, "source": 45, "files": 51 },
+      { "id": "dir:src/types/", "label": "src/types", "hue": 2, "source": 1, "files": 1 },
+      { "id": "dir:src/tiny/", "label": "src/tiny", "hue": 3, "source": 2, "files": 2 }
+    ],
+    "cycles": [],
+    "counts": { "totalCodeFiles": 54, "shown": 12, "folded": 16, "hiddenTests": 6, "up": [8], "down": [0] },
+    "generatedAt": "2026-09-07T05:00:00-04:00",
+    "nodes": [
+      { "id": "dir:src/big/", "kind": "dir", "label": "src/big", "path": "src/big", "parent": null, "lang": "TypeScript", "lines": 1204, "role": "source", "area": "dir:src/big/", "knowledge": { "own": 1, "inherited": 1, "stale": 1, "byType": {}, "lastNoteDate": "2026-09-01", "lowestConfidence": "high" }, "tasks": ["cache-chain-shape", "share-shape-helpers"], "inDegree": 0, "outDegree": 0, "testedBy": [], "entry": false, "entryKinds": [], "aggregates": { "files": 51, "source": 45, "tests": 6, "config": 0, "lines": 1204, "documented": 45, "stale": 1, "testedSource": 20, "tasks": ["cache-chain-shape", "share-shape-helpers"] }, "dir": "src/big", "noteCount": 1, "dirNoteCount": 1 },
+      { "id": "dir:src/types/", "kind": "dir", "label": "src/types", "path": "src/types", "parent": null, "lang": "TypeScript", "lines": 14, "role": "source", "area": "dir:src/types/", "knowledge": { "own": 1, "inherited": 1, "stale": 0, "byType": {}, "lastNoteDate": "2026-09-01", "lowestConfidence": "high" }, "tasks": ["share-shape-helpers"], "inDegree": 0, "outDegree": 0, "testedBy": [], "entry": false, "entryKinds": [], "aggregates": { "files": 1, "source": 1, "tests": 0, "config": 0, "lines": 14, "documented": 1, "stale": 0, "testedSource": 1, "tasks": ["share-shape-helpers"] }, "dir": "src/types", "noteCount": 1, "dirNoteCount": 1 },
+      { "id": "dir:src/tiny/", "kind": "dir", "label": "src/tiny", "path": "src/tiny", "parent": null, "lang": "TypeScript", "lines": 40, "role": "source", "area": "dir:src/tiny/", "knowledge": { "own": 0, "inherited": 1, "stale": 0, "byType": {}, "lastNoteDate": null, "lowestConfidence": null }, "tasks": [], "inDegree": 0, "outDegree": 0, "testedBy": [], "entry": false, "entryKinds": [], "aggregates": { "files": 2, "source": 2, "tests": 0, "config": 0, "lines": 40, "documented": 0, "stale": 0, "testedSource": 0, "tasks": [] }, "dir": "src/tiny", "noteCount": 0, "dirNoteCount": 0 },
+
+      { "id": "src/types/shape.ts", "kind": "file", "label": "shape.ts", "path": "src/types/shape.ts", "parent": "dir:src/types/", "lang": "TypeScript", "lines": 14, "role": "source", "area": "dir:src/types/", "knowledge": { "own": 1, "inherited": 1, "stale": 0, "byType": { "why": 1 }, "lastNoteDate": "2026-09-01", "lowestConfidence": "high" }, "tasks": ["share-shape-helpers"], "inDegree": 21, "outDegree": 0, "testedBy": ["src/big/__tests__/shape.test.ts"], "entry": false, "entryKinds": [], "center": true, "side": "both", "hop": 0, "planned": true, "actual": true, "task": "share-shape-helpers", "dir": "src/types", "noteCount": 1, "dirNoteCount": 1 },
+      { "id": "src/big/a01.ts", "kind": "file", "label": "a01.ts", "path": "src/big/a01.ts", "parent": "dir:src/big/", "lang": "TypeScript", "lines": 14, "role": "source", "area": "dir:src/big/", "knowledge": { "own": 0, "inherited": 2, "stale": 0, "byType": {}, "lastNoteDate": null, "lowestConfidence": null }, "tasks": ["cache-chain-shape", "share-shape-helpers"], "inDegree": 1, "outDegree": 2, "testedBy": ["src/big/__tests__/chain.test.ts"], "entry": false, "entryKinds": [], "center": true, "side": "both", "hop": 0, "planned": true, "actual": true, "task": "share-shape-helpers", "collision": ["cache-chain-shape"], "dir": "src/big", "noteCount": 0, "dirNoteCount": 1 },
+      { "id": "src/big/a07.ts", "kind": "file", "label": "a07.ts", "path": "src/big/a07.ts", "parent": "dir:src/big/", "lang": "TypeScript", "lines": 9, "role": "source", "area": "dir:src/big/", "knowledge": { "own": 0, "inherited": 2, "stale": 0, "byType": {}, "lastNoteDate": null, "lowestConfidence": null }, "tasks": ["share-shape-helpers"], "inDegree": 1, "outDegree": 2, "testedBy": [], "entry": false, "entryKinds": [], "center": true, "side": "both", "hop": 0, "planned": true, "actual": false, "task": "share-shape-helpers", "dir": "src/big", "noteCount": 0, "dirNoteCount": 1 },
+      { "id": "src/big/__tests__/shape.test.ts", "kind": "file", "label": "shape.test.ts", "path": "src/big/__tests__/shape.test.ts", "parent": "dir:src/big/", "lang": "TypeScript", "lines": 22, "role": "test", "area": "dir:src/big/", "knowledge": { "own": 0, "inherited": 2, "stale": 0, "byType": {}, "lastNoteDate": null, "lowestConfidence": null }, "tasks": ["share-shape-helpers"], "inDegree": 0, "outDegree": 1, "testedBy": [], "entry": false, "entryKinds": [], "center": true, "side": "both", "hop": 0, "planned": false, "actual": true, "task": "share-shape-helpers", "dir": "src/big/__tests__", "noteCount": 0, "dirNoteCount": 1 },
+
+      { "id": "src/big/a02.ts", "kind": "file", "label": "a02.ts", "path": "src/big/a02.ts", "parent": "dir:src/big/", "lang": "TypeScript", "lines": 9, "role": "source", "area": "dir:src/big/", "knowledge": { "own": 0, "inherited": 2, "stale": 0, "byType": {}, "lastNoteDate": null, "lowestConfidence": null }, "tasks": ["cache-chain-shape"], "inDegree": 1, "outDegree": 2, "testedBy": [], "entry": false, "entryKinds": [], "side": "up", "hop": 1, "task": "cache-chain-shape", "dir": "src/big", "noteCount": 0, "dirNoteCount": 1 },
+      { "id": "src/big/a03.ts", "kind": "file", "label": "a03.ts", "path": "src/big/a03.ts", "parent": "dir:src/big/", "lang": "TypeScript", "lines": 9, "role": "source", "area": "dir:src/big/", "knowledge": { "own": 0, "inherited": 2, "stale": 0, "byType": {}, "lastNoteDate": null, "lowestConfidence": null }, "tasks": [], "inDegree": 1, "outDegree": 2, "testedBy": [], "entry": false, "entryKinds": [], "side": "up", "hop": 1, "dir": "src/big", "noteCount": 0, "dirNoteCount": 1 },
+      { "id": "src/big/a04.ts", "kind": "file", "label": "a04.ts", "path": "src/big/a04.ts", "parent": "dir:src/big/", "lang": "TypeScript", "lines": 9, "role": "source", "area": "dir:src/big/", "knowledge": { "own": 0, "inherited": 2, "stale": 0, "byType": {}, "lastNoteDate": null, "lowestConfidence": null }, "tasks": [], "inDegree": 1, "outDegree": 2, "testedBy": [], "entry": false, "entryKinds": [], "side": "up", "hop": 1, "dir": "src/big", "noteCount": 0, "dirNoteCount": 1 },
+      { "id": "src/big/a08.ts", "kind": "file", "label": "a08.ts", "path": "src/big/a08.ts", "parent": "dir:src/big/", "lang": "TypeScript", "lines": 9, "role": "source", "area": "dir:src/big/", "knowledge": { "own": 0, "inherited": 2, "stale": 0, "byType": {}, "lastNoteDate": null, "lowestConfidence": null }, "tasks": [], "inDegree": 1, "outDegree": 2, "testedBy": [], "entry": false, "entryKinds": [], "side": "up", "hop": 1, "dir": "src/big", "noteCount": 0, "dirNoteCount": 1 },
+      { "id": "src/tiny/t01.ts", "kind": "file", "label": "t01.ts", "path": "src/tiny/t01.ts", "parent": "dir:src/tiny/", "lang": "TypeScript", "lines": 20, "role": "source", "area": "dir:src/tiny/", "knowledge": { "own": 0, "inherited": 1, "stale": 0, "byType": {}, "lastNoteDate": null, "lowestConfidence": null }, "tasks": [], "inDegree": 0, "outDegree": 1, "testedBy": [], "entry": true, "entryKinds": [{ "kind": "main", "count": 1 }], "side": "up", "hop": 1, "dir": "src/tiny", "noteCount": 0, "dirNoteCount": 0 },
+      { "id": "fold:dir:src/big/:up", "kind": "fold", "label": "+16 more in src/big", "path": "src/big", "parent": "dir:src/big/", "lang": "TypeScript", "lines": 0, "role": "source", "area": "dir:src/big/", "knowledge": { "own": 0, "inherited": 0, "stale": 0, "byType": {}, "lastNoteDate": null, "lowestConfidence": null }, "tasks": [], "inDegree": 0, "outDegree": 0, "testedBy": [], "entry": false, "entryKinds": [], "side": "up", "hop": 1, "foldCount": 16, "foldIds": ["src/big/a05.ts", "src/big/a06.ts", "src/big/a09.ts", "src/big/a10.ts", "src/big/a11.ts", "src/big/a12.ts", "src/big/a13.ts", "src/big/a14.ts", "src/big/a15.ts", "src/big/a16.ts", "src/big/a17.ts", "src/big/a18.ts", "src/big/a19.ts", "src/big/a20.ts", "src/big/a21.ts", "src/big/a22.ts"], "dir": "src/big", "noteCount": 0, "dirNoteCount": 1 }
+    ],
+    "edges": [
+      { "source": "src/big/a02.ts", "target": "src/big/a01.ts", "kind": "import", "names": ["a01"] },
+      { "source": "src/big/a02.ts", "target": "src/types/shape.ts", "kind": "import", "names": ["Shape", "sizeOf"] },
+      { "source": "src/big/a03.ts", "target": "src/types/shape.ts", "kind": "import", "names": ["Shape"] },
+      { "source": "src/big/a04.ts", "target": "src/types/shape.ts", "kind": "import", "names": ["Shape", "emptyShape"] },
+      { "source": "src/big/a08.ts", "target": "src/big/a07.ts", "kind": "import", "names": ["a07"] },
+      { "source": "src/tiny/t01.ts", "target": "src/types/shape.ts", "kind": "import", "names": ["Shape"] },
+      { "source": "src/big/a01.ts", "target": "src/types/shape.ts", "kind": "import", "names": ["emptyShape", "Shape"] },
+      { "source": "src/big/a07.ts", "target": "src/types/shape.ts", "kind": "import", "names": ["sizeOf"] },
+      { "source": "src/big/__tests__/shape.test.ts", "target": "src/types/shape.ts", "kind": "tests", "names": ["sizeOf", "emptyShape"] },
+      { "source": "fold:dir:src/big/:up", "target": "src/types/shape.ts", "kind": "import", "weight": 16, "names": ["Shape"] }
+    ]
+  }
+}

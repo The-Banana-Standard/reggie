@@ -1,0 +1,74 @@
+{
+  "scope": "repo",
+  "id": "reggie",
+  "title": "reggie",
+  "subtitle": null,
+  "crumbs": [
+    { "label": "Workspace", "route": "#/ws" },
+    { "label": "reggie", "route": "#/repo/reggie" }
+  ],
+  "sections": [
+    { "id": "needs-you", "heading": "Needs you", "paragraphs": [] },
+    {
+      "id": "what",
+      "heading": "What this is",
+      "paragraphs": [],
+      "empty": {
+        "text": "Nobody has written what this repo is for. The first useful note says why it exists and how to run it.",
+        "action": { "label": "Add a note", "form": "note", "command": "reggie note add _repo --type why \"…\"" }
+      }
+    },
+    {
+      "id": "made-of",
+      "heading": "What it is made of",
+      "paragraphs": [
+        {
+          "id": "made-of-1",
+          "kind": "fact",
+          "text": "[[#/repo/reggie/area/packages/reggie|packages/reggie]] is a TypeScript package: 21 source files. It stands alone: nothing else in the repo imports it.",
+          "refs": ["dir:packages/reggie/"]
+        }
+      ]
+    },
+    {
+      "id": "starts",
+      "heading": "Where it starts",
+      "paragraphs": [],
+      "empty": { "text": "No entry point was recognised. Reggie looks for main/index/cli/server files and package.json bin/main." }
+    },
+    {
+      "id": "talks",
+      "heading": "How the pieces talk",
+      "paragraphs": [],
+      "empty": { "text": "The areas do not import each other." }
+    },
+    {
+      "id": "flight",
+      "heading": "What is in flight",
+      "paragraphs": [],
+      "empty": {
+        "text": "Nothing has been captured yet. A task starts as one line in intake; a plan makes it groomed; a `task/<slug>` branch means in process; an open PR means awaiting decision; a merge means done.",
+        "action": { "label": "Capture", "form": "capture", "command": "reggie capture \"…\"" }
+      }
+    },
+    {
+      "id": "recent",
+      "heading": "What happened recently",
+      "paragraphs": [],
+      "empty": { "text": "Nothing was recorded in the last 14 days.", "action": { "label": "Widen to 60 days" } }
+    },
+    {
+      "id": "gaps",
+      "heading": "What nobody has written down",
+      "paragraphs": [],
+      "empty": { "text": "Every area has a note and none is stale." }
+    },
+    {
+      "id": "run",
+      "heading": "How to run it",
+      "paragraphs": [],
+      "empty": { "text": "No build or test command was recognised.", "action": { "label": "Record what you ran", "form": "journal", "command": "reggie journal \"…\"" } }
+    }
+  ],
+  "next": []
+}

@@ -1,0 +1,797 @@
+{
+  "level": "impact",
+  "root": "task:repo-manager-mvp",
+  "centers": [
+    "packages/reggie/src/serve.ts",
+    "packages/reggie/src/graph.ts",
+    "packages/reggie/src/views.ts",
+    "packages/reggie/src/paths.ts",
+    "packages/reggie/ui/app.js"
+  ],
+  "nodes": [
+    {
+      "id": "packages/reggie/src/serve.ts",
+      "kind": "file",
+      "label": "serve.ts",
+      "path": "packages/reggie/src/serve.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 2,
+      "outDegree": 14,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 12,
+        "commits90": 24,
+        "commits365": 60,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 12,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 0,
+      "side": "both",
+      "center": true,
+      "planned": true,
+      "actual": true,
+      "task": "repo-manager-mvp",
+      "collision": [
+        "guidebook-ui"
+      ]
+    },
+    {
+      "id": "packages/reggie/src/graph.ts",
+      "kind": "file",
+      "label": "graph.ts",
+      "path": "packages/reggie/src/graph.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 4,
+      "outDegree": 6,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 8,
+        "commits90": 16,
+        "commits365": 40,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 8,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 0,
+      "side": "both",
+      "center": true,
+      "planned": true,
+      "actual": true,
+      "task": "repo-manager-mvp"
+    },
+    {
+      "id": "packages/reggie/src/views.ts",
+      "kind": "file",
+      "label": "views.ts",
+      "path": "packages/reggie/src/views.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 2,
+      "outDegree": 2,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 3,
+        "commits90": 6,
+        "commits365": 15,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 3,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 0,
+      "side": "both",
+      "center": true,
+      "planned": true,
+      "actual": false,
+      "task": "repo-manager-mvp"
+    },
+    {
+      "id": "packages/reggie/src/paths.ts",
+      "kind": "file",
+      "label": "paths.ts",
+      "path": "packages/reggie/src/paths.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 21,
+      "outDegree": 2,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 5,
+        "commits90": 10,
+        "commits365": 25,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 5,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 0,
+      "side": "both",
+      "center": true,
+      "planned": false,
+      "actual": true,
+      "task": "repo-manager-mvp"
+    },
+    {
+      "id": "packages/reggie/ui/app.js",
+      "kind": "file",
+      "label": "app.js",
+      "path": "packages/reggie/ui/app.js",
+      "parent": "dir:packages/reggie/ui/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 3,
+      "outDegree": 0,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 20,
+        "commits90": 40,
+        "commits365": 100,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 20,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/ui",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 0,
+      "side": "both",
+      "center": true,
+      "planned": true,
+      "actual": true,
+      "task": "guidebook-ui",
+      "collision": [
+        "repo-manager-mvp"
+      ]
+    },
+    {
+      "id": "packages/reggie/ui/map.js",
+      "kind": "file",
+      "label": "map.js",
+      "path": "packages/reggie/ui/map.js",
+      "parent": "dir:packages/reggie/ui/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 2,
+      "outDegree": 0,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 15,
+        "commits90": 30,
+        "commits365": 75,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 15,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/ui",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up",
+      "task": "guidebook-ui"
+    },
+    {
+      "id": "packages/reggie/src/cli.ts",
+      "kind": "file",
+      "label": "cli.ts",
+      "path": "packages/reggie/src/cli.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 1,
+      "outDegree": 12,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 4,
+        "commits90": 8,
+        "commits365": 20,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 4,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/mcp.ts",
+      "kind": "file",
+      "label": "mcp.ts",
+      "path": "packages/reggie/src/mcp.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 1,
+      "outDegree": 9,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 1,
+        "commits90": 2,
+        "commits365": 5,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 1,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/story.ts",
+      "kind": "file",
+      "label": "story.ts",
+      "path": "packages/reggie/src/story.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 1,
+      "outDegree": 4,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 2,
+        "commits90": 4,
+        "commits365": 10,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 2,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/index.ts",
+      "kind": "file",
+      "label": "index.ts",
+      "path": "packages/reggie/src/index.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 0,
+      "outDegree": 3,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 0,
+        "commits90": 0,
+        "commits365": 0,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 0,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 2,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/graph.test.ts",
+      "kind": "file",
+      "label": "graph.test.ts",
+      "path": "packages/reggie/src/graph.test.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "test",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 0,
+      "outDegree": 1,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 2,
+        "commits90": 4,
+        "commits365": 10,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 2,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "src/components/Sidebar/Sidebar.tsx",
+      "kind": "file",
+      "label": "Sidebar.tsx",
+      "path": "src/components/Sidebar/Sidebar.tsx",
+      "parent": "dir:src/components/Sidebar/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:src/components/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 4,
+      "outDegree": 6,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 3,
+        "commits90": 6,
+        "commits365": 15,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 3,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "src/components/Sidebar",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    }
+  ],
+  "edges": [
+    {
+      "source": "packages/reggie/src/serve.ts",
+      "target": "packages/reggie/src/graph.ts",
+      "kind": "import",
+      "names": [
+        "buildGraph",
+        "RepoGraph"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/serve.ts",
+      "target": "packages/reggie/src/views.ts",
+      "kind": "import",
+      "names": [
+        "containerView",
+        "dirView"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/serve.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/graph.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths",
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/views.ts",
+      "target": "packages/reggie/src/graph.ts",
+      "kind": "import",
+      "names": [
+        "RepoGraph"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/cli.ts",
+      "target": "packages/reggie/src/serve.ts",
+      "kind": "import",
+      "names": [
+        "startServer"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/cli.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/mcp.ts",
+      "target": "packages/reggie/src/graph.ts",
+      "kind": "import",
+      "names": [
+        "buildGraph"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/story.ts",
+      "target": "packages/reggie/src/views.ts",
+      "kind": "import",
+      "names": [
+        "containerView"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/index.ts",
+      "target": "packages/reggie/src/cli.ts",
+      "kind": "import",
+      "names": [
+        "run"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/graph.test.ts",
+      "target": "packages/reggie/src/graph.ts",
+      "kind": "tests",
+      "names": [
+        "buildGraph"
+      ]
+    },
+    {
+      "source": "packages/reggie/ui/map.js",
+      "target": "packages/reggie/ui/app.js",
+      "kind": "import",
+      "names": [
+        "storage"
+      ]
+    },
+    {
+      "source": "src/components/Sidebar/Sidebar.tsx",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths"
+      ],
+      "confidence": "heuristic"
+    },
+    {
+      "source": "task:repo-manager-mvp",
+      "target": "packages/reggie/src/serve.ts",
+      "kind": "touches"
+    }
+  ],
+  "areas": [
+    {
+      "id": "dir:packages/reggie/",
+      "label": "packages/reggie",
+      "hue": 2,
+      "source": 21,
+      "files": 32
+    },
+    {
+      "id": "dir:src-tauri/",
+      "label": "src-tauri",
+      "hue": 3,
+      "source": 18,
+      "files": 19
+    },
+    {
+      "id": "dir:src/components/",
+      "label": "src/components",
+      "hue": 1,
+      "source": 29,
+      "files": 54
+    },
+    {
+      "id": "dir:src/hooks/",
+      "label": "src/hooks",
+      "hue": 4,
+      "source": 5,
+      "files": 10
+    },
+    {
+      "id": "dir:src/types/",
+      "label": "src/types",
+      "hue": 5,
+      "source": 7,
+      "files": 8
+    },
+    {
+      "id": "dir:src/services/",
+      "label": "src/services",
+      "hue": 0,
+      "source": 3,
+      "files": 6
+    },
+    {
+      "id": "dir:src/",
+      "label": "src (other)",
+      "hue": 0,
+      "source": 5,
+      "files": 9
+    }
+  ],
+  "cycles": [],
+  "counts": {
+    "totalCodeFiles": 140,
+    "shown": 12,
+    "folded": 0,
+    "hiddenTests": 4,
+    "up": [
+      7,
+      1
+    ],
+    "down": [
+      0
+    ]
+  },
+  "generatedAt": "2026-09-07T12:00:00.000Z"
+}

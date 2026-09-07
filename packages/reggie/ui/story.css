@@ -1,0 +1,138 @@
+/* story.css — styles owned by ui/story.js (spec §3.2 story column, §3.3 Spotlight, §5.2 type, §5.3 spacing).
+   Tokens and the shared classes (.section, .para, .card, .chip, .form, .empty, .skeleton …) live in styles.css;
+   this file only adds module-private rules and the states story.js toggles. See ui/DOM-CONTRACT.md. */
+
+/* ---------- Story head and footer ---------- */
+.story__subtitle {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--muted);
+  margin: 0 0 var(--s-5);
+  max-width: var(--measure);
+}
+.story__next {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3);
+  margin-top: var(--s-6); padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-label);
+}
+.story__next-label { font-size: var(--fs-meta); }
+
+/* ---------- Paragraphs ---------- */
+/* Entity links flow with the prose: styles.css makes .link inline-flex (fine in chips and crumbs), but inside a
+   62ch measure that keeps a link from wrapping and strands punctuation at line ends. */
+.sections .para .link, .sections .card__body .link, .sections .empty__text .link, .spot__sentence .link { display: inline; white-space: normal; }
+.sections .para .link .i, .sections .card__body .link .i, .sections .empty__text .link .i, .spot__sentence .link .i { margin-right: 3px; }
+/* Inline code inside story text (backticks in the payload). */
+.para code.code, .card__body code.code, .empty__text code.code {
+  font-family: var(--mono); font-size: 0.9em;
+  background: var(--panel-2); padding: 1px 5px; border-radius: 4px;
+}
+.card__body code.code { background: var(--bg); }
+
+/* Chips that follow a plain paragraph (12px, wrap under the text). */
+.para__chips { display: inline-flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); margin-left: var(--s-2); vertical-align: middle; }
+.para--list .para__chips { display: flex; margin: var(--s-2) 0 0; }
+
+/* Lists: 12px between items, bullets in the muted colour. */
+.para--list ul { list-style: disc; }
+.para--list li { margin: 0 0 var(--s-1); }
+.para--list li::marker { color: var(--faint); }
+
+/* Commits: mono sha chip, subject inline, metadata chips after. */
+.para--commit .sha { padding: 1px 6px; margin-right: 2px; color: var(--muted); border-color: var(--line); }
+.para--commit .commit__subject { color: var(--text); }
+
+/* Reading mode — the paragraph crossing the top third (IntersectionObserver). `.reading` is an alias of `.is-reading`.
+   Cards are NOT listed here: `.card.reading` outranks `.card--note.note--how` and `.card--note.is-stale`
+   and would wipe the note-type colour channel exactly while the reader is looking at the card (F07).
+   The box-shadow on the next line is the reading cue for cards. */
+.para.reading, .cmd.reading { border-left-color: var(--line-strong); }
+.card.is-reading, .card.reading { box-shadow: 0 0 0 1px var(--line-strong); }
+
+/* Map → story tint (`--info` at 60%) also on cards; hover brightens the whole element a touch. */
+.card.is-tinted, .cmd.is-tinted { border-left-color: rgba(125, 207, 255, 0.6); }
+.para:hover, .card:hover { background: rgba(230, 232, 238, 0.025); }
+.para[data-refs=""]:hover, .card[data-refs=""]:hover { background: transparent; }
+
+/* ---------- Cards (notes, journal, decisions) ---------- */
+.card__label { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-meta); font-weight: 500; color: var(--muted); }
+.card__label .i { color: var(--muted); }
+.card__date { font-size: var(--fs-meta); }
+.card__head .chips { margin-left: auto; }
+.card__head .link { font-size: var(--fs-label); }
+.chip--stale { text-transform: none; }
+.chip--stale .i { color: var(--bad); }
+.chip[href] { cursor: pointer; }
+.chip[href]:hover { text-decoration: none; border-color: var(--info); color: var(--info); }
+
+/* Decision card: comment box above the two verdict buttons. */
+.card--decision .decision__form { margin-top: var(--s-3); }
+.card--decision .decision__comment { min-height: 48px; }
+.card--decision .decision__who { margin: var(--s-2) 0 0; }
+.form.is-busy { opacity: 0.6; }
+.form__done { margin-top: var(--s-2); }
+
+/* ---------- Empty-state block (§4): dashed card, text, form, command as a secondary hint ---------- */
+.card--empty.empty { border-left: 1px dashed var(--line-strong); padding-left: 14px; }
+.card--empty .empty__text { margin: 0; color: var(--muted); }
+.card--empty .form { margin-top: var(--s-3); }
+.card--empty .card__actions { margin-top: var(--s-3); }
+.card--empty .empty__hint { margin: var(--s-3) 0 0; color: var(--faint-text); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.card--empty .empty__hint code { color: var(--muted); }
+.form__entity { margin-left: auto; }
+.form__entity code { background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+.form__label select { margin-left: 2px; }
+
+/* ---------- Commands ("How to run it"): collapsed <details>, copyable code chips ---------- */
+.cmds__list { list-style: none; margin: var(--s-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-2); }
+.cmd { display: flex; align-items: center; gap: var(--s-2); padding-left: var(--s-3); border-left: 3px solid transparent; transition: border-color var(--t-highlight) var(--ease); }
+.cmd__code { font-family: var(--mono); font-size: var(--fs-meta); color: var(--text); background: var(--panel-2); padding: 3px 8px; user-select: all; }
+.cmd__copy { color: var(--muted); opacity: 0; transition: opacity var(--t-highlight) var(--ease); }
+.cmd:hover .cmd__copy, .cmd__copy:focus-visible, .empty__hint:hover .cmd__copy, .empty__hint .cmd__copy:focus-visible { opacity: 1; }
+.cmd__copy:hover { color: var(--info); }
+
+/* Section footer (e.g. "Widen to 60 days" under a filled journal section). */
+.section__foot { margin-top: var(--s-3); }
+.section.is-widened .section__foot { display: none; }
+
+/* ---------- Skeleton sections (§3.1 loading) ---------- */
+.section--skeleton .section__h { color: var(--muted); }
+
+/* ---------- Spotlight card (§3.3): pinned above the sections, 180 ms fade in and out ---------- */
+.spotlight-slot { margin-bottom: var(--s-5); max-width: var(--measure); }
+.spotlight-slot:empty { margin-bottom: 0; }
+.card--spotlight { border-left-color: var(--info); }
+.card--spotlight.is-leaving { animation: spot-out var(--t-spot) var(--ease) forwards; pointer-events: none; }
+@keyframes spot-out { from { opacity: 1; } to { opacity: 0; } }
+.spot__head { margin-bottom: var(--s-1); }
+.spot__head > .i { color: var(--info); width: 16px; height: 16px; }
+.spot__title { font-size: var(--fs-h2); font-weight: 600; color: var(--text); }
+.spot__title:hover { color: var(--info); text-decoration: none; }
+.spot__kind { text-transform: lowercase; background: var(--panel); border: 1px solid var(--line-strong); color: var(--muted); font-weight: 500; }
+.spot__crumbs { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; margin-bottom: var(--s-3); font-size: var(--fs-meta); }
+.spot__crumb { color: var(--muted); }
+.spot__crumb:hover { color: var(--info); }
+.spot__body { display: flex; flex-direction: column; gap: var(--s-2); }
+.spot__sentence {
+  margin: 0; padding-left: var(--s-2);
+  border-left: 3px solid transparent;
+  font-size: var(--fs-body); line-height: var(--lh-body);
+  transition: border-color var(--t-highlight) var(--ease);
+}
+.spot__sentence:hover, .spot__sentence:focus-within { border-left-color: var(--line-strong); }
+.spot__sentence.is-tinted { border-left-color: rgba(125, 207, 255, 0.6); }
+.spot__actions .btn .i { color: var(--muted); }
+.spot__actions .btn:hover .i { color: var(--info); }
+
+/* Dense mode: the Spotlight keeps its four sentences but hides the crumbs. */
+.app.is-dense .spot__crumbs { display: none; }
+
+/* ---------- Spotlight: the file pairs behind an aggregated edge (app.js pinEdgeSpotlight) ---------- */
+.spot__via { list-style: none; margin: 0; padding: 0 0 0 10px; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-meta); }
+.spot__via li { color: var(--muted); }
+.spot__via .link { display: inline; }
+
+/* ---------- "Read the source" row above the file story (app.js addReaderButton) ---------- */
+.story__actions { margin: 0 0 var(--s-4); }
+.app.is-dense .story__actions { margin-bottom: var(--s-3); }

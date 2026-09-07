@@ -1,0 +1,1632 @@
+{
+  "level": "impact",
+  "root": "packages/reggie/src/paths.ts",
+  "center": "packages/reggie/src/paths.ts",
+  "nodes": [
+    {
+      "id": "packages/reggie/src/paths.ts",
+      "kind": "file",
+      "label": "paths.ts",
+      "path": "packages/reggie/src/paths.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 21,
+      "outDegree": 2,
+      "testedBy": [
+        "packages/reggie/src/paths.test.ts"
+      ],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 5,
+        "commits90": 10,
+        "commits365": 25,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 5,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 0,
+      "side": "both",
+      "center": true
+    },
+    {
+      "id": "packages/reggie/src/cli.ts",
+      "kind": "file",
+      "label": "cli.ts",
+      "path": "packages/reggie/src/cli.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 0,
+      "outDegree": 3,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 0,
+        "commits90": 0,
+        "commits365": 0,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 0,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 1,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/serve.ts",
+      "kind": "file",
+      "label": "serve.ts",
+      "path": "packages/reggie/src/serve.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 7,
+      "outDegree": 3,
+      "testedBy": [
+        "packages/reggie/src/serve.test.ts"
+      ],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 3,
+        "commits90": 6,
+        "commits365": 15,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 3,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/mcp.ts",
+      "kind": "file",
+      "label": "mcp.ts",
+      "path": "packages/reggie/src/mcp.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 3,
+      "outDegree": 3,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 6,
+        "commits90": 12,
+        "commits365": 30,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 6,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/graph.ts",
+      "kind": "file",
+      "label": "graph.ts",
+      "path": "packages/reggie/src/graph.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 10,
+      "outDegree": 3,
+      "testedBy": [
+        "packages/reggie/src/graph.test.ts"
+      ],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 0,
+        "commits90": 0,
+        "commits365": 0,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 0,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 1,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/facts.ts",
+      "kind": "file",
+      "label": "facts.ts",
+      "path": "packages/reggie/src/facts.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 6,
+      "outDegree": 3,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 3,
+        "commits90": 6,
+        "commits365": 15,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 3,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/tasks.ts",
+      "kind": "file",
+      "label": "tasks.ts",
+      "path": "packages/reggie/src/tasks.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 2,
+      "outDegree": 3,
+      "testedBy": [
+        "packages/reggie/src/tasks.test.ts"
+      ],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 6,
+        "commits90": 12,
+        "commits365": 30,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 6,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/notes.ts",
+      "kind": "file",
+      "label": "notes.ts",
+      "path": "packages/reggie/src/notes.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 9,
+      "outDegree": 3,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 0,
+        "commits90": 0,
+        "commits365": 0,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 0,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 1,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/journal.ts",
+      "kind": "file",
+      "label": "journal.ts",
+      "path": "packages/reggie/src/journal.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 5,
+      "outDegree": 3,
+      "testedBy": [
+        "packages/reggie/src/journal.test.ts"
+      ],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 3,
+        "commits90": 6,
+        "commits365": 15,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 3,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/capture.ts",
+      "kind": "file",
+      "label": "capture.ts",
+      "path": "packages/reggie/src/capture.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 1,
+      "outDegree": 3,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 6,
+        "commits90": 12,
+        "commits365": 30,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 6,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/packet.ts",
+      "kind": "file",
+      "label": "packet.ts",
+      "path": "packages/reggie/src/packet.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 8,
+      "outDegree": 3,
+      "testedBy": [
+        "packages/reggie/src/packet.test.ts"
+      ],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 0,
+        "commits90": 0,
+        "commits365": 0,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 0,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 1,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/plan.ts",
+      "kind": "file",
+      "label": "plan.ts",
+      "path": "packages/reggie/src/plan.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 4,
+      "outDegree": 3,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 3,
+        "commits90": 6,
+        "commits365": 15,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 3,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/context.ts",
+      "kind": "file",
+      "label": "context.ts",
+      "path": "packages/reggie/src/context.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 0,
+      "outDegree": 3,
+      "testedBy": [
+        "packages/reggie/src/context.test.ts"
+      ],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 6,
+        "commits90": 12,
+        "commits365": 30,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 6,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/people.ts",
+      "kind": "file",
+      "label": "people.ts",
+      "path": "packages/reggie/src/people.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 7,
+      "outDegree": 3,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 0,
+        "commits90": 0,
+        "commits365": 0,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 0,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 1,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/config.ts",
+      "kind": "file",
+      "label": "config.ts",
+      "path": "packages/reggie/src/config.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 3,
+      "outDegree": 3,
+      "testedBy": [
+        "packages/reggie/src/config.test.ts"
+      ],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 3,
+        "commits90": 6,
+        "commits365": 15,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 3,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/git.ts",
+      "kind": "file",
+      "label": "git.ts",
+      "path": "packages/reggie/src/git.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 10,
+      "outDegree": 3,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 6,
+        "commits90": 12,
+        "commits365": 30,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 6,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/onboard.ts",
+      "kind": "file",
+      "label": "onboard.ts",
+      "path": "packages/reggie/src/onboard.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 6,
+      "outDegree": 3,
+      "testedBy": [
+        "packages/reggie/src/onboard.test.ts"
+      ],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 0,
+        "commits90": 0,
+        "commits365": 0,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 0,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 1,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/intake.ts",
+      "kind": "file",
+      "label": "intake.ts",
+      "path": "packages/reggie/src/intake.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 2,
+      "outDegree": 3,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 3,
+        "commits90": 6,
+        "commits365": 15,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 3,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/claim.ts",
+      "kind": "file",
+      "label": "claim.ts",
+      "path": "packages/reggie/src/claim.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 9,
+      "outDegree": 3,
+      "testedBy": [
+        "packages/reggie/src/claim.test.ts"
+      ],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 6,
+        "commits90": 12,
+        "commits365": 30,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 6,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/history.ts",
+      "kind": "file",
+      "label": "history.ts",
+      "path": "packages/reggie/src/history.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 5,
+      "outDegree": 3,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 0,
+        "commits90": 0,
+        "commits365": 0,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 0,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 1,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/views.ts",
+      "kind": "file",
+      "label": "views.ts",
+      "path": "packages/reggie/src/views.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 1,
+      "outDegree": 3,
+      "testedBy": [
+        "packages/reggie/src/views.test.ts"
+      ],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 3,
+        "commits90": 6,
+        "commits365": 15,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 3,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/story.ts",
+      "kind": "file",
+      "label": "story.ts",
+      "path": "packages/reggie/src/story.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 8,
+      "outDegree": 3,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 6,
+        "commits90": 12,
+        "commits365": 30,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 6,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/index.ts",
+      "kind": "file",
+      "label": "index.ts",
+      "path": "packages/reggie/src/index.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 1,
+      "outDegree": 12,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 1,
+        "commits90": 2,
+        "commits365": 5,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 1,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 2,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/api.ts",
+      "kind": "file",
+      "label": "api.ts",
+      "path": "packages/reggie/src/api.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 1,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 1,
+      "outDegree": 12,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 1,
+        "commits90": 2,
+        "commits365": 5,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 1,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 0,
+      "dirNoteCount": 0,
+      "hop": 2,
+      "side": "up"
+    },
+    {
+      "id": "packages/reggie/src/util.ts",
+      "kind": "file",
+      "label": "util.ts",
+      "path": "packages/reggie/src/util.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 9,
+      "outDegree": 0,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 0,
+        "commits90": 0,
+        "commits365": 0,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 0,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 1,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "down"
+    },
+    {
+      "id": "packages/reggie/src/constants.ts",
+      "kind": "file",
+      "label": "constants.ts",
+      "path": "packages/reggie/src/constants.ts",
+      "parent": "dir:packages/reggie/src/",
+      "lang": "TypeScript",
+      "lines": 120,
+      "role": "source",
+      "area": "dir:packages/reggie/",
+      "knowledge": {
+        "own": 1,
+        "inherited": 2,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": "2026-09-06",
+        "lowestConfidence": "high"
+      },
+      "tasks": [],
+      "inDegree": 9,
+      "outDegree": 0,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "history": {
+        "commits30": 1,
+        "commits90": 2,
+        "commits365": 5,
+        "linesChanged": 400,
+        "lastTouched": "2026-09-07",
+        "authors": [
+          {
+            "handle": "jacobpress",
+            "name": "jacobpress",
+            "email": "jacobpress@example.com",
+            "lines": 392,
+            "commits": 1,
+            "share": 0.98
+          }
+        ],
+        "busFactor": 1
+      },
+      "dir": "packages/reggie/src",
+      "noteCount": 1,
+      "dirNoteCount": 0,
+      "hop": 1,
+      "side": "down"
+    },
+    {
+      "id": "fold:up:dir:src/components/",
+      "kind": "fold",
+      "label": "+6 more in src/components",
+      "path": "src/components",
+      "parent": null,
+      "lang": "",
+      "lines": 0,
+      "role": "source",
+      "area": "dir:src/components/",
+      "knowledge": {
+        "own": 0,
+        "inherited": 0,
+        "stale": 0,
+        "byType": {},
+        "lastNoteDate": null,
+        "lowestConfidence": null
+      },
+      "tasks": [],
+      "inDegree": 0,
+      "outDegree": 0,
+      "testedBy": [],
+      "entry": false,
+      "entryKinds": [],
+      "side": "up",
+      "hop": 2,
+      "foldCount": 6,
+      "foldIds": [
+        "src/components/Sidebar/Sidebar.tsx",
+        "src/components/Layout.tsx",
+        "src/components/Settings.tsx",
+        "src/components/Toast.tsx",
+        "src/components/StatusBar.tsx",
+        "src/components/SkillsStore.tsx"
+      ],
+      "dir": "",
+      "noteCount": 0,
+      "dirNoteCount": 0
+    }
+  ],
+  "edges": [
+    {
+      "source": "packages/reggie/src/cli.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths",
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/serve.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/mcp.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "resolvePaths",
+        "isSafeSlug",
+        "noteFile"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/graph.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/facts.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths",
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/tasks.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/notes.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "resolvePaths",
+        "isSafeSlug",
+        "noteFile"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/journal.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/capture.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths",
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/packet.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/plan.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "resolvePaths",
+        "isSafeSlug",
+        "noteFile"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/context.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/people.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths",
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/config.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/git.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "resolvePaths",
+        "isSafeSlug",
+        "noteFile"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/onboard.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/intake.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths",
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/claim.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/history.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "resolvePaths",
+        "isSafeSlug",
+        "noteFile"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/views.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/story.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths",
+        "resolvePaths"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/index.ts",
+      "target": "packages/reggie/src/cli.ts",
+      "kind": "import",
+      "names": [
+        "run"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/api.ts",
+      "target": "packages/reggie/src/serve.ts",
+      "kind": "import",
+      "names": [
+        "startServer",
+        "VENDOR_FILES"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/serve.ts",
+      "target": "packages/reggie/src/graph.ts",
+      "kind": "import",
+      "names": [
+        "buildGraph",
+        "RepoGraph"
+      ]
+    },
+    {
+      "source": "fold:up:dir:src/components/",
+      "target": "packages/reggie/src/serve.ts",
+      "kind": "import",
+      "weight": 6
+    },
+    {
+      "source": "packages/reggie/src/paths.ts",
+      "target": "packages/reggie/src/util.ts",
+      "kind": "import",
+      "names": [
+        "slugify",
+        "readText"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/paths.ts",
+      "target": "packages/reggie/src/constants.ts",
+      "kind": "import",
+      "names": [
+        "REGGIE_DIR"
+      ]
+    },
+    {
+      "source": "packages/reggie/src/util.ts",
+      "target": "packages/reggie/src/paths.ts",
+      "kind": "import",
+      "names": [
+        "RepoPaths"
+      ],
+      "cycle": true
+    }
+  ],
+  "areas": [
+    {
+      "id": "dir:packages/reggie/",
+      "label": "packages/reggie",
+      "hue": 2,
+      "source": 21,
+      "files": 32
+    },
+    {
+      "id": "dir:src-tauri/",
+      "label": "src-tauri",
+      "hue": 3,
+      "source": 18,
+      "files": 19
+    },
+    {
+      "id": "dir:src/components/",
+      "label": "src/components",
+      "hue": 1,
+      "source": 29,
+      "files": 54
+    },
+    {
+      "id": "dir:src/hooks/",
+      "label": "src/hooks",
+      "hue": 4,
+      "source": 5,
+      "files": 10
+    },
+    {
+      "id": "dir:src/types/",
+      "label": "src/types",
+      "hue": 5,
+      "source": 7,
+      "files": 8
+    },
+    {
+      "id": "dir:src/services/",
+      "label": "src/services",
+      "hue": 0,
+      "source": 3,
+      "files": 6
+    },
+    {
+      "id": "dir:src/",
+      "label": "src (other)",
+      "hue": 0,
+      "source": 5,
+      "files": 9
+    }
+  ],
+  "cycles": [
+    [
+      "packages/reggie/src/paths.ts",
+      "packages/reggie/src/util.ts"
+    ]
+  ],
+  "counts": {
+    "totalCodeFiles": 140,
+    "shown": 26,
+    "folded": 6,
+    "hiddenTests": 11,
+    "up": [
+      21,
+      8
+    ],
+    "down": [
+      2
+    ]
+  },
+  "generatedAt": "2026-09-07T12:00:00.000Z"
+}

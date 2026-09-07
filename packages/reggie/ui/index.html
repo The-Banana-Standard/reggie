@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Reggie</title>
+<link rel="stylesheet" href="/ui/styles.css">
+<link rel="stylesheet" href="/ui/story.css">
+<link rel="stylesheet" href="/ui/map.css">
+<link rel="stylesheet" href="/ui/reader.css">
+<link rel="stylesheet" href="/ui/board.css">
+</head>
+<body>
+
+<!-- Icon set (spec §5.4): 24x24 grid, 1.5px stroke, currentColor. Use: <svg class="i"><use href="#i-file"/></svg> -->
+<svg xmlns="http://www.w3.org/2000/svg" id="icons" class="icons" aria-hidden="true" focusable="false" style="display:none">
+  <defs>
+    <symbol id="i-repo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>
+    </symbol>
+    <symbol id="i-area" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 7.5V18a1.5 1.5 0 0 0 1.5 1.5h15A1.5 1.5 0 0 0 21 18V9.5A1.5 1.5 0 0 0 19.5 8H12l-2-2.5H4.5A1.5 1.5 0 0 0 3 7z"/>
+    </symbol>
+    <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8l-5-5z"/><path d="M14 3v5h5M8.5 13h7M8.5 17h7"/>
+    </symbol>
+    <symbol id="i-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 4c-2 0-3 1-3 3v3c0 1-1 2-2 2 1 0 2 1 2 2v3c0 2 1 3 3 3M16 4c2 0 3 1 3 3v3c0 1 1 2 2 2-1 0-2 1-2 2v3c0 2-1 3-3 3"/>
+    </symbol>
+    <symbol id="i-task" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3l9 9-9 9-9-9 9-9z"/>
+    </symbol>
+    <symbol id="i-person" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+    </symbol>
+    <symbol id="i-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 3.5h12v17l-6-4-6 4v-17z"/>
+    </symbol>
+    <symbol id="i-journal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>
+    </symbol>
+    <symbol id="i-entry" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 4.5v15l12-7.5-12-7.5z"/>
+    </symbol>
+    <symbol id="i-test" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 2">
+      <circle cx="12" cy="12" r="8"/>
+    </symbol>
+    <symbol id="i-stale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3.5 21 20H3l9-16.5z"/><path d="M12 9.5v5M12 17.5v.5"/>
+    </symbol>
+    <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5.5"/>
+    </symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/>
+    </symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>
+    </symbol>
+    <symbol id="i-zoom-in" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8M10.5 7.5v6M7.5 10.5h6"/>
+    </symbol>
+    <symbol id="i-zoom-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8M7.5 10.5h6"/>
+    </symbol>
+    <symbol id="i-relayout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 12a8 8 0 0 1-14.5 4.6M4 12a8 8 0 0 1 14.5-4.6"/><path d="M4 4v4.5h4.5M20 20v-4.5h-4.5"/>
+    </symbol>
+    <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 6l12 12M18 6 6 18"/>
+    </symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M15 9V5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15H9"/>
+    </symbol>
+    <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 12H5M11 6l-6 6 6 6"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div id="app" class="app">
+  <header id="header" class="header">
+    <nav id="crumbs" class="crumbs" aria-label="Breadcrumb"></nav>
+    <div class="header__tools">
+      <button id="search-trigger" class="btn btn--ghost" type="button" aria-label="Search (Command K)" title="Search (⌘K)">
+        <svg class="i"><use href="#i-search"/></svg><span>Search</span><kbd class="kbd">⌘K</kbd>
+      </button>
+      <div id="lens" class="seg" role="radiogroup" aria-label="Lens">
+        <button id="lens-structure" class="seg__btn is-active" type="button" role="radio" aria-checked="true" data-lens="structure" title="Colour = area (1)">Structure</button>
+        <button id="lens-knowledge" class="seg__btn" type="button" role="radio" aria-checked="false" data-lens="knowledge" title="Colour = documentation (2)">Knowledge</button>
+        <button id="lens-tests" class="seg__btn" type="button" role="radio" aria-checked="false" data-lens="tests" title="Colour = test coverage (3)">Tests</button>
+        <button id="lens-heat" class="seg__btn" type="button" role="radio" aria-checked="false" data-lens="heat" title="Colour = commits in 30 days (4)">Heat</button>
+        <button id="lens-owners" class="seg__btn" type="button" role="radio" aria-checked="false" data-lens="owners" title="Colour = dominant author (5)">Owners</button>
+      </div>
+      <button id="dense" class="btn btn--ghost" type="button" aria-pressed="false" aria-label="Dense mode" title="Dense: headings and first paragraphs only; map takes 75%">Dense</button>
+      <div id="repo-switcher" class="repo-switcher" hidden>
+        <label class="sr-only" for="repo-select">Repository</label>
+        <select id="repo-select" class="select" aria-label="Repository"></select>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="main">
+    <section id="story" class="story" aria-label="Story">
+      <div id="spotlight" class="spotlight-slot"></div>
+      <div id="sections" class="sections"></div>
+    </section>
+
+    <section id="map-col" class="map-col" aria-label="Map">
+      <!-- Sticky mini-breadcrumb (§3.1): only visible under 1100px, where the map stacks on top. -->
+      <div id="mini-crumbs" class="crumbs--mini" aria-hidden="true"></div>
+      <div id="map-tabs" class="tabs" role="tablist">
+        <button id="tab-map" class="tabs__tab is-active" type="button" role="tab" aria-selected="true" data-tab="map">Map</button>
+        <button id="tab-treemap" class="tabs__tab" type="button" role="tab" aria-selected="false" data-tab="treemap" disabled title="Treemap is not in this release">Treemap</button>
+      </div>
+      <div id="map-stage" class="map-stage">
+        <div id="cy" class="map-canvas" aria-label="Map canvas"></div>
+        <div id="toolbar" class="float float--toolbar" role="toolbar" aria-label="Map tools">
+          <button id="tb-fit" class="btn btn--tool" type="button" aria-label="Fit (F)" title="Fit (F)"><svg class="i"><use href="#i-fit"/></svg><span>Fit</span></button>
+          <button id="tb-zoom-out" class="btn btn--tool" type="button" aria-label="Zoom out" title="Zoom out"><svg class="i"><use href="#i-zoom-out"/></svg></button>
+          <button id="tb-zoom-in" class="btn btn--tool" type="button" aria-label="Zoom in" title="Zoom in"><svg class="i"><use href="#i-zoom-in"/></svg></button>
+          <button id="tb-relayout" class="btn btn--tool" type="button" aria-label="Re-layout" title="Re-layout"><svg class="i"><use href="#i-relayout"/></svg><span>Re-layout</span></button>
+          <button id="tb-tests" class="btn btn--tool" type="button" aria-pressed="false" aria-label="Show tests (T)" title="Show tests (T)"><svg class="i"><use href="#i-test"/></svg><span>Show tests</span></button>
+          <div id="tb-extra" class="float__extra"></div>
+        </div>
+        <div id="legend" class="float float--legend" aria-label="Legend"></div>
+        <div id="map-footer" class="map-footer" aria-live="polite"></div>
+        <div id="map-tip" class="tip" role="tooltip" hidden></div>
+      </div>
+      <div id="reader" class="reader" hidden></div>
+    </section>
+  </main>
+</div>
+
+<div id="palette" class="palette" role="dialog" aria-modal="true" aria-label="Search" hidden>
+  <div id="palette-backdrop" class="palette__backdrop"></div>
+  <div class="palette__box">
+    <input id="palette-input" class="palette__input" type="search" placeholder="Search areas, files, symbols, tasks, people, notes" autocomplete="off" spellcheck="false" aria-label="Search" aria-controls="palette-results">
+    <div id="palette-results" class="palette__results" role="listbox"></div>
+    <div class="palette__hint">↑↓ move · Enter open · Shift+Enter highlight on the map · Esc close</div>
+  </div>
+</div>
+
+<div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<!-- Vendor-first script loading with CDN fallback (spec §7). Load order: cytoscape, dagre, cytoscape-dagre. -->
+<script src="/vendor/cytoscape.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.4/cytoscape.min.js'"></script>
+<script src="/vendor/dagre.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js'"></script>
+<script src="/vendor/cytoscape-dagre.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js'"></script>
+<!-- d3 7.9.0 is stretch (Treemap, Timeline). Uncomment when treemap.js lands:
+<script src="/vendor/d3.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js'"></script>
+-->
+<script type="module" src="/ui/app.js"></script>
+</body>
+</html>

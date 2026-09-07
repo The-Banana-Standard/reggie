@@ -1,0 +1,120 @@
+{
+  "scope": "file",
+  "id": "packages/reggie/src/paths.ts",
+  "title": "paths.ts",
+  "subtitle": "TypeScript, 98 lines, in [[#/repo/reggie/area/packages/reggie|packages/reggie]].",
+  "crumbs": [
+    { "label": "Workspace", "route": "#/ws" },
+    { "label": "reggie", "route": "#/repo/reggie" },
+    { "label": "packages", "route": "#/repo/reggie/area/packages" },
+    { "label": "reggie", "route": "#/repo/reggie/area/packages/reggie" },
+    { "label": "src", "route": "#/repo/reggie/area/packages/reggie/src" },
+    { "label": "paths.ts", "route": "#/repo/reggie/file/packages/reggie/src/paths.ts" }
+  ],
+  "sections": [
+    {
+      "id": "read-first",
+      "heading": "Read these first",
+      "paragraphs": [
+        {
+          "id": "rf-1",
+          "kind": "note",
+          "text": "The product is the CLI in packages/reggie. The Tauri app is legacy.",
+          "refs": ["repo:reggie"],
+          "source": { "entity": "_repo", "type": "why", "confidence": "high", "author": "Claude via jacobpress", "date": "2026-09-06" }
+        },
+        {
+          "id": "rf-2",
+          "kind": "note",
+          "text": "paths.ts owns every path under .reggie/; add new files there, never in cli.ts.",
+          "refs": ["dir:packages/reggie/", "packages/reggie/src/paths.ts"],
+          "source": { "entity": "packages/reggie/", "type": "gotcha", "confidence": "high", "author": "Claude via jacobpress", "date": "2026-09-06", "stale": true, "codeChanged": "2026-09-07" }
+        },
+        {
+          "id": "rf-3",
+          "kind": "gap",
+          "text": "No note is written on [[#/repo/reggie/file/packages/reggie/src/paths.ts|paths.ts]] itself; the two above are inherited from the repo and the folder.",
+          "refs": ["packages/reggie/src/paths.ts"]
+        }
+      ]
+    },
+    {
+      "id": "exports",
+      "heading": "What it exports",
+      "paragraphs": [
+        {
+          "id": "ex-1",
+          "kind": "list",
+          "text": "[[#/repo/reggie/symbol/packages/reggie/src/paths.ts::repoPaths|repoPaths]] function, line 24, used by 19 files\n[[#/repo/reggie/symbol/packages/reggie/src/paths.ts::findRepoRoot|findRepoRoot]] function, line 61, used by four files\n[[#/repo/reggie/symbol/packages/reggie/src/paths.ts::RepoPaths|RepoPaths]] interface, line 8, used by 12 files",
+          "refs": ["packages/reggie/src/paths.ts"]
+        }
+      ]
+    },
+    {
+      "id": "used-by",
+      "heading": "Who uses it",
+      "paragraphs": [
+        {
+          "id": "ub-1",
+          "kind": "fact",
+          "text": "Used by 19 files in [[#/repo/reggie/area/packages/reggie/src|packages/reggie/src]], among them [[#/repo/reggie/file/packages/reggie/src/cli.ts|cli.ts]], [[#/repo/reggie/file/packages/reggie/src/serve.ts|serve.ts]] and [[#/repo/reggie/file/packages/reggie/src/graph.ts|graph.ts]], and by two tests.",
+          "refs": ["packages/reggie/src/cli.ts", "packages/reggie/src/serve.ts", "packages/reggie/src/graph.ts"]
+        }
+      ]
+    },
+    {
+      "id": "uses",
+      "heading": "What it uses",
+      "paragraphs": [
+        {
+          "id": "us-1",
+          "kind": "fact",
+          "text": "Imports [[#/repo/reggie/file/packages/reggie/src/util.ts|util.ts]] for `readText` and `exists`. External packages: node:path, node:fs.",
+          "refs": ["packages/reggie/src/util.ts"],
+          "chips": [
+            { "label": "External", "value": "node:path", "tone": "muted", "tip": "External package: node:path" },
+            { "label": "External", "value": "node:fs", "tone": "muted", "tip": "External package: node:fs" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tests",
+      "heading": "Tests",
+      "paragraphs": [
+        {
+          "id": "t-1",
+          "kind": "gap",
+          "text": "No test imports this file. [[#/repo/reggie/file/packages/reggie/src/paths.ts?lens=tests|See the Tests lens]].",
+          "refs": ["packages/reggie/src/paths.ts"]
+        }
+      ]
+    },
+    {
+      "id": "tasks",
+      "heading": "Tasks",
+      "paragraphs": [],
+      "empty": { "text": "No plan names this file." }
+    },
+    {
+      "id": "history",
+      "heading": "History",
+      "paragraphs": [
+        { "id": "h-0", "kind": "fact", "text": "Changed three times in 30 days, all by [[#/repo/reggie/person/jacobpress|jacobpress]].", "refs": ["person:jacobpress"] },
+        { "id": "h-1", "kind": "commit", "text": "paths.ts: add the .reggie/.cache directory", "refs": ["packages/reggie/src/paths.ts"], "source": { "sha": "c41f0aa", "author": "jacobpress", "date": "2026-09-07", "slug": "repo-manager-mvp" } },
+        { "id": "h-2", "kind": "commit", "text": "paths.ts: findRepoRoot walks up to the git root", "refs": ["packages/reggie/src/paths.ts"], "source": { "sha": "8be2d19", "author": "jacobpress", "date": "2026-09-04" } },
+        { "id": "h-3", "kind": "commit", "text": "initial reggie package", "refs": ["packages/reggie/src/paths.ts"], "source": { "sha": "0a1b2c3", "author": "jacobpress", "date": "2025-12-02" } }
+      ]
+    },
+    {
+      "id": "add-note",
+      "heading": "Add a note",
+      "paragraphs": [],
+      "empty": { "text": "Write what the next person should know about this file.", "action": { "label": "Add note", "form": "note", "command": "reggie note add packages/reggie/src/paths.ts --type how \"…\"" } }
+    }
+  ],
+  "next": [
+    { "label": "cli.ts", "route": "#/repo/reggie/file/packages/reggie/src/cli.ts" },
+    { "label": "packages/reggie/src", "route": "#/repo/reggie/area/packages/reggie/src" }
+  ]
+}

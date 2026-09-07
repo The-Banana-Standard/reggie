@@ -1,0 +1,190 @@
+/* board.css — styles owned by ui/board.js (spec §3.6 task board, §3.7 task page).
+   Tokens and the shared shell classes (.board, .board__col, .board__card, .avatar, .strip, .card, .chip, .badge, .form)
+   live in styles.css; see ui/DOM-CONTRACT.md. Everything here is module-private. */
+
+/* ---------- Board mount in the map column ---------- */
+.board-wrap {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  min-height: 0; background: var(--panel);
+  container-type: inline-size;
+}
+/* The six columns are a left-to-right pipeline and must read as one, the same way the state-machine
+   strip above them draws it (F08). They never wrap into rows. `done` — the terminal state nobody has
+   to act on — collapses to a 44px vertical rail so the five live states keep full-width cards. */
+.board__col.is-collapsed { flex: 0 0 44px; min-width: 44px; overflow: hidden; }
+.board__col.is-collapsed .board__head {
+  flex-direction: column; align-items: center; gap: 6px;
+  height: 100%; padding-top: 4px;
+}
+.board__col.is-collapsed .board__head-label,
+.board__col.is-collapsed .board__count { writing-mode: vertical-rl; }
+.board__col.is-collapsed .board__toggle { writing-mode: vertical-rl; padding: 4px 0; height: auto; }
+.board__col.is-collapsed .board__def { display: none; }
+.board-wrap .strip { flex: 0 0 auto; }
+.board-wrap .board { flex: 1 1 auto; min-height: 0; align-content: start; }
+.board__empty-slot:empty { display: none; }
+.board__empty {
+  margin: var(--s-3) var(--s-3) 0;
+  max-width: var(--measure);
+  color: var(--text);
+}
+.board__empty .empty__text { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--muted); }
+.board__empty .empty__text code { background: var(--bg); padding: 1px 5px; border-radius: 4px; color: var(--text); }
+
+/* ---------- State-machine strip (inline SVG) ---------- */
+.strip__svg { display: block; width: 100%; max-width: 920px; height: auto; overflow: visible; }
+.strip__pill { cursor: pointer; outline: none; }
+.strip__rect { transition: stroke var(--t-highlight) var(--ease); stroke: transparent; stroke-width: 2; }
+.strip__pill:hover .strip__rect, .strip__pill:focus-visible .strip__rect { stroke: var(--selection); }
+.strip__label { font: 500 var(--fs-sub) var(--font); }
+.strip__count { font: 600 var(--fs-label) var(--font); }
+.strip__line { fill: none; stroke: var(--line-strong); stroke-width: 1.5; }
+.strip__hit { fill: none; stroke: transparent; stroke-width: 14; cursor: help; }
+.strip__arrow:hover .strip__line { stroke: var(--text); }
+.strip__arrow--back .strip__line { stroke-dasharray: 3 3; }
+.strip__arrow:focus-visible { outline: none; }
+.strip__arrow:focus-visible .strip__line { stroke: var(--selection); }
+/* One fixed 20px slot for the hovered/focused transition rule (F09) — the arrows carry it as a
+   tooltip and an aria-label; nothing is drawn as 9.6px --faint text under the pills any more. */
+.strip__readout {
+  min-height: 20px; margin-top: 2px;
+  font-size: var(--fs-sub); line-height: 20px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.strip__hint { margin-top: var(--s-1); }
+.strip__hint span[title] { border-bottom: 1px dotted var(--line-strong); cursor: help; }
+
+/* ---------- Columns ---------- */
+.board__col {
+  padding: var(--s-2);
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  min-height: 120px;
+  align-self: start;
+}
+.board__col.is-collapsed { min-height: 0; }
+.board__col.state--awaiting-decision { border-color: rgba(224, 175, 104, 0.35); }
+.board__head { color: var(--text); }
+/* The six headers *are* the pipeline; a chevron between them says so without a second axis (F12). */
+.board__col + .board__col > .board__head::before {
+  content: "›"; color: var(--faint-text); font-weight: 400; margin-left: -10px; margin-right: 2px;
+}
+.board__col.is-collapsed + .board__col > .board__head::before,
+.board__col + .board__col.is-collapsed > .board__head::before { content: none; }
+/* "Awaiting decision" does not fit a 150px column; a clipped header names no state at all, so the
+   label wraps onto a second line instead of ellipsing. The collapsed rail keeps one vertical line. */
+.board__head-label { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.board__col.is-collapsed .board__head-label { white-space: nowrap; overflow-wrap: normal; }
+.board__head { align-items: flex-start; }
+.board__head .state-dot { margin-top: 5px; }
+.board__col.is-collapsed .board__head { align-items: center; }
+.board__count, .board__toggle { flex: 0 0 auto; }
+.board__count { margin-left: auto; color: var(--muted); font-weight: 500; font-size: var(--fs-meta); }
+.board__toggle { flex: 0 0 auto; }
+/* One short line: the git rule for the state. The prose definition lives in the story column, and the
+   full rule is the tooltip on the header. */
+.board__def { margin: 2px 0 var(--s-2); line-height: 1.35; cursor: help; }
+.board__cards { display: flex; flex-direction: column; gap: var(--s-2); }
+.board__none { font-size: var(--fs-meta); color: var(--faint-text); padding: var(--s-1) 0; }
+.board__capture { margin-top: var(--s-2); font-size: var(--fs-meta); }
+.board__capture summary { cursor: pointer; color: var(--muted); }
+.board__capture summary:hover { color: var(--text); }
+.board__capture .form { margin-top: var(--s-2); }
+.board__capture .form__actions { flex-wrap: wrap; }
+
+/* ---------- Cards ---------- */
+.board__card { cursor: default; transition: border-color var(--t-highlight) var(--ease); }
+.board__card:hover { border-color: var(--line-strong); border-left-color: inherit; }
+.board__card:focus-within { outline: 2px solid var(--info); outline-offset: 1px; }
+.board__card-title .link { display: inline; }
+.board__card-title .link .i { vertical-align: -2px; margin-right: 2px; }
+.board__owner { color: var(--text); font-weight: 500; }
+/* Single-owner board: the name is said once in the story column, so a card only marks the exception. */
+.board__owner--none { color: var(--muted); font-weight: 400; font-style: italic; cursor: help; }
+.board__time { color: var(--muted); }
+.board__badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.badge--ok { background: rgba(158, 206, 106, 0.18); color: var(--ok); }
+.badge--bad { background: rgba(247, 118, 142, 0.18); color: var(--bad); }
+.badge--pr { display: inline-flex; align-items: center; gap: 3px; color: var(--info); background: rgba(125, 207, 255, 0.14); text-decoration: none; }
+.badge--pr .i { width: 11px; height: 11px; }
+/* Unowned. --faint measured 3.19:1 on the avatar's own --bg ground — the one failing pairing in a
+   76-node board sweep, and this dot is the only thing saying "nobody has claimed it". --faint-text
+   is the tone that exists for exactly this (5.04:1), and the ring lifts to --faint so the circle
+   itself clears 3:1 as a graphic. */
+.avatar--none { background: var(--bg); border: 1px solid var(--faint); color: var(--faint-text); }
+
+/* ---------- Needs-you queue (story column) ---------- */
+.card--decision .card__title .link { color: var(--text); }
+.card--decision .card__problem { margin: 0 0 var(--s-2); color: var(--text); }
+.card--decision .card__why { margin: var(--s-2) 0 0; font-size: var(--fs-meta); }
+.card--decision .card__who { margin: var(--s-3) 0 0; }
+.form--decide { margin-top: var(--s-3); }
+.form--decide .form__textarea { min-height: 52px; }
+
+/* ---------- Task page (story column) ---------- */
+.task-head {
+  display: flex; flex-direction: column; gap: var(--s-2);
+  margin-bottom: var(--s-5);
+  padding-left: var(--s-3); border-left: 3px solid var(--warn);
+}
+.task-head__title { display: flex; align-items: center; gap: 6px; font-size: var(--fs-h2); font-weight: 600; }
+.task-head__title .i { color: var(--warn); width: 16px; height: 16px; }
+.task-head__actions { display: flex; gap: var(--s-2); flex-wrap: wrap; }
+.task-reason { font-size: var(--fs-label); }
+.task-radius { margin: 0; font-size: var(--fs-meta); }
+.task-sub { font-size: var(--fs-label); font-weight: 600; color: var(--muted); margin: var(--s-3) 0 var(--s-1); }
+
+.task-files, .task-criteria, .packet__criteria { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.task-file { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; font-size: var(--fs-body); padding-left: var(--s-3); border-left: 3px solid transparent; }
+.task-file .link { font-family: var(--mono); font-size: var(--fs-label); }
+.task-crit { display: flex; align-items: flex-start; gap: var(--s-2); font-size: var(--fs-body); line-height: var(--lh-body); }
+.task-crit__label { display: flex; align-items: flex-start; gap: var(--s-2); cursor: default; }
+.task-crit input[type="checkbox"] { margin: 5px 0 0; accent-color: var(--ok); }
+.task-crit.is-pass .task-crit__label > span { color: var(--text); }
+.task-crit.is-fail .task-crit__label > span { color: var(--bad); }
+.task-rules li { margin-bottom: var(--s-1); }
+.task-collision { margin-top: var(--s-3); }
+
+/* Prose (plan and packet sections) */
+.prose { font-size: var(--fs-body); line-height: var(--lh-body); }
+.prose__p { margin: 0 0 var(--s-3); }
+.prose__p:last-child, .prose__list:last-child, .prose__pre:last-child { margin-bottom: 0; }
+.prose__list { margin: 0 0 var(--s-3); padding-left: var(--s-5); }
+.prose__list li { margin-bottom: var(--s-1); }
+.prose__check { list-style: none; margin-left: calc(-1 * var(--s-4)); }
+.prose__check input { accent-color: var(--ok); margin-right: 4px; }
+.prose__pre {
+  margin: 0 0 var(--s-3); padding: var(--s-2) var(--s-3);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+  font-size: var(--fs-meta); overflow-x: auto; white-space: pre;
+}
+.prose__h { font-size: var(--fs-label); font-weight: 600; margin: var(--s-3) 0 var(--s-1); color: var(--muted); }
+.prose code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
+.prose .link { font-family: var(--mono); font-size: var(--fs-label); }
+
+/* Completion packet */
+.packet__verdict { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+.packet__crit { display: flex; align-items: flex-start; gap: var(--s-2); flex-wrap: wrap; font-size: var(--fs-body); line-height: var(--lh-body); }
+.packet__mark { flex: 0 0 18px; width: 18px; text-align: center; font-weight: 600; }
+.packet__mark--ok { color: var(--ok); }
+.packet__mark--bad { color: var(--bad); }
+.packet__mark--muted { color: var(--faint-text); }
+.packet__text { flex: 1 1 auto; min-width: 200px; }
+.packet__crit.is-bad .packet__text { color: var(--bad); }
+.packet__evidence { display: inline-flex; gap: var(--s-2); flex-wrap: wrap; }
+.packet__noev { font-size: var(--fs-meta); }
+.packet__decide { margin-top: var(--s-3); }
+.evidence-link { font-family: var(--mono); font-size: var(--fs-meta); }
+.evidence-code { font-size: var(--fs-meta); color: var(--muted); }
+
+/* ---------- Blast-radius controls (inside #tb-extra) ---------- */
+.blast__depth { white-space: nowrap; }
+.blast__depth .range__val { min-width: 1ch; color: var(--text); font-weight: 500; }
+.blast__mode { margin-left: 4px; }
+.blast__counts { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-meta); color: var(--muted); padding: 0 6px; }
+
+/* ---------- Narrow layouts ---------- */
+/* The definition used to be hidden below 1200px because the server's prose ran 4-6 lines in a 150px
+   column. It is one short rule now, so it survives the stacked layout at full size (F11). */
