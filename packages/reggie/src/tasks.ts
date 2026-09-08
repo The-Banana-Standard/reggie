@@ -3,14 +3,31 @@ import path from "node:path";
 import { aheadCount, currentBranch, defaultBranch, fileAtRef, git, lastCommitDate, listBranches, treePaths, type BranchInfo } from "./git.js";
 import { pullRequestForBranch, type PullRequest } from "./gh.js";
 import { readJournal, type JournalEntry } from "./journal.js";
+import { parseBrief, type BriefMeta } from "./brief.js";
 import { listEvidence, parsePacketVerdict, type Verdict } from "./packet.js";
-import { claimRelPath, packetFile, packetRelPath, planFile, planRelPath, REGGIE_DIR, TASKS_REL_DIR, type RepoPaths } from "./paths.js";
+import { briefFile, briefRelPath, claimRelPath, packetFile, packetRelPath, planFile, planRelPath, REGGIE_DIR, TASKS_REL_DIR, type RepoPaths } from "./paths.js";
 import type { Mode, ReggieConfig, RiskRules } from "./people.js";
 import { lintPlan, parsePlan, type PlanMeta, type Risk } from "./plan.js";
 import { isSafeSlug, readText, slugify, splitFrontMatter, uniq } from "./util.js";
 
-export type TaskState = "ungroomed" | "grooming" | "groomed" | "in-process" | "awaiting-decision" | "done";
-export const TASK_STATES: TaskState[] = ["ungroomed", "grooming", "groomed", "in-process", "awaiting-decision", "done"];
+export type TaskState = "ungroomed" | "groomed" | "planned" | "in-process" | "awaiting-decision" | "done";
+export const TASK_STATES: TaskState[] = ["ungroomed", "groomed", "planned", "in-process", "awaiting-decision", "done"];
+
+/** The coarse grouping the tasks page columns by: capture it, shape it, plan it, build it. */
+export type TaskPhase = "capture" | "shape" | "plan" | "build" | "review" | "done";
+
+const PHASE_BY_STATE: Record<TaskState, TaskPhase> = {
+  ungroomed: "capture",
+  groomed: "shape",
+  planned: "plan",
+  "in-process": "build",
+  "awaiting-decision": "review",
+  done: "done",
+};
+
+export function taskPhase(state: TaskState): TaskPhase {
+  return PHASE_BY_STATE[state];
+}
 
 export interface StateInfo {
   id: TaskState;
@@ -46,20 +63,20 @@ export const STATE_MACHINE: StateMachine = {
     {
       id: "ungroomed",
       label: "Ungroomed",
-      definition: "Captured as an intake line or a task folder, with no plan yet.",
-      rule: "an intake item or a .reggie/tasks/<slug>/ folder exists, but there is no plan.md on disk, on the default branch, or on a plan/<slug> branch, and no task/<slug> branch",
-    },
-    {
-      id: "grooming",
-      label: "Grooming",
-      definition: "A plan is being written: it does not pass the contract yet, or it lives on a plan/<slug> branch.",
-      rule: "a plan/<slug> branch exists; or plan.md on disk fails the plan contract; or, in team mode, plan.md on disk passes but is not merged yet",
+      definition: "Captured but not yet shaped: nothing says what it is beyond the line someone wrote.",
+      rule: "an intake item or a .reggie/tasks/<slug>/ folder exists, with no brief.md on disk or on the default branch, no plan, and no task/<slug> branch",
     },
     {
       id: "groomed",
       label: "Groomed",
-      definition: "The plan passes the contract and is merged to the default branch (in solo mode a passing plan on disk counts).",
-      rule: ".reggie/tasks/<slug>/plan.md exists on the default branch; or, in solo mode, plan.md on disk passes the plan contract",
+      definition: "Shaped by triage: a problem statement, a suspected area, a size and a priority. No plan that passes the contract yet.",
+      rule: "brief.md exists on disk or on the default branch and no plan passes the contract; a plan draft that fails the contract, or a plan/<slug> branch, also lands here",
+    },
+    {
+      id: "planned",
+      label: "Planned",
+      definition: "Fully groomed: a plan that passes the contract, written against the code. Ready to build.",
+      rule: ".reggie/tasks/<slug>/plan.md passes the plan contract and is on the default branch; in solo mode a passing plan on disk counts",
     },
     {
       id: "in-process",
@@ -77,24 +94,24 @@ export const STATE_MACHINE: StateMachine = {
       id: "done",
       label: "Done",
       definition: "The pull request was merged, or the packet was approved on the default branch.",
-      rule: "the pull request for task/<slug> is merged; or .reggie/tasks/<slug>/packet.md has verdict: approved on the default branch — committed there, or in the working tree while that branch is checked out",
+      rule: "the pull request for task/<slug> is merged; or .reggie/tasks/<slug>/packet.md has verdict: approved on the default branch \u2014 committed there, or in the working tree while that branch is checked out",
     },
   ],
   transitions: [
     {
       from: "ungroomed",
-      to: "grooming",
-      trigger: "a plan.md is written for the slug (reggie plan new <slug>) or a plan/<slug> branch is created",
-      who: "anyone",
-    },
-    {
-      from: "grooming",
       to: "groomed",
-      trigger: "the plan passes the contract and is merged to the default branch; in solo mode a passing plan on disk is enough, so a good first draft skips grooming",
-      who: "the author in solo mode; a maintainer merges it in team mode",
+      trigger: "triage writes .reggie/tasks/<slug>/brief.md (reggie triage <slug>): the problem, why now, the suspected area, a size and a priority",
+      who: "whoever runs triage; briefs are cheap, so they are usually written for a whole column at once",
     },
     {
       from: "groomed",
+      to: "planned",
+      trigger: "a plan.md that passes the plan contract lands on the default branch (reggie plan new <slug>, then reggie plan lint <slug>); in solo mode a passing plan on disk is enough",
+      who: "the planner, after reading the code the brief points at",
+    },
+    {
+      from: "planned",
       to: "in-process",
       trigger: "reggie claim <slug> creates the task/<slug> branch with a claim record",
       who: "the person taking the task",
@@ -144,12 +161,28 @@ export interface ClaimInfo {
   date: string;
 }
 
+/** What a card shows from the brief. Null on TaskInfo when no brief has been written for the slug. */
+export interface TaskBriefInfo {
+  /** The brief is on disk or on the default branch, the two places that count towards `groomed`. */
+  exists: boolean;
+  /** The `area` front matter field: a repo-relative directory, or "" when triage named none. */
+  area: string;
+  /** small | medium | large, or "unset". */
+  size: string;
+  /** P1 | P2 | P3, or "unset". */
+  priority: string;
+  /** The first paragraph of ## Problem, trimmed; "" while the scaffold placeholder is still there. */
+  problem: string;
+}
+
 export interface TaskInfo {
   slug: string;
   title: string;
   state: TaskState;
   /** One-line definition of the state, from STATE_MACHINE. */
   stateDefinition: string;
+  /** The coarse grouping of the state, for the tasks page columns. */
+  phase: TaskPhase;
   risk: Risk | "unset";
   owner: string | null;
   ownerEmail: string | null;
@@ -158,6 +191,8 @@ export interface TaskInfo {
   age: number | null;
   branch: string | null;
   pr: PullRequest | null;
+  /** The brief triage wrote, when there is one. */
+  brief: TaskBriefInfo | null;
   planExists: boolean;
   planOnDefault: boolean;
   planLintOk: boolean | null;
@@ -286,7 +321,7 @@ function allSlugs(paths: RepoPaths, snap: Snapshot): string[] {
   return Array.from(slugs).sort();
 }
 
-const STATE_ORDER: Record<TaskState, number> = { "awaiting-decision": 0, "in-process": 1, groomed: 2, grooming: 3, ungroomed: 4, done: 5 };
+const STATE_ORDER: Record<TaskState, number> = { "awaiting-decision": 0, "in-process": 1, planned: 2, groomed: 3, ungroomed: 4, done: 5 };
 
 function collectTasks(paths: RepoPaths, snap: Snapshot, opts: TaskListOptions): TaskInfo[] {
   const tasks: TaskInfo[] = [];
@@ -339,6 +374,8 @@ function normalizePlanPath(p: string): string {
 interface ResolvedTask {
   info: TaskInfo;
   branch: BranchInfo | null;
+  /** The brief text: disk, else the default branch. */
+  briefContent: string | null;
   /** The plan text: disk, else the default branch, else the task or plan branch. */
   planContent: string | null;
   /** The packet text: disk, else the task branch, else the default branch. */
@@ -354,6 +391,16 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
   const branch = snap.taskBranches.find((b) => b.name === `task/${slug}`) ?? null;
   const planBranch = snap.planBranches.find((b) => b.name === `plan/${slug}`) ?? null;
 
+  // The brief only counts where the spec says it counts: on disk, or on the default branch. Its
+  // presence there is already in snap.onBase, from the ls-tree pass that finds plans and packets,
+  // so a task without a brief costs no git call at all.
+  const briefLocal = readText(briefFile(paths, slug));
+  const briefOnDefault = snap.onBase.has(briefRelPath(slug));
+  const briefDefault = briefLocal === null && briefOnDefault ? fileAtRef(root, snap.base, briefRelPath(slug)) : null;
+  const briefContent = briefLocal ?? briefDefault;
+  const parsedBrief = briefContent ? parseBrief(briefContent) : null;
+  const hasBrief = briefLocal !== null || briefOnDefault;
+
   const planLocal = readText(planFile(paths, slug));
   const planOnDefault = snap.onBase.has(planRelPath(slug));
   const planDefault = planLocal === null && planOnDefault ? fileAtRef(root, snap.base, planRelPath(slug)) : null;
@@ -367,8 +414,9 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
 
   const planContent = planLocal ?? planDefault ?? planOnWork;
   const parsed = planContent ? parsePlan(planContent) : null;
-  const title = parsed?.meta.title || intake?.text || slug;
-  const risk: Risk | "unset" = parsed?.meta.risk ?? "unset";
+  const title = parsed?.meta.title || parsedBrief?.meta.title || intake?.text || slug;
+  // The plan settles the risk; until there is one, the brief's guess is what a card can show.
+  const risk: Risk | "unset" = parsed?.meta.risk ?? parsedBrief?.meta.risk ?? "unset";
   const planLintOk = planContent ? lintPlan(planContent).ok : null;
 
   let state: TaskState;
@@ -400,37 +448,57 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
     const ahead = aheadCount(root, refFor(branch), snap.base);
     state = "in-process";
     reason = `${branch.name} has ${ahead} commit${ahead === 1 ? "" : "s"} ahead of ${snap.base}`;
+  } else if (planOnDefault && planLintOk) {
+    state = "planned";
+    reason = `plan on ${snap.base} passes the contract`;
   } else if (planOnDefault) {
     state = "groomed";
-    reason = `plan merged to ${snap.base}`;
+    reason = `plan draft on ${snap.base} does not pass the contract yet; a plan is in progress`;
   } else if (planBranch) {
-    state = "grooming";
-    reason = `${planBranch.name} exists`;
+    state = "groomed";
+    reason = `${planBranch.name} exists; a plan is in progress`;
   } else if (planLocal) {
     if (planLintOk && snap.mode === "solo") {
-      state = "groomed";
-      reason = "plan on disk passes the contract; solo mode counts it as groomed until committed";
+      state = "planned";
+      reason = "plan on disk passes the contract; solo mode counts it as planned until committed";
     } else {
-      state = "grooming";
-      reason = planLintOk ? "plan on disk passes the contract; team mode needs it merged or on a plan/ branch" : "plan on disk does not pass the contract yet";
+      state = "groomed";
+      reason = planLintOk
+        ? "plan draft on disk passes the contract; team mode needs it merged or on a plan/ branch, so a plan is still in progress"
+        : "plan draft on disk does not pass the contract yet; a plan is in progress";
     }
+  } else if (hasBrief) {
+    // A brief and nothing else: triage has shaped it, planning has not started.
+    state = "groomed";
+    reason = briefLocal !== null ? "brief on disk; no plan yet" : `brief on ${snap.base}; no plan yet`;
   } else {
     state = "ungroomed";
-    reason = intake ? "intake item with no plan" : "task directory without a plan";
+    reason = intake ? "intake item with no brief" : "task directory with no brief";
   }
 
-  const owner = claim?.person || branch?.author || planBranch?.author || parsed?.meta.author || null;
+  const owner = claim?.person || branch?.author || planBranch?.author || parsed?.meta.author || parsedBrief?.meta.author || null;
   const ownerEmail = claim?.email || branch?.email || planBranch?.email || null;
   const lastActivity = branch?.date || planBranch?.date || (planLocal ? lastCommitDate(root, planRelPath(slug)) : null);
   const age = ageInDays(lastActivity, snap.now) ?? ageInDays(intakeDate(intake), snap.now);
   const planFiles = parsed ? uniq(parsed.files.map(normalizePlanPath).filter(Boolean)) : [];
   const changedFiles = branch ? branchChangedFiles(root, snap.base, refFor(branch)) : [];
 
+  const brief: TaskBriefInfo | null = parsedBrief
+    ? {
+        exists: hasBrief,
+        area: parsedBrief.meta.area,
+        size: parsedBrief.meta.size,
+        priority: parsedBrief.meta.priority,
+        problem: parsedBrief.problem,
+      }
+    : null;
+
   const info: TaskInfo = {
     slug,
     title,
     state,
     stateDefinition: stateDefinition(state),
+    phase: taskPhase(state),
     risk,
     owner,
     ownerEmail,
@@ -438,6 +506,7 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
     age,
     branch: branch?.name ?? planBranch?.name ?? null,
     pr,
+    brief,
     planExists: Boolean(planLocal || planOnDefault),
     planOnDefault,
     planLintOk,
@@ -456,7 +525,7 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
     existsSync(path.join(paths.tasks, slug)) ||
     Array.from(snap.onBase).some((p) => p.startsWith(onBasePrefix));
 
-  return { info, branch, planContent, packetContent: packetLocal ?? packetOnBranch ?? packetDefault, claim, known };
+  return { info, branch, briefContent, planContent, packetContent: packetLocal ?? packetOnBranch ?? packetDefault, claim, known };
 }
 
 export function renderTaskLine(t: TaskInfo): string {
@@ -480,6 +549,16 @@ export interface PlanFileRef {
   exists: boolean;
   /** Graph node id: the path for files, `dir:<path>/` for folder entries. */
   nodeId: string;
+}
+
+export interface TaskBriefDetail {
+  meta: BriefMeta;
+  /** Every `## ` section of the brief body, by heading. */
+  sections: Record<string, string>;
+  /** The ## Suspected area bullets. */
+  areas: string[];
+  /** The ## Open questions bullets. */
+  questions: string[];
 }
 
 export interface TaskPlanDetail {
@@ -538,6 +617,7 @@ export interface TaskImpact {
 
 export interface TaskDetail {
   task: TaskInfo;
+  brief: TaskBriefDetail | null;
   plan: TaskPlanDetail | null;
   packet: TaskPacketDetail | null;
   claim: ClaimInfo | null;
@@ -591,6 +671,11 @@ function planFileRef(root: string, entry: { path: string; op: PlanFileOp | null 
     exists = isDir ? treePaths(root, refFor(branch), bare).size > 0 : fileAtRef(root, refFor(branch), p) !== null;
   }
   return { path: p, op: entry.op, exists, nodeId };
+}
+
+function briefDetail(content: string): TaskBriefDetail {
+  const parsed = parseBrief(content);
+  return { meta: parsed.meta, sections: Object.fromEntries(parsed.sections), areas: parsed.areas, questions: parsed.questions };
 }
 
 function planDetail(root: string, content: string, branch: BranchInfo | null): TaskPlanDetail {
@@ -728,6 +813,7 @@ export function getTaskDetail(paths: RepoPaths, config: ReggieConfig, slug: stri
   const resolved = resolveTask(paths, slug, snap);
   if (!resolved.known) return null;
 
+  const brief = resolved.briefContent ? briefDetail(resolved.briefContent) : null;
   const plan = resolved.planContent ? planDetail(paths.root, resolved.planContent, resolved.branch) : null;
   const packet = resolved.packetContent ? packetDetail(paths, slug, resolved.packetContent, resolved.branch) : null;
   const journal = readJournal(paths, { slug, days: JOURNAL_WINDOW_DAYS });
@@ -736,6 +822,7 @@ export function getTaskDetail(paths: RepoPaths, config: ReggieConfig, slug: stri
 
   return {
     task: resolved.info,
+    brief,
     plan,
     packet,
     claim: resolved.claim,

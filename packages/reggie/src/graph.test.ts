@@ -242,7 +242,7 @@ describe("graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles", 
     const task = node(`task:${slug}`);
     expect(task.kind).toBe("task");
     expect(task.label).toBe("Cap login retries on web");
-    expect(task.state).toBe("groomed");
+    expect(task.state).toBe("planned");
     expect(task.risk).toBe("low");
     expect(task.owner).toBe("test");
     expect(typeof task.age === "number" || task.age === null).toBe(true);

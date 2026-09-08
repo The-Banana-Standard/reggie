@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { packetFile } from "../src/paths.js";
+import { briefFile, packetFile } from "../src/paths.js";
 import { startServer, type ServerHandle } from "../src/serve.js";
 import { TASK_STATES } from "../src/tasks.js";
 import { makeFixtureRepo, type FixtureRepo } from "./fixtures.js";
@@ -828,5 +828,204 @@ describe("POST writes", () => {
 
     const board = await ok("/api/tasks?all=1");
     expect(board.find((t: any) => t.slug === slug).state).toBe("done");
+  });
+});
+
+describe("GET /api/launch", () => {
+  it("describes the session without starting anything", async () => {
+    const body = await ok(`/api/launch?slug=${fx.slugs.inProcess}&tool=claude&mode=implement`);
+    expect(Object.keys(body).sort()).toEqual(["command", "cwd", "description"]);
+    expect(body.command).toBe(`claude '/reggie-execute ${fx.slugs.inProcess}'`);
+    expect(body.cwd).toBe(fx.repo.root);
+    expect(body.description).toContain("Claude Code");
+    expect(body.description).toContain(fx.slugs.inProcess);
+  });
+
+  it("spells the Codex prompts out inline, since Codex has no slash commands", async () => {
+    const body = await ok(`/api/launch?slug=${fx.slugs.ungroomed}&tool=codex&mode=chat`);
+    expect(body.command.startsWith("codex ")).toBe(true);
+    expect(body.command).toContain("do not edit any file");
+    expect(body.description).toContain("read-only");
+  });
+
+  it("takes several slugs in triage mode and exactly one in every other mode", async () => {
+    const many = await ok(`/api/launch?slug=${fx.slugs.ungroomed}&slug=${fx.slugs.inProcess}&tool=claude&mode=triage`);
+    expect(many.command).toContain("/reggie-triage");
+    expect(many.command).toContain(fx.slugs.ungroomed);
+    expect(many.command).toContain(fx.slugs.inProcess);
+
+    const { status, body } = await get(`/api/launch?slug=${fx.slugs.ungroomed}&slug=${fx.slugs.inProcess}&tool=claude&mode=plan`);
+    expect(status).toBe(400);
+    expect(body.error).toContain("exactly one slug");
+  });
+
+  it("400s an unknown tool, an unknown mode, a bad slug, and no slug at all", async () => {
+    const cases: [string, string][] = [
+      [`/api/launch?slug=${fx.slugs.inProcess}&tool=emacs&mode=chat`, "tool must be one of"],
+      [`/api/launch?slug=${fx.slugs.inProcess}&tool=claude&mode=refactor`, "mode must be one of"],
+      ["/api/launch?slug=../etc/passwd&tool=claude&mode=chat", "bad slug"],
+      ["/api/launch?tool=claude&mode=chat", "at least one slug"],
+      [`/api/launch?slug=${fx.slugs.inProcess}&mode=chat`, "tool must be one of"],
+    ];
+    for (const [route, message] of cases) {
+      const { status, body } = await get(route);
+      expect(status, route).toBe(400);
+      expect(body.error, route).toContain(message);
+    }
+  });
+});
+
+describe("POST /api/triage", () => {
+  it("scaffolds a brief and moves the card from ungroomed to groomed", async () => {
+    const slug = fx.slugs.ungroomed;
+    const before = await ok("/api/tasks?all=1");
+    expect(before.find((t: any) => t.slug === slug).state).toBe("ungroomed");
+    expect(before.find((t: any) => t.slug === slug).brief).toBeNull();
+    expect(before.find((t: any) => t.slug === slug).phase).toBe("capture");
+
+    const { status, body } = await post("/api/triage", { slug });
+    expect(status, JSON.stringify(body)).toBe(200);
+    expect(body.created).toEqual([slug]);
+    expect(body.skipped).toEqual([]);
+    expect(readFileSync(briefFile(fx.paths, slug), "utf8")).toContain("## Suspected area");
+
+    const after = await ok("/api/tasks?all=1");
+    const card = after.find((t: any) => t.slug === slug);
+    expect(card.state).toBe("groomed");
+    expect(card.phase).toBe("shape");
+    expect(card.reason).toContain("brief");
+    expect(card.brief.exists).toBe(true);
+    expect(card.brief.size).toBe("unset");
+    expect(card.brief.priority).toBe("unset");
+
+    const detail = await ok(`/api/task/${slug}`);
+    expect(detail.brief.meta.slug).toBe(slug);
+    expect(Object.keys(detail.brief.sections)).toContain("Problem");
+    expect(detail.brief.sections["Not this"].length).toBeGreaterThan(0);
+    expect(detail.completion).toBeNull();
+  });
+
+  it("never overwrites a brief that is already there", async () => {
+    const slug = fx.slugs.ungroomed;
+    const before = readFileSync(briefFile(fx.paths, slug), "utf8");
+    const { status, body } = await post("/api/triage", { slugs: [slug] });
+    expect(status).toBe(200);
+    expect(body.created).toEqual([]);
+    expect(body.skipped).toEqual([{ slug, reason: "a brief already exists" }]);
+    expect(readFileSync(briefFile(fx.paths, slug), "utf8")).toBe(before);
+  });
+
+  it("shapes a whole selection in one call and skips what it does not know", async () => {
+    const { status, body } = await post("/api/triage", { slugs: [fx.slugs.inProcess, "no-such-task"] });
+    expect(status).toBe(200);
+    expect(body.created).toEqual([fx.slugs.inProcess]);
+    expect(body.skipped).toEqual([{ slug: "no-such-task", reason: "nothing in this repo names that task" }]);
+    expect(existsSync(briefFile(fx.paths, fx.slugs.inProcess))).toBe(true);
+  });
+
+  it("400s an empty request and a bad slug", async () => {
+    expect((await post("/api/triage", {})).status).toBe(400);
+    expect((await post("/api/triage", { slug: "../etc" })).status).toBe(400);
+    expect((await post("/api/triage", { slugs: ["ok-one", "../etc"] })).status).toBe(400);
+  });
+});
+
+describe("POST /api/launch", () => {
+  it("refuses a cross-site launch with 403 and starts nothing", async () => {
+    const { status, body } = await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "chat" }, { "sec-fetch-site": "cross-site" });
+    expect(status).toBe(403);
+    expect(body.error).toContain("cross-site");
+  });
+
+  it("refuses a foreign Origin with 403", async () => {
+    const { status, body } = await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "chat" }, { origin: "http://evil.example.com" });
+    expect(status).toBe(403);
+    expect(body.error).toContain("origin");
+  });
+
+  it("400s bad input and 404s a task this repo has never heard of", async () => {
+    expect((await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "emacs", mode: "chat" })).status).toBe(400);
+    expect((await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "refactor" })).status).toBe(400);
+    expect((await post("/api/launch", { slugs: ["../etc"], tool: "claude", mode: "chat" })).status).toBe(400);
+    expect((await post("/api/launch", { slugs: [], tool: "claude", mode: "chat" })).status).toBe(400);
+    expect((await post("/api/launch", { slugs: [fx.slugs.inProcess, fx.slugs.ungroomed], tool: "claude", mode: "plan" })).status).toBe(400);
+    const { status, body } = await post("/api/launch", { slugs: ["no-such-task"], tool: "claude", mode: "chat" });
+    expect(status).toBe(404);
+    expect(body.error).toContain("unknown task");
+  });
+
+  // Nothing in this suite may open a Terminal window, so the platform is stubbed away from
+  // darwin first: launchSession then takes the branch that returns the command to copy.
+  it("returns the command unlaunched where it cannot open a terminal", async () => {
+    const real = process.platform;
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+    try {
+      const { status, body } = await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "implement" });
+      expect(status, JSON.stringify(body)).toBe(200);
+      expect(body.launched).toBe(false);
+      expect(body.command).toBe(`claude '/reggie-execute ${fx.slugs.inProcess}'`);
+      expect(body.reason).toContain("macOS");
+    } finally {
+      Object.defineProperty(process, "platform", { value: real, configurable: true });
+    }
+  });
+});
+
+describe("the completed view", () => {
+  it("says what was actually done for a finished task", async () => {
+    const slug = fx.slugs.awaiting;
+    const body = await ok(`/api/task/${slug}`);
+    expect(body.task.state).toBe("done");
+    expect(body.task.phase).toBe("done");
+
+    const done = body.completion;
+    expect(done).not.toBeNull();
+    expect(done.verdict).toBe("approved");
+    expect(done.decidedBy.length).toBeGreaterThan(0);
+    expect(done.decidedAt).toMatch(/\d{4}-\d{2}-\d{2}/);
+
+    expect(done.criteria.length).toBeGreaterThan(0);
+    for (const k of done.criteria) {
+      expect(typeof k.text).toBe("string");
+      expect(k.pass === null || typeof k.pass === "boolean").toBe(true);
+      expect(Array.isArray(k.evidence)).toBe(true);
+    }
+    const proof = done.criteria.flatMap((k: any) => k.evidence).find((e: any) => e.path.endsWith("tests.txt"));
+    expect(proof.exists).toBe(true);
+    expect(proof.route).toBe(`/api/evidence?slug=${slug}&file=tests.txt`);
+    const fetched = await fetch(base + proof.route);
+    expect(fetched.status).toBe(200);
+    expect(await fetched.text()).toContain("passed");
+
+    expect(done.diff.files.map((f: any) => f.path)).toContain("src/types/shape.ts");
+    expect(done.diff.files.every((f: any) => !f.path.startsWith(".reggie/"))).toBe(true);
+    expect(done.diff.filesChanged).toBe(done.diff.files.length);
+    expect(done.diff.added).toBeGreaterThan(0);
+    expect(done.diff.commits).toBeGreaterThan(0);
+
+    expect(done.commits.length).toBe(done.diff.commits);
+    expect(done.commits.some((k: any) => k.subject.includes("sizeOf"))).toBe(true);
+    for (const k of done.commits) {
+      expect(k.sha).toMatch(/^[0-9a-f]{40}$/);
+      expect(typeof k.handle).toBe("string");
+    }
+    expect(Array.isArray(done.journal)).toBe(true);
+  });
+
+  it("leaves the completion block null for everything still open", async () => {
+    for (const slug of [fx.slugs.inProcess, fx.slugs.ungroomed]) {
+      const body = await ok(`/api/task/${slug}`);
+      expect(body.task.state).not.toBe("done");
+      expect(body.completion).toBeNull();
+    }
+  });
+
+  it("still reports the six states on the state machine", async () => {
+    const body = await ok("/api/state-machine");
+    expect(body.states.map((s: any) => s.id)).toEqual(["ungroomed", "groomed", "planned", "in-process", "awaiting-decision", "done"]);
+    expect(JSON.stringify(body)).not.toContain("grooming");
+    expect(body.transitions.some((t: any) => t.from === "ungroomed" && t.to === "groomed")).toBe(true);
+    expect(body.transitions.some((t: any) => t.from === "groomed" && t.to === "planned")).toBe(true);
+    expect(body.counts.groomed).toBeGreaterThan(0);
   });
 });

@@ -47,8 +47,8 @@ export function renderGeneratedBlock(facts: RepoFacts, config: ReggieConfig, too
     "- Raw ideas and discovered issues go to `.reggie/intake.md` via `reggie capture \"text\"`. Never fix unrelated issues in passing; capture them.",
     "",
     `## Working here with Reggie and ${toolName} (generated)`,
-    `- Mode: **${config.mode}**. Task state is read from git: intake line = ungroomed, plan merged = groomed, \`task/<slug>\` branch = in process, open PR = awaiting decision, merged = done.`,
-    "- Plan in plan mode against the contract, then `reggie claim <slug>` to start work on a `task/<slug>` branch. Finish with `reggie packet <slug>` and a PR whose body is the packet.",
+    `- Mode: **${config.mode}**. Task state is read from git: intake line = ungroomed, \`brief.md\` = groomed, a plan that passes the contract = planned, \`task/<slug>\` branch = in process, open PR = awaiting decision, merged = done.`,
+    "- Shape a raw item first: `reggie triage <slug>` writes the brief, then `reggie brief lint <slug>`. Plan in plan mode against the contract, then `reggie claim <slug>` to start work on a `task/<slug>` branch. Finish with `reggie packet <slug>` and a PR whose body is the packet.",
     `- ${mcp}`,
     END_MARKER,
   ];

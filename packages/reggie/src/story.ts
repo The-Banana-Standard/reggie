@@ -551,8 +551,8 @@ function chip(label: string, value: string, tone?: ChipTone, tip?: string): Chip
 const RISK_TONE: Record<string, ChipTone> = { low: "ok", medium: "warn", high: "bad", unset: "muted" };
 const STATE_TONE: Record<TaskState, ChipTone> = {
   ungroomed: "muted",
-  grooming: "muted",
   groomed: "info",
+  planned: "info",
   "in-process": "info",
   "awaiting-decision": "warn",
   done: "ok",
@@ -1000,7 +1000,7 @@ function talksSection(ctx: StoryContext): StorySection {
   return section("talks", "How the pieces talk", paragraphs, { text: EMPTY_TEXT.repoTalks });
 }
 
-const FLIGHT_ORDER: TaskState[] = ["in-process", "awaiting-decision", "groomed", "grooming", "ungroomed"];
+const FLIGHT_ORDER: TaskState[] = ["in-process", "awaiting-decision", "planned", "groomed", "ungroomed"];
 
 function taskLine(ctx: StoryContext, t: TaskInfo): string {
   const head = link(ctx.repo, `task:${t.slug}`, t.slug);
@@ -1747,7 +1747,7 @@ function taskJournalSection(ctx: StoryContext, task: TaskInfo, detail: TaskDetai
 // §2 Level 0: workspaceStory
 // ---------------------------------------------------------------------------
 
-const WORKSPACE_STATES: TaskState[] = ["ungroomed", "grooming", "groomed", "in-process", "awaiting-decision", "done"];
+const WORKSPACE_STATES: TaskState[] = ["ungroomed", "groomed", "planned", "in-process", "awaiting-decision", "done"];
 
 /** The workspace landing page. Pure: everything comes from `workspaceSummary()`. */
 export function workspaceStory(ws: WorkspaceSummary, now: Date = new Date()): Story {

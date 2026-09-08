@@ -53,9 +53,9 @@ export const GLOSSARY = {
   decide: "Stage: decide — a maintainer approved or sent the work back.",
   release: "Stage: release — the claim on the task was released.",
   // task states
-  ungroomed: "Ungroomed: an intake line or task folder with no plan yet.",
-  grooming: "Grooming: a plan exists but is not yet merged or does not pass the contract.",
-  groomed: "Groomed: the plan is merged to the default branch (solo: passing plan on disk).",
+  ungroomed: "Ungroomed: captured but not yet shaped — no brief.md says what it is.",
+  groomed: "Groomed: triage wrote a brief — a problem, a suspected area, a size and a priority. No plan that passes the contract yet.",
+  planned: "Planned: a plan that passes the contract is on the default branch. Ready to build.",
   "in-process": "In process: a task/<slug> branch has commits.",
   "awaiting-decision": "Awaiting decision: an open PR or a completion packet on the branch.",
   done: "Done: the PR merged or the packet was approved on the default branch.",
@@ -515,8 +515,8 @@ export function stateChip(stateId, label) {
 
 export const STATE_LABELS = {
   ungroomed: "Ungroomed",
-  grooming: "Grooming",
   groomed: "Groomed",
+  planned: "Planned",
   "in-process": "In process",
   "awaiting-decision": "Awaiting decision",
   done: "Done",
@@ -1355,8 +1355,8 @@ function renderWorkspaceTiles(ws, route) {
         bar(
           [
             { n: counts.ungroomed ?? 0, color: "#5c6478", label: "Ungroomed" },
-            { n: counts.grooming ?? 0, color: "#8b93a7", label: "Grooming" },
             { n: counts.groomed ?? 0, color: "#7dcfff", label: "Groomed" },
+            { n: counts.planned ?? 0, color: "#bb9af7", label: "Planned" },
             { n: counts["in-process"] ?? 0, color: "#7aa2f7", label: "In process" },
             { n: counts["awaiting-decision"] ?? 0, color: "#e0af68", label: "Awaiting decision" },
             { n: counts.done ?? 0, color: "#9ece6a", label: "Done" },
@@ -1412,7 +1412,8 @@ async function renderTasksLevel(route, token) {
   renderBoard(
     $("story"),
     $("map-stage"),
-    { tasks: tasks.value ?? [], stateMachine: sm.value, people: people.value ?? null, mode: sm.value?.mode ?? "solo" },
+    // ?view=completed selects the Completed view on load, so a link to finished work carries it.
+    { tasks: tasks.value ?? [], stateMachine: sm.value, people: people.value ?? null, mode: sm.value?.mode ?? "solo", view: route.query?.view === "completed" ? "completed" : "open" },
     { repo: route.repo, map: ensureMap(), onDecide: () => afterWrite(), onCapture: () => invalidate("/api/") },
   );
 }

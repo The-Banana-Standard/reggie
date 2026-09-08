@@ -72,6 +72,7 @@ Icons: `repo area file symbol task person note journal entry test stale external
 ### Links and chips
 - `.link.link--<kind>` — produced only by `entityLink()`; kinds: `repo area file symbol task person note journal entry test`.
 - `.chip` with `.chip__k` (label, `--faint-text`) and `.chip__v` (value); tones `.chip--ok .chip--warn .chip--bad .chip--info .chip--muted`; `.chip--code` (mono); `.chip--state.state--<taskState>` (filled state colour). `.chips` is a wrapping row.
+- Task states are `ungroomed groomed planned in-process awaiting-decision done` — `grooming` is gone. `--state-planned` is the palette's violet `#bb9af7`.
 - Task state utilities `.state--<state>` set `--state`; `.state-dot` draws it.
 - Risk borders `.risk--low .risk--medium .risk--high .risk--unset` (left border).
 - `.badge`, `.badge--new .badge--mod .badge--del` (NEW/MOD/DEL).
@@ -94,8 +95,20 @@ Icons: `repo area file symbol task person note journal entry test stale external
 - `.toast.toast--<ok|warn|bad|info>` inside `#toasts`; backticks in `toast()` text render as `<code>`.
 - Palette: `.palette`, `.palette__backdrop`, `.palette__box`, `.palette__input`, `.palette__results`, `.palette__group`, `.palette__row` (`.is-active`, `role=option`, `data-index`), `.palette__label`, `.palette__snippet`, `.palette__empty`, `.palette__hint`.
 
-### Board (shared shell; board.css owns the rest)
-`.board` (six columns, always one left-to-right row — flex, horizontal scroll, never wrapped), `.board__col` (`.is-collapsed` draws the `done` column as a 44px rail), `.board__head`, `.board__def` (the column's git rule, one rendered line at the narrowest column width; the server's prose is its `title`, and the story column does not repeat it), `.board__card` (+ `.risk--*`), `.board__card-title`, `.board__meta`, `.avatar` (`.avatar--none` for an unclaimed task), `.strip` (state-machine SVG strip) + `.strip__readout` (fixed 20px slot showing the hovered/focused arrow's transition rule; arrows carry it as `<title>` and `aria-label`, never as drawn text).
+### Board and the tasks page (shared shell; board.css owns the rest)
+
+The tasks page is two views behind one segmented control (`docs/tasks-page-spec.md` §7): **Open**, the five
+live states as columns, and **Completed**, finished work newest first. The chosen view is `?view=completed`
+in the hash and is written with `replaceState`, never `setQuery` — switching views re-uses the payload in hand.
+
+- `.board-head` (the row above the strip) > `.board-head__views` (a `.seg` of Open / Completed, buttons carrying `data-view`), `.board-head__counts`, `.board-head__toolwrap` > `.board-head__tool` (a `.seg` naming the tool every launch defaults to).
+- `.board` — the Open view: **five** columns (`ungroomed groomed planned in-process awaiting-decision`), always one left-to-right row (flex, horizontal scroll, never wrapped). `done` is not a column; it is the Completed view.
+- `.board__col` — one per state, `data-state="<id>"`, its own scroller; `.board__head` sticks to its top. `.board__def` carries the column's git rule as one rendered line at the narrowest column width, with the server's `definition` as its `title` and the server's full `rule` on the header; the story column does not repeat either.
+- `.board__head-extra` (Ungroomed only) > `.board__shape-row` > `.board__shape` ("Shape these (n)", POSTs `/api/triage`) and a launch action for the same slugs in `triage` mode. `.board__add` > `.board__add-h` + the capture form, always visible at the top of Ungroomed.
+- `.board__card` (+ `.risk--*`, `.is-reading` while its panel is open) > `.board__card-title` (with `.board__pick`, the shaping checkbox, on Ungroomed), `.board__chips`, `.board__meta`, `.board__badges`, `.board__actions`, `.board__detail` > `.detail__body` > `.detail__sec` / `.detail__chips`. One card is open board-wide; its column widens to a readable measure rather than opening a drawer elsewhere.
+- `.avatar` (`.avatar--none` for an unclaimed task), `.strip` (state-machine SVG strip) + `.strip__readout` (fixed 20px slot showing the hovered/focused arrow's transition rule; arrows carry it as `<title>` and `aria-label`, never as drawn text). Clicking the strip's `done` pill switches to Completed.
+- Launching: `.launch` > a `.btn` using the remembered tool, `.launch__caret`, and `.launch__menu` (`position: fixed`, placed by hand so a column's scroll box cannot clip it) > `.launch__tool` rows naming both tools. Both the button and every row carry `GET /api/launch`'s exact command as their `title`, fetched on first hover or focus. `.launch--compact` is the column-header variant. When nothing could be spawned, `.launch-cmd` > `.launch-cmd__why` + `.launch-cmd__row` > `.launch-cmd__input` holds the command to copy.
+- Completed: `.completed` > `.completed__list` > `.done-row` (`.is-open`) > `.done-row__head` (`.done-row__title`, `.done-row__chips`, `.done-row__toggle`) + `.done-row__detail` > `.done-detail__body`, which draws the verdict chips, `.packet__criteria` with `.evidence-link` (or `.evidence-missing` when the packet cites proof nobody saved), `.done-files` > `.done-file` > `.done-file__stat` (`.done-file__add` / `.done-file__del`), and `.done-journal`. `.completed__empty` is its empty state.
 
 ### Reader (shared shell; reader.css owns the rest)
 `.reader` on `#reader` (40% height, `hidden` when closed).
@@ -174,8 +187,13 @@ export function createReader(container, deps /* { repo, onNotePrefill, editorSch
 
 ### `board.js`
 ```js
-export function renderBoard(storyEl, mapEl, data /* { tasks, stateMachine, people } */, deps /* { repo, onDecide, onCapture } */)
+export function renderBoard(storyEl, mapEl, data /* { tasks, stateMachine, people, mode, view } */, deps /* { repo, onDecide, onCapture } */)
+   → { refresh(tasks, stateMachine), setView("open"|"completed"), destroy() }
 export function renderTaskPage(storyEl, mapEl, data /* /api/task/<slug> payload */, deps /* { map, repo, onDecide } */)
+export const STATE_ORDER   // the six states in lifecycle order
+export const OPEN_STATES   // the five the Open view columns by
+export const LAUNCH_TOOLS  // ["claude", "codex"]
+export function rememberedTool()   // localStorage `reggie.launch.tool`, "claude" until someone chooses
 ```
 
 ### Route → data
@@ -185,7 +203,7 @@ export function renderTaskPage(storyEl, mapEl, data /* /api/task/<slug> payload 
 | repo | `/api/story?scope=repo` | `/api/graph?level=container` |
 | area | `/api/story?scope=area&id=<path>` | `/api/graph?level=dir&root=<path>&tests=&all=` |
 | file | `/api/story?scope=file&id=<path>` + `/api/explain?id=` | `/api/impact?id=&depth=&direction=&tests=` |
-| tasks | `/api/tasks` + `/api/state-machine` | board |
+| tasks | `/api/tasks` + `/api/state-machine` (+ `/api/tasks?all=1` when Completed is first shown, and `/api/task/<slug>` lazily behind each read action) | board |
 | task | `/api/task/<slug>` | `/api/impact?slug=` |
 
 ## 5. Additive server field the client relies on

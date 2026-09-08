@@ -5,12 +5,19 @@ export interface ExecResult {
   stdout: string;
   stderr: string;
   status: number | null;
+  /** True when `timeoutMs` elapsed and the child was killed. */
+  timedOut?: boolean;
 }
 
 export interface ExecOptions {
   cwd?: string;
   allowFailure?: boolean;
   input?: string;
+  /**
+   * Milliseconds to wait before giving up. Unset means wait forever, which is right for git but
+   * wrong for anything that can block on a user (an OS consent dialog, an editor, a pager).
+   */
+  timeoutMs?: number;
 }
 
 /** Run a command synchronously. Throws on non-zero exit unless allowFailure is set. */
@@ -22,15 +29,18 @@ export function run(cmd: string, args: string[], opts: ExecOptions = {}): ExecRe
   };
   if (opts.cwd) spawnOpts.cwd = opts.cwd;
   if (opts.input !== undefined) spawnOpts.input = opts.input;
+  if (opts.timeoutMs !== undefined) spawnOpts.timeout = opts.timeoutMs;
   const res = spawnSync(cmd, args, spawnOpts);
   const stdout = res.stdout ?? "";
   const stderr = res.stderr ?? "";
-  const ok = res.status === 0;
+  // A timeout kills the child and reports status null with an ETIMEDOUT error.
+  const timedOut = res.error !== undefined && (res.error as NodeJS.ErrnoException).code === "ETIMEDOUT";
+  const ok = res.status === 0 && !timedOut;
   if (!ok && !opts.allowFailure) {
-    const detail = (stderr || stdout).trim();
+    const detail = timedOut ? `timed out after ${opts.timeoutMs}ms` : (stderr || stdout).trim();
     throw new Error(`${cmd} ${args.join(" ")} failed (exit ${res.status ?? "?"})${detail ? `: ${detail}` : ""}`);
   }
-  return { ok, stdout, stderr, status: res.status };
+  return { ok, stdout, stderr, status: res.status, timedOut };
 }
 
 export function git(args: string[], opts: ExecOptions = {}): ExecResult {

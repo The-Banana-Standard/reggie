@@ -223,7 +223,7 @@ function currentTasks(scn) {
   }
   for (const c of captured) {
     if (base.some((t) => t.slug === c.slug)) continue;
-    base.push({ slug: c.slug, title: c.text, state: "ungroomed", risk: "unset", owner: null, ownerEmail: null, lastActivity: null, branch: null, pr: null, planExists: false, planOnDefault: false, planLintOk: null, packetExists: false, intake: { slug: c.slug, rawSlug: null, text: c.text, meta: "jacobpress, web, 2026-09-07", detail: c.detail ? [c.detail] : [], line: 9 }, reason: "intake item with no plan", stateDefinition: "An intake line or task folder with no plan yet.", age: 0, planFiles: [], changedFiles: [] });
+    base.push({ slug: c.slug, title: c.text, state: "ungroomed", risk: "unset", owner: null, ownerEmail: null, lastActivity: null, branch: null, pr: null, planExists: false, planOnDefault: false, planLintOk: null, packetExists: false, intake: { slug: c.slug, rawSlug: null, text: c.text, meta: "jacobpress, web, 2026-09-07", detail: c.detail ? [c.detail] : [], line: 9 }, reason: "intake item with no brief", stateDefinition: "Captured but not yet shaped: nothing says what it is beyond the line someone wrote.", age: 0, planFiles: [], changedFiles: [] });
   }
   return base;
 }

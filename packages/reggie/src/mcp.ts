@@ -45,7 +45,7 @@ export async function startMcpServer(root: string): Promise<void> {
     "reggie_tasks",
     {
       title: "List tasks",
-      description: "Every task in this repo with its state derived from git: ungroomed, grooming, groomed, in-process, awaiting-decision, done. Call this before picking work.",
+      description: "Every task in this repo with its state derived from git: ungroomed, groomed, planned, in-process, awaiting-decision, done. Call this before picking work.",
       inputSchema: { includeDone: z.boolean().optional().describe("Include finished tasks") },
     },
     async ({ includeDone }) => {

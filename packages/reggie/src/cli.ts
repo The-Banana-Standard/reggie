@@ -2,6 +2,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
+import { lintBrief, PRIORITIES, SIZES, type Priority, type Size } from "./brief.js";
 import { capture, removeFromIntake } from "./capture.js";
 import { claimTask, releaseTask } from "./claim.js";
 import { buildContext } from "./context.js";
@@ -10,15 +11,17 @@ import { collectFacts } from "./facts.js";
 import { createIssue, createPullRequest, ghAvailable } from "./gh.js";
 import { currentBranch, defaultBranch, git } from "./git.js";
 import { appendJournal, detectTool, readJournal, renderJournalEntry } from "./journal.js";
+import { isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, type LaunchInput } from "./launch.js";
 import { startMcpServer } from "./mcp.js";
 import { startServer } from "./serve.js";
 import { addNote, findNotes, NOTE_TYPES, notesForPath, renderNoteFile, staleEntries, type Confidence, type NoteType } from "./notes.js";
 import { onboard, refreshDocs } from "./onboard.js";
 import { decidePacket, scaffoldPacket } from "./packet.js";
-import { findRepoRoot, packetFile, planFile, repoPaths, type RepoPaths } from "./paths.js";
+import { briefFile, findRepoRoot, packetFile, planFile, repoPaths, type RepoPaths } from "./paths.js";
 import { currentPerson, loadConfig, loadPeople, type Person, type ReggieConfig } from "./people.js";
 import { lintPlan, parsePlan, renderPlanTemplate, riskFromFiles, RISKS, setPlanRisk, type Risk } from "./plan.js";
-import { getTask, listTasks, readIntake, renderTaskLine } from "./tasks.js";
+import { getTask, listTasks, readIntake, renderTaskLine, STATE_MACHINE, stateDefinition, type TaskInfo, type TaskState } from "./tasks.js";
+import { isPriority, isSize, scaffoldBrief, type TriageInput } from "./triage.js";
 import { isSafeSlug, parseIntOption, readText, slugify, writeIfMissing, writeText } from "./util.js";
 import { autoDetectWorkspace, discoverWorkspace, type Workspace } from "./workspace.js";
 
@@ -133,8 +136,76 @@ program
   });
 
 program
+  .command("triage [slug]")
+  .description("Shape a captured item into a brief: scaffold .reggie/tasks/<slug>/brief.md from the intake line (ungroomed → groomed)")
+  .option("--all", "shape every ungroomed task, one brief each")
+  .option("--title <title>", "override the intake line as the title")
+  .option("--area <dir>", "repo-relative directory the work probably touches")
+  .option("--size <size>", `one of ${SIZES.join(", ")}`)
+  .option("--priority <priority>", `one of ${PRIORITIES.join(", ")}`)
+  .option("--force", "rewrite a brief that already exists, discarding what it says")
+  .action((slug: string | undefined, opts: { all?: boolean; title?: string; area?: string; size?: string; priority?: string; force?: boolean }) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    if (opts.all && slug) fail("pass a slug or --all, not both");
+    if (!opts.all && !slug) fail("triage needs a slug, or --all to shape every ungroomed task");
+    if (opts.all && (opts.title || opts.area)) fail("--title and --area shape one task; drop them, or name a single slug");
+    if (opts.size !== undefined && !isSize(opts.size)) fail(`--size must be one of ${SIZES.join(", ")}`);
+    if (opts.priority !== undefined && !isPriority(opts.priority)) fail(`--priority must be one of ${PRIORITIES.join(", ")}`);
+
+    const slugs = opts.all
+      ? listTasks(c.paths, c.config).filter((t) => t.state === "ungroomed").map((t) => t.slug)
+      : [requireSlug(slug ?? "")];
+    if (slugs.length === 0) return out("Nothing is ungroomed. Capture something first: reggie capture \"...\"");
+
+    let written = 0;
+    for (const s of slugs) {
+      const input: TriageInput = { slug: s, author: c.person.handle };
+      if (opts.title !== undefined) input.title = opts.title;
+      if (opts.area !== undefined) input.area = opts.area;
+      if (opts.size !== undefined) input.size = opts.size as Size;
+      if (opts.priority !== undefined) input.priority = opts.priority as Priority;
+      if (opts.force) input.force = true;
+      const r = scaffoldBrief(c.paths, input);
+      const rel = path.relative(c.root, r.file);
+      if (r.skipped) out(`${rel} already exists; pass --force to rewrite it`);
+      else {
+        written += 1;
+        out(`${r.created ? "Created" : "Rewrote"} ${rel}`);
+      }
+    }
+    if (written === 0) return;
+    out("");
+    out(`Fill every section, then: reggie brief lint ${slugs.length === 1 ? slugs[0] : "<slug>"}`);
+    out(`Or shape them in a session: reggie launch ${slugs.join(" ")} --mode triage --run`);
+  });
+
+/** The board order the tasks page reads in: what is moving first, what has not started last. */
+const BOARD_ORDER: TaskState[] = ["awaiting-decision", "in-process", "planned", "groomed", "ungroomed", "done"];
+
+function stateLabel(state: TaskState): string {
+  return STATE_MACHINE.states.find((s) => s.id === state)?.label ?? state;
+}
+
+/** The brief's shaping decisions, as a chip group; empty until triage has made them. */
+function shapeChips(t: TaskInfo): string {
+  const bits: string[] = [];
+  if (t.brief && t.brief.priority !== "unset") bits.push(t.brief.priority);
+  if (t.brief && t.brief.size !== "unset") bits.push(t.brief.size);
+  if (t.risk !== "unset") bits.push(`${t.risk} risk`);
+  if (t.brief?.area) bits.push(t.brief.area);
+  return bits.length > 0 ? ` [${bits.join(" · ")}]` : "";
+}
+
+/** One task under its state heading, so the state is named once per group instead of per line. */
+function boardLine(t: TaskInfo): string {
+  const who = t.owner ? ` · ${t.owner}` : "";
+  const when = t.lastActivity ? ` · ${t.lastActivity.slice(0, 10)}` : "";
+  return `  ${t.slug}${shapeChips(t)}${who}${when}\n    ${t.title || t.slug}${t.reason ? ` (${t.reason})` : ""}`;
+}
+
+program
   .command("tasks")
-  .description("List tasks with their state derived from git")
+  .description("List tasks by state, each state derived from git")
   .option("--all", "include done tasks")
   .option("--json", "machine-readable output")
   .action((opts: { all?: boolean; json?: boolean }) => {
@@ -142,7 +213,21 @@ program
     const tasks = listTasks(c.paths, c.config, { includeDone: Boolean(opts.all) });
     if (opts.json) return out(JSON.stringify(tasks, null, 2));
     if (tasks.length === 0) return out("No tasks. Capture one: reggie capture \"...\"");
-    for (const t of tasks) out(renderTaskLine(t));
+    let first = true;
+    for (const state of BOARD_ORDER) {
+      const group = tasks.filter((t) => t.state === state);
+      if (group.length === 0) continue;
+      if (!first) out("");
+      first = false;
+      out(`${stateLabel(state)} (${group.length}) — ${stateDefinition(state)}`);
+      for (const t of group) out(boardLine(t));
+    }
+    const ungroomed = tasks.filter((t) => t.state === "ungroomed").length;
+    const groomed = tasks.filter((t) => t.state === "groomed").length;
+    out("");
+    if (ungroomed > 0) out(`${ungroomed} ungroomed. Shape ${ungroomed === 1 ? "it into a brief" : "them into briefs"}: reggie triage --all`);
+    else if (groomed > 0) out(`${groomed} groomed and unplanned. Plan one: reggie launch <slug> --mode plan --run`);
+    else out("Nothing is waiting to be shaped.");
   });
 
 program
@@ -164,7 +249,7 @@ program
   .description("Who is working on what right now")
   .action(() => {
     const c = ctx(program.opts<{ root?: string }>().root);
-    const tasks = listTasks(c.paths, c.config).filter((t) => t.state === "in-process" || t.state === "awaiting-decision" || t.state === "grooming");
+    const tasks = listTasks(c.paths, c.config).filter((t) => t.state === "in-process" || t.state === "awaiting-decision" || t.state === "planned" || t.state === "groomed");
     if (tasks.length === 0) return out("Nobody has an active claim.");
     for (const t of tasks) out(`${t.owner ?? "?"}  ${t.state.padEnd(17)} ${t.slug}  ${t.branch ?? ""}  ${t.lastActivity ? `last activity ${t.lastActivity.slice(0, 16)}` : ""}`);
   });
@@ -240,6 +325,56 @@ plan
   .action((slug: string) => {
     const c = ctx(program.opts<{ root?: string }>().root);
     out(removeFromIntake(c.paths, requireSlug(slug)) ? `Removed ${slug} from intake` : `${slug} was not in intake`);
+  });
+
+const brief = program.command("brief").description("Briefs: what a task is, decided before how to do it");
+brief
+  .command("lint <slug>")
+  .description("Check a brief against its contract; exit 1 on errors")
+  .action((slug: string) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    const s = requireSlug(slug);
+    const content = readText(briefFile(c.paths, s));
+    if (!content) fail(`no brief for ${s}; write one: reggie triage ${s}`);
+    const r = lintBrief(content);
+    for (const e of r.errors) out(`error: ${e}`);
+    for (const w of r.warnings) out(`warning: ${w}`);
+    out(r.ok ? "PASS" : "FAIL");
+    if (!r.ok) process.exit(1);
+  });
+brief
+  .command("show <slug>")
+  .description("Print a task's brief")
+  .action((slug: string) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    const s = requireSlug(slug);
+    const content = readText(briefFile(c.paths, s));
+    if (!content) fail(`no brief for ${s}; write one: reggie triage ${s}`);
+    out(content.trimEnd());
+  });
+
+program
+  .command("launch <slug...>")
+  .description("Print the command that starts a session on these tasks; --run opens it in a new terminal window")
+  .option("--tool <tool>", `one of ${LAUNCH_TOOLS.join(", ")}`, "claude")
+  .option("--mode <mode>", `one of ${LAUNCH_MODES.join(", ")}`, "chat")
+  .option("--run", "start the session instead of only printing it")
+  .action((slugs: string[], opts: { tool: string; mode: string; run?: boolean }) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    if (!isLaunchTool(opts.tool)) fail(`--tool must be one of ${LAUNCH_TOOLS.join(", ")}`);
+    if (!isLaunchMode(opts.mode)) fail(`--mode must be one of ${LAUNCH_MODES.join(", ")}`);
+    const input: LaunchInput = { repo: c.root, tool: opts.tool, mode: opts.mode, slugs: slugs.map(requireSlug) };
+    if (!opts.run) {
+      const session = launchCommand(input);
+      out(session.description);
+      out(`cd ${session.cwd}`);
+      out(session.command);
+      return;
+    }
+    const r = launchSession(input);
+    out(r.command);
+    if (!r.launched) fail(r.reason ?? "the session did not start");
+    out(`Started in a new Terminal window, in ${c.root}`);
   });
 
 program

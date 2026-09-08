@@ -11,7 +11,10 @@ type EdgeKind = 'import'|'mod'|'tests'|'ipc'|'touches'|'annotates'|'uses'|'calls
 type Lens = 'structure'|'knowledge'|'tests'|'heat'|'owners'|'tasks';
 type Confidence = 'exact'|'heuristic';
 type NoteType = 'why'|'how'|'gotcha'|'verify'|'data-source'|'decision';
-type TaskState = 'ungroomed'|'grooming'|'groomed'|'in-process'|'awaiting-decision'|'done';
+type TaskState = 'ungroomed'|'groomed'|'planned'|'in-process'|'awaiting-decision'|'done';
+type TaskPhase = 'capture'|'shape'|'plan'|'build'|'review'|'done';   // the coarser grouping the tasks page columns by
+type LaunchTool = 'claude'|'codex';
+type LaunchMode = 'chat'|'triage'|'plan'|'implement';
 
 interface Knowledge { own: number; inherited: number; stale: number; byType: Record<NoteType, number>; lastNoteDate: string|null; lowestConfidence: 'high'|'medium'|'low'|null }
 interface Author { handle: string; name: string; email: string; lines: number; commits: number; share: number /* 0..1 */ }
@@ -132,21 +135,42 @@ interface Symbol { name: string; kind: 'function'|'class'|'const'|'let'|'var'|'t
 `{ path: string; symbols: Symbol[]; engine: 'regex'|'typescript'|'tree-sitter' }`.
 
 ## GET /api/tasks?all=0|1
-`TaskInfo[]` as today plus per task `stateDefinition: string`, `age: number|null` (days), `planFiles: string[]`, `changedFiles: string[]`. Intake items are already included as `state: 'ungroomed'` with `intake` set.
+`TaskInfo[]` as today plus per task `stateDefinition: string`, `age: number|null` (days), `planFiles: string[]`, `changedFiles: string[]`, and the two fields the tasks page columns by:
+```ts
+brief: { exists: boolean; area: string; size: 'small'|'medium'|'large'|'unset'; priority: 'P1'|'P2'|'P3'|'unset'; problem: string } | null;
+phase: TaskPhase;   // ungroomed→capture, groomed→shape, planned→plan, in-process→build, awaiting-decision→review, done→done
+```
+`brief` is `null` until triage writes `.reggie/tasks/<slug>/brief.md`; `problem` is `""` while the scaffold's placeholder is still in it. Intake items are already included as `state: 'ungroomed'` with `intake` set.
 
 ## GET /api/task/<slug>
 ```ts
-{ task: TaskInfo & { stateDefinition: string; age: number|null };
+{ task: TaskInfo & { stateDefinition: string; age: number|null; brief: …|null; phase: TaskPhase };
+  brief: { meta: BriefMeta; sections: Record<string, string>; areas: string[]; questions: string[] } | null;
   plan: { meta: PlanMeta; sections: Record<string, string>; criteria: string[]; files: { path: string; op: 'NEW'|'MOD'|'DEL'|null; exists: boolean; nodeId: string }[] } | null;
   packet: { verdict: 'pending'|'approved'|'needs-work'|null; decidedBy: string|null; decidedAt: string|null; criteria: { text: string; pass: boolean|null; evidence: string[] }[]; sections: Record<string, string>; evidence: string[] } | null;
+  completion: Completion | null;
   claim: ClaimInfo | null; journal: JournalEntry[];
   impact: { planned: string[]; actual: string[]; plannedButUntouched: string[]; touchedButUnplanned: string[]; downstream: { id: string; hop: number }[]; collisions: { file: string; slug: string; owner: string|null }[]; riskRules: { level: 'high'|'medium'; pattern: string; file: string }[] };
   contextRoute: string /* /api/context?slug=… */ }
+
+// The Completed view's "how do I know it was done". Non-null only when task.state is 'done'.
+interface Completion {
+  verdict: string|null; decidedBy: string|null; decidedAt: string|null;   // from the packet front matter
+  criteria: { text: string; pass: boolean|null; evidence: { path: string; route: string|null; exists: boolean }[] }[];
+  diff: { files: { path: string; added: number; deleted: number }[]; filesChanged: number; added: number; deleted: number; commits: number };
+  commits: CommitInfo[];      // the slug's commits: the `Task:` trailer in the history index, else `<base>..task/<slug>`
+  journal: JournalEntry[];    // every entry ever written for the slug (same list as `journal` above)
+}
 ```
+`brief` parses the brief the same way `plan` parses the plan, so the page renders sections rather than raw markdown. In a `Completion`, `evidence[].route` is the `/api/evidence` URL for a reference that names a file under `.reggie/tasks/<slug>/evidence/` and `null` otherwise; `exists` says whether that file is really there (working tree or task branch), so a criterion claiming proof that was never saved is visible as such. `diff` sums the numstat of the task's own commits and leaves `.reggie/` records out, the way `changedFiles` does.
+
 404 for unknown slug; 400 for unsafe slug.
 
 ## GET /api/state-machine
-`{ states: { id: TaskState; label: string; definition: string; rule: string }[]; transitions: { from: TaskState; to: TaskState; trigger: string; who: string }[]; counts: Record<TaskState, number>; mode: 'solo'|'team' }`.
+`{ states: { id: TaskState; label: string; definition: string; rule: string }[]; transitions: { from: TaskState; to: TaskState; trigger: string; who: string }[]; counts: Record<TaskState, number>; mode: 'solo'|'team' }`. Six states in lifecycle order (`ungroomed, groomed, planned, in-process, awaiting-decision, done`), including the two shaping transitions: triage writes the brief (`ungroomed → groomed`) and a passing plan lands (`groomed → planned`).
+
+## GET /api/launch?slug=&tool=&mode=
+`{ command: string; cwd: string; description: string }` — the exact command a session would run, built but **not** started, so the page can put it in a tooltip or a copy field. `slug` is repeatable; `tool` and `mode` are required and have no defaults. 400 `{error}` when `tool` is not a `LaunchTool`, `mode` is not a `LaunchMode`, no slug was given, any slug is unsafe, or more than one slug was given for a mode other than `triage` (only triage shapes several tasks in one session). The slugs are not checked against the task list here — this route only describes a command.
 
 ## GET /api/evidence?slug=<slug>&file=<name>
 Streams `.reggie/tasks/<slug>/evidence/<name>` with a content type by extension (text/*, image/*, application/json); 404 otherwise; refuses `/` and `..` in `file`.
@@ -202,4 +226,6 @@ Every request, GET and POST alike, must carry a `Host` header naming a loopback 
 - `POST /api/capture` `{ text: string; detail?: string; slug?: string }` → `{ slug: string; line: string }` (calls `capture()` with `currentPerson`, source `web`).
 - `POST /api/note` `{ entity: string; type: NoteType; text: string; confidence?: 'high'|'medium'|'low'; sources?: string[] }` → `{ entity: string; kind: string; created: boolean; entry: NoteEntry }` (calls `addNote`, author `"<handle> (web)"`).
 - `POST /api/decide` `{ slug: string; verdict: 'approved'|'needs-work'; comment?: string }` → `{ slug: string; verdict: string; file: string; materializedFrom?: string }` (resolves the packet the way `/api/task` does — working tree, then `task/<slug>`, then the integration branch — copying it into the working tree first and reporting the ref it came from in `materializedFrom`; then calls `decidePacket` as `currentPerson`; 409 only when no packet exists anywhere; in team mode 403 unless the current person is a maintainer).
+- `POST /api/triage` `{ slug: string }` or `{ slugs: string[] }` (both may be sent; the union is used, de-duplicated) → `{ created: string[]; skipped: { slug: string; reason: string }[] }`. Scaffolds `.reggie/tasks/<slug>/brief.md` from the intake line as `currentPerson`, which moves the card from `ungroomed` to `groomed`. There is no `force` over HTTP: a slug whose brief already exists is skipped with `"a brief already exists"`, and a slug no task in this repo carries is skipped with `"nothing in this repo names that task"` — a button must not be able to erase thinking or invent a task. 400 when neither field is given, or any slug is unsafe.
+- `POST /api/launch` `{ slugs: string[]; tool: LaunchTool; mode: LaunchMode }` (`slug` accepted as a singular alias) → `{ launched: boolean; command: string; reason?: string }`. The only route that starts a process: it spawns the session in a new terminal window in the repo directory. Validated exactly as `GET /api/launch`, and additionally 404 `{error:"unknown task: …"}` for any slug no task in this repo carries. The command is built as an argument vector by `src/launch.ts` and is never interpolated into a shell. `launched:false` is a normal answer, not an error — outside macOS nothing can be spawned, so `reason` says why and the page falls back to showing `command` to copy.
 - `POST /api/journal` `{ text: string; slug?: string; stage?: string; evidence?: string[] }` → `JournalEntry` (tool `human`).

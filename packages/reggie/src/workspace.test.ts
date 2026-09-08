@@ -308,7 +308,7 @@ describe("workspace on disk", () => {
     expect(a.primaryLanguage).toBe("TypeScript");
     expect(a.codeFiles).toBe(4);
     expect(a.branch).toBe("main");
-    expect(a.taskCounts).toEqual({ ungroomed: 1, grooming: 0, groomed: 0, "in-process": 0, "awaiting-decision": 0, done: 0 });
+    expect(a.taskCounts).toEqual({ ungroomed: 1, groomed: 0, planned: 0, "in-process": 0, "awaiting-decision": 0, done: 0 });
     expect(a.knowledge).toEqual({ source: 3, noted: 2, inherited: 1, stale: 1 });
     expect(a.lastJournal?.text).toBe("Shipped the parser. Next up: the summary.");
     expect(a.lastJournal?.person).toBe("tester");

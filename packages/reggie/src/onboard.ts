@@ -116,6 +116,19 @@ Then, working from the code itself, not from memory:
 
 Use \`reggie note add <path> --type <type> "text" --source <file:line>\` for each note, or the \`reggie\` MCP tools. Cite a source for every note. When unsure, say so with \`--confidence low\`.
 `,
+  "reggie-triage.md": `---
+description: Shape one or more ungroomed intake items into briefs. Usage: /reggie-triage <slug> [slug...]
+---
+
+Slugs: $ARGUMENTS
+
+1. For each slug, run \`reggie context <slug>\` and read it. Work from the intake line, the notes, and the graph; do not go reading much code. A brief is cheap on purpose, and cheap is the point.
+2. Run \`reggie triage <slug>\` to scaffold \`.reggie/tasks/<slug>/brief.md\`, then fill every section: Problem, Why now, Suspected area, Open questions, Not this. Set \`area\`, \`size\`, and \`priority\` in the front matter.
+3. Keep it short and in plain English. This is shaping, not planning: say what the problem is and where it probably lives, not how you would build it. No implementation approach, no file-by-file design.
+4. Anything you cannot answer from what you have becomes an Open question. Do not guess to fill a section.
+5. Run \`reggie brief lint <slug>\` and fix every error before moving on.
+6. Given several slugs, shape them all in one pass. Then write one journal entry with \`--stage triage\` saying what you shaped and which ones you were least sure about.
+`,
   "reggie-plan.md": `---
 description: Plan a task in plan mode against Reggie's plan contract. Usage: /reggie-plan <slug> [one-line problem]
 ---
@@ -147,6 +160,16 @@ description: Capture an idea, bug, or discovered issue into Reggie's intake with
 ---
 
 Run \`reggie capture "$ARGUMENTS"\`. If the user gave detail, pass it with \`--detail\`. Confirm the slug that was created. Do not plan or fix anything.
+`,
+  "reggie-chat.md": `---
+description: Discuss a task without touching anything: no edits, no plan, no work. Usage: /reggie-chat <slug>
+---
+
+Slug: $ARGUMENTS
+
+Run \`reggie context $ARGUMENTS\` and read all of it. Then think it through with the user: answer their questions, lay out the options with their trade-offs, and say plainly what you are unsure about.
+
+Do not edit any file, do not write or update a plan, and do not start the work. If the conversation settles something worth keeping, offer to capture it with \`reggie capture "..."\` or to add a note with \`reggie note add\`, and do it only when the user says yes.
 `,
 };
 

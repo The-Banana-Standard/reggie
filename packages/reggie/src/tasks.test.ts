@@ -1,3 +1,4 @@
+import { rmSync } from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fullPlan, makeTempRepo, type TempRepo } from "../test/helpers.js";
@@ -6,7 +7,7 @@ import { claimTask } from "./claim.js";
 import { git } from "./git.js";
 import { onboard } from "./onboard.js";
 import { decidePacket, scaffoldPacket } from "./packet.js";
-import { packetFile, planFile, repoPaths } from "./paths.js";
+import { briefFile, packetFile, planFile, repoPaths } from "./paths.js";
 import { currentPerson, loadConfig } from "./people.js";
 import {
   STATE_MACHINE,
@@ -20,9 +21,44 @@ import {
   parsePacketCriteria,
   parsePlanFileEntries,
   stateDefinition,
+  taskPhase,
   type TaskDetail,
 } from "./tasks.js";
 import { readText, writeText } from "./util.js";
+
+/** A brief that satisfies the brief contract, for the states that only need one to exist. */
+function fullBrief(slug: string): string {
+  return [
+    "---",
+    `slug: ${slug}`,
+    "title: Cap login retries on web",
+    "area: src/auth",
+    "size: small",
+    "risk: high",
+    "priority: P1",
+    "author: test",
+    "created: 2026-09-08",
+    "---",
+    "# Cap login retries on web",
+    "",
+    "## Problem",
+    "Web clients retry login forever when the server is down, so nobody can tell an outage from a broken page.",
+    "",
+    "## Why now",
+    "The auth endpoint is near its rate limit and the next outage takes the login page with it.",
+    "",
+    "## Suspected area",
+    "- src/auth/login.ts because the retry loop is written there",
+    "- src/auth/ because the error surface is shared with signup",
+    "",
+    "## Open questions",
+    "- Does the mobile client share this retry loop, which would widen the work to two platforms?",
+    "",
+    "## Not this",
+    "- Server-side rate limiting, which is a separate task against the API gateway",
+    "",
+  ].join("\n");
+}
 
 describe("task state from git", () => {
   let repo: TempRepo;
@@ -51,14 +87,20 @@ describe("task state from git", () => {
     const slug = cap.slug;
     expect(getTask(paths, config, slug).state).toBe("ungroomed");
 
-    writeText(planFile(paths, slug), fullPlan(slug));
-    expect(getTask(paths, config, slug).state).toBe("groomed");
-    expect(getTask(paths, config, slug).reason).toContain("solo mode");
-
-    repo.commitAll("plan");
+    writeText(briefFile(paths, slug), fullBrief(slug));
     const groomed = getTask(paths, config, slug);
     expect(groomed.state).toBe("groomed");
-    expect(groomed.planOnDefault).toBe(true);
+    expect(groomed.phase).toBe("shape");
+
+    writeText(planFile(paths, slug), fullPlan(slug));
+    expect(getTask(paths, config, slug).state).toBe("planned");
+    expect(getTask(paths, config, slug).reason).toContain("solo mode");
+
+    repo.commitAll("brief and plan");
+    const planned = getTask(paths, config, slug);
+    expect(planned.state).toBe("planned");
+    expect(planned.phase).toBe("plan");
+    expect(planned.planOnDefault).toBe(true);
 
     const claim = claimTask(paths, config, slug, { person });
     expect(claim.branch).toBe(`task/${slug}`);
@@ -139,6 +181,15 @@ describe("state machine and task detail", () => {
     }
     expect(STATE_MACHINE.transitions.some((t) => t.from === "awaiting-decision" && t.to === "in-process")).toBe(true);
     expect(STATE_MACHINE.transitions).toHaveLength(6);
+
+    // The two arrows the four-phase model adds: triage writes the brief, planning writes the plan.
+    const shape = STATE_MACHINE.transitions.find((t) => t.from === "ungroomed" && t.to === "groomed");
+    expect(shape?.trigger).toContain("brief.md");
+    const plan = STATE_MACHINE.transitions.find((t) => t.from === "groomed" && t.to === "planned");
+    expect(plan?.trigger).toContain("plan contract");
+
+    expect(TASK_STATES.map(taskPhase)).toEqual(["capture", "shape", "plan", "build", "review", "done"]);
+    expect(JSON.stringify(STATE_MACHINE)).not.toContain("grooming");
   });
 
   it("computes ages from ISO dates and intake metadata", () => {
@@ -201,10 +252,12 @@ describe("state machine and task detail", () => {
     const config = loadConfig(paths);
     const person = currentPerson(repo.root);
 
-    // Ungroomed: only the intake line exists.
+    // Ungroomed: only the intake line exists, so nothing has been shaped yet.
     const slug = capture(paths, { text: "Cap login retries on web", person, source: "test" }).slug;
     let detail = must(getTaskDetail(paths, config, slug));
     expect(detail.task.state).toBe("ungroomed");
+    expect(detail.task.phase).toBe("capture");
+    expect(detail.task.reason).toContain("no brief");
     expect(detail.task.stateDefinition).toBe(stateDefinition("ungroomed"));
     expect(detail.task.age).toBe(0);
     expect(detail.task.planFiles).toEqual([]);
@@ -216,14 +269,17 @@ describe("state machine and task detail", () => {
     expect(detail.impact).toEqual({ planned: [], actual: [], plannedButUntouched: [], touchedButUnplanned: [], downstream: [], collisions: [], riskRules: [] });
     expect(detail.contextRoute).toBe(`/api/context?slug=${slug}`);
 
-    // Groomed: a plan naming an existing file, a new file, and a folder.
+    // Planned: a plan naming an existing file, a new file, and a folder.
     const plan = fullPlan(slug, ["src/auth/login.ts", "src/auth/new-file.ts", "src/auth/"])
       .replace("- src/auth/new-file.ts (MOD)", "- `src/auth/new-file.ts` (NEW)")
       .replace("- src/auth/ (MOD)", "- src/auth/");
     writeText(planFile(paths, slug), plan);
     repo.commitAll("plan");
     detail = must(getTaskDetail(paths, config, slug));
-    expect(detail.task.state).toBe("groomed");
+    expect(detail.task.state).toBe("planned");
+    expect(detail.task.phase).toBe("plan");
+    expect(detail.task.brief).toBeNull();
+    expect(detail.brief).toBeNull();
     expect(detail.task.age).toBe(0);
     expect(detail.task.planFiles).toEqual(["src/auth/login.ts", "src/auth/new-file.ts", "src/auth/"]);
     expect(detail.plan?.meta.title).toBe("Cap login retries on web");
@@ -344,5 +400,162 @@ describe("state machine and task detail", () => {
     ]);
     expect(detail.impact.actual).toEqual(["src/auth/fresh.ts"]);
     expect(detail.impact.plannedButUntouched).toEqual(["src/auth/login.ts"]);
+  });
+});
+
+describe("briefs shape a task before a plan does", () => {
+  let repo: TempRepo;
+  beforeEach(() => {
+    repo = makeTempRepo();
+    repo.write("src/auth/login.ts", "export const a = 1;\n");
+    repo.commitAll("add login");
+    onboard(repo.root);
+    repo.commitAll("onboard");
+  });
+  afterEach(() => repo.cleanup());
+
+  function captured(): { paths: ReturnType<typeof repoPaths>; config: ReturnType<typeof loadConfig>; slug: string } {
+    const paths = repoPaths(repo.root);
+    const config = loadConfig(paths);
+    const person = currentPerson(repo.root);
+    const slug = capture(paths, { text: "Cap login retries on web", person, source: "test" }).slug;
+    return { paths, config, slug };
+  }
+
+  it("a brief alone makes an ungroomed item groomed", () => {
+    const { paths, config, slug } = captured();
+    const raw = getTask(paths, config, slug);
+    expect(raw.state).toBe("ungroomed");
+    expect(raw.phase).toBe("capture");
+    expect(raw.brief).toBeNull();
+    expect(raw.reason).toBe("intake item with no brief");
+
+    writeText(briefFile(paths, slug), fullBrief(slug));
+    const groomed = getTask(paths, config, slug);
+    expect(groomed.state).toBe("groomed");
+    expect(groomed.phase).toBe("shape");
+    expect(groomed.stateDefinition).toBe(stateDefinition("groomed"));
+    expect(groomed.reason).toBe("brief on disk; no plan yet");
+    expect(groomed.brief).toEqual({
+      exists: true,
+      area: "src/auth",
+      size: "small",
+      priority: "P1",
+      problem: "Web clients retry login forever when the server is down, so nobody can tell an outage from a broken page.",
+    });
+    // The brief carries the risk and the title until a plan settles them.
+    expect(groomed.risk).toBe("high");
+    expect(groomed.title).toBe("Cap login retries on web");
+    expect(groomed.planExists).toBe(false);
+    expect(groomed.planLintOk).toBeNull();
+  });
+
+  it("a brief committed to the default branch counts even when it is gone from disk", () => {
+    const { paths, config, slug } = captured();
+    writeText(briefFile(paths, slug), fullBrief(slug));
+    repo.commitAll("brief");
+    rmSync(briefFile(paths, slug));
+    const groomed = getTask(paths, config, slug);
+    expect(groomed.state).toBe("groomed");
+    expect(groomed.reason).toBe("brief on main; no plan yet");
+    expect(groomed.brief?.exists).toBe(true);
+    expect(groomed.brief?.size).toBe("small");
+  });
+
+  it("a plan draft that fails the contract leaves a briefed task groomed, naming the draft", () => {
+    const { paths, config, slug } = captured();
+    writeText(briefFile(paths, slug), fullBrief(slug));
+    writeText(planFile(paths, slug), fullPlan(slug).replace("risk: low", "risk: unset"));
+    const t = getTask(paths, config, slug);
+    expect(t.state).toBe("groomed");
+    expect(t.phase).toBe("shape");
+    expect(t.reason).toBe("plan draft on disk does not pass the contract yet; a plan is in progress");
+    expect(t.planLintOk).toBe(false);
+    expect(t.brief?.exists).toBe(true);
+  });
+
+  it("a plan/<slug> branch reads as groomed with a plan in progress", () => {
+    const { paths, config, slug } = captured();
+    writeText(briefFile(paths, slug), fullBrief(slug));
+    repo.commitAll("brief");
+    git(["switch", "-q", "-c", `plan/${slug}`], { cwd: repo.root });
+    writeText(planFile(paths, slug), fullPlan(slug));
+    repo.commitAll("draft the plan");
+    git(["switch", "-q", "main"], { cwd: repo.root });
+
+    const t = getTask(paths, config, slug);
+    expect(t.state).toBe("groomed");
+    expect(t.reason).toBe(`plan/${slug} exists; a plan is in progress`);
+    expect(t.branch).toBe(`plan/${slug}`);
+  });
+
+  it("a plan that passes the contract makes it planned", () => {
+    const { paths, config, slug } = captured();
+    writeText(briefFile(paths, slug), fullBrief(slug));
+    writeText(planFile(paths, slug), fullPlan(slug));
+    const onDisk = getTask(paths, config, slug);
+    expect(onDisk.state).toBe("planned");
+    expect(onDisk.phase).toBe("plan");
+    expect(onDisk.reason).toBe("plan on disk passes the contract; solo mode counts it as planned until committed");
+
+    repo.commitAll("brief and plan");
+    const merged = getTask(paths, config, slug);
+    expect(merged.state).toBe("planned");
+    expect(merged.reason).toBe("plan on main passes the contract");
+    expect(merged.planOnDefault).toBe(true);
+    expect(merged.brief?.exists).toBe(true);
+    // The plan settles the risk, so its value wins over the brief's guess.
+    expect(merged.risk).toBe("low");
+  });
+
+  it("a plan with no brief is still planned; a brief is not required retroactively", () => {
+    const { paths, config, slug } = captured();
+    writeText(planFile(paths, slug), fullPlan(slug));
+    const onDisk = getTask(paths, config, slug);
+    expect(onDisk.state).toBe("planned");
+    expect(onDisk.brief).toBeNull();
+
+    repo.commitAll("plan only");
+    const merged = getTask(paths, config, slug);
+    expect(merged.state).toBe("planned");
+    expect(merged.phase).toBe("plan");
+    expect(merged.brief).toBeNull();
+    expect(merged.reason).toBe("plan on main passes the contract");
+  });
+
+  it("getTaskDetail parses the brief beside the plan", () => {
+    const { paths, config, slug } = captured();
+    writeText(briefFile(paths, slug), fullBrief(slug));
+    writeText(planFile(paths, slug), fullPlan(slug));
+    repo.commitAll("brief and plan");
+
+    const detail = must(getTaskDetail(paths, config, slug));
+    expect(detail.task.state).toBe("planned");
+    expect(detail.brief?.meta.size).toBe("small");
+    expect(detail.brief?.meta.priority).toBe("P1");
+    expect(detail.brief?.meta.area).toBe("src/auth");
+    expect(detail.brief?.sections["Why now"]).toContain("near its rate limit");
+    expect(Object.keys(detail.brief?.sections ?? {})).toEqual(["Problem", "Why now", "Suspected area", "Open questions", "Not this"]);
+    expect(detail.brief?.areas).toHaveLength(2);
+    expect(detail.brief?.questions).toHaveLength(1);
+    expect(detail.plan?.meta.risk).toBe("low");
+  });
+
+  it("sorts the board with the most advanced work first and done last", () => {
+    const paths = repoPaths(repo.root);
+    const config = loadConfig(paths);
+    const person = currentPerson(repo.root);
+    const shaped = capture(paths, { text: "Shape only this one", person, source: "test" }).slug;
+    const raw = capture(paths, { text: "Nothing has touched this", person, source: "test" }).slug;
+    const ready = capture(paths, { text: "Ready to build now", person, source: "test" }).slug;
+    writeText(briefFile(paths, shaped), fullBrief(shaped));
+    writeText(planFile(paths, ready), fullPlan(ready));
+
+    const states = listTasks(paths, config).map((t) => [t.slug, t.state]);
+    expect(states).toEqual([
+      [ready, "planned"],
+      [shaped, "groomed"],
+      [raw, "ungroomed"],
+    ]);
   });
 });

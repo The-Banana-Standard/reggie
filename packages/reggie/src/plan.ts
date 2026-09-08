@@ -79,7 +79,7 @@ export function renderPlanTemplate(input: PlanTemplateInput): string {
     "- (what this task deliberately does not do)",
     "",
     "## Bail conditions",
-    "- (what discovery would mean this plan is wrong and the task should go back to grooming)",
+    "- (what discovery would mean this plan is wrong and the task should go back to its brief, groomed but unplanned)",
     "",
   ].join("\n");
 }

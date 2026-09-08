@@ -73,10 +73,11 @@ export const AREA_HUES = ["#6b7280", "#5d7bd6", "#bb9af7", "#f06fb1", "#73daca",
 export const PEOPLE_PALETTE = ["#7aa2f7", "#c792ea", "#ffcb6b", "#89ddff", "#f78c6c", "#c3e88d"];
 /** Heat ramp, five quantile steps. */
 export const HEAT_RAMP = ["#2a3140", "#3d5a99", "#7a6bb0", "#c76b8a", "#f7768e"];
+/** Task-state fills, in lifecycle order (§5.1). Mirrors --state-* in styles.css. */
 export const STATE_COLORS = {
   ungroomed: "#5c6478",
-  grooming: "#8b93a7",
   groomed: "#7dcfff",
+  planned: "#bb9af7",
   "in-process": "#7aa2f7",
   "awaiting-decision": "#e0af68",
   done: "#9ece6a",

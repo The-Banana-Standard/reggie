@@ -6,19 +6,21 @@ import YAML from "yaml";
 import { capture } from "./capture.js";
 import { buildContext } from "./context.js";
 import { collectFacts, type RepoFacts } from "./facts.js";
-import { currentBranch, fileAtRef } from "./git.js";
+import { currentBranch, defaultBranch, fileAtRef, git } from "./git.js";
 import { buildGraph, flatGraph, jsImports, type GraphEdge, type GraphNode, type RepoGraph } from "./graph.js";
-import { commitsPerDayFor, historyFor, recentFor, repoHistory, type HistoryIndex } from "./history.js";
+import { commitsPerDayFor, historyFor, HISTORY_LOG_FORMAT, parseNumstatLog, recentFor, repoHistory, type CommitInfo, type HistoryIndex, type LogCommit } from "./history.js";
 import { appendJournal, readJournal, type JournalEntry } from "./journal.js";
+import { isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, type LaunchMode, type LaunchTool } from "./launch.js";
 import { addNote, allNoteFiles, NOTE_TYPES, notesForPath, notesIndex, readNoteFile, staleEntriesFor, type Confidence as NoteConfidence, type NoteEntry, type NoteFile, type NoteType, type StaleEntry } from "./notes.js";
 import { decidePacket, locatePacket, materializePacket } from "./packet.js";
 import { evidenceDir, type RepoPaths } from "./paths.js";
-import { currentPerson, inferMode, loadPeople, type PeopleFile, type Person, type ReggieConfig } from "./people.js";
+import { currentPerson, handleFor, inferMode, loadPeople, type PeopleFile, type Person, type ReggieConfig } from "./people.js";
 import { roleOf } from "./roles.js";
 import { areaStory, buildStoryContext, explain, fileStory, repoStory, routeFor, taskStory, workspaceStory, type Lens, type StoryContext } from "./story.js";
 import { extractSymbols, fileSymbols, SYMBOL_ENGINE, symbolLang } from "./symbols.js";
-import { getTaskDetail, knownSlugs, listTasks, STATE_MACHINE, TASK_STATES, type TaskInfo, type TaskState } from "./tasks.js";
-import { isSafeSlug, readText } from "./util.js";
+import { getTaskDetail, knownSlugs, listTasks, STATE_MACHINE, TASK_STATES, type PacketCriterion, type TaskDetail, type TaskInfo, type TaskState } from "./tasks.js";
+import { scaffoldBrief } from "./triage.js";
+import { isSafeSlug, readText, uniq } from "./util.js";
 import { containerView, dirView, impactView, level1, type ViewGraph } from "./views.js";
 import { RepoCtx, RepoRegistry, workspaceSummary, type Workspace } from "./workspace.js";
 
@@ -607,8 +609,9 @@ export interface ServerHandle {
 
 /**
  * The local guidebook server: the static UI from `packages/reggie/ui` plus the JSON API of
- * `docs/ui-api-contract.md` over the state layer. Read-only except for the four POST routes,
- * which write through `capture`, `addNote`, `decidePacket` and `appendJournal`.
+ * `docs/ui-api-contract.md` over the state layer. Read-only except for the six POST routes,
+ * which write through `capture`, `addNote`, `decidePacket`, `appendJournal` and `scaffoldBrief`
+ * — and `POST /api/launch`, the one route that starts a process rather than writing a file.
  */
 export function startServer(paths: RepoPaths, config: ReggieConfig, opts: ServeOptions): Promise<ServerHandle> {
   const registry = opts.workspace ? RepoRegistry.fromWorkspace(opts.workspace) : RepoRegistry.single(paths.root);
@@ -752,6 +755,8 @@ function route(res: ServerResponse, url: URL, registry: RepoRegistry, primary: {
       return json(res, 200, tasksList(c, qBool(url, "all")));
     case "/api/state-machine":
       return stateMachineRoute(res, c);
+    case "/api/launch":
+      return launchRoute(res, c, url);
     case "/api/evidence":
       return evidenceRoute(res, c, url);
     case "/api/history":
@@ -1069,9 +1074,139 @@ function symbolsRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
   return json(res, 200, { path: rel, symbols: fileSymbols(graphOf(c), rel, content), engine: SYMBOL_ENGINE });
 }
 
+/**
+ * Every task, `brief` and `phase` included: `TaskInfo` is serialised whole, so the two fields
+ * the tasks page columns by travel with every card and never need a second request.
+ */
 function tasksList(c: RepoCtx, includeDone: boolean): TaskInfo[] {
   const all = tasksOf(c);
   return includeDone ? all : all.filter((t) => t.state !== "done");
+}
+
+// ---------------------------------------------------------------------------
+// Completion: what a finished task actually did (spec §6)
+// ---------------------------------------------------------------------------
+
+interface CompletionEvidence {
+  /** The path exactly as the packet wrote it. */
+  path: string;
+  /** `/api/evidence?slug=…&file=…`, or null when the reference is not a file under evidence/. */
+  route: string | null;
+  /** Whether that file is really there, on disk or on the task branch. */
+  exists: boolean;
+}
+
+interface CompletionCriterion {
+  text: string;
+  pass: boolean | null;
+  evidence: CompletionEvidence[];
+}
+
+interface CompletionDiff {
+  files: { path: string; added: number; deleted: number }[];
+  filesChanged: number;
+  added: number;
+  deleted: number;
+  commits: number;
+}
+
+interface Completion {
+  verdict: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  criteria: CompletionCriterion[];
+  diff: CompletionDiff;
+  commits: CommitInfo[];
+  journal: JournalEntry[];
+}
+
+/**
+ * The commits behind a finished task. Merged work is in the history index already (matched by
+ * the `Task:` trailer); work still sitting on `task/<slug>` is not, because the index is read
+ * from HEAD, so the branch is read directly in that case with the same format and parser.
+ */
+function completionCommits(c: RepoCtx, task: TaskInfo): LogCommit[] {
+  const merged = historyOf(c).log.filter((k) => k.task === task.slug);
+  if (merged.length > 0 || !task.branch) return merged;
+  const base = defaultBranch(c.root, c.config.defaultBranch);
+  const r = git(["-c", "core.quotePath=false", "log", "--numstat", "-M", `--format=${HISTORY_LOG_FORMAT}`, `${base}..${task.branch}`], {
+    cwd: c.root,
+    allowFailure: true,
+  });
+  return r.ok ? parseNumstatLog(r.stdout) : [];
+}
+
+/** Email → handle from people.yaml, falling back to the same derivation history.ts uses. */
+function handleResolver(c: RepoCtx): (name: string, email: string) => string {
+  const byEmail = new Map<string, string>();
+  for (const p of peopleOf(c).people) if (p.email) byEmail.set(p.email.toLowerCase(), p.handle);
+  return (name, email) => byEmail.get(email.toLowerCase()) ?? handleFor(name, email);
+}
+
+/** Lines added and removed per file, summed across the task's commits. Reggie's own records are left out. */
+function completionDiff(commits: readonly LogCommit[]): CompletionDiff {
+  const byFile = new Map<string, { path: string; added: number; deleted: number }>();
+  let added = 0;
+  let deleted = 0;
+  for (const commit of commits) {
+    for (const f of commit.files) {
+      if (f.path.startsWith(".reggie/")) continue;
+      const row = byFile.get(f.path) ?? { path: f.path, added: 0, deleted: 0 };
+      row.added += f.added;
+      row.deleted += f.deleted;
+      byFile.set(f.path, row);
+      added += f.added;
+      deleted += f.deleted;
+    }
+  }
+  const files = Array.from(byFile.values()).sort((a, b) => b.added + b.deleted - (a.added + a.deleted) || a.path.localeCompare(b.path));
+  return { files, filesChanged: files.length, added, deleted, commits: commits.length };
+}
+
+const REGGIE_TASKS_PREFIX = ".reggie/tasks/";
+
+/**
+ * A packet's evidence reference as something the page can open. The evidence route serves one
+ * file out of `.reggie/tasks/<slug>/evidence/`, so only a reference that lands there gets a
+ * route; anything else is reported as written, with `exists: false`, rather than silently dropped.
+ */
+function evidenceLink(slug: string, ref: string, present: readonly string[]): CompletionEvidence {
+  const clean = ref.replace(/^\.\/+/, "");
+  const prefix = `${REGGIE_TASKS_PREFIX}${slug}/evidence/`;
+  const name = clean.startsWith(prefix) ? clean.slice(prefix.length) : clean.startsWith("evidence/") ? clean.slice("evidence/".length) : clean;
+  const isFile = name !== "" && !name.includes("/") && !name.includes("..");
+  const full = `${prefix}${name}`;
+  return {
+    path: ref,
+    route: isFile ? `/api/evidence?slug=${encodeURIComponent(slug)}&file=${encodeURIComponent(name)}` : null,
+    exists: isFile && present.some((p) => p === full || p.endsWith(`/evidence/${name}`)),
+  };
+}
+
+function completionCriteria(slug: string, criteria: readonly PacketCriterion[], present: readonly string[]): CompletionCriterion[] {
+  return criteria.map((k) => ({ text: k.text, pass: k.pass, evidence: k.evidence.map((e) => evidenceLink(slug, e, present)) }));
+}
+
+/**
+ * "How do I know it was done": the verdict and who gave it, each criterion with its proof, what
+ * the work changed, and the record it left. Null for anything not finished — the page asks the
+ * question only of the Completed view.
+ */
+function completionOf(c: RepoCtx, detail: TaskDetail): Completion | null {
+  if (detail.task.state !== "done") return null;
+  const packet = detail.packet;
+  const present = packet?.evidence ?? [];
+  const commits = completionCommits(c, detail.task);
+  const handles = handleResolver(c);
+  return {
+    verdict: packet?.verdict ?? null,
+    decidedBy: packet?.decidedBy ?? null,
+    decidedAt: packet?.decidedAt ?? null,
+    criteria: completionCriteria(detail.task.slug, packet?.criteria ?? [], present),
+    diff: completionDiff(commits),
+    commits: commits.map((k) => ({ sha: k.sha, author: k.author, handle: handles(k.author, k.email), date: k.date, subject: k.subject, task: k.task })),
+    journal: detail.journal,
+  };
 }
 
 function taskRoute(res: ServerResponse, c: RepoCtx, slug: string): void {
@@ -1090,7 +1225,49 @@ function taskRoute(res: ServerResponse, c: RepoCtx, slug: string): void {
           .filter((n) => n.side === "up" && n.kind === "file" && typeof n.hop === "number")
           .map((n) => ({ id: n.id, hop: n.hop ?? 1 }))
       : [];
-  return json(res, 200, { ...detail, impact: { ...detail.impact, downstream } });
+  return json(res, 200, { ...detail, impact: { ...detail.impact, downstream }, completion: completionOf(c, detail) });
+}
+
+// ---------------------------------------------------------------------------
+// Launch: describing a session, and starting one (spec §6)
+// ---------------------------------------------------------------------------
+
+interface LaunchRequest {
+  tool: LaunchTool;
+  mode: LaunchMode;
+  slugs: string[];
+}
+
+/**
+ * The one gate every launch input passes through, whether it arrives as a query string or a
+ * JSON body. Nothing unvalidated may reach a command line: the tool and the mode must be
+ * members of their closed sets, every slug must be a safe slug, and only triage may name more
+ * than one. `launchCommand` re-checks all of it — this exists so the failure is a 400 with a
+ * sentence, rather than a thrown error.
+ */
+function parseLaunch(rawSlugs: readonly string[], rawTool: string | null, rawMode: string | null): { ok: true; value: LaunchRequest } | { ok: false; error: string } {
+  const tool = (rawTool ?? "").trim();
+  if (!isLaunchTool(tool)) return { ok: false, error: `tool must be one of ${LAUNCH_TOOLS.join(", ")}` };
+  const mode = (rawMode ?? "").trim();
+  if (!isLaunchMode(mode)) return { ok: false, error: `mode must be one of ${LAUNCH_MODES.join(", ")}` };
+  const slugs = uniq(rawSlugs.map((s) => s.trim()).filter((s) => s !== ""));
+  if (slugs.length === 0) return { ok: false, error: "at least one slug is required" };
+  if (slugs.some((s) => !isSafeSlug(s))) return { ok: false, error: "bad slug" };
+  if (mode !== "triage" && slugs.length > 1) return { ok: false, error: `${mode} takes exactly one slug; only triage runs over several tasks at once` };
+  return { ok: true, value: { tool, mode, slugs } };
+}
+
+/** Slugs that name nothing in this repo, so a session is never opened on an invented task. */
+function unknownSlugs(c: RepoCtx, slugs: readonly string[]): string[] {
+  const known = new Set(tasksOf(c).map((t) => t.slug));
+  return slugs.filter((s) => !known.has(s));
+}
+
+function launchRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
+  const parsed = parseLaunch(url.searchParams.getAll("slug"), url.searchParams.get("tool"), url.searchParams.get("mode"));
+  if (!parsed.ok) return json(res, 400, { error: parsed.error });
+  const { command, cwd, description } = launchCommand({ repo: c.root, ...parsed.value });
+  return json(res, 200, { command, cwd, description });
 }
 
 function stateMachineRoute(res: ServerResponse, c: RepoCtx): void {
@@ -1444,7 +1621,7 @@ function contextRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
 // ---------------------------------------------------------------------------
 
 async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, registry: RepoRegistry, port: number): Promise<void> {
-  const routes = new Set(["/api/capture", "/api/note", "/api/decide", "/api/journal"]);
+  const routes = new Set(["/api/capture", "/api/note", "/api/decide", "/api/journal", "/api/triage", "/api/launch"]);
   if (!routes.has(url.pathname)) {
     const readOnly = new Set([
       "/api/facts",
@@ -1566,6 +1743,39 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       const entry = appendJournal(c.paths, input);
       c.invalidate();
       return json(res, 200, entry);
+    }
+    case "/api/triage": {
+      // `{ slug }` shapes one card; `{ slugs: [...] }` is the column's "Shape these" button.
+      const one = str(body.value, "slug");
+      const slugs = uniq([...(one ? [one] : []), ...strList(body.value, "slugs").map((s) => s.trim()).filter((s) => s !== "")]);
+      if (slugs.length === 0) return json(res, 400, { error: "slug or slugs is required" });
+      if (slugs.some((s) => !isSafeSlug(s))) return json(res, 400, { error: "bad slug" });
+      const known = new Set(tasksOf(c).map((t) => t.slug));
+      const created: string[] = [];
+      const skipped: { slug: string; reason: string }[] = [];
+      for (const slug of slugs) {
+        if (!known.has(slug)) {
+          skipped.push({ slug, reason: "nothing in this repo names that task" });
+          continue;
+        }
+        // No `force` over HTTP: a brief holds thinking, and a button must not be able to erase it.
+        const r = scaffoldBrief(c.paths, { slug, author: person.handle });
+        if (r.skipped) skipped.push({ slug, reason: "a brief already exists" });
+        else created.push(slug);
+      }
+      if (created.length > 0) c.invalidate();
+      return json(res, 200, { created, skipped });
+    }
+    case "/api/launch": {
+      // The one route that starts a process. Everything is validated before it is; the command
+      // is built as an argument vector by launch.ts and never interpolated into a shell.
+      const raw = strList(body.value, "slugs");
+      const single = str(body.value, "slug");
+      const parsed = parseLaunch(single ? [single, ...raw] : raw, str(body.value, "tool"), str(body.value, "mode"));
+      if (!parsed.ok) return json(res, 400, { error: parsed.error });
+      const missing = unknownSlugs(c, parsed.value.slugs);
+      if (missing.length > 0) return json(res, 404, { error: `unknown task: ${missing.join(", ")}` });
+      return json(res, 200, launchSession({ repo: c.root, ...parsed.value }));
     }
     default:
       return json(res, 404, { error: "not found" });

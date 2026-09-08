@@ -19,6 +19,7 @@ import {
   stateChip,
   toast,
   formatRoute,
+  currentRoute,
   routeForNode,
   kindForRoute,
   GLOSSARY,
@@ -31,18 +32,26 @@ import {
   setQuery,
   storage,
   section,
+  skeleton,
 } from "./app.js";
 
 // ---------------------------------------------------------------------------
 // Constants (spec §5.1, §6.8)
 // ---------------------------------------------------------------------------
 
-export const STATE_ORDER = ["ungroomed", "grooming", "groomed", "in-process", "awaiting-decision", "done"];
+export const STATE_ORDER = ["ungroomed", "groomed", "planned", "in-process", "awaiting-decision", "done"];
+
+/**
+ * The states the Open view columns by (§7). `done` is not one of them: finished work answers a
+ * different question ("how do I know it was done") and gets its own view, so the five live states
+ * keep the full width instead of paying for a column nobody has to act on.
+ */
+export const OPEN_STATES = ["ungroomed", "groomed", "planned", "in-process", "awaiting-decision"];
 
 const STATE_COLORS = {
   ungroomed: "#5c6478",
-  grooming: "#8b93a7",
   groomed: "#7dcfff",
+  planned: "#bb9af7",
   "in-process": "#7aa2f7",
   "awaiting-decision": "#e0af68",
   done: "#9ece6a",
@@ -56,52 +65,52 @@ const PEOPLE_OTHER = "#9ca3af";
 
 /** Used only when /api/state-machine is unavailable; mirrors tasks.ts STATE_MACHINE (spec §6.8). */
 const FALLBACK_STATES = [
-  { id: "ungroomed", label: "Ungroomed", definition: "An intake line or task folder with no plan yet.", rule: "intake line or task folder, no plan" },
-  { id: "grooming", label: "Grooming", definition: "A plan exists but does not pass the contract or is not merged yet.", rule: "plan on disk failing the contract or a plan/<slug> branch" },
-  { id: "groomed", label: "Groomed", definition: "The plan is merged to the default branch.", rule: "plan merged to the default branch (solo: passing plan on disk)" },
-  { id: "in-process", label: "In process", definition: "Someone is working on a task/<slug> branch.", rule: "task/<slug> branch with commits" },
-  { id: "awaiting-decision", label: "Awaiting decision", definition: "The work is finished and waits for a maintainer.", rule: "open PR or packet on the branch" },
-  { id: "done", label: "Done", definition: "The change is on the default branch.", rule: "PR merged or packet approved on the default branch" },
+  { id: "ungroomed", label: "Ungroomed", definition: "Captured but not yet shaped: nothing says what it is beyond the line someone wrote.", rule: "an intake item or a task folder with no brief.md" },
+  { id: "groomed", label: "Groomed", definition: "Shaped by triage: a problem statement, a suspected area, a size and a priority. No plan that passes the contract yet.", rule: "brief.md exists and no plan passes the contract" },
+  { id: "planned", label: "Planned", definition: "Fully groomed: a plan that passes the contract, written against the code. Ready to build.", rule: "plan.md passes the plan contract and is on the default branch" },
+  { id: "in-process", label: "In process", definition: "Someone holds a task/<slug> branch and is committing work on it.", rule: "a task/<slug> branch with no packet and no open pull request" },
+  { id: "awaiting-decision", label: "Awaiting decision", definition: "A pull request is open or a completion packet sits on the branch, waiting for a verdict.", rule: "an open pull request, or packet.md on the branch" },
+  { id: "done", label: "Done", definition: "The pull request was merged, or the packet was approved on the default branch.", rule: "the pull request merged, or packet.md approved on the default branch" },
 ];
 const FALLBACK_TRANSITIONS = [
-  { from: "ungroomed", to: "grooming", trigger: "a plan is written", who: "anyone" },
-  { from: "grooming", to: "groomed", trigger: "the plan passes the contract and is merged", who: "a maintainer" },
-  { from: "groomed", to: "in-process", trigger: "reggie claim creates task/<slug> and commits land", who: "the owner" },
-  { from: "in-process", to: "awaiting-decision", trigger: "a PR opens or a packet is written on the branch", who: "the owner" },
-  { from: "awaiting-decision", to: "done", trigger: "the PR merges or the packet is approved", who: "a maintainer" },
-  { from: "awaiting-decision", to: "in-process", trigger: "needs work", who: "a maintainer" },
+  { from: "ungroomed", to: "groomed", trigger: "triage writes brief.md: the problem, why now, the suspected area, a size and a priority", who: "whoever runs triage" },
+  { from: "groomed", to: "planned", trigger: "a plan.md that passes the plan contract lands on the default branch", who: "the planner, after reading the code" },
+  { from: "planned", to: "in-process", trigger: "reggie claim <slug> creates the task/<slug> branch", who: "the person taking the task" },
+  { from: "in-process", to: "awaiting-decision", trigger: "a packet is committed on the branch, or a pull request opens", who: "the task owner" },
+  { from: "awaiting-decision", to: "done", trigger: "the pull request merges, or reggie decide <slug> approved lands on the default branch", who: "a decider" },
+  { from: "awaiting-decision", to: "in-process", trigger: "reggie decide <slug> needs-work sends it back", who: "a decider" },
 ];
 
 /**
- * The board column sublabel: the state's rule in **one rendered line**. The server's `definition` is
- * prose ("A pull request is open or a completion packet sits on the branch, waiting for a verdict.")
- * and ran four to six lines in a 150px column. A first pass shortened it to a sentence, which still
- * wrapped to two lines in five of the six columns; a column head that is three stacked lines pushes
- * every card down and makes the row of heads look ragged. Each string below measures under 132px in
- * the 11px column font, so it fits the ~152px sublabel at 1600px and still fits a 156px column.
- * Nothing is lost: `.board__def` carries the server's prose as its `title`, and the header tooltip
- * carries the full git rule. The story column no longer repeats any of it.
+ * The board column sublabel: the state's rule in **one rendered line**. The server's `rule` is a full
+ * git derivation ("an intake item or a .reggie/tasks/<slug>/ folder exists, with no brief.md on disk
+ * or on the default branch, no plan, and no task/<slug> branch") and its `definition` is prose; both
+ * ran four to six lines in a column this narrow, and a column head three lines tall pushes every card
+ * down and makes the row of heads ragged. Each string below is the same fact in one line at the
+ * narrowest column width. Nothing is lost: `.board__def` carries the server's `definition` as its
+ * `title` and the header carries the server's full `rule`, so the authoritative text is one hover away
+ * and the story column does not repeat it.
  */
 const COLUMN_RULE = {
-  ungroomed: "No plan.md yet.",
-  grooming: "plan.md, not merged yet.",
-  groomed: "plan.md merged.",
+  ungroomed: "No brief.md yet.",
+  groomed: "brief.md, no passing plan.",
+  planned: "plan.md passes, on main.",
   "in-process": "task/<slug> open, no PR.",
   "awaiting-decision": "PR open, or a packet.md.",
   done: "PR merged, or approved.",
 };
 
 const COLUMN_EMPTY = {
-  ungroomed: "Nothing captured. Capture one below.",
-  grooming: "No plan being written. Start one with reggie plan <slug>.",
-  groomed: "No plan waiting. Merge a plan to fill this.",
-  "in-process": "No branch open. Claim a groomed task with reggie claim <slug>.",
-  "awaiting-decision": "Nothing to decide. Open a PR, or write reggie packet <slug>.",
-  done: "Nothing finished yet. Approve a packet or merge a PR.",
+  ungroomed: "Nothing raw is waiting. Add one above, or run `reggie capture \"…\"`.",
+  groomed: "Nothing shaped yet. Shape an ungroomed item and its brief lands here.",
+  planned: "Nothing planned yet. Plan a groomed task; a plan that passes the contract puts it here.",
+  "in-process": "No branch open. Start a planned task and its `task/<slug>` branch shows up here.",
+  "awaiting-decision": "Nothing to decide. A packet on the branch, or an open PR, puts a task here.",
+  done: "Nothing has finished yet. A task lands here when its packet is approved or its PR merges.",
 };
 
 const EMPTY_BOARD_TEXT =
-  "Nothing has been captured yet. A task starts as one line in `.reggie/intake.md`; a plan makes it groomed; a `task/<slug>` branch means in process; an open PR means awaiting decision; a merge means done. Capture one below.";
+  "No tasks yet. Work moves through four phases here: **capture** it as one line, **shape** it into a brief that says what it is and where it probably lives, **plan** it against the code, then **build** it on a `task/<slug>` branch until the packet is approved. Add the first one below.";
 
 const RISK_TIPS = {
   low: "Risk: low — no touched path matches a risk rule.",
@@ -115,7 +124,24 @@ const VERDICT_TONE = { pending: "warn", approved: "ok", "needs-work": "bad" };
 const VERDICT_LABEL = { pending: "Pending", approved: "Approved", "needs-work": "Needs work" };
 const PACKET_SECTIONS = ["Changes", "Reviews", "Deviations from plan", "Discovered issues", "Open risks"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const DONE_OPEN_KEY = "reggie.board.doneOpen";
+
+/** The two tools a session can open in, and the label each is called by (§4 of the tasks spec). */
+export const LAUNCH_TOOLS = ["claude", "codex"];
+const TOOL_LABEL = { claude: "Claude Code", codex: "Codex" };
+const LAUNCH_TOOL_KEY = "reggie.launch.tool";
+const PRIORITY_TONE = { P1: "bad", P2: "warn", P3: "muted", unset: "muted" };
+const PRIORITY_TIPS = {
+  P1: "Priority: P1 — do this before the rest of the backlog.",
+  P2: "Priority: P2 — normal priority.",
+  P3: "Priority: P3 — worth doing, not soon.",
+  unset: "Priority: unset — triage has not chosen one yet.",
+};
+const SIZE_TIPS = {
+  small: "Size: small — an afternoon or less.",
+  medium: "Size: medium — a day or two.",
+  large: "Size: large — worth splitting if it can be split.",
+  unset: "Size: unset — triage has not sized it yet.",
+};
 
 // ---------------------------------------------------------------------------
 // Small helpers
@@ -389,7 +415,14 @@ export function prose(text, ctx = {}) {
 // State machine normalisation
 // ---------------------------------------------------------------------------
 
-function normalizeStateMachine(sm, tasks) {
+/**
+ * `trustServer` names the states whose count may come from `/api/state-machine` when the task list
+ * has none of them — only `done`, and only until `?all=1` has been read. Trusting the server for
+ * every state was wrong the moment the page could move a card: shaping the last three ungroomed
+ * tasks emptied the column while its header still read 3, because the counts in hand were fetched
+ * before the write.
+ */
+function normalizeStateMachine(sm, tasks, trustServer = ["done"]) {
   const states = Array.isArray(sm?.states) && sm.states.length > 0 ? sm.states : FALLBACK_STATES;
   const ordered = [...states].sort((a, b) => idx(a.id) - idx(b.id));
   const transitions = Array.isArray(sm?.transitions) && sm.transitions.length > 0 ? sm.transitions : FALLBACK_TRANSITIONS;
@@ -398,8 +431,7 @@ function normalizeStateMachine(sm, tasks) {
   for (const t of tasks ?? []) if (t?.state in counts) counts[t.state] += 1;
   const serverCounts = sm?.counts ?? {};
   for (const s of ordered) {
-    // /api/tasks without all=1 omits done tasks; trust the server count when the list has none.
-    if (counts[s.id] === 0 && Number(serverCounts[s.id]) > 0) counts[s.id] = Number(serverCounts[s.id]);
+    if (counts[s.id] === 0 && trustServer.includes(s.id) && Number(serverCounts[s.id]) > 0) counts[s.id] = Number(serverCounts[s.id]);
   }
   return { states: ordered, transitions, counts, byId: new Map(ordered.map((s) => [s.id, s])), mode: sm?.mode ?? null };
 }
@@ -543,6 +575,241 @@ export function captureForm(ctx, opts = {}) {
     h("div", { class: "form__actions" }, submit, h("span", { class: "hint" }, "Or from a terminal: ", h("code", {}, 'reggie capture "…"'))),
   );
   return form;
+}
+
+// ---------------------------------------------------------------------------
+// Launching sessions (tasks spec §4, §7)
+// ---------------------------------------------------------------------------
+
+/** The tool the last launch used; `claude` until someone chooses otherwise. */
+export function rememberedTool() {
+  const v = storage.get(LAUNCH_TOOL_KEY, "claude");
+  return LAUNCH_TOOLS.includes(v) ? v : "claude";
+}
+
+function rememberTool(tool) {
+  if (LAUNCH_TOOLS.includes(tool)) storage.set(LAUNCH_TOOL_KEY, tool);
+}
+
+function launchUrl(slugs, tool, mode) {
+  const qs = slugs.map((s) => `slug=${encodeURIComponent(s)}`).join("&");
+  return `/api/launch?${qs}&tool=${encodeURIComponent(tool)}&mode=${encodeURIComponent(mode)}`;
+}
+
+/** A command is one line of shell; a Codex prompt runs past a thousand characters. Toasts get a clip. */
+function clip(text, max = 150) {
+  const s = String(text ?? "").replace(/\s+/g, " ").trim();
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+/**
+ * The one place that talks to `/api/launch`. `describe` is the GET — it builds the command without
+ * running anything, so a tooltip can quote it exactly; `run` is the POST that actually spawns the
+ * session. `launched: false` is a normal answer (nothing outside macOS can spawn a terminal), so the
+ * caller is handed the command to show in a copy field with the server's reason rather than a failure.
+ */
+function makeLauncher(ctx) {
+  const cache = new Map();
+  async function describe(slugs, tool, mode) {
+    const key = `${mode}|${tool}|${slugs.join(" ")}`;
+    if (cache.has(key)) return cache.get(key);
+    const plan = await ctx.fetchJson(launchUrl(slugs, tool, mode));
+    cache.set(key, plan);
+    return plan;
+  }
+  async function run(slugs, tool, mode, opts = {}) {
+    rememberTool(tool);
+    let res = null;
+    try {
+      res = await ctx.post("/api/launch", { slugs, tool, mode });
+    } catch (e) {
+      const text = friendlyError(e);
+      toast(`Could not start the ${TOOL_LABEL[tool]} session: ${text}`, { tone: "bad", ms: 8000 });
+      const plan = await describe(slugs, tool, mode).catch(() => null);
+      if (plan?.command) opts.onCommand?.(plan.command, `The server refused to start it: ${text} You can run it yourself:`);
+      return null;
+    }
+    if (res?.launched) {
+      const el = toast(`Started \`${clip(res.command)}\` in ${TOOL_LABEL[tool]}`, { tone: "ok", ms: 9000 });
+      if (el) el.title = res.command;
+      opts.onLaunched?.(res);
+    } else {
+      const why = res?.reason ?? "this platform cannot open a terminal window from here";
+      toast(`Nothing was started: ${why} The command is on the card to copy.`, { tone: "warn", ms: 9000 });
+      opts.onCommand?.(res?.command ?? "", `${why} Run it yourself:`);
+    }
+    return res;
+  }
+  return { describe, run };
+}
+
+/** A readonly field holding a command nobody could spawn, with the reason above it and a Copy button. */
+function commandField(command, reason) {
+  const input = h("input", {
+    class: "form__input launch-cmd__input",
+    type: "text",
+    value: command,
+    readonly: true,
+    spellcheck: "false",
+    "aria-label": "Command to run yourself",
+    on: { focus: (ev) => ev.target.select() },
+  });
+  const copy = h("button", { class: "btn btn--small", type: "button", "aria-label": "Copy the command" }, icon("copy"), "Copy");
+  copy.addEventListener("click", async () => {
+    try {
+      await copyText(command);
+      toast("Command copied.", { tone: "ok" });
+    } catch (e) {
+      toast(`Could not copy: ${e.message}. Select the field and copy it by hand.`, { tone: "bad" });
+    }
+  });
+  return h(
+    "div",
+    { class: "launch-cmd", role: "group", "aria-label": "Command to run yourself" },
+    h("p", { class: "hint launch-cmd__why" }, reason),
+    h("div", { class: "launch-cmd__row" }, input, copy),
+  );
+}
+
+/**
+ * One launch action: a button that uses the remembered tool, plus a caret that names both tools
+ * explicitly so every action offers both (§7). The exact command is fetched from `GET /api/launch`
+ * the first time the control is hovered or focused and becomes the tooltip, so nothing is spawned to
+ * find out what would run.
+ */
+function launchAction(launcher, cfg) {
+  const { slugs, mode, label } = cfg;
+  const wrap = h("span", { class: "launch" });
+  const main = h("button", { class: `btn btn--small ${cfg.variant ?? ""}`.trim(), type: "button", dataset: { mode, tool: rememberedTool() } }, label);
+  const caret = h(
+    "button",
+    {
+      class: "btn btn--small btn--ghost launch__caret",
+      type: "button",
+      "aria-haspopup": "true",
+      "aria-expanded": "false",
+      "aria-label": `Choose which tool runs "${label}"`,
+      title: "Choose Claude Code or Codex",
+    },
+    "▾",
+  );
+  const menu = h("div", { class: "launch__menu", role: "menu", hidden: true });
+
+  const tip = (el, tool) => {
+    if (el.dataset.tipLoaded === "1") return;
+    el.dataset.tipLoaded = "1";
+    launcher
+      .describe(slugs, tool, mode)
+      .then((plan) => {
+        el.title = `${plan.description}\n\n${plan.command}`;
+        el.dataset.command = plan.command;
+      })
+      .catch((e) => {
+        el.dataset.tipLoaded = "";
+        el.title = `The command could not be read from the server: ${friendlyError(e)}`;
+      });
+  };
+
+  /**
+   * The menu is `position: fixed` and placed by hand. Absolutely positioned inside the card it was
+   * clipped by the column's own scroll box, which cut "Plan it in Claude Code" to "Plan it in Clau" —
+   * a menu you cannot read is worse than no menu. Fixed escapes every clipping ancestor; the trade is
+   * that it does not follow a scroll, so any scroll closes it.
+   */
+  function placeMenu() {
+    const r = caret.getBoundingClientRect();
+    menu.style.left = "0px";
+    menu.style.top = "0px";
+    const m = menu.getBoundingClientRect();
+    const left = Math.max(8, Math.min(r.right - m.width, window.innerWidth - m.width - 8));
+    const below = r.bottom + 4;
+    const top = below + m.height > window.innerHeight - 8 ? Math.max(8, r.top - m.height - 4) : below;
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top = `${Math.round(top)}px`;
+  }
+
+  const onScroll = () => closeMenu();
+  const closeMenu = () => {
+    if (menu.hidden) return;
+    menu.hidden = true;
+    caret.setAttribute("aria-expanded", "false");
+    document.removeEventListener("scroll", onScroll, true);
+    window.removeEventListener("resize", onScroll);
+  };
+
+  function go(tool) {
+    closeMenu();
+    main.dataset.tool = tool;
+    main.dataset.tipLoaded = "";
+    main.title = `${label} in ${TOOL_LABEL[tool]} — loading the exact command…`;
+    tip(main, tool);
+    // Opening a terminal window is not instant, and on macOS the first one can sit behind an
+    // automation permission prompt. Say the request is running rather than leaving a live button
+    // that looks like it did nothing, and after six seconds hand over the command to run by hand.
+    main.disabled = true;
+    caret.disabled = true;
+    mount(main, "Starting\u2026");
+    const restore = () => {
+      main.disabled = false;
+      caret.disabled = false;
+      mount(main, label);
+    };
+    const slow = setTimeout(() => {
+      launcher
+        .describe(slugs, tool, mode)
+        .then((plan) => cfg.onCommand?.(plan.command, `Still waiting for ${TOOL_LABEL[tool]} to open. If no window appeared, macOS may be holding it behind a permission prompt \u2014 run it yourself instead:`))
+        .catch(() => {});
+    }, 6000);
+    cfg.onBusy?.(true);
+    // Choosing a tool from any caret is what "the remembered tool" means, so the page-level
+    // "Sessions open in" control has to follow it or the two disagree on the next render.
+    if (tool !== rememberedTool()) cfg.onToolChange?.(tool);
+    launcher
+      .run(slugs, tool, mode, { onCommand: cfg.onCommand, onLaunched: cfg.onLaunched })
+      .finally(() => {
+        clearTimeout(slow);
+        restore();
+        cfg.onBusy?.(false);
+      });
+  }
+
+  for (const tool of LAUNCH_TOOLS) {
+    const row = h("button", { class: "btn btn--small btn--ghost launch__tool", type: "button", role: "menuitem" }, `${cfg.menuLabel ?? label} in ${TOOL_LABEL[tool]}`);
+    row.addEventListener("mouseenter", () => tip(row, tool));
+    row.addEventListener("focus", () => tip(row, tool));
+    row.addEventListener("click", () => go(tool));
+    menu.appendChild(row);
+  }
+
+  main.title = `${label} in ${TOOL_LABEL[rememberedTool()]} — hover to load the exact command`;
+  main.addEventListener("mouseenter", () => tip(main, main.dataset.tool));
+  main.addEventListener("focus", () => tip(main, main.dataset.tool));
+  main.addEventListener("click", () => go(main.dataset.tool));
+  caret.addEventListener("click", () => {
+    if (!menu.hidden) {
+      closeMenu();
+      return;
+    }
+    menu.hidden = false;
+    caret.setAttribute("aria-expanded", "true");
+    placeMenu();
+    document.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    menu.querySelector("button")?.focus();
+  });
+  wrap.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !menu.hidden) {
+      ev.stopPropagation();
+      closeMenu();
+      caret.focus();
+    }
+  });
+  wrap.addEventListener("focusout", (ev) => {
+    if (!wrap.contains(ev.relatedTarget)) closeMenu();
+  });
+
+  mount(wrap, main, caret, menu);
+  return wrap;
 }
 
 // ---------------------------------------------------------------------------
@@ -732,17 +999,30 @@ function hookRouteOnce() {
 }
 
 // ---------------------------------------------------------------------------
-// renderBoard (spec §3.6)
+// renderBoard — the tasks page (tasks spec §7)
 // ---------------------------------------------------------------------------
 
 /**
- * Story column → the Needs-you queue; map column → the six-column board with the state-machine strip.
- * data = { tasks: TaskInfo[], stateMachine, people, mode }.
- * Returns { refresh(tasks), destroy() }.
+ * `#/repo/<name>/tasks`. Two views on one page behind a segmented control:
+ *
+ *   Open       the five live states as columns (Ungroomed, Groomed, Planned, In process,
+ *              Awaiting decision), each column head carrying its one-line rule, an always-visible
+ *              "Add a task" form at the top of Ungroomed, and per-card actions by state.
+ *   Completed  done tasks, newest first, each opening the completion block: the verdict, who
+ *              decided it and when, every criterion with pass or fail and a link to its evidence,
+ *              the files that changed, and the journal for that slug.
+ *
+ * The chosen view lives in the query string (`?view=completed`) so a link carries it, and it is
+ * written with `replaceState` rather than `setQuery` — switching views re-uses the payload already
+ * in hand, and re-rendering the level would refetch three endpoints to draw the same data.
+ *
+ * data = { tasks: TaskInfo[], stateMachine, people, mode, view }.
+ * Returns { refresh(tasks, stateMachine), destroy() }.
  */
 export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
   hookRouteOnce();
   const ctx = makeCtx(data, deps);
+  const launcher = makeLauncher(ctx);
   const people = data.people ?? { people: [], mode: data.mode ?? "solo", current: null };
   const mode = data.mode ?? data.stateMachine?.mode ?? people.mode ?? "solo";
   const model = {
@@ -751,26 +1031,144 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     people,
     mode,
     rights: decisionRights(people, mode),
-    // All six states read left to right by default. Collapsing `done` to a 44px rail turned the last
-    // column into a sliver with its header set one letter per line (F11); it is still one click away.
     soleOwner: soleOwner(Array.isArray(data.tasks) ? data.tasks : []),
-    doneOpen: Boolean(storage.get(DONE_OPEN_KEY, true)),
+    view: data.view === "completed" || deps.view === "completed" ? "completed" : "open",
+    selected: new Set(), // ungroomed slugs ticked for "Shape these"
+    open: null, // { slug, kind } — the one expanded card, board-wide
+    detail: new Map(), // slug → /api/task payload, "loading", or absent
+    doneLoaded: (Array.isArray(data.tasks) ? data.tasks : []).some((t) => t.state === "done"),
     loadingDone: false,
-    detail: new Map(), // slug → /api/task payload (lazy, for the Problem line)
+    busy: new Set(), // slugs with a POST in flight
   };
 
   const target = storyTarget(storyEl);
   const wrap = mountBoardWrap(mapEl);
+  const headEl = h("div", { class: "board-head" });
   const stripEl = h("div", { class: "strip", "aria-label": "Task state machine" });
-  const boardEl = h("div", { class: "board", role: "group", "aria-label": "Task columns" });
   const emptySlot = h("div", { class: "board__empty-slot" });
-  if (wrap) mount(wrap, stripEl, emptySlot, boardEl);
+  const boardEl = h("div", { class: "board", role: "group", "aria-label": "Task columns" });
+  const completedEl = h("div", { class: "completed", "aria-label": "Completed tasks" });
+  if (wrap) mount(wrap, headEl, stripEl, emptySlot, boardEl, completedEl);
 
+  const openTasks = () => model.tasks.filter((t) => t.state !== "done");
   const isEmpty = () => model.tasks.length === 0 && Object.values(model.sm.counts).every((n) => !n);
 
   function recount() {
-    model.sm = normalizeStateMachine({ ...(data.stateMachine ?? {}), counts: isEmpty() ? {} : data.stateMachine?.counts }, model.tasks);
+    model.sm = normalizeStateMachine({ ...(data.stateMachine ?? {}), counts: isEmpty() ? {} : data.stateMachine?.counts }, model.tasks, model.doneLoaded ? [] : ["done"]);
     model.soleOwner = soleOwner(model.tasks);
+  }
+
+  // --- view switch -----------------------------------------------------------
+  /** Keep `?view=` in the hash without re-rendering the level (the payload is already here). */
+  function syncViewQuery(view) {
+    try {
+      const route = appState.route ?? currentRoute();
+      if (!route || route.level !== "tasks") return;
+      const query = { ...(route.query ?? {}) };
+      if (view === "open") delete query.view;
+      else query.view = view;
+      const hash = formatRoute({ ...route, query });
+      if (hash !== location.hash) history.replaceState(null, "", hash);
+      if (appState.route) appState.route.query = query;
+    } catch {
+      /* the query string is a convenience; never let it break the view */
+    }
+  }
+
+  function setView(view, opts = {}) {
+    if (view !== "open" && view !== "completed") return;
+    if (model.view === view && !opts.force) return;
+    model.view = view;
+    model.open = null;
+    if (opts.sync !== false) syncViewQuery(view);
+    if (view === "completed") ensureDone();
+    draw();
+    if (opts.focus !== false) wrap?.querySelector(`.board-head .seg__btn[data-view="${view}"]`)?.focus();
+  }
+
+  /** `/api/tasks` leaves done tasks out; the Completed view is the one place that needs them. */
+  function ensureDone() {
+    if (model.doneLoaded || model.loadingDone) return;
+    model.loadingDone = true;
+    ctx
+      .fetchJson("/api/tasks?all=1")
+      .then((list) => {
+        if (Array.isArray(list)) {
+          model.tasks = list;
+          model.doneLoaded = true;
+        }
+      })
+      .catch((e) => toast(`Could not read the finished tasks: ${friendlyError(e)}`, { tone: "bad" }))
+      .finally(() => {
+        model.loadingDone = false;
+        recount();
+        draw();
+      });
+  }
+
+  function drawHead() {
+    const seg = h("div", { class: "seg board-head__views", role: "radiogroup", "aria-label": "Which tasks to show" });
+    for (const [view, label, hint] of [
+      ["open", "Open", "Everything still moving: captured, shaped, planned, being built, or waiting on a verdict"],
+      ["completed", "Completed", "Finished work, newest first, with the verdict and the evidence behind it"],
+    ]) {
+      seg.appendChild(
+        h(
+          "button",
+          {
+            class: `seg__btn${model.view === view ? " is-active" : ""}`,
+            type: "button",
+            role: "radio",
+            title: hint,
+            "aria-checked": model.view === view ? "true" : "false",
+            dataset: { view },
+            on: { click: () => setView(view) },
+          },
+          label,
+        ),
+      );
+    }
+    const openCount = openTasks().length;
+    const doneCount = model.sm.counts.done ?? 0;
+    const counts = h(
+      "span",
+      { class: "board-head__counts" },
+      model.view === "open"
+        ? `${openCount === 1 ? "1 task" : `${openCount} tasks`} still moving`
+        : `${doneCount === 1 ? "1 task" : `${doneCount} tasks`} finished`,
+    );
+    mount(headEl, seg, counts, toolSwitch());
+  }
+
+  /**
+   * "Sessions open in" — the tool every launch button defaults to, remembered in localStorage. Each
+   * launch button also names both tools under its caret, so this is a default, not the only way in.
+   */
+  function toolSwitch() {
+    const current = rememberedTool();
+    const seg = h("div", { class: "seg board-head__tool", role: "radiogroup", "aria-label": "Which tool a session opens in" });
+    for (const tool of LAUNCH_TOOLS) {
+      seg.appendChild(
+        h(
+          "button",
+          {
+            class: `seg__btn${current === tool ? " is-active" : ""}`,
+            type: "button",
+            role: "radio",
+            "aria-checked": current === tool ? "true" : "false",
+            title: `Open sessions in ${TOOL_LABEL[tool]} by default`,
+            on: {
+              click: () => {
+                storage.set(LAUNCH_TOOL_KEY, tool);
+                draw();
+              },
+            },
+          },
+          TOOL_LABEL[tool],
+        ),
+      );
+    }
+    return h("span", { class: "board-head__toolwrap" }, h("span", { class: "hint" }, "Sessions open in"), seg);
   }
 
   // --- strip -----------------------------------------------------------------
@@ -789,12 +1187,15 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
       stripEl,
       stateStrip(model.sm, model.sm.counts, {
         onPill: (id) => {
+          if (id === "done") {
+            setView("completed");
+            return;
+          }
+          if (model.view !== "open") setView("open");
           const col = boardEl.querySelector(`.board__col[data-state="${id}"]`);
           if (!col) return;
-          if (id === "done" && !model.doneOpen) toggleDone();
           col.scrollIntoView({ block: "nearest", inline: "nearest", behavior: scrollBehavior() });
-          const link = col.querySelector(".board__card a, .board__head");
-          link?.focus?.();
+          (col.querySelector(".board__card a") ?? col.querySelector(".board__head"))?.focus?.();
         },
         onArrow: (text) => {
           readout.textContent = text ? String(text).replace(/\n+/g, " · ") : "";
@@ -805,7 +1206,7 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     );
   }
 
-  // --- columns ---------------------------------------------------------------
+  // --- shared card pieces ------------------------------------------------------
   function sortTasks(list) {
     return list.slice().sort((a, b) => {
       const ta = a.lastActivity ? parseDate(a.lastActivity) ?? 0 : 0;
@@ -821,6 +1222,7 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
       if (t.planLintOk === true) out.push(h("span", { class: "badge badge--ok", title: "Plan passes the contract (reggie plan lint)" }, "plan ✓"));
       else if (t.planLintOk === false) out.push(h("span", { class: "badge badge--bad", title: `Plan fails the contract: reggie plan lint ${t.slug}` }, "plan ✗"));
     }
+    if (t.brief?.exists) out.push(h("span", { class: "badge", title: "Triage wrote a brief for this task" }, "brief"));
     if (t.packetExists) out.push(h("span", { class: "badge", title: "A completion packet exists for this task" }, "packet"));
     if (t.pr) {
       out.push(
@@ -835,93 +1237,687 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     return out;
   }
 
+  /**
+   * Priority, size, risk and area — the decisions triage makes, as chips (§7). A value nobody has
+   * chosen is a gap worth seeing, but a scaffolded brief has three of them at once, and three chips
+   * reading "unset" say less than one sentence does: they collapse into a single chip naming what is
+   * still missing. Risk is not part of that count — it comes from the plan, so an unset risk on a
+   * groomed task is the normal state of affairs rather than an omission.
+   */
+  function shapeChips(t) {
+    const b = t.brief ?? {};
+    const priority = b.priority && b.priority !== "unset" ? b.priority : null;
+    const size = b.size && b.size !== "unset" ? b.size : null;
+    const risk = t.risk && t.risk !== "unset" ? t.risk : null;
+    if (!b.exists) {
+      // A brief is not required retroactively (tasks spec §2): a task that already has a plan and a
+      // branch is not "unshaped", it predates triage, so only Ungroomed says the shaping is missing.
+      return [
+        t.state === "ungroomed" ? chip(null, "not shaped yet", { tone: "muted", tip: "No brief.md: nothing has decided the priority, the size, or where this lives." }) : null,
+        risk ? chip("Risk", risk, { tone: RISK_TONE[risk], tip: RISK_TIPS[risk] }) : null,
+      ].filter(Boolean);
+    }
+    const out = [];
+    if (priority) out.push(chip("Priority", priority, { tone: PRIORITY_TONE[priority] ?? "muted", tip: PRIORITY_TIPS[priority] }));
+    if (size) out.push(chip("Size", size, { tone: null, tip: SIZE_TIPS[size] }));
+    if (!priority && !size) {
+      out.push(chip(null, "brief not filled in", { tone: "muted", tip: "The brief exists but its front matter still says unset for both priority and size. Fill it in with reggie triage, or edit the brief." }));
+    }
+    if (risk) out.push(chip("Risk", risk, { tone: RISK_TONE[risk], tip: RISK_TIPS[risk] }));
+    if (b.area) out.push(chip("Area", b.area, { tip: `The brief says the work probably lands in ${b.area}` }));
+    return out;
+  }
+
+  function ownerBits(t) {
+    const sole = model.soleOwner;
+    if (sole) {
+      return t.owner ? [] : [h("span", { class: "board__owner board__owner--none", title: `Not claimed; ${sole} owns every other task here` }, "unclaimed")];
+    }
+    return t.owner ? [avatar(t.owner, model.people), h("span", { class: "board__owner" }, t.owner)] : [avatar(null, model.people)];
+  }
+
+  function isOpen(slug, kind) {
+    return model.open?.slug === slug && model.open?.kind === kind;
+  }
+
+  function toggle(slug, kind) {
+    model.open = isOpen(slug, kind) ? null : { slug, kind };
+    draw();
+    if (model.open) wrap?.querySelector(`[data-slug="${CSS.escape(slug)}"] .board__detail`)?.scrollIntoView?.({ block: "nearest", behavior: scrollBehavior() });
+  }
+
+  /** A read action: the same button opens and closes the panel, and says which. */
+  function readButton(t, kind, label) {
+    const open = isOpen(t.slug, kind);
+    return h(
+      "button",
+      {
+        class: `btn btn--small btn--ghost${open ? " is-open" : ""}`,
+        type: "button",
+        "aria-expanded": open ? "true" : "false",
+        title: open ? "Close it" : `Open ${label.replace(/^Read /, "")} without leaving the board`,
+        on: { click: () => toggle(t.slug, kind) },
+      },
+      open ? "Close" : label,
+    );
+  }
+
+  function launchFor(t, mode, label, variant) {
+    return launchAction(launcher, {
+      slugs: [t.slug],
+      mode,
+      label,
+      variant,
+      onToolChange: (tool) => {
+        storage.set(LAUNCH_TOOL_KEY, tool);
+        drawHead();
+      },
+      onCommand: (command, why) => showCommand(t.slug, command, why),
+      onLaunched: () => {
+        const live = liveCard(t.slug)?.querySelector(".launch-cmd");
+        live?.remove();
+      },
+    });
+  }
+
+  /** The card actions §7 lists for each state. */
+  function actionsFor(t) {
+    switch (t.state) {
+      case "ungroomed":
+        return [readButton(t, "intake", "Read the intake line"), shapeButton(t), launchFor(t, "chat", "Discuss")];
+      case "groomed":
+        return [readButton(t, "brief", "Read the brief"), launchFor(t, "plan", "Plan it", "btn--primary"), launchFor(t, "chat", "Discuss")];
+      case "planned":
+        return [readButton(t, "plan", "Read the plan"), launchFor(t, "implement", "Start", "btn--primary"), launchFor(t, "chat", "Discuss")];
+      case "in-process":
+        return [readButton(t, "plan", "Read the plan"), branchButton(t), launchFor(t, "chat", "Discuss")];
+      case "awaiting-decision":
+        return [readButton(t, "packet", "Read the packet"), decideButton(t), launchFor(t, "chat", "Discuss")];
+      case "done":
+        return [readButton(t, "completion", "What was done")];
+      default:
+        return [launchFor(t, "chat", "Discuss")];
+    }
+  }
+
+  /** POST /api/triage for this one slug: cheap, instant, and it moves the card to Groomed. */
+  function shapeButton(t) {
+    const busy = model.busy.has(t.slug);
+    return h(
+      "button",
+      {
+        class: "btn btn--small btn--primary",
+        type: "button",
+        disabled: busy,
+        title: `Write .reggie/tasks/${t.slug}/brief.md from the intake line, which moves this to Groomed`,
+        on: { click: () => shape([t.slug]) },
+      },
+      busy ? "Shaping…" : "Shape it",
+    );
+  }
+
+  function branchButton(t) {
+    const branch = t.branch ?? `task/${t.slug}`;
+    return h(
+      "button",
+      {
+        class: "btn btn--small btn--ghost",
+        type: "button",
+        title: `Copy git switch ${branch}`,
+        on: {
+          click: async () => {
+            try {
+              await copyText(`git switch ${branch}`);
+              toast(`Copied \`git switch ${branch}\``, { tone: "ok" });
+            } catch (e) {
+              toast(`Could not copy the command: ${e.message}`, { tone: "bad" });
+            }
+          },
+        },
+      },
+      "Open the branch",
+    );
+  }
+
+  function decideButton(t) {
+    const open = isOpen(t.slug, "decide");
+    return h(
+      "button",
+      {
+        class: `btn btn--small btn--warn${open ? " is-open" : ""}`,
+        type: "button",
+        "aria-expanded": open ? "true" : "false",
+        title: model.rights.canDecide ? "Approve it or send it back, with a comment" : whoCanDecideText(model.rights),
+        on: { click: () => toggle(t.slug, "decide") },
+      },
+      open ? "Close" : "Approve / Needs work",
+    );
+  }
+
+  function liveCard(slug) {
+    return wrap?.querySelector(`[data-slug="${CSS.escape(slug)}"]`) ?? null;
+  }
+
+  /** A command that could not be spawned goes under the card, in a field the reader can copy. */
+  function showCommand(slug, command, why) {
+    const card = liveCard(slug);
+    if (!card) return;
+    card.querySelector(".launch-cmd")?.remove();
+    if (!command) return;
+    card.appendChild(commandField(command, why));
+  }
+
   function card(t) {
     const risk = t.risk ?? "unset";
     const age = ageText(t.age);
     const when = relTime(t.lastActivity) ?? (age === "today" ? "today" : age ? `${age} old` : "no activity yet");
-    // One owner for the whole board: the intro says so once, so a card only marks what differs.
-    const sole = model.soleOwner;
-    const owner = sole
-      ? t.owner
-        ? []
-        : [h("span", { class: "board__owner board__owner--none", title: `Not claimed; ${sole} owns every other task here` }, "unclaimed")]
-      : t.owner
-        ? [avatar(t.owner, model.people), h("span", { class: "board__owner" }, t.owner)]
-        : [avatar(null, model.people)];
+    const pick =
+      t.state === "ungroomed"
+        ? h("input", {
+            class: "board__pick",
+            type: "checkbox",
+            checked: model.selected.has(t.slug),
+            "aria-label": `Select "${t.title || t.slug}" for shaping`,
+            title: "Tick to narrow what Shape these acts on",
+            on: {
+              change: (ev) => {
+                if (ev.target.checked) model.selected.add(t.slug);
+                else model.selected.delete(t.slug);
+                // Only the "Shape these" control changes; redrawing the column would replace the
+                // checkbox the pointer is on, and the next tick would land on a detached element.
+                refreshShapeControls();
+              },
+            },
+          })
+        : null;
     const b = badges(t);
+    const open = model.open?.slug === t.slug ? model.open.kind : null;
     return h(
       "article",
-      { class: `board__card risk--${risk}`, title: t.reason ? `Why: ${t.reason}` : null, role: "listitem", dataset: { slug: t.slug, state: t.state, refs: `task:${t.slug}` } },
-      h("div", { class: "board__card-title" }, entityLink("task", taskRoute(ctx.repo, t.slug), t.title || t.slug, { refs: `task:${t.slug}` })),
-      h("div", { class: "board__meta" }, ...owner, h("span", { class: "board__time", title: t.lastActivity ? `Last activity: ${fmtDate(t.lastActivity)}` : "No git activity recorded" }, when)),
+      {
+        class: `board__card risk--${risk}${open ? " is-reading" : ""}`,
+        title: t.reason ? `Why it is here: ${t.reason}` : null,
+        role: "listitem",
+        dataset: { slug: t.slug, state: t.state, refs: `task:${t.slug}` },
+      },
+      h("div", { class: "board__card-title" }, pick, entityLink("task", taskRoute(ctx.repo, t.slug), t.title || t.slug, { refs: `task:${t.slug}` })),
+      h("div", { class: "board__chips chips" }, shapeChips(t)),
+      h("div", { class: "board__meta" }, ...ownerBits(t), h("span", { class: "board__time", title: t.lastActivity ? `Last activity: ${fmtDate(t.lastActivity)}` : "No git activity recorded" }, when)),
       b.length ? h("div", { class: "board__badges" }, b) : null,
+      h("div", { class: "board__actions" }, actionsFor(t)),
+      open ? h("div", { class: "board__detail" }, detailPanel(t, open)) : null,
     );
   }
 
-  function toggleDone() {
-    model.doneOpen = !model.doneOpen;
-    storage.set(DONE_OPEN_KEY, model.doneOpen);
-    const loaded = model.tasks.some((t) => t.state === "done");
-    if (model.doneOpen && !loaded && model.sm.counts.done > 0 && !model.loadingDone) {
-      model.loadingDone = true;
-      drawColumns();
-      ctx
-        .fetchJson("/api/tasks?all=1")
-        .then((list) => {
-          if (Array.isArray(list)) model.tasks = list;
-        })
-        .catch((e) => toast(`Could not load done tasks: ${e.message}`, { tone: "bad" }))
-        .finally(() => {
-          model.loadingDone = false;
-          recount();
-          draw();
-        });
-      return;
-    }
-    drawColumns();
+  // --- detail panels -----------------------------------------------------------
+  /** `undefined` = never asked, `"loading"` = in flight, an object = the /api/task payload. */
+  function fetchDetail(slug) {
+    if (model.detail.get(slug) === "loading") return;
+    model.detail.set(slug, "loading");
+    ctx
+      .fetchJson(`/api/task/${encodeURIComponent(slug)}`)
+      .then((d) => {
+        model.detail.set(slug, d);
+        refillDetail(slug);
+      })
+      .catch((e) => {
+        model.detail.delete(slug);
+        const box = liveCard(slug)?.querySelector(".detail__body");
+        if (box) mount(box, h("p", { class: "para para--warn" }, `The task could not be read: ${friendlyError(e)}`));
+      });
   }
 
+  function refillDetail(slug) {
+    if (model.open?.slug !== slug) return;
+    const box = liveCard(slug)?.querySelector(".detail__body");
+    const t = model.tasks.find((x) => x.slug === slug);
+    if (box && t) mount(box, detailContent(t, model.open.kind, model.detail.get(slug)));
+  }
+
+  function detailPanel(t, kind) {
+    if (kind === "intake") return h("div", { class: "detail__body" }, detailContent(t, kind, null));
+    if (kind === "decide") return h("div", { class: "detail__body" }, decidePanel(t));
+    const d = model.detail.get(t.slug);
+    if (d === undefined) fetchDetail(t.slug);
+    const body = h("div", { class: "detail__body" }, d && d !== "loading" ? detailContent(t, kind, d) : skeleton());
+    return body;
+  }
+
+  function decidePanel(t) {
+    if (!model.rights.canDecide) return h("p", { class: "hint" }, whoCanDecideText(model.rights));
+    return h(
+      "div",
+      {},
+      h("p", { class: "hint" }, "The verdict is written into the packet's front matter; the board follows git once it lands."),
+      decideForm(ctx, t.slug, { onDone: (verdict) => afterDecision(t, verdict) }),
+    );
+  }
+
+  function afterDecision(t, verdict) {
+    const from = t.state ?? "awaiting-decision";
+    const to = verdict === "approved" ? "done" : "in-process";
+    const reason = verdict === "approved" ? "packet approved (recorded; git catches up on merge)" : "packet sent back: needs work";
+    const task = model.tasks.find((x) => x.slug === t.slug);
+    if (task) {
+      task.state = to;
+      task.reason = reason;
+      task.lastActivity = new Date().toISOString();
+    }
+    model.open = null;
+    model.detail.delete(t.slug);
+    recount();
+    draw();
+    reconcile({ slug: t.slug, from, to, reason });
+  }
+
+  /** Sections as headed prose, never the raw markdown (§8.5). */
+  function sectionsOf(sections, order) {
+    const entries = Object.entries(sections ?? {}).filter(([, body]) => String(body ?? "").trim() !== "");
+    if (order) entries.sort((a, b) => (order.indexOf(a[0]) < 0 ? 99 : order.indexOf(a[0])) - (order.indexOf(b[0]) < 0 ? 99 : order.indexOf(b[0])));
+    return entries.map(([name, body]) => h("div", { class: "detail__sec" }, h("h4", { class: "task-sub" }, name), prose(body, { repo: ctx.repo })));
+  }
+
+  const BRIEF_ORDER = ["Problem", "Why now", "Suspected area", "Open questions", "Not this"];
+
+  function detailContent(t, kind, d) {
+    if (kind === "intake") {
+      const line = t.intake;
+      if (!line) return h("p", { class: "para muted" }, "This task has a folder rather than an intake line, so there is nothing raw to read.");
+      return h(
+        "div",
+        {},
+        h("h4", { class: "task-sub" }, "The line someone wrote"),
+        h("p", { class: "para para--fact" }, inline(line.text ?? t.title ?? t.slug, { repo: ctx.repo })),
+        (line.detail ?? []).length ? h("div", { class: "detail__sec" }, h("h4", { class: "task-sub" }, "Detail"), (line.detail ?? []).map((x) => h("p", { class: "para para--fact" }, inline(x, { repo: ctx.repo })))) : null,
+        metaChips(line.meta),
+        h("p", { class: "hint" }, "Shaping it writes a brief: the problem, why now, the suspected area, a size and a priority."),
+      );
+    }
+    if (kind === "brief") {
+      if (!d?.brief) return h("p", { class: "para para--warn" }, "No brief has been written for this task yet.");
+      // Priority, size, risk and area are already on the card two lines above: one chip per fact.
+      const m = d.brief.meta ?? {};
+      return h(
+        "div",
+        {},
+        h(
+          "div",
+          { class: "chips detail__chips" },
+          m.author ? chip("Written by", m.author, { tip: `Triage was run by ${personName(m.author, model.people) ?? m.author}` }) : null,
+          m.created ? chip("Date", fmtDate(m.created), { tip: m.created }) : null,
+        ),
+        sectionsOf(d.brief.sections, BRIEF_ORDER),
+      );
+    }
+    if (kind === "plan") {
+      if (!d?.plan) return h("p", { class: "para para--warn" }, "No plan has been written for this task yet.");
+      const m = d.plan.meta ?? {};
+      return h(
+        "div",
+        {},
+        h(
+          "div",
+          { class: "chips detail__chips" },
+          m.author ? chip("Written by", m.author, { tip: `The plan was written by ${personName(m.author, model.people) ?? m.author}` }) : null,
+          m.created ? chip("Date", fmtDate(m.created), { tip: m.created }) : null,
+          (d.plan.files ?? []).length ? chip("Files to touch", String(d.plan.files.length), { tip: "Files the plan says it will create, change or delete" }) : null,
+        ),
+        sectionsOf(d.plan.sections),
+      );
+    }
+    if (kind === "packet") {
+      if (!d?.packet) return h("p", { class: "para para--warn" }, "No completion packet has been written on this branch yet.");
+      return packetBlock(d.packet, t.slug);
+    }
+    if (kind === "completion") return completionBlock(t, d);
+    return null;
+  }
+
+  /**
+   * The glyph, the tone and the word for a criterion's `pass`. The server's rule is "ticked → true,
+   * empty box → false, plain bullet with no box → null" (tasks.ts `parsePacketCriteria`), so the
+   * wording names the box rather than pronouncing a verdict the packet never gave.
+   */
+  const CRIT_MARKS = {
+    true: ["✓", "ok", "the packet ticks this box"],
+    false: ["✗", "bad", "the packet leaves this box unticked"],
+    null: ["○", "muted", "listed without a box, so nothing says whether it passed"],
+  };
+
+  /** The intake line's trailer — who wrote it, where from, and when — as chips rather than a tuple. */
+  function metaChips(meta) {
+    const m = intakeMeta(meta);
+    const chips = [
+      m.person ? chip("Captured by", m.person, { tip: personName(m.person, model.people) ?? undefined }) : null,
+      m.source ? chip("From", m.source, { tip: "Where the line was captured: the web view, the CLI, or a session" }) : null,
+      m.date ? chip("Date", fmtDate(m.date) ?? m.date, { tip: m.date }) : null,
+    ].filter(Boolean);
+    return chips.length ? h("div", { class: "chips detail__chips" }, chips) : null;
+  }
+
+  /** Criteria whose evidence entries are the plain strings the packet route sends. */
+  function packetBlock(packet, slug) {
+    const verdict = packet.verdict ?? "pending";
+    const crit = (packet.criteria ?? []).map((c) => {
+      const [glyph, tone, word] = CRIT_MARKS[String(c.pass)] ?? CRIT_MARKS.null;
+      return h(
+        "li",
+        { class: `packet__crit is-${tone}` },
+        h("span", { class: `packet__mark packet__mark--${tone}`, title: `Criterion: ${word}`, "aria-label": word }, glyph),
+        h("span", { class: "packet__text" }, inline(c.text, { repo: ctx.repo })),
+        (c.evidence ?? []).length ? h("span", { class: "packet__evidence" }, (c.evidence ?? []).map((e) => evidenceLink(ctx, slug, e))) : h("span", { class: "faint packet__noev" }, "no evidence linked"),
+      );
+    });
+    return h(
+      "div",
+      {},
+      h(
+        "div",
+        { class: "chips detail__chips" },
+        chip("Verdict", VERDICT_LABEL[verdict] ?? verdict, { tone: VERDICT_TONE[verdict] ?? "muted" }),
+        packet.decidedBy ? chip("Decided by", packet.decidedBy) : null,
+        packet.decidedAt ? chip("Date", fmtDate(packet.decidedAt), { tip: packet.decidedAt }) : null,
+      ),
+      crit.length ? h("ul", { class: "packet__criteria" }, crit) : h("p", { class: "para muted" }, "The packet lists no criteria."),
+      sectionsOf(packet.sections, PACKET_SECTIONS),
+    );
+  }
+
+  // --- completion (the Completed view's "how do I know it was done") ------------
+  function evidenceChip(slug, e) {
+    const name = evidenceName(e.path ?? e);
+    if (!e || typeof e === "string") return evidenceLink(ctx, slug, e);
+    if (!e.route) return h("code", { class: "evidence-code", title: "The packet names this as proof, but it is not a file under evidence/." }, e.path);
+    if (!e.exists) {
+      return h("span", { class: "evidence-missing", title: `The packet cites evidence/${name}, but no such file was saved on the branch or in the working tree.` }, icon("stale"), h("code", { class: "evidence-code" }, name), " never saved");
+    }
+    return h("a", { class: "link link--file evidence-link", href: withRepoOnce(e.route), target: "_blank", rel: "noopener", title: `Open evidence/${name}` }, icon("external"), h("span", {}, name));
+  }
+
+  function completionBlock(t, d) {
+    const c = d?.completion ?? null;
+    if (!c) {
+      return h(
+        "p",
+        { class: "para para--warn" },
+        "No completion block was recorded for this task. That happens when the work merged without a packet, so there is no verdict and no criteria to show — the commits under Files changed are all git kept.",
+      );
+    }
+    const crit = (c.criteria ?? []).map((x) => {
+      const [glyph, tone, word] = CRIT_MARKS[String(x.pass)] ?? CRIT_MARKS.null;
+      return h(
+        "li",
+        { class: `packet__crit is-${tone}` },
+        h("span", { class: `packet__mark packet__mark--${tone}`, title: `Criterion: ${word}`, "aria-label": word }, glyph),
+        h("span", { class: "packet__text" }, inline(x.text, { repo: ctx.repo })),
+        (x.evidence ?? []).length ? h("span", { class: "packet__evidence" }, x.evidence.map((e) => evidenceChip(t.slug, e))) : h("span", { class: "faint packet__noev" }, "no evidence linked"),
+      );
+    });
+    const diff = c.diff ?? { files: [], filesChanged: 0, added: 0, deleted: 0, commits: 0 };
+    const files = (diff.files ?? []).map((f) =>
+      h(
+        "li",
+        { class: "done-file", dataset: { refs: f.path } },
+        entityLink("file", fileRoute(ctx.repo, f.path), f.path, { refs: f.path }),
+        h("span", { class: "done-file__stat" }, h("span", { class: "done-file__add" }, `+${f.added}`), " ", h("span", { class: "done-file__del" }, `−${f.deleted}`)),
+      ),
+    );
+    return h(
+      "div",
+      { class: "done-detail__body" },
+      h("h4", { class: "task-sub" }, "The verdict"),
+      h(
+        "div",
+        { class: "chips detail__chips" },
+        chip("Verdict", VERDICT_LABEL[c.verdict] ?? c.verdict ?? "unrecorded", { tone: VERDICT_TONE[c.verdict] ?? "muted" }),
+        c.decidedBy ? chip("Decided by", c.decidedBy, { tip: `${personName(c.decidedBy, model.people) ?? c.decidedBy} recorded the verdict in the packet` }) : chip("Decided by", "unrecorded", { tone: "muted", tip: "The packet's front matter names nobody." }),
+        c.decidedAt ? chip("Date", fmtDate(c.decidedAt), { tip: c.decidedAt }) : null,
+      ),
+      h("h4", { class: "task-sub" }, `Acceptance criteria (${crit.length})`),
+      crit.length ? h("ul", { class: "packet__criteria" }, crit) : h("p", { class: "para muted" }, "The packet listed no criteria, so nothing was checked off."),
+      h("h4", { class: "task-sub" }, "Files changed"),
+      files.length
+        ? h(
+            "div",
+            {},
+            h("ul", { class: "done-files" }, files),
+            h("p", { class: "hint" }, `${diff.filesChanged} ${diff.filesChanged === 1 ? "file" : "files"}, +${diff.added} −${diff.deleted}, across ${diff.commits} ${diff.commits === 1 ? "commit" : "commits"}. Reggie's own records are left out.`),
+          )
+        : h("p", { class: "para muted" }, "Git has no commits carrying this task's trailer, so no diff can be attributed to it."),
+      h("h4", { class: "task-sub" }, `Journal (${(c.journal ?? []).length})`),
+      (c.journal ?? []).length
+        ? h("div", { class: "done-journal" }, c.journal.map(journalCard))
+        : h("p", { class: "para muted" }, "Nobody wrote a journal entry for this task, so how it went is only in the commits."),
+    );
+  }
+
+  function journalCard(j) {
+    return h(
+      "article",
+      { class: "card card--journal" },
+      h(
+        "div",
+        { class: "card__chips chips" },
+        chip("By", j.person ?? "unknown", { tip: personName(j.person, model.people) ?? undefined }),
+        j.tool ? chip("Tool", j.tool) : null,
+        j.stage ? chip("Stage", j.stage) : null,
+        chip("Date", j.date ? fmtDate(j.date) : "unknown", { tip: j.time ? `${j.date} ${j.time}` : j.date }),
+      ),
+      h("p", { class: "para para--fact" }, inline(j.text ?? "", { repo: ctx.repo })),
+    );
+  }
+
+  // --- triage ------------------------------------------------------------------
+  /** POST /api/triage for a set of slugs, then move each created card to Groomed with no reload. */
+  async function shape(slugs) {
+    if (!slugs.length) return;
+    for (const s of slugs) model.busy.add(s);
+    drawColumns();
+    try {
+      const res = await ctx.post("/api/triage", { slugs });
+      const created = Array.isArray(res?.created) ? res.created : [];
+      const skipped = Array.isArray(res?.skipped) ? res.skipped : [];
+      for (const slug of created) {
+        const t = model.tasks.find((x) => x.slug === slug);
+        if (!t) continue;
+        t.state = "groomed";
+        t.reason = `brief.md written by triage`;
+        t.lastActivity = new Date().toISOString();
+        t.brief = { exists: true, area: "", size: "unset", priority: "unset", problem: t.intake?.text ?? "" };
+        model.selected.delete(slug);
+        model.detail.delete(slug);
+      }
+      if (created.length) toast(created.length === 1 ? `Shaped \`${created[0]}\`: a brief is waiting to be filled in.` : `Shaped ${created.length} tasks into briefs.`, { tone: "ok" });
+      for (const s of skipped) toast(`\`${s.slug}\` was left alone: ${s.reason}`, { tone: "warn" });
+      if (!created.length && !skipped.length) toast("Nothing to shape.", { tone: "info" });
+      recount();
+      draw();
+      reconcile();
+    } catch (e) {
+      toast(`Could not write the briefs: ${friendlyError(e)}`, { tone: "bad" });
+    } finally {
+      for (const s of slugs) model.busy.delete(s);
+      drawColumns();
+    }
+  }
+
+  /** The set "Shape these" acts on: the ticked cards, or the whole column when none are ticked. */
+  function shapeSet() {
+    const all = model.tasks.filter((t) => t.state === "ungroomed").map((t) => t.slug);
+    const picked = all.filter((s) => model.selected.has(s));
+    return picked.length ? picked : all;
+  }
+
+  function shapeTheseControls() {
+    const set = shapeSet();
+    const picked = model.selected.size > 0;
+    if (!set.length) return null;
+    const busy = set.some((s) => model.busy.has(s));
+    const btn = h(
+      "button",
+      {
+        class: "btn btn--small btn--primary board__shape",
+        type: "button",
+        disabled: busy,
+        title: picked
+          ? `Write a brief for the ${set.length} ticked ${set.length === 1 ? "task" : "tasks"}`
+          : `Write a brief for every ungroomed task (${set.length}). Tick cards to narrow it.`,
+        on: { click: () => shape(set) },
+      },
+      busy ? "Shaping…" : `Shape these (${set.length})`,
+    );
+    const session = launchAction(launcher, {
+      slugs: set,
+      mode: "triage",
+      label: "Shape these in a session",
+      menuLabel: "Shape these",
+      onToolChange: (tool) => {
+        storage.set(LAUNCH_TOOL_KEY, tool);
+        drawHead();
+      },
+      onCommand: (command, why) => {
+        const head = boardEl.querySelector('.board__col[data-state="ungroomed"] .board__head-extra');
+        if (!head) return;
+        head.querySelector(".launch-cmd")?.remove();
+        if (command) head.appendChild(commandField(command, why));
+      },
+    });
+    session.classList.add("launch--compact");
+    return h(
+      "div",
+      { class: "board__head-extra" },
+      h("div", { class: "board__shape-row" }, btn, session),
+      picked ? h("p", { class: "hint" }, `${model.selected.size} ticked.`) : null,
+    );
+  }
+
+  /** Re-render just the Ungroomed head block, so ticking a card leaves every other card alone. */
+  function refreshShapeControls() {
+    const col = boardEl.querySelector('.board__col[data-state="ungroomed"]');
+    if (!col) return;
+    const current = col.querySelector(":scope > .board__head-extra");
+    const next = shapeTheseControls();
+    if (current && next) current.replaceWith(next);
+    else if (current) current.remove();
+    else if (next) col.querySelector(":scope > .board__def")?.after(next);
+  }
+
+  // --- columns -----------------------------------------------------------------
   function column(s) {
     const items = sortTasks(model.tasks.filter((t) => t.state === s.id));
     const count = model.sm.counts[s.id] ?? items.length;
-    const isDone = s.id === "done";
-    const open = !isDone || model.doneOpen;
-    const toggle = isDone
-      ? h(
-          "button",
-          { class: "btn btn--small btn--ghost board__toggle", type: "button", "aria-expanded": open ? "true" : "false", "aria-label": open ? "Collapse done" : "Expand done", on: { click: toggleDone } },
-          open ? "Hide" : "Show",
-        )
-      : null;
-    const short = COLUMN_RULE[s.id] ?? firstSentence(s.rule ?? s.definition ?? "");
     const head = h(
       "div",
       { class: "board__head", tabindex: "-1", title: s.rule ? `Rule: ${s.rule}` : s.definition || null },
       h("span", { class: `state-dot state--${s.id}`, "aria-hidden": "true" }),
       h("span", { class: "board__head-label" }, s.label),
       h("span", { class: "board__count", "aria-label": `${count} ${s.label.toLowerCase()}` }, String(count)),
-      toggle,
     );
-    const def = h("div", { class: "board__def", title: s.definition || null }, short);
+    const def = h("div", { class: "board__def", title: s.definition || null }, COLUMN_RULE[s.id] ?? firstSentence(s.rule ?? s.definition ?? ""));
     const list = h("div", { class: "board__cards", role: "list", "aria-label": `${s.label} tasks` }, items.map(card));
-    if (open && items.length === 0) {
-      list.appendChild(h("div", { class: "board__none" }, isDone && model.loadingDone ? "Loading…" : isDone && count > 0 ? `${count} done, not loaded.` : COLUMN_EMPTY[s.id] ?? "Nothing here."));
-    }
-    if (!open) list.hidden = true;
-    const footer = s.id === "ungroomed" && !isEmpty() ? h("details", { class: "board__capture" }, h("summary", {}, "Capture one"), captureForm(ctx, { onCaptured })) : null;
-    return h("section", { class: `board__col state--${s.id}${!open ? " is-collapsed" : ""}`, dataset: { state: s.id }, "aria-label": s.label }, head, def, list, footer);
+    if (items.length === 0) list.appendChild(h("div", { class: "board__none" }, inline(COLUMN_EMPTY[s.id] ?? "Nothing here.", { repo: ctx.repo })));
+    const extras = s.id === "ungroomed" ? [shapeTheseControls(), addForm()] : [];
+    return h("section", { class: `board__col state--${s.id}`, dataset: { state: s.id }, "aria-label": s.label }, head, def, ...extras, list);
+  }
+
+  /** Always visible at the top of Ungroomed (§7): one line in, one card out, no reload. */
+  function addForm() {
+    return h(
+      "div",
+      { class: "board__add" },
+      h("h3", { class: "board__add-h" }, "Add a task"),
+      captureForm(ctx, { onCaptured, placeholder: "One line: what should change, and why" }),
+    );
   }
 
   function drawColumns() {
-    mount(boardEl, model.sm.states.map(column));
+    const empty = isEmpty();
+    boardEl.hidden = model.view !== "open";
+    completedEl.hidden = model.view !== "completed";
+    if (model.view !== "open") {
+      mount(emptySlot);
+      return;
+    }
+    mount(boardEl, empty ? [] : model.sm.states.filter((s) => OPEN_STATES.includes(s.id)).map(column));
     mount(
       emptySlot,
-      isEmpty()
-        ? h("div", { class: "card card--empty board__empty" }, h("p", { class: "empty__text" }, inline(EMPTY_BOARD_TEXT, {})), captureForm(ctx, { onCaptured }))
+      empty
+        ? h(
+            "div",
+            { class: "card card--empty board__empty" },
+            h("p", { class: "empty__text" }, inline(EMPTY_BOARD_TEXT, {})),
+            captureForm(ctx, { onCaptured }),
+          )
         : null,
     );
   }
 
+  // --- completed ---------------------------------------------------------------
+  function doneTasks() {
+    return model.tasks
+      .filter((t) => t.state === "done")
+      .slice()
+      .sort((a, b) => (parseDate(b.lastActivity) ?? 0) - (parseDate(a.lastActivity) ?? 0));
+  }
+
+  function doneRow(t) {
+    const open = isOpen(t.slug, "completion");
+    const d = model.detail.get(t.slug);
+    const verdict = d && d !== "loading" ? d.completion?.verdict ?? d.packet?.verdict ?? null : null;
+    return h(
+      "article",
+      { class: `done-row${open ? " is-open" : ""}`, dataset: { slug: t.slug, refs: `task:${t.slug}` } },
+      h(
+        "div",
+        { class: "done-row__head" },
+        h("span", { class: "done-row__title" }, entityLink("task", taskRoute(ctx.repo, t.slug), t.title || t.slug, { refs: `task:${t.slug}` })),
+        h(
+          "span",
+          { class: "chips done-row__chips" },
+          verdict ? chip("Verdict", VERDICT_LABEL[verdict] ?? verdict, { tone: VERDICT_TONE[verdict] ?? "muted" }) : null,
+          t.owner ? chip("Owner", t.owner, { tip: personName(t.owner, model.people) ?? undefined }) : null,
+          chip("Finished", relTime(t.lastActivity) ?? fmtDate(t.lastActivity) ?? "unknown", { tip: t.lastActivity ? fmtDate(t.lastActivity) : "No git activity recorded" }),
+        ),
+        h(
+          "button",
+          {
+            class: "btn btn--small btn--ghost done-row__toggle",
+            type: "button",
+            "aria-expanded": open ? "true" : "false",
+            title: open ? "Close it" : "The verdict, the criteria with their evidence, the files changed and the journal",
+            on: { click: () => toggle(t.slug, "completion") },
+          },
+          open ? "Close" : "What was done",
+        ),
+      ),
+      open ? h("div", { class: "done-row__detail" }, detailPanel(t, "completion")) : null,
+    );
+  }
+
+  function drawCompleted() {
+    if (model.view !== "completed") {
+      mount(completedEl);
+      return;
+    }
+    const rows = doneTasks();
+    if (model.loadingDone && !rows.length) {
+      mount(completedEl, h("div", { class: "completed__list" }, skeleton()));
+      return;
+    }
+    mount(
+      completedEl,
+      rows.length
+        ? h("div", { class: "completed__list" }, rows.map(doneRow))
+        : h(
+            "div",
+            { class: "card card--empty completed__empty" },
+            h("p", { class: "empty__text" }, inline(COLUMN_EMPTY.done, {})),
+            h("p", { class: "empty__hint" }, "Approve a packet from the Open view, or merge the pull request, and the task lands here with its evidence."),
+          ),
+    );
+  }
+
+  // --- writes ------------------------------------------------------------------
   function onCaptured(res, body) {
     const slug = res?.slug ?? body.text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
     if (!model.tasks.some((t) => t.slug === slug)) {
@@ -940,13 +1936,16 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
         planLintOk: null,
         packetExists: false,
         intake: { slug, rawSlug: null, text: body.text, meta: null, detail: body.detail ? [body.detail] : [], line: 0 },
-        reason: "intake item with no plan",
+        reason: "intake item with no brief",
         stateDefinition: stateDefinition("ungroomed", model.sm),
         age: 0,
+        brief: null,
+        phase: "capture",
         planFiles: [],
         changedFiles: [],
       });
     }
+    if (model.view !== "open") setView("open");
     recount();
     draw();
     boardEl.querySelector(`.board__card[data-slug="${CSS.escape(slug)}"] a`)?.focus?.();
@@ -959,7 +1958,7 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
    * still reports the pre-decision state the optimistic move is kept: `keep = { slug, from, to, reason }`.
    */
   function reconcile(keep) {
-    const url = deps.tasksUrl ?? "/api/tasks";
+    const url = deps.tasksUrl ?? (model.doneLoaded ? "/api/tasks?all=1" : "/api/tasks");
     ctx
       .fetchJson(url)
       .then((list) => {
@@ -981,20 +1980,21 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
   // --- Needs-you queue (story column) ------------------------------------------
   function problemLine(t) {
     const cached = model.detail.get(t.slug);
-    const fromDetail = cached?.plan?.sections?.Problem ?? cached?.plan?.sections?.problem;
-    const text = t.problem ?? (fromDetail ? firstSentence(fromDetail) : null) ?? (t.intake?.text ? firstSentence(t.intake.text) : null);
+    const fromDetail = cached && cached !== "loading" ? cached.plan?.sections?.Problem ?? cached.brief?.sections?.Problem : null;
+    const text = t.brief?.problem || (fromDetail ? firstSentence(fromDetail) : null) || (t.intake?.text ? firstSentence(t.intake.text) : null);
     const p = h("p", { class: "card__problem" }, text ? inline(text, { repo: ctx.repo }) : h("span", { class: "faint" }, "Reading the plan…"));
-    if (!text && !cached && !model.detail.has(t.slug)) {
-      model.detail.set(t.slug, null);
+    if (!text && cached === undefined) {
+      model.detail.set(t.slug, "loading");
       ctx
         .fetchJson(`/api/task/${encodeURIComponent(t.slug)}`)
         .then((d) => {
           model.detail.set(t.slug, d);
-          const prob = d?.plan?.sections?.Problem ?? d?.plan?.sections?.problem;
+          const prob = d?.plan?.sections?.Problem ?? d?.brief?.sections?.Problem;
           const live = target?.querySelector(`.card--decision[data-slug="${CSS.escape(t.slug)}"] .card__problem`) ?? p;
           mount(live, prob ? inline(firstSentence(prob), { repo: ctx.repo }) : h("span", { class: "faint" }, "The plan has no Problem section."));
         })
         .catch(() => {
+          model.detail.delete(t.slug);
           const live = target?.querySelector(`.card--decision[data-slug="${CSS.escape(t.slug)}"] .card__problem`) ?? p;
           mount(live, h("span", { class: "faint" }, "The plan could not be read."));
         });
@@ -1005,32 +2005,13 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
   function decisionCard(t) {
     const risk = t.risk ?? "unset";
     const chips = [
-      t.owner
-        ? model.soleOwner
-          ? null
-          : chip("Owner", t.owner, { tip: `Owner: ${personName(t.owner, model.people) ?? t.owner}` })
-        : chip("Owner", "nobody", { tone: "muted", tip: "No claim or branch author" }),
+      t.owner ? (model.soleOwner ? null : chip("Owner", t.owner, { tip: `Owner: ${personName(t.owner, model.people) ?? t.owner}` })) : chip("Owner", "nobody", { tone: "muted", tip: "No claim or branch author" }),
       chip("Age", ageText(t.age) ?? relTime(t.lastActivity) ?? "unknown", { tip: t.lastActivity ? `Last activity ${fmtDate(t.lastActivity)}` : "Days since the last git activity" }),
       chip("Risk", risk, { tone: RISK_TONE[risk], tip: RISK_TIPS[risk] }),
     ];
     const pr = t.pr ? h("a", { class: "link link--task", href: t.pr.url, target: "_blank", rel: "noopener", title: t.pr.title ?? "Pull request" }, icon("external"), h("span", {}, `PR #${t.pr.number}`)) : null;
     const body = model.rights.canDecide
-      ? decideForm(ctx, t.slug, {
-          onDone: (verdict) => {
-            const task = model.tasks.find((x) => x.slug === t.slug);
-            const from = task?.state ?? "awaiting-decision";
-            const to = verdict === "approved" ? "done" : "in-process";
-            const reason = verdict === "approved" ? "packet approved (recorded; git catches up on merge)" : "packet sent back: needs work";
-            if (task) {
-              task.state = to;
-              task.reason = reason;
-              task.lastActivity = new Date().toISOString();
-            }
-            recount();
-            draw();
-            reconcile({ slug: t.slug, from, to, reason });
-          },
-        })
+      ? decideForm(ctx, t.slug, { onDone: (verdict) => afterDecision(t, verdict) })
       : h("p", { class: "hint card__who" }, whoCanDecideText(model.rights));
     return h(
       "article",
@@ -1045,6 +2026,35 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
 
   function drawQueue() {
     if (!target) return;
+    if (model.view === "completed") {
+      const n = model.sm.counts.done ?? doneTasks().length;
+      mount(
+        target,
+        section(
+          "finished",
+          "Finished work",
+          h(
+            "p",
+            { class: "para para--fact" },
+            n === 0
+              ? "Nothing has finished here yet. When something does, this is where you check it: "
+              : `${n === 1 ? "One task has" : `${n} tasks have`} finished. Open one to see what closed it: `,
+            "the verdict and who gave it, every acceptance criterion with a pass or a fail, the evidence saved for each, the files git attributes to the task, and the journal written while it was built.",
+          ),
+        ),
+        section(
+          "how-finished",
+          "How a task finishes",
+          h(
+            "p",
+            { class: "para para--fact" },
+            "The owner writes a completion packet on the task branch, which puts the task in Awaiting decision. A decider approves it or sends it back. An approved packet on the default branch — or a merged pull request — is what makes a task done; nothing here is marked finished by hand.",
+          ),
+          h("p", { class: "hint" }, "From a terminal: ", h("code", {}, "reggie tasks"), " reports the same six states as this page."),
+        ),
+      );
+      return;
+    }
     const awaiting = sortTasks(model.tasks.filter((t) => t.state === "awaiting-decision"));
     const cards = awaiting.length
       ? awaiting.map(decisionCard)
@@ -1055,37 +2065,26 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
           h("p", { class: "empty__hint" }, "Finish work with ", h("code", {}, "reggie packet <slug>"), " and open a PR whose body is the packet."),
         );
     const sole = model.soleOwner;
-    /**
-     * "How the board works" used to end in a six-item list of the state definitions — the same six
-     * facts the six column sublabels carry, three hundred pixels to the right, on the same screen.
-     * The columns are where a reader looks for what a column means, so the definitions stay there
-     * and this paragraph says only what the columns cannot: where the states come from.
-     */
+    const n = openTasks().length;
     const intro = h(
       "p",
       { class: "para para--fact" },
-      `${model.tasks.length === 1 ? "One task" : `${model.tasks.length || "No"} tasks`} on the board${model.mode === "team" ? " (team mode: maintainers decide)" : ""}. `,
-      "The board on the right reads every state from git; nothing here is dragged. Each column names the git fact that puts a task in it — hover a column head for the full rule.",
-      sole
-        ? h(
-            "span",
-            {},
-            " ",
-            entityLink("person", personRoute(ctx.repo, sole), sole),
-            " owns every claimed task here, so the cards do not repeat the name — only unclaimed ones are marked.",
-          )
-        : null,
+      `${n === 1 ? "One task" : `${n || "No"} tasks`} are still moving${model.mode === "team" ? " (team mode: maintainers decide)" : ""}. `,
+      // Not "the columns on the right": below 1200px the board sits above this column, not beside it.
+      "Work goes through four phases: capture it as a line, shape it into a brief, plan it against the code, then build it. The columns read every state from git — nothing is dragged — and each column head names the git fact that puts a task in it.",
+      sole ? h("span", {}, " ", entityLink("person", personRoute(ctx.repo, sole), sole), " owns every claimed task here, so the cards do not repeat the name — only unclaimed ones are marked.") : null,
     );
     mount(target, section("needs-you", "Needs you", cards), section("board-how", "How the board works", intro));
   }
 
   function draw() {
-    // Keep keyboard focus on the same card across a redraw.
-    const focusedSlug = document.activeElement?.closest?.(".board__card")?.dataset?.slug ?? null;
+    const focusedSlug = document.activeElement?.closest?.(".board__card, .done-row")?.dataset?.slug ?? null;
+    drawHead();
     drawStrip();
     drawColumns();
+    drawCompleted();
     drawQueue();
-    if (focusedSlug) boardEl.querySelector(`.board__card[data-slug="${CSS.escape(focusedSlug)}"] a`)?.focus?.();
+    if (focusedSlug) wrap?.querySelector(`[data-slug="${CSS.escape(focusedSlug)}"] a`)?.focus?.();
   }
 
   // --- keyboard: arrows move between cards and columns (spec §3.1) --------------
@@ -1094,6 +2093,7 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     wrap.addEventListener("keydown", (ev) => {
       if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(ev.key)) return;
       const active = document.activeElement;
+      if (active?.closest?.(".form, .launch__menu")) return;
       const cardEl = active?.closest?.(".board__card");
       const colEl = active?.closest?.(".board__col");
       if (!colEl) return;
@@ -1118,6 +2118,8 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     });
   }
 
+  if (model.view === "completed") ensureDone();
+  syncViewQuery(model.view);
   draw();
   wireKeys();
   hookStoryHover(target, ctx);
@@ -1128,6 +2130,9 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
       if (stateMachine) data.stateMachine = stateMachine;
       recount();
       draw();
+    },
+    setView(view) {
+      setView(view, { focus: false });
     },
     destroy() {
       unmountBoard(mapEl);

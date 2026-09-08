@@ -9,20 +9,24 @@
   min-height: 0; background: var(--panel);
   container-type: inline-size;
 }
-/* The six columns are a left-to-right pipeline and must read as one, the same way the state-machine
-   strip above them draws it (F08). They never wrap into rows. `done` — the terminal state nobody has
-   to act on — collapses to a 44px vertical rail so the five live states keep full-width cards. */
-.board__col.is-collapsed { flex: 0 0 44px; min-width: 44px; overflow: hidden; }
-.board__col.is-collapsed .board__head {
-  flex-direction: column; align-items: center; gap: 6px;
-  height: 100%; padding-top: 4px;
-}
-.board__col.is-collapsed .board__head-label,
-.board__col.is-collapsed .board__count { writing-mode: vertical-rl; }
-.board__col.is-collapsed .board__toggle { writing-mode: vertical-rl; padding: 4px 0; height: auto; }
-.board__col.is-collapsed .board__def { display: none; }
+/* The five open columns are a left-to-right pipeline and must read as one, the same way the
+   state-machine strip above them draws it (F08). They never wrap into rows; the board scrolls
+   sideways instead. `done` is not a column at all — finished work is its own view (§7). */
 .board-wrap .strip { flex: 0 0 auto; }
 .board-wrap .board { flex: 1 1 auto; min-height: 0; align-content: start; }
+.board-wrap .completed { flex: 1 1 auto; min-height: 0; overflow: auto; padding: var(--s-3); }
+
+/* ---------- Open / Completed, and the tool every launch defaults to ---------- */
+.board-head {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap;
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--line);
+}
+.board-head__counts { font-size: var(--fs-meta); color: var(--muted); }
+.board-head__toolwrap { display: inline-flex; align-items: center; gap: var(--s-2); margin-left: auto; }
+.board-head__toolwrap .hint { white-space: nowrap; }
+.board-head__tool .seg__btn { font-size: var(--fs-sub); }
 .board__empty-slot:empty { display: none; }
 .board__empty {
   margin: var(--s-3) var(--s-3) 0;
@@ -64,35 +68,54 @@
   min-height: 120px;
   align-self: start;
 }
-.board__col.is-collapsed { min-height: 0; }
 .board__col.state--awaiting-decision { border-color: rgba(224, 175, 104, 0.35); }
 .board__head { color: var(--text); }
-/* The six headers *are* the pipeline; a chevron between them says so without a second axis (F12). */
+/* A card carries chips, a meta line, badges and two or three actions, so 150px is no longer enough:
+   below ~200px the action buttons stack one per line and the card is taller than it is wide. */
+.board-wrap .board__col { flex: 1 1 210px; min-width: 210px; align-self: stretch; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+/* Each column scrolls on its own and its head sticks, so the state name and the count stay put while
+   the cards move. Scrolling the whole board instead pushed every header off the top at once, and the
+   header is the only thing that says which column you are looking at. Scrolling only the card list
+   was worse still: at 900px tall the Add form ate the list's whole height and Ungroomed showed no
+   cards at all. */
+.board-wrap .board__head {
+  position: sticky; top: 0; z-index: 2;
+  padding-bottom: 2px; background: var(--bg);
+}
+/* Reading a brief or a plan in place: the column grows to a readable measure rather than opening a
+   drawer somewhere else. Only one card is ever open, so only one column is ever wide. */
+.board-wrap .board__col:has(.board__card.is-reading) { flex: 2 1 400px; min-width: 400px; }
+@media (prefers-reduced-motion: no-preference) {
+  .board-wrap .board__col { transition: flex-basis var(--t-highlight) var(--ease), min-width var(--t-highlight) var(--ease); }
+}
+/* The headers *are* the pipeline; a chevron between them says so without a second axis (F12). */
 .board__col + .board__col > .board__head::before {
   content: "›"; color: var(--faint-text); font-weight: 400; margin-left: -10px; margin-right: 2px;
 }
-.board__col.is-collapsed + .board__col > .board__head::before,
-.board__col + .board__col.is-collapsed > .board__head::before { content: none; }
 /* "Awaiting decision" does not fit a 150px column; a clipped header names no state at all, so the
    label wraps onto a second line instead of ellipsing. The collapsed rail keeps one vertical line. */
 .board__head-label { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
-.board__col.is-collapsed .board__head-label { white-space: nowrap; overflow-wrap: normal; }
 .board__head { align-items: flex-start; }
 .board__head .state-dot { margin-top: 5px; }
-.board__col.is-collapsed .board__head { align-items: center; }
-.board__count, .board__toggle { flex: 0 0 auto; }
-.board__count { margin-left: auto; color: var(--muted); font-weight: 500; font-size: var(--fs-meta); }
-.board__toggle { flex: 0 0 auto; }
+.board__count { flex: 0 0 auto; margin-left: auto; color: var(--muted); font-weight: 500; font-size: var(--fs-meta); }
 /* One short line: the git rule for the state. The prose definition lives in the story column, and the
    full rule is the tooltip on the header. */
 .board__def { margin: 2px 0 var(--s-2); line-height: 1.35; cursor: help; }
-.board__cards { display: flex; flex-direction: column; gap: var(--s-2); }
-.board__none { font-size: var(--fs-meta); color: var(--faint-text); padding: var(--s-1) 0; }
-.board__capture { margin-top: var(--s-2); font-size: var(--fs-meta); }
-.board__capture summary { cursor: pointer; color: var(--muted); }
-.board__capture summary:hover { color: var(--text); }
-.board__capture .form { margin-top: var(--s-2); }
-.board__capture .form__actions { flex-wrap: wrap; }
+.board__cards { display: flex; flex-direction: column; gap: var(--s-2); min-height: 0; }
+.board__none { font-size: var(--fs-meta); color: var(--faint-text); padding: var(--s-1) 0; line-height: 1.45; }
+.board__none code { font-size: var(--fs-sub); }
+
+/* ---------- Ungroomed column head: Shape these, and the Add form ---------- */
+.board__head-extra { display: flex; flex-direction: column; gap: var(--s-1); }
+.board__shape-row { display: flex; align-items: center; gap: var(--s-1); flex-wrap: wrap; }
+.board__add {
+  padding: var(--s-2); border: 1px dashed var(--line-strong); border-radius: 6px; background: var(--panel);
+}
+.board__add-h { margin: 0 0 var(--s-2); font-size: var(--fs-label); font-weight: 600; color: var(--text); }
+.board__add .form { gap: var(--s-2); }
+.board__add .form__textarea { min-height: 42px; }
+.board__add .form__actions { flex-wrap: wrap; gap: var(--s-2); }
+.board__add .hint { font-size: var(--fs-sub); }
 
 /* ---------- Cards ---------- */
 .board__card { cursor: default; transition: border-color var(--t-highlight) var(--ease); }
@@ -105,6 +128,24 @@
 .board__owner--none { color: var(--muted); font-weight: 400; font-style: italic; cursor: help; }
 .board__time { color: var(--muted); }
 .board__badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.board__chips { margin-top: 6px; gap: 4px; }
+.board__chips .chip { font-size: var(--fs-sub); padding: 1px 6px; }
+.board__pick { margin: 0 6px 0 0; vertical-align: 1px; accent-color: var(--info); }
+.board__actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: var(--s-2); }
+.board__actions .btn { font-size: var(--fs-sub); }
+.board__card.is-reading { border-color: var(--info); }
+
+/* The panel a "Read the…" action opens, inside the card, in the column that widened for it. */
+.board__detail {
+  margin-top: var(--s-2); padding-top: var(--s-2);
+  border-top: 1px solid var(--line);
+  max-height: 46vh; overflow-y: auto;
+}
+.board__detail .prose, .board__detail .para { font-size: var(--fs-label); line-height: 1.5; }
+.board__detail .task-sub:first-child { margin-top: 0; }
+.detail__sec + .detail__sec { margin-top: var(--s-2); }
+.detail__chips { margin-bottom: var(--s-2); }
+.detail__chips .chip { font-size: var(--fs-sub); padding: 1px 6px; }
 .badge--ok { background: rgba(158, 206, 106, 0.18); color: var(--ok); }
 .badge--bad { background: rgba(247, 118, 142, 0.18); color: var(--bad); }
 .badge--pr { display: inline-flex; align-items: center; gap: 3px; color: var(--info); background: rgba(125, 207, 255, 0.14); text-decoration: none; }
@@ -188,3 +229,74 @@
 /* ---------- Narrow layouts ---------- */
 /* The definition used to be hidden below 1200px because the server's prose ran 4-6 lines in a 150px
    column. It is one short rule now, so it survives the stacked layout at full size (F11). */
+
+/* ---------- Launching a session (tasks spec §4, §7) ---------- */
+/* Every launch action is a button plus a caret: the button uses the remembered tool, the caret names
+   both tools outright, so a reader never has to know what "the tool" currently is. Both the button
+   and each menu row carry the exact command from `GET /api/launch` as their tooltip. */
+.launch { position: relative; display: inline-flex; align-items: stretch; }
+.launch > .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+/* The caret is half of one split control, so it keeps the button border rather than `--ghost`'s
+   transparent one: a floating glyph beside a bordered button reads as a stray character. */
+.launch__caret {
+  border-top-left-radius: 0; border-bottom-left-radius: 0;
+  margin-left: -1px; padding: 0 6px; min-width: 0;
+  border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--muted);
+  font-size: var(--fs-meta); line-height: 1;
+}
+.launch__caret:hover { color: var(--text); border-color: var(--info); }
+.launch > .btn--primary + .launch__caret { border-color: var(--info); }
+.launch__menu {
+  position: fixed; z-index: 60;
+  display: flex; flex-direction: column; gap: 2px; min-width: max-content;
+  padding: var(--s-1); border: 1px solid var(--line-strong); border-radius: 6px;
+  background: var(--panel); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+.launch__tool { justify-content: flex-start; text-align: left; white-space: nowrap; }
+.launch--compact > .btn:first-child { font-size: var(--fs-sub); }
+
+/* Nothing could be spawned (the server said so, or refused): the command itself, ready to copy. */
+.launch-cmd {
+  margin-top: var(--s-2); padding: var(--s-2);
+  border: 1px solid var(--warn); border-radius: 6px; background: var(--panel);
+}
+.launch-cmd__why { margin: 0 0 var(--s-2); color: var(--warn); }
+.launch-cmd__row { display: flex; gap: var(--s-2); align-items: center; }
+.launch-cmd__input {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--mono); font-size: var(--fs-sub);
+}
+.launch-cmd .btn { flex: 0 0 auto; }
+
+/* ---------- Completed view ---------- */
+.completed__list { display: flex; flex-direction: column; gap: var(--s-3); max-width: 900px; }
+.completed__empty { max-width: var(--measure); }
+.completed__empty .empty__text { margin: 0 0 var(--s-2); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--muted); }
+.done-row {
+  border: 1px solid var(--line); border-left: 3px solid var(--state-done); border-radius: var(--radius);
+  background: var(--panel-2);
+}
+.done-row.is-open { border-color: var(--line-strong); border-left-color: var(--state-done); }
+.done-row__head {
+  display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap;
+  padding: var(--s-3) 14px;
+}
+.done-row__title { font-size: var(--fs-label); font-weight: 600; }
+.done-row__title .link { color: var(--text); }
+.done-row__chips { gap: var(--s-1) var(--s-2); }
+.done-row__toggle { margin-left: auto; flex: 0 0 auto; }
+.done-row__detail { padding: 0 14px var(--s-3); border-top: 1px solid var(--line); }
+.done-detail__body .task-sub:first-child { margin-top: var(--s-3); }
+.done-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.done-file { display: flex; align-items: baseline; gap: var(--s-3); font-size: var(--fs-label); }
+.done-file .link { font-family: var(--mono); font-size: var(--fs-meta); }
+.done-file__stat { margin-left: auto; font-family: var(--mono); font-size: var(--fs-meta); white-space: nowrap; }
+.done-file__add { color: var(--ok); }
+.done-file__del { color: var(--bad); }
+.done-journal { display: flex; flex-direction: column; gap: var(--s-2); margin-top: var(--s-2); }
+.done-journal .card--journal { padding: var(--s-2) var(--s-3); }
+.done-journal .card__chips { margin-bottom: var(--s-1); }
+.done-journal .para { margin: 0; font-size: var(--fs-label); }
+/* A criterion that claims proof nobody saved: say so where the link would be, rather than link to a 404. */
+.evidence-missing { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-meta); color: var(--warn); }
+.evidence-missing .i { width: 12px; height: 12px; }

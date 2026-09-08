@@ -78,6 +78,10 @@ export function claimRelPath(slug: string): string {
   return `${REGGIE_DIR}/tasks/${assertSlug(slug)}/claim.md`;
 }
 
+export function briefFile(paths: RepoPaths, slug: string): string {
+  return path.join(taskDir(paths, slug), "brief.md");
+}
+
 export function planFile(paths: RepoPaths, slug: string): string {
   return path.join(taskDir(paths, slug), "plan.md");
 }
@@ -88,6 +92,11 @@ export function packetFile(paths: RepoPaths, slug: string): string {
 
 export function evidenceDir(paths: RepoPaths, slug: string): string {
   return path.join(taskDir(paths, slug), "evidence");
+}
+
+/** Repo-relative path of a task's brief, for git lookups. */
+export function briefRelPath(slug: string): string {
+  return `${REGGIE_DIR}/tasks/${assertSlug(slug)}/brief.md`;
 }
 
 /** Repo-relative path of a task's plan file, for git lookups. */

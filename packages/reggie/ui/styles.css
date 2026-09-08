@@ -66,9 +66,15 @@
   --know-none: #3b4252;
   --know-stale: #f7768e;
 
+  /* Task states, in lifecycle order (§5.1). `grooming` is gone; `planned` took the slot between
+     `groomed` and `in-process`. It needed a colour that reads as further along than groomed but not
+     yet moving: the cyan→blue pair is already spoken for and a third blue would be indistinguishable
+     at 8px, so `planned` takes the palette's violet (--area-2 / --note-why #bb9af7). It is the only
+     hue between the cool pair and the warm amber, it clears 8.2:1 against --bg for the filled chip's
+     dark label, and it says "shaped and queued" rather than "someone is on it". */
   --state-ungroomed: #5c6478;
-  --state-grooming: #8b93a7;
   --state-groomed: #7dcfff;
+  --state-planned: #bb9af7;
   --state-in-process: #7aa2f7;
   --state-awaiting-decision: #e0af68;
   --state-done: #9ece6a;
@@ -375,8 +381,8 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 .chip--code { font-family: var(--mono); font-weight: 400; }
 .chip--state { color: var(--text); border-color: transparent; }
 .chip--state.state--ungroomed { background: var(--state-ungroomed); }
-.chip--state.state--grooming { background: var(--state-grooming); color: var(--bg); }
 .chip--state.state--groomed { background: var(--state-groomed); color: var(--bg); }
+.chip--state.state--planned { background: var(--state-planned); color: var(--bg); }
 .chip--state.state--in-process { background: var(--state-in-process); color: var(--bg); }
 .chip--state.state--awaiting-decision { background: var(--state-awaiting-decision); color: var(--bg); }
 .chip--state.state--done { background: var(--state-done); color: var(--bg); }
@@ -384,8 +390,8 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 
 /* Task state colours as utilities (§5.1) */
 .state--ungroomed { --state: var(--state-ungroomed); }
-.state--grooming { --state: var(--state-grooming); }
 .state--groomed { --state: var(--state-groomed); }
+.state--planned { --state: var(--state-planned); }
 .state--in-process { --state: var(--state-in-process); }
 .state--awaiting-decision { --state: var(--state-awaiting-decision); }
 .state--done { --state: var(--state-done); }
@@ -575,11 +581,13 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 .board { display: flex; align-items: stretch; gap: var(--s-2); padding: var(--s-3); overflow: auto; height: 100%; }
 /* The board is the payload on /tasks: the Needs-you queue is short, so give the map column the room. */
 .main[data-level="tasks"] { grid-template-columns: minmax(var(--story-min), 32%) 1fr; }
-/* Six columns crushed into a 305px pane is not a board. Below 1200px the board goes full-bleed above
-   the story, the way the map already does at 1100px (F11). */
+/* Columns crushed into a 305px pane are not a board. Below 1200px the board goes full-bleed above
+   the story, the way the map already does at 1100px (F11). It takes most of the viewport rather than
+   a fixed 460px: a card now carries chips, a meta line, badges and its actions, and in 460px minus
+   the head and the state strip every column showed one clipped card. */
 @media (max-width: 1200px) {
   .main[data-level="tasks"] { grid-template-columns: 1fr; }
-  .main[data-level="tasks"] .map-col { order: -1; position: static; height: auto; min-height: 460px; border-left: 0; border-bottom: 1px solid var(--line); }
+  .main[data-level="tasks"] .map-col { order: -1; position: static; height: auto; min-height: min(78vh, 760px); border-left: 0; border-bottom: 1px solid var(--line); }
   .main[data-level="tasks"] .story { --story-pad: var(--s-4); }
 }
 /* A 150px floor plus horizontal scrolling: columns keep a readable width instead of being squeezed,
