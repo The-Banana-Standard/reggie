@@ -7,6 +7,8 @@ import { buildGraph, type RepoGraph } from "./graph.js";
 import { repoHistory } from "./history.js";
 import { repoPaths } from "./paths.js";
 import { loadConfig } from "./people.js";
+import { detectServices, type ServiceIndex } from "./services.js";
+import { traceFlow, type Flow } from "./flows.js";
 import {
   EMPTY_TEXT,
   areaStory,
@@ -14,12 +16,14 @@ import {
   countPhrase,
   explain,
   fileStory,
+  flowStory,
   formatAge,
   formatDate,
   numberWord,
   parseLinks,
   repoStory,
   routeFor,
+  servicesStory,
   taskStory,
   timesPhrase,
   workspaceStory,
@@ -97,7 +101,7 @@ function parseRoute(hash: string): { level: string; repo: string | null; id: str
   if (segs.length === 2) return { ...out, level: "repo", repo };
   const rest = decodeURIComponent(segs.slice(3).join("/"));
   const kind = segs[2];
-  const levels: Record<string, string> = { area: "area", file: "file", symbol: "symbol", task: "task", person: "person", tasks: "tasks", people: "people", time: "time" };
+  const levels: Record<string, string> = { area: "area", file: "file", symbol: "symbol", task: "task", person: "person", tasks: "tasks", people: "people", time: "time", services: "services", flows: "flows", flow: "flow" };
   const level = kind ? levels[kind] : undefined;
   if (!level) return { ...out, level: "unknown", repo };
   return { ...out, level, repo, id: rest || null };
@@ -115,7 +119,7 @@ function expectLinksWellFormed(story: Story, repo: string): void {
       expect(label.trim().length, `empty label in: ${text}`).toBeGreaterThan(0);
       expect(route.startsWith("#/"), `route is not a hash route: ${route}`).toBe(true);
       const parsed = parseRoute(route);
-      expect(["repo", "area", "file", "symbol", "task", "tasks", "person", "workspace"], `unparseable route ${route}`).toContain(parsed.level);
+      expect(["repo", "area", "file", "symbol", "task", "tasks", "person", "workspace", "services", "flows", "flow"], `unparseable route ${route}`).toContain(parsed.level);
       if (parsed.level !== "workspace") expect(parsed.repo).toBe(repo);
     }
   }
@@ -678,5 +682,195 @@ describe("workspaceStory", () => {
     const s = sectionOf(workspaceStory({ ...summary, edges: [] }), "connect");
     expect(s.paragraphs).toHaveLength(0);
     expect(s.empty?.text).toBe("No dependency between these repos was found in their manifests.");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Services and data flow (services-and-flows-spec.md §4)
+// ---------------------------------------------------------------------------
+
+describe("servicesStory and flowStory", () => {
+  let repo: TempRepo;
+  let local: StoryContext;
+  let index: ServiceIndex;
+  let flow: Flow;
+
+  beforeAll(() => {
+    repo = makeTempRepo("reggie-story-services-");
+    cleanups.push(repo);
+    repo.write(
+      "wrangler.toml",
+      [
+        'name = "storyworker"',
+        "",
+        "[vars]",
+        'GREETING = "hi"',
+        "",
+        "[[d1_databases]]",
+        'binding = "CHAT_LOGS"',
+        'database_name = "story-logs"',
+        "",
+        "[[kv_namespaces]]",
+        'binding = "CACHE"',
+        'id = "kv-1"',
+        "",
+        "[[kv_namespaces]]",
+        'binding = "IDLE"',
+        'id = "kv-2"',
+        "",
+      ].join("\n"),
+    );
+    repo.write(
+      "functions/api/chat.js",
+      [
+        "import { logIt } from '../chat/logging.js';",
+        "",
+        "export async function onRequestPost(context) {",
+        "    const { request, env } = context;",
+        "    const { message, sessionId } = await request.json();",
+        "    await env.CACHE.put(`c:${sessionId}`, message);",
+        "    await fetch('https://api.openai.com/v1/responses', { headers: { key: env.OPENAI_API_KEY } });",
+        "    await logIt({ db: env.CHAT_LOGS, sessionId });",
+        "    return Response.json({ reply: 'ok', sessionId });",
+        "}",
+        "",
+      ].join("\n"),
+    );
+    repo.write(
+      "functions/chat/logging.js",
+      ["export async function logIt({ db, sessionId }) {", "    await db.prepare('INSERT INTO chats (id) VALUES (?)').bind(sessionId).run();", "}", ""].join("\n"),
+    );
+    repo.commitAll("worker with a database, a cache, a secret and an idle namespace");
+    local = contextFor(repo.root);
+    const graph = buildGraph(repoPaths(repo.root));
+    index = detectServices(repoPaths(repo.root), graph);
+    flow = traceFlow(repoPaths(repo.root), graph, "sym:functions/api/chat.js#onRequestPost", { services: index.services });
+  }, 60_000);
+
+  it("puts the undeclared secret first, then the unused binding, then the shared writer", () => {
+    const story = servicesStory(local, index);
+    expect(sectionIds(story)).toEqual(["needs-attention", "talks-to", "secrets", "not-wired"]);
+    const needs = sectionOf(story, "needs-attention").paragraphs;
+    expect(needs[0]?.text).toContain("OPENAI_API_KEY");
+    expect(needs[0]?.text).toContain("no manifest declares it");
+    expect(needs[0]?.text).toContain("read in one place");
+    expect(needs[0]?.refs).toContain("svc:secret:OPENAI_API_KEY");
+    expect(needs.some((p) => p.text.includes("IDLE"))).toBe(true);
+    // The unused binding is named in its own section too, with the line that declares it.
+    const notWired = sectionOf(story, "not-wired").paragraphs;
+    expect(notWired.map((p) => p.text).join("\n")).toContain("IDLE");
+    expect(notWired[0]?.text).toMatch(/wrangler\.toml\|wrangler\.toml\]\] at line \d+/);
+  });
+
+  it("describes each service: what it is, where it is declared, who reads and who writes", () => {
+    const story = servicesStory(local, index);
+    const talks = sectionOf(story, "talks-to").paragraphs.map((p) => p.text);
+    const db = talks.find((t) => t.includes("CHAT_LOGS"));
+    expect(db).toContain("D1 database story-logs");
+    expect(db).toContain("declared in");
+    expect(db).toContain("wrangler.toml");
+    expect(db).toContain("writes to it");
+    // The write reached through a parameter is attributed to the file that performs it.
+    expect(db).toContain("logging.js");
+    const cache = talks.find((t) => t.includes("CACHE"));
+    expect(cache).toContain("KV namespace");
+    // Plain vars are collapsed into one list paragraph rather than a paragraph each.
+    const vars = sectionOf(story, "talks-to").paragraphs.find((p) => p.id === "talks-to-vars");
+    expect(vars?.kind).toBe("list");
+    expect(vars?.text).toContain("GREETING");
+  });
+
+  it("says where a secret comes from without calling it declared", () => {
+    const story = servicesStory(local, index);
+    const secrets = sectionOf(story, "secrets").paragraphs;
+    expect(secrets).toHaveLength(1);
+    expect(secrets[0]?.text).toContain("OPENAI_API_KEY");
+    expect(secrets[0]?.text).toContain("comes from outside the repo");
+    expect(secrets[0]?.chips?.find((c) => c.label === "Declared")?.value).toBe("no");
+  });
+
+  it("carries refs, links and the paragraph contract on every services paragraph", () => {
+    const story = servicesStory(local, index);
+    expectParagraphContract(story);
+    expectLinksWellFormed(story, local.repo);
+    expect(story.crumbs.at(-1)?.route).toBe(`#/repo/${local.repo}/services`);
+    expect(story.next[0]?.route).toBe(`#/repo/${local.repo}/flows`);
+  });
+
+  it("numbers every step and points each paragraph at its own step", () => {
+    const story = flowStory(local, flow, { services: index.services });
+    expect(sectionIds(story)).toEqual(["steps", "not-derivable"]);
+    const steps = sectionOf(story, "steps").paragraphs;
+    expect(steps).toHaveLength(flow.steps.length);
+    expect(steps[0]?.text).toContain("Step one.");
+    expect(steps[0]?.text).toContain("The request arrives at");
+    // Rule 1 of the payload ladder, named as what it is.
+    expect(steps[0]?.text).toContain("{ message, sessionId }");
+    expect(steps[0]?.text).toContain("read from request.json()");
+    steps.forEach((p, i) => {
+      expect(p.refs).toContain(flow.steps[i]?.from);
+      expect(p.refs).toContain(flow.steps[i]?.to);
+    });
+    expectParagraphContract(story);
+    expectLinksWellFormed(story, local.repo);
+  });
+
+  it("names the service a step lands on and does not overstate a heuristic payload", () => {
+    const story = flowStory(local, flow, { services: index.services });
+    const texts = sectionOf(story, "steps").paragraphs.map((p) => p.text);
+    const write = texts.find((t) => t.includes("CHAT_LOGS.prepare"));
+    expect(write).toContain("writes to");
+    expect(write).toContain("the D1 database story-logs");
+    expect(write).toContain("arrived as the `db` parameter");
+    expect(write).toContain("inferred rather than read off `env`");
+    const put = texts.find((t) => t.includes("CACHE.put"));
+    expect(put).toContain("a KV namespace");
+    expect(put).toContain("writes to");
+    for (const text of texts) {
+      // A field list is never presented as data unless it was read from one.
+      if (text.includes("field names taken from")) expect(text).toContain("not from the data");
+    }
+  });
+
+  it("ends with what could not be derived, and why", () => {
+    const story = flowStory(local, flow, { services: index.services });
+    const gaps = sectionOf(story, "not-derivable");
+    const text = gaps.paragraphs.map((p) => p.text).join("\n");
+    expect(text).toContain("was found only by following a binding handed over as a parameter");
+    expect(text).toContain("`db`");
+    expect(gaps.paragraphs.every((p) => p.kind === "gap")).toBe(true);
+    // Nothing was capped on a flow this small, so no truncation paragraph is invented.
+    expect(flow.truncated).toBe(false);
+    expect(text).not.toContain("The walk stopped short");
+  });
+
+  it("says what a cap dropped, at which hop, when one bites", () => {
+    const shallow = traceFlow(repoPaths(repo.root), buildGraph(repoPaths(repo.root)), "sym:functions/api/chat.js#onRequestPost", { depth: 1, services: index.services });
+    expect(shallow.truncated).toBe(true);
+    const text = sectionOf(flowStory(local, shallow, { services: index.services }), "not-derivable")
+      .paragraphs.map((p) => p.text)
+      .join("\n");
+    expect(text).toContain("The walk stopped short");
+    expect(text).toContain("hop two");
+  });
+
+  it("links both pages from the repo story only when they have something on them", () => {
+    const withPages = repoStory(local, { services: index, flows: [{ services: [] }] });
+    const talks = sectionOf(withPages, "talks").paragraphs.map((p) => p.text).join("\n");
+    expect(talks).toContain(`#/repo/${local.repo}/services|Services`);
+    expect(talks).toContain(`#/repo/${local.repo}/flows|Data flow`);
+    expect(talks).toContain("declared nowhere");
+    expectLinksWellFormed(withPages, local.repo);
+
+    const bare = sectionOf(repoStory(local), "talks");
+    expect(bare.paragraphs.some((p) => p.text.includes("/services|Services"))).toBe(false);
+  });
+
+  it("routes a service id to the services page and a flow step's symbol to its file", () => {
+    expect(routeFor("r", "svc:kv:CACHE")).toBe("#/repo/r/services?service=svc%3Akv%3ACACHE");
+    expect(routeFor("r", "flow:api-chat")).toBe("#/repo/r/flow/api-chat");
+    expect(routeFor("r", "sym:functions/api/chat.js#onRequestPost")).toBe("#/repo/r/file/functions/api/chat.js?symbol=onRequestPost");
+    // The graph's own `::` symbol ids are untouched.
+    expect(routeFor("r", "sym:src/a.ts::thing")).toBe("#/repo/r/symbol/src/a.ts::thing");
   });
 });

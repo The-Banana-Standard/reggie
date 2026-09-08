@@ -6,6 +6,7 @@ import YAML from "yaml";
 import { capture } from "./capture.js";
 import { buildContext } from "./context.js";
 import { collectFacts, type RepoFacts } from "./facts.js";
+import { detectFlows, MAX_FLOW_HOPS, traceFlow, type Flow, type FlowIndex } from "./flows.js";
 import { currentBranch, defaultBranch, fileAtRef, git } from "./git.js";
 import { buildGraph, flatGraph, jsImports, type GraphEdge, type GraphNode, type RepoGraph } from "./graph.js";
 import { commitsPerDayFor, historyFor, HISTORY_LOG_FORMAT, parseNumstatLog, recentFor, repoHistory, type CommitInfo, type HistoryIndex, type LogCommit } from "./history.js";
@@ -16,11 +17,12 @@ import { decidePacket, locatePacket, materializePacket } from "./packet.js";
 import { evidenceDir, type RepoPaths } from "./paths.js";
 import { currentPerson, handleFor, inferMode, loadPeople, type PeopleFile, type Person, type ReggieConfig } from "./people.js";
 import { roleOf } from "./roles.js";
-import { areaStory, buildStoryContext, explain, fileStory, repoStory, routeFor, taskStory, workspaceStory, type Lens, type StoryContext } from "./story.js";
+import { detectServices, type ServiceIndex, type ServiceNode } from "./services.js";
+import { areaStory, buildStoryContext, explain, fileStory, flowStory, repoStory, routeFor, servicesStory, taskStory, workspaceStory, type Lens, type StoryContext } from "./story.js";
 import { extractSymbols, fileSymbols, SYMBOL_ENGINE, symbolLang } from "./symbols.js";
 import { getTaskDetail, knownSlugs, listTasks, STATE_MACHINE, TASK_STATES, type PacketCriterion, type TaskDetail, type TaskInfo, type TaskState } from "./tasks.js";
 import { scaffoldBrief } from "./triage.js";
-import { isSafeSlug, readText, uniq } from "./util.js";
+import { isSafeSlug, readText, slugify, uniq } from "./util.js";
 import { containerView, dirView, impactView, level1, type ViewGraph } from "./views.js";
 import { RepoCtx, RepoRegistry, workspaceSummary, type Workspace } from "./workspace.js";
 
@@ -305,6 +307,88 @@ function symbolIndexOf(c: RepoCtx): SymbolHit[] {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Services and data flow (services-and-flows-spec.md §1–§3)
+// ---------------------------------------------------------------------------
+
+/**
+ * What the repo talks to. A pure function of the tree — manifests plus one pass over the
+ * code files the graph already found — so HEAD sha is the whole cache key.
+ */
+function servicesOf(c: RepoCtx): ServiceIndex {
+  return c.cached("services", () => detectServices(c.paths, graphOf(c), { notes: notesIndexOf(c) }));
+}
+
+/**
+ * Every entry point, each traced once. The declared services go in so a binding resolves to
+ * the kind `wrangler.toml` gives it instead of the one its method suggests.
+ */
+function flowsOf(c: RepoCtx): FlowIndex {
+  return c.cached("flows", () => detectFlows(c.paths, graphOf(c), { services: servicesOf(c).services }));
+}
+
+/**
+ * One flow at one depth, or null when nothing is entered there. The id is checked against the
+ * index *before* the cache is touched, so an unknown id cannot mint cache keys.
+ */
+function flowOf(c: RepoCtx, id: string, depth: number): Flow | null {
+  const entry = flowsOf(c).entries.find((e) => e.id === id || e.node === id);
+  if (!entry) return null;
+  return c.cached(`flow:${depth}:${entry.id}`, () => traceFlow(c.paths, graphOf(c), entry.id, { depth, services: servicesOf(c).services }));
+}
+
+/** The files on each side of a service, from the §1 edges (contract: `/api/services`). */
+interface ServiceFiles {
+  files: string[];
+  readers: string[];
+  writers: string[];
+}
+
+const NO_SERVICE_FILES: ServiceFiles = { files: [], readers: [], writers: [] };
+
+function serviceFilesOf(c: RepoCtx): Map<string, ServiceFiles> {
+  return c.cached("serviceFiles", () => {
+    const out = new Map<string, ServiceFiles>();
+    for (const e of servicesOf(c).edges) {
+      let hit = out.get(e.service);
+      if (!hit) {
+        hit = { files: [], readers: [], writers: [] };
+        out.set(e.service, hit);
+      }
+      if (!hit.files.includes(e.file)) hit.files.push(e.file);
+      const side = e.op === "read" ? hit.readers : e.op === "write" ? hit.writers : null;
+      if (side && !side.includes(e.file)) side.push(e.file);
+    }
+    for (const hit of out.values()) {
+      hit.files.sort();
+      hit.readers.sort();
+      hit.writers.sort();
+    }
+    return out;
+  });
+}
+
+/** A service node with the files that touch it attached (contract: `/api/services`). */
+function decorateService(c: RepoCtx, node: ServiceNode): ServiceNode & ServiceFiles {
+  return { ...node, ...(serviceFilesOf(c).get(node.id) ?? NO_SERVICE_FILES) };
+}
+
+/**
+ * Entity notes about one service. `services.ts` counts them; this returns the note files
+ * themselves, matched the same way — by the slug of the binding or the human name, so
+ * `service:CACHE`, `env:OPENAI_API_KEY` and `store:jacob-chat-logs` all find their node.
+ */
+function serviceNotesOf(c: RepoCtx, node: ServiceNode): NoteFile[] {
+  const wanted = new Set([node.binding, node.name].filter((v): v is string => Boolean(v)).map((v) => slugify(v, 80)));
+  const out: NoteFile[] = [];
+  for (const note of notesIndexOf(c).values()) {
+    if (note.kind !== "entity") continue;
+    const name = note.entity.slice(note.entity.indexOf(":") + 1);
+    if (wanted.has(slugify(name, 80))) out.push(note);
+  }
+  return withStaleFlags(out, staleOf(c));
+}
+
 function storyContextOf(c: RepoCtx, repoName: string, lens: Lens, days: number): StoryContext {
   return c.cached(
     `story:${lens}:${days}`,
@@ -438,6 +522,8 @@ const MAX_JOURNAL_DAYS = 36_500;
 const MAX_IMPACT_DEPTH = 3;
 /** Rows `/api/search` will return. */
 const MAX_SEARCH_LIMIT = 100;
+/** Widest `depth` `/api/flow` accepts before clamping; anything past `MAX_FLOW_HOPS` traces the same flow. */
+const MAX_QUERY_DEPTH = 99;
 
 function qBool(url: URL, name: string): boolean {
   const raw = url.searchParams.get(name);
@@ -771,6 +857,14 @@ function route(res: ServerResponse, url: URL, registry: RepoRegistry, primary: {
       return peopleRoute(res, c);
     case "/api/search":
       return searchRoute(res, c, url);
+    case "/api/services":
+      return servicesRoute(res, c);
+    case "/api/service":
+      return serviceRoute(res, c, url);
+    case "/api/flows":
+      return flowsRoute(res, c);
+    case "/api/flow":
+      return flowRoute(res, c, url);
     case "/api/workspace":
       return json(res, 200, workspaceSummary(registry));
     case "/api/context":
@@ -977,7 +1071,15 @@ function storyRoute(res: ServerResponse, c: RepoCtx, registry: RepoRegistry, url
   const days = qInt(url, "days", 14, 1, MAX_DAYS);
   const ctx = storyContextOf(c, c.name, lens, days);
   const id = url.searchParams.get("id") ?? "";
-  if (scope === "repo") return json(res, 200, repoStory(ctx));
+  if (scope === "repo") return json(res, 200, repoStory(ctx, { services: servicesOf(c), flows: flowsOf(c).flows }));
+  if (scope === "services") return json(res, 200, servicesStory(ctx, servicesOf(c)));
+  if (scope === "flow") {
+    if (!id) return json(res, 400, { error: "id is required for scope=flow" });
+    if (badId(id)) return json(res, 400, { error: "bad id" });
+    const depth = Math.min(qInt(url, "depth", MAX_FLOW_HOPS, 1, MAX_QUERY_DEPTH), MAX_FLOW_HOPS);
+    const flow = flowOf(c, id, depth);
+    return flow ? json(res, 200, flowStory(ctx, flow, { services: servicesOf(c).services })) : json(res, 404, { error: `unknown flow: ${id}` });
+  }
   if (scope === "area") {
     if (!id) return json(res, 400, { error: "id is required for scope=area" });
     if (safeRepoPath(id) === null && id !== ".") return json(res, 400, { error: "bad id" });
@@ -1607,6 +1709,81 @@ function searchRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
   return json(res, 200, { results });
 }
 
+// ---------------------------------------------------------------------------
+// Services and data flow routes (services-and-flows-spec.md §3)
+// ---------------------------------------------------------------------------
+
+/** Longest service id accepted; the longest one this repo can generate is far shorter. */
+const MAX_ID_CHARS = 200;
+
+function badId(raw: string): boolean {
+  return raw.length > MAX_ID_CHARS || /[\u0000-\u001f]/.test(raw);
+}
+
+/** `ServiceIndex` with the files that touch each service attached to its node. */
+function servicesRoute(res: ServerResponse, c: RepoCtx): void {
+  const index = servicesOf(c);
+  return json(res, 200, {
+    services: index.services.map((s) => decorateService(c, s)),
+    edges: index.edges,
+    undeclared: index.undeclared.map((s) => decorateService(c, s)),
+    unused: index.unused.map((s) => decorateService(c, s)),
+    generatedAt: index.generatedAt,
+  });
+}
+
+/** One service: every call site, its notes, the tasks whose plans touch its files, the flows that reach it. */
+function serviceRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
+  const id = url.searchParams.get("id") ?? "";
+  if (!id) return json(res, 400, { error: "id is required" });
+  if (badId(id)) return json(res, 400, { error: "bad id" });
+  const index = servicesOf(c);
+  const node = index.services.find((s) => s.id === id);
+  if (!node) return json(res, 404, { error: `unknown service: ${id}` });
+
+  const callSites = index.edges.filter((e) => e.service === id);
+  const decorated = decorateService(c, node);
+  const nodes = nodeIndexOf(c);
+  const tasksBySlug = new Map(tasksOf(c).map((t) => [t.slug, t] as const));
+  const slugs = uniq(decorated.files.flatMap((f) => nodes.get(f)?.tasks ?? [])).sort();
+  const tasks = slugs.map((slug) => ({
+    slug,
+    state: tasksBySlug.get(slug)?.state ?? ("ungroomed" as TaskState),
+    title: tasksBySlug.get(slug)?.title ?? slug,
+  }));
+
+  return json(res, 200, {
+    service: decorated,
+    callSites,
+    notes: serviceNotesOf(c, node),
+    tasks,
+    flows: flowsOf(c).flows.filter((f) => f.services.includes(id)),
+    // A database's tables, so the page can show what lives in it without a second request.
+    children: index.services.filter((s) => s.parent === id).map((s) => decorateService(c, s)),
+    parent: node.parent ? index.services.find((s) => s.id === node.parent) ?? null : null,
+    editorUrl: decorated.declaredAt ? editorUrlFor(extrasOf(c).editorScheme, c.root, decorated.declaredAt.file) : null,
+  });
+}
+
+/** One summary per entry point (spec §3). */
+function flowsRoute(res: ServerResponse, c: RepoCtx): void {
+  const index = flowsOf(c);
+  return json(res, 200, { flows: index.flows, generatedAt: index.generatedAt });
+}
+
+/**
+ * One traced flow. `depth` is validated like every other numeric parameter and then clamped to
+ * `MAX_FLOW_HOPS`: asking for more hops than the tracer will ever walk is a wish, not an error.
+ */
+function flowRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
+  const id = url.searchParams.get("id") ?? "";
+  if (!id) return json(res, 400, { error: "id is required" });
+  if (badId(id)) return json(res, 400, { error: "bad id" });
+  const depth = Math.min(qInt(url, "depth", MAX_FLOW_HOPS, 1, MAX_QUERY_DEPTH), MAX_FLOW_HOPS);
+  const flow = flowOf(c, id, depth);
+  return flow ? json(res, 200, flow) : json(res, 404, { error: `unknown flow: ${id}` });
+}
+
 function contextRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
   const slug = url.searchParams.get("slug");
   const paths = url.searchParams.getAll("path");
@@ -1643,6 +1820,10 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       "/api/search",
       "/api/workspace",
       "/api/context",
+      "/api/services",
+      "/api/service",
+      "/api/flows",
+      "/api/flow",
     ]);
     return json(res, readOnly.has(url.pathname) ? 405 : 404, { error: readOnly.has(url.pathname) ? "method not allowed" : "not found" });
   }

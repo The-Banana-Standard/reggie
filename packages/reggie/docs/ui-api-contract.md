@@ -94,7 +94,7 @@ interface ViewGraph {
 
 `?slug=<a>&slug=<b>` (task blast radius) → same shape with `centers` (planned ∪ actual files), each centre node carrying `planned: boolean, actual: boolean, task: string`; nodes reached from more than one task carry `collision: string[]`. `planned` and `actual` always describe the single slug in `task` (the first requested slug that owns the file) — never the union of the requested slugs, so the flags on a colliding file match what `?slug=<task>` alone returns; `collision` is the field that names the other tasks.
 
-## GET /api/story?scope=repo|area|file|task|workspace&id=<path|slug>&lens=<Lens>&days=14|60
+## GET /api/story?scope=repo|area|file|task|workspace|services|flow&id=<path|slug|flowId>&lens=<Lens>&days=14|60
 ```ts
 interface Story {
   scope: string; id: string; title: string; subtitle: string|null;
@@ -112,7 +112,9 @@ interface Paragraph {
   decision?: { slug: string; canDecide: boolean; deciders: string[] };
 }
 ```
-Section ids by scope — repo: `needs-you, what, made-of, starts, talks, flight, recent, gaps, run`; area: `read-first, inside, uses, used-by, tests, people, tasks, recent`; file: `read-first, exports, used-by, uses, tests, tasks, history, add-note`; task: `state, owner, problem, approach, files, criteria, verification, assumptions, scope, bail, risk, packet, journal`; workspace: `needs-you, repos, connect`. `lens=knowledge` adds `gaps` to area and file scopes.
+Section ids by scope — repo: `needs-you, what, made-of, starts, talks, flight, recent, gaps, run`; area: `read-first, inside, uses, used-by, tests, people, tasks, recent`; file: `read-first, exports, used-by, uses, tests, tasks, history, add-note`; task: `state, owner, problem, approach, files, criteria, verification, assumptions, scope, bail, risk, packet, journal`; workspace: `needs-you, repos, connect`; services: `needs-attention, talks-to, secrets, not-wired`; flow: `steps, not-derivable`. `lens=knowledge` adds `gaps` to area and file scopes.
+
+`scope=services` narrates the Services page and takes no `id`. `scope=flow` needs `id` (a flow id or an entry node id) and accepts the same `depth` as `/api/flow`; 400 without an id, 404 when no entry point has it. In the `flow` scope every paragraph's `refs` are its own step's node ids, so reading the story walks the map. The repo scope's `talks` section links both pages when they have anything on them.
 
 ## GET /api/explain?id=<nodeId>
 ```ts
@@ -193,6 +195,89 @@ Streams `.reggie/tasks/<slug>/evidence/<name>` with a content type by extension 
 ## GET /api/search?q=<text>&limit=20
 `{ results: { kind: 'area'|'file'|'symbol'|'task'|'person'|'note'|'journal'; id: string; label: string; route: string; snippet: string; score: number }[] }`. Ranking: exact basename 100, path substring 60, symbol name 55, task title/slug 50, person 45, note text 30, journal text 20; ties by fan-in.
 
+## GET /api/services
+Everything the repo talks to (`services-and-flows-spec.md` §1). Cached per HEAD sha.
+
+```ts
+type ServiceKind = 'database'|'table'|'kv'|'bucket'|'queue'|'durable-object'|'assets'|'api'|'var'|'secret'|'vectorize'|'ai'|'hyperdrive'|'analytics';
+type ServiceOp = 'read'|'write'|'touch';
+interface SourceRef { file: string; line: number }
+
+interface ServiceNode {
+  id: string;                  // 'svc:kv:CACHE', 'svc:api:api.openai.com', 'svc:table:chat_logs'
+  kind: ServiceKind;
+  binding: string|null;        // CACHE
+  name: string;                // human name: jacob-chat-logs, api.openai.com
+  provider: string|null;       // cloudflare | openai | firebase | aws | null
+  declared: boolean;           // false = used in code, declared nowhere
+  declaredAt: SourceRef|null;  // where declared — or, when declared is false, where merely *documented* (.env.example)
+  parent: string|null;         // a table's database
+  notes: number;               // entity-note entries about it
+  uses: number;                // call sites outside tests
+  resourceId: string|null;     // database_id / KV namespace id, when a manifest gives one
+  // added by this route, not by the detector:
+  files: string[];             // every file that touches it (tests included)
+  readers: string[]; writers: string[];   // the same files split by operation
+}
+interface ServiceEdge {
+  file: string; service: string; op: ServiceOp;
+  confidence: Confidence;      // heuristic = resolved through a name (an alias, or a binding passed as a parameter)
+  viaTest: boolean;
+  sources: SourceRef[];        // every call site, capped at 20
+  count: number;               // call sites before the cap
+}
+{ services: ServiceNode[]; edges: ServiceEdge[]; undeclared: ServiceNode[]; unused: ServiceNode[]; generatedAt: string }
+```
+`undeclared` (used in code, declared by no manifest) is the headline; `unused` is its mirror. Both carry the same decorated nodes as `services`.
+
+## GET /api/service?id=<serviceId>
+One service with everything that touches it. 400 when `id` is missing or malformed, 404 when no service has that id.
+```ts
+{ service: ServiceNode;                       // decorated, as above
+  callSites: ServiceEdge[];                   // every edge into this service, tests included
+  notes: NoteFile[];                          // entity notes about it, entries carrying stale?/codeChanged?
+  tasks: { slug: string; state: TaskState; title: string }[];   // tasks whose plans touch its files
+  flows: FlowSummary[];                       // flows that reach it
+  children: ServiceNode[];                    // a database's tables
+  parent: ServiceNode|null;
+  editorUrl: string|null }                    // opens the declaring manifest
+```
+
+## GET /api/flows
+One summary per entry point (`services-and-flows-spec.md` §2). Cached per HEAD sha; every entry is traced once at the default depth.
+```ts
+type FlowEntryKind = 'cloudflare'|'http-route'|'next-route'|'next-page'|'cli'|'mcp'|'main';
+interface FlowDrop { hop: number; count: number; reason: 'hop-budget'|'step-cap'|'depth' }
+interface FlowSummary {
+  id: string;                  // url-safe, also the id of the traced flow
+  entry: string;               // node id of the handler symbol: 'sym:<file>#<name>'
+  title: string;               // 'POST /api/chat'
+  kind: FlowEntryKind; method: string|null; route: string|null;
+  steps: number; services: string[]; depth: number;
+  truncated: boolean; dropped: FlowDrop[];    // dropped is empty exactly when truncated is false
+  source: SourceRef }
+{ flows: FlowSummary[]; generatedAt: string }
+```
+
+## GET /api/flow?id=<flowId|entryNodeId>&depth=1..6
+One traced flow. `depth` is validated like every numeric parameter (400 outside 1–99) and then clamped to 6 hops, which is as far as the tracer ever walks. 404 when no entry point has that id.
+```ts
+interface Payload { fields: string[]; shape: string|null; confidence: Confidence; source: SourceRef|null }
+interface FlowStep {
+  from: string; to: string;    // node ids: a file, 'sym:<file>#<name>', a service id, or 'resp:<flowId>'
+  kind: 'call'|'import'|'read'|'write'|'respond';
+  label: string;               // the function or the operation ('CHAT_LOGS.prepare')
+  input: Payload|null; output: Payload|null;   // null = not derivable; never a guess
+  source: SourceRef;
+  confidence: Confidence;      // heuristic = the service was resolved through a name, not a declaration
+  via: string|null }           // the local parameter name a binding arrived under ('db'), else null
+{ id: string; entry: string; title: string; method: string|null; route: string|null;
+  steps: FlowStep[]; services: string[]; depth: number; truncated: boolean; dropped: FlowDrop[] }
+```
+A `Payload` with `confidence: 'heuristic'` carries field names read from the callee's signature, not from the data — the UI must say so rather than presenting them as the payload.
+
+Caps: 200 steps in total, 6 hops, and a per-hop budget of `floor(199 / hops)` steps (33 at the default depth) so a wide entry point cannot spend the budget the deeper hops need. `dropped` says which hop lost how many steps and why.
+
 ## GET /api/workspace
 ```ts
 { name: string; root: string; single: boolean;
@@ -218,7 +303,7 @@ Unchanged (`{ text }`).
 `GET /` → `ui/index.html`. `GET /ui/<file>` → `packages/reggie/ui/<file>` (html, js, css, svg; `..` refused). `GET /vendor/<file>` → whitelisted `node_modules` files (`cytoscape.min.js`, `dagre.min.js`, `cytoscape-dagre.js`, `d3.min.js`), `cache-control: public, max-age=31536000, immutable`; 404 when the module is not installed.
 
 ## Numeric query parameters
-Every numeric parameter is validated, not clamped: a value that is not a plain base-10 integer inside its range is refused with 400 `{error:"<name> must be an integer between <min> and <max>"}`. Missing or empty falls back to the default. The ranges are `days` 1–730 on `/api/history`, `/api/story` and `/api/explain`; `days` 1–36500 on `/api/journal` (it filters a file rather than sizing an array); `depth` 1–3 on `/api/impact`; `limit` 1–100 on `/api/search`. `/api/context`'s `maxLines` is fixed at 400 by the server and is not a query parameter. The bound matters because `commitsPerDay` allocates one object per day in the window, so an unbounded `days` let a single request size the response.
+Every numeric parameter is validated, not clamped: a value that is not a plain base-10 integer inside its range is refused with 400 `{error:"<name> must be an integer between <min> and <max>"}`. Missing or empty falls back to the default. The ranges are `days` 1–730 on `/api/history`, `/api/story` and `/api/explain`; `days` 1–36500 on `/api/journal` (it filters a file rather than sizing an array); `depth` 1–3 on `/api/impact`; `depth` 1–99 on `/api/flow` and `/api/story?scope=flow`, then clamped to the tracer's 6 hops; `limit` 1–100 on `/api/search`. `/api/context`'s `maxLines` is fixed at 400 by the server and is not a query parameter. The bound matters because `commitsPerDay` allocates one object per day in the window, so an unbounded `days` let a single request size the response.
 
 Every request, GET and POST alike, must carry a `Host` header naming a loopback host (`localhost`, `*.localhost`) or a bare IP literal; any other DNS name is 403 `{error:"host header does not name this server"}`. That is the DNS-rebinding guard: a rebound page reaches the server over a real loopback socket and controls both its own `Host` and `Origin`, so `Origin` is checked against the server's own loopback origin and never against `Host`.
 

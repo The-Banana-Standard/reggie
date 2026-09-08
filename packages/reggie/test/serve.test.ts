@@ -4,7 +4,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { briefFile, packetFile } from "../src/paths.js";
 import { startServer, type ServerHandle } from "../src/serve.js";
 import { TASK_STATES } from "../src/tasks.js";
+import { ensureLayout } from "../src/layout.js";
+import { loadConfig } from "../src/people.js";
+import { repoPaths } from "../src/paths.js";
 import { makeFixtureRepo, type FixtureRepo } from "./fixtures.js";
+import { makeTempRepo, type TempRepo } from "./helpers.js";
 
 let fx: FixtureRepo;
 let server: ServerHandle;
@@ -1027,5 +1031,341 @@ describe("the completed view", () => {
     expect(body.transitions.some((t: any) => t.from === "ungroomed" && t.to === "groomed")).toBe(true);
     expect(body.transitions.some((t: any) => t.from === "groomed" && t.to === "planned")).toBe(true);
     expect(body.counts.groomed).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Services and data flow (services-and-flows-spec.md §3)
+// ---------------------------------------------------------------------------
+
+/**
+ * The fixture the two detectors are written against: a wrangler.toml declaring a D1 database,
+ * two KV namespaces (one never touched), an assets binding and a plain var; a migration that
+ * names a table; an undeclared secret; a literal fetch host; and a two-hop handler chain that
+ * hands `env.CHAT_LOGS` to another module as an object-literal value.
+ */
+function makeServiceRepo(): TempRepo {
+  const repo = makeTempRepo("reggie-serve-services-");
+  repo.write(
+    "wrangler.toml",
+    [
+      'name = "fixture-worker"',
+      "",
+      "[vars]",
+      'GREETING = "hello"',
+      "",
+      "[assets]",
+      'binding = "ASSETS"',
+      'directory = "./public"',
+      "",
+      "[[d1_databases]]",
+      'binding = "CHAT_LOGS"',
+      'database_name = "fixture-logs"',
+      'database_id = "db-abc-123"',
+      "",
+      "[[kv_namespaces]]",
+      'binding = "CACHE"',
+      'id = "kv-1"',
+      "",
+      "[[kv_namespaces]]",
+      'binding = "UNUSED_KV"',
+      'id = "kv-2"',
+      "",
+    ].join("\n"),
+  );
+  repo.write("migrations/0001_init.sql", "CREATE TABLE conversations (\n  id TEXT PRIMARY KEY,\n  question TEXT\n);\n");
+  repo.write(
+    "functions/api/chat.js",
+    [
+      "import { logConversation } from '../chat/logging.js';",
+      "import { askModel } from '../chat/openai.js';",
+      "",
+      "export async function onRequestPost(context) {",
+      "    const { request, env } = context;",
+      "    const { message, sessionId } = await request.json();",
+      "    const cached = await env.CACHE.get(`chat:${sessionId}`);",
+      "    const reply = cached || (await askModel(env.OPENAI_API_KEY, message));",
+      "    await logConversation({ db: env.CHAT_LOGS, sessionId, question: message });",
+      "    return Response.json({ reply, sessionId });",
+      "}",
+      "",
+    ].join("\n"),
+  );
+  repo.write(
+    "functions/chat/logging.js",
+    [
+      "export async function logConversation({ db, sessionId, question }) {",
+      "    await db",
+      "        .prepare('INSERT INTO conversations (id, question) VALUES (?, ?)')",
+      "        .bind(sessionId, question)",
+      "        .run();",
+      "}",
+      "",
+    ].join("\n"),
+  );
+  repo.write(
+    "functions/chat/openai.js",
+    [
+      "export async function askModel(apiKey, message) {",
+      "    const res = await fetch('https://api.openai.com/v1/responses', {",
+      "        headers: { authorization: `Bearer ${apiKey}` },",
+      "        body: JSON.stringify({ message }),",
+      "    });",
+      "    return res.json();",
+      "}",
+      "",
+    ].join("\n"),
+  );
+  repo.commitAll("worker with a declared database and an undeclared secret");
+  return repo;
+}
+
+describe("a repo with nothing to talk to", () => {
+  it("answers the services routes with empty lists rather than an error", async () => {
+    const body = await ok("/api/services");
+    expect(body.services).toEqual([]);
+    expect(body.edges).toEqual([]);
+    expect(body.undeclared).toEqual([]);
+    expect(body.unused).toEqual([]);
+    expect((await get("/api/service?id=svc:kv:CACHE")).status).toBe(404);
+  });
+
+  it("says why each services section is empty instead of dropping it", async () => {
+    const body = await ok("/api/story?scope=services");
+    expect(body.sections.map((s: any) => s.id)).toEqual(["needs-attention", "talks-to", "secrets", "not-wired"]);
+    for (const section of body.sections) {
+      expect(section.paragraphs).toEqual([]);
+      expect(section.empty?.text, section.id).toBeTruthy();
+    }
+    // With no service and no entry point, the repo story keeps its own empty text.
+    const talks = (await ok("/api/story?scope=repo")).sections.find((s: any) => s.id === "talks");
+    expect(JSON.stringify(talks)).not.toContain("/services|Services");
+  });
+
+  it("lists no flow and 404s any flow id", async () => {
+    const body = await ok("/api/flows");
+    expect(body.flows).toEqual([]);
+    expect((await get("/api/flow?id=anything")).status).toBe(404);
+  });
+});
+
+describe("GET /api/services, /api/service, /api/flows and /api/flow", () => {
+  let repo: TempRepo;
+  let server: ServerHandle;
+  let at: string;
+  const FLOW_ID = "functions-api-chat-js-onrequestpost";
+
+  const load = async (route: string): Promise<{ status: number; body: any }> => {
+    const res = await fetch(at + route);
+    const text = await res.text();
+    return { status: res.status, body: text ? JSON.parse(text) : null };
+  };
+  const loadOk = async (route: string): Promise<any> => {
+    const { status, body } = await load(route);
+    expect(status, `${route} -> ${JSON.stringify(body).slice(0, 200)}`).toBe(200);
+    return body;
+  };
+
+  beforeAll(async () => {
+    repo = makeServiceRepo();
+    const paths = repoPaths(repo.root);
+    ensureLayout(paths);
+    server = await startServer(paths, loadConfig(paths), { port: 0, host: "127.0.0.1", workspace: null });
+    at = `http://127.0.0.1:${server.port}`;
+  }, 60_000);
+
+  afterAll(async () => {
+    await server?.close();
+    repo?.cleanup();
+  });
+
+  it("lists every declared binding with the line that declares it, plus the files that touch it", async () => {
+    const body = await loadOk("/api/services");
+    expect(Object.keys(body).sort()).toEqual(["edges", "generatedAt", "services", "undeclared", "unused"]);
+    const byId = new Map<string, any>(body.services.map((s: any) => [s.id, s]));
+
+    const db = byId.get("svc:database:CHAT_LOGS");
+    expect(db.declared).toBe(true);
+    expect(db.name).toBe("fixture-logs");
+    expect(db.resourceId).toBe("db-abc-123");
+    expect(db.declaredAt.file).toBe("wrangler.toml");
+    expect(readFileSync(`${repo.root}/wrangler.toml`, "utf8").split("\n")[db.declaredAt.line - 1]).toContain("CHAT_LOGS");
+    // The files that touch it, per service — including the one that only ever sees it as `db`.
+    expect(db.files).toContain("functions/chat/logging.js");
+    expect(db.writers).toContain("functions/chat/logging.js");
+
+    expect(byId.get("svc:kv:CACHE").declared).toBe(true);
+    expect(byId.get("svc:assets:ASSETS").kind).toBe("assets");
+    expect(byId.get("svc:var:GREETING").kind).toBe("var");
+    // The migration's table, hung under the database that owns it.
+    expect(byId.get("svc:table:conversations").parent).toBe("svc:database:CHAT_LOGS");
+  });
+
+  it("puts the undeclared secret and the fetch host in undeclared, and the untouched binding in unused", async () => {
+    const body = await loadOk("/api/services");
+    const undeclared = body.undeclared.map((s: any) => s.id);
+    expect(undeclared).toContain("svc:secret:OPENAI_API_KEY");
+    expect(undeclared).toContain("svc:api:api.openai.com");
+    // It is a secret, not a declared var, and its call sites are counted.
+    const secret = body.undeclared.find((s: any) => s.id === "svc:secret:OPENAI_API_KEY");
+    expect(secret.declared).toBe(false);
+    expect(secret.uses).toBeGreaterThan(0);
+    expect(secret.files).toContain("functions/api/chat.js");
+    // Passing the secret to `askModel` must not put an operation on its `apiKey` parameter.
+    expect(body.edges.some((e: any) => e.service === "svc:secret:OPENAI_API_KEY" && e.file === "functions/chat/openai.js")).toBe(false);
+
+    const unused = body.unused.map((s: any) => s.id);
+    expect(unused).toContain("svc:kv:UNUSED_KV");
+    expect(unused).not.toContain("svc:kv:CACHE");
+  });
+
+  it("labels every edge read, write or touch, and cites a line that really holds the call", async () => {
+    const body = await loadOk("/api/services");
+    for (const edge of body.edges) {
+      expect(["read", "write", "touch"]).toContain(edge.op);
+      expect(edge.sources.length).toBeGreaterThan(0);
+    }
+    const write = body.edges.find((e: any) => e.service === "svc:database:CHAT_LOGS" && e.op === "write" && e.file === "functions/chat/logging.js");
+    // The D1 write reached through the `db` parameter: resolved through a name, so heuristic.
+    expect(write).toBeDefined();
+    expect(write.confidence).toBe("heuristic");
+    const line = readFileSync(`${repo.root}/functions/chat/logging.js`, "utf8").split("\n")[write.sources[0].line - 1];
+    expect(line).toContain("prepare");
+  });
+
+  it("answers /api/service with the call sites, tasks, children and the flows that reach it", async () => {
+    const body = await loadOk("/api/service?id=svc%3Adatabase%3ACHAT_LOGS");
+    expect(Object.keys(body).sort()).toEqual(["callSites", "children", "editorUrl", "flows", "notes", "parent", "service", "tasks"]);
+    expect(body.service.id).toBe("svc:database:CHAT_LOGS");
+    expect(body.callSites.every((e: any) => e.service === "svc:database:CHAT_LOGS")).toBe(true);
+    expect(body.children.map((c: any) => c.id)).toEqual(["svc:table:conversations"]);
+    expect(body.parent).toBeNull();
+    expect(Array.isArray(body.notes)).toBe(true);
+    expect(Array.isArray(body.tasks)).toBe(true);
+    expect(body.flows.map((f: any) => f.id)).toContain(FLOW_ID);
+    expect(body.editorUrl).toContain("wrangler.toml");
+  });
+
+  it("refuses a missing id and 404s an unknown one", async () => {
+    expect((await load("/api/service")).status).toBe(400);
+    expect((await load(`/api/service?id=${"x".repeat(300)}`)).status).toBe(400);
+    const missing = await load("/api/service?id=svc:kv:NOPE");
+    expect(missing.status).toBe(404);
+    expect(missing.body.error).toContain("svc:kv:NOPE");
+  });
+
+  it("lists the Cloudflare handler as a flow, with its route and the services it reaches", async () => {
+    const body = await loadOk("/api/flows");
+    expect(Object.keys(body).sort()).toEqual(["flows", "generatedAt"]);
+    const flow = body.flows.find((f: any) => f.id === FLOW_ID);
+    expect(flow.kind).toBe("cloudflare");
+    expect(flow.method).toBe("POST");
+    expect(flow.route).toBe("/api/chat");
+    expect(flow.title).toBe("POST /api/chat");
+    expect(flow.services).toEqual(expect.arrayContaining(["svc:database:CHAT_LOGS", "svc:kv:CACHE", "svc:api:api.openai.com"]));
+    expect(flow.truncated).toBe(false);
+    expect(flow.dropped).toEqual([]);
+    expect(flow.source.file).toBe("functions/api/chat.js");
+  });
+
+  it("traces one flow with its payloads, and reaches D1 through a binding passed as a parameter", async () => {
+    const body = await loadOk(`/api/flow?id=${FLOW_ID}`);
+    expect(body.id).toBe(FLOW_ID);
+    // The request payload is read from the destructured body, marked exact.
+    expect(body.steps[0].input.fields).toEqual(["message", "sessionId"]);
+    expect(body.steps[0].input.confidence).toBe("exact");
+    expect(body.steps[0].input.shape).toBe("request.json()");
+
+    const write = body.steps.find((s: any) => s.to === "svc:database:CHAT_LOGS");
+    expect(write.kind).toBe("write");
+    expect(write.label).toBe("CHAT_LOGS.prepare");
+    expect(write.via).toBe("db");
+    expect(write.confidence).toBe("heuristic");
+    expect(write.source.file).toBe("functions/chat/logging.js");
+    // Two hops: the handler calls the logger, the logger writes.
+    expect(body.depth).toBeGreaterThanOrEqual(2);
+    expect(body.services).toContain("svc:database:CHAT_LOGS");
+    // Every step is either shown or explicitly not derivable — never a guess.
+    for (const step of body.steps) {
+      for (const p of [step.input, step.output]) {
+        if (p !== null) expect(["exact", "heuristic"]).toContain(p.confidence);
+      }
+    }
+  });
+
+  it("validates depth, clamps it to the tracer's hops, and 404s an unknown flow", async () => {
+    expect((await load(`/api/flow?id=${FLOW_ID}&depth=0`)).status).toBe(400);
+    expect((await load(`/api/flow?id=${FLOW_ID}&depth=abc`)).status).toBe(400);
+    expect((await load(`/api/flow?id=${FLOW_ID}&depth=-1`)).status).toBe(400);
+    const clamped = await loadOk(`/api/flow?id=${FLOW_ID}&depth=99`);
+    expect(clamped.depth).toBeLessThanOrEqual(6);
+    const shallow = await loadOk(`/api/flow?id=${FLOW_ID}&depth=1`);
+    expect(shallow.depth).toBe(1);
+    expect(shallow.truncated).toBe(true);
+    expect(shallow.dropped.some((d: any) => d.reason === "depth")).toBe(true);
+    expect((await load("/api/flow")).status).toBe(400);
+    expect((await load("/api/flow?id=nope")).status).toBe(404);
+  });
+
+  it("narrates the services page, undeclared secret first", async () => {
+    const body = await loadOk("/api/story?scope=services");
+    expect(body.scope).toBe("services");
+    expect(body.sections.map((s: any) => s.id)).toEqual(["needs-attention", "talks-to", "secrets", "not-wired"]);
+    // Undeclared secrets come first, before the declared-and-unused binding (spec §4).
+    const needs = body.sections[0].paragraphs;
+    expect(needs[0].text).toContain("OPENAI_API_KEY");
+    expect(needs[0].text).toContain("read in one place");
+    expect(needs.findIndex((p: any) => p.text.includes("OPENAI_API_KEY"))).toBeLessThan(needs.findIndex((p: any) => p.text.includes("UNUSED_KV")));
+    expect(body.sections[3].paragraphs.map((p: any) => p.text).join("\n")).toContain("UNUSED_KV");
+    // Every paragraph carries refs and links through routeFor, never a raw path.
+    for (const section of body.sections) {
+      for (const p of section.paragraphs) {
+        expect(p.refs.length, p.text).toBeGreaterThan(0);
+        for (const m of p.text.matchAll(/\[\[([^\]|]+)\|/g)) expect(m[1]).toMatch(/^#\//);
+      }
+    }
+  });
+
+  it("narrates one flow step by step, with each paragraph pointing at its own step", async () => {
+    const flow = await loadOk(`/api/flow?id=${FLOW_ID}`);
+    const body = await loadOk(`/api/story?scope=flow&id=${FLOW_ID}`);
+    expect(body.scope).toBe("flow");
+    expect(body.id).toBe(FLOW_ID);
+    expect(body.title).toBe("POST /api/chat");
+    const steps = body.sections.find((s: any) => s.id === "steps");
+    expect(steps.paragraphs).toHaveLength(flow.steps.length);
+    steps.paragraphs.forEach((p: any, i: number) => {
+      expect(p.id).toBe(`step-${i + 1}`);
+      expect(p.refs).toContain(flow.steps[i].from);
+      expect(p.refs).toContain(flow.steps[i].to);
+    });
+    expect(steps.paragraphs[0].text).toContain("Step one.");
+    // A heuristic payload says where the names came from instead of presenting them as data.
+    const guessed = steps.paragraphs.find((p: any) => p.text.includes("field names taken from"));
+    expect(guessed?.text).toContain("not from the data");
+    // The inferred D1 write is named as inferred.
+    const gaps = body.sections.find((s: any) => s.id === "not-derivable");
+    expect(JSON.stringify(gaps)).toContain("db");
+  });
+
+  it("refuses a flow story without an id and 404s an unknown one", async () => {
+    expect((await load("/api/story?scope=flow")).status).toBe(400);
+    expect((await load("/api/story?scope=flow&id=nope")).status).toBe(404);
+  });
+
+  it("links both pages from the repo story once they have something on them", async () => {
+    const body = await loadOk("/api/story?scope=repo");
+    const talks = body.sections.find((s: any) => s.id === "talks");
+    const text = talks.paragraphs.map((p: any) => p.text).join("\n");
+    expect(text).toContain("/services|Services");
+    expect(text).toContain("/flows|Data flow");
+  });
+
+  it("refuses POST on all four routes", async () => {
+    for (const route of ["/api/services", "/api/service", "/api/flows", "/api/flow"]) {
+      const res = await fetch(at + route, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+      expect(res.status, route).toBe(405);
+      await res.text();
+    }
   });
 });

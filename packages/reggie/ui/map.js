@@ -484,6 +484,13 @@ function areaHueResolver(areas) {
  * data the lenses need (heat thresholds, people order). Pure; no DOM.
  */
 export function buildModel(view, opts = {}) {
+  // The two levels of `services-and-flows-spec.md` §4 are not import graphs: their node sets, their
+  // shapes and their layouts all come from a different payload, so they are built whole rather than
+  // squeezed through the graph builder below.
+  const asked = opts.level ?? view?.level ?? null;
+  if (asked === "services") return buildServiceModel(view, opts);
+  if (asked === "flow") return buildFlowModel(view, opts);
+  if (asked === "flows") return buildFlowsModel(view, opts);
   view = workspaceToView(view);
   const level = opts.level ?? view.level ?? "container";
   const root = view.root ?? (level === "container" ? "dir:./" : "-");
@@ -1189,6 +1196,7 @@ function paintNode(nd, lens, model) {
     out.classes.push("task");
     return out;
   }
+  if (nd.svc) return paintServiceNode(nd, lens);
   if (nd.ghost) {
     out.bgOpacity = 0.35;
     out.classes.push("ghost", nd.side === "down" ? "ghost-down" : "ghost-up");
@@ -1322,6 +1330,7 @@ export function legendFor(view, lens = "structure", opts = {}) {
 }
 
 function legendForModel(model, lens) {
+  if (model.level === "services" || model.level === "flow" || model.level === "flows") return serviceLegend(model, lens);
   const rows = [];
   const level = model.level;
   const drawable = model.nodes.filter((n) => !n.compound);
@@ -1505,6 +1514,7 @@ export function footerFor(model, controls = {}) {
   // and a depth control that had nothing to control. The canvas says why it is empty instead
   // (`emptyMapText`), and the footer says nothing (F-MAP-C).
   if (!model.nodes.some((n) => !n.compound)) return "";
+  if (level === "services" || level === "flow" || level === "flows") return serviceFooter(model);
   const drawable = model.nodes.filter((n) => !n.compound && !n.ghost && n.kind !== "fold");
   const edges = model.edges.length;
   const hidden = model.hiddenTests;
@@ -1555,6 +1565,18 @@ export function footerFor(model, controls = {}) {
  */
 export function emptyMapText(model) {
   const level = model?.level;
+  if (level === "services") {
+    return {
+      text: "Nothing in this repo reaches a service that can be read from the code.",
+      hint: "A binding in `wrangler.toml`, a `fetch` to a host, or an `env.NAME` read is what puts something here.",
+    };
+  }
+  if (level === "flow") {
+    return { text: "This entry point calls nothing the tracer can follow.", hint: "The story beside the map says what it does derive." };
+  }
+  if (level === "flows") {
+    return { text: "No entry point was found in this repo.", hint: "A Cloudflare handler, an Express or Hono route, a Next route or a CLI command is what starts a flow." };
+  }
   if (level === "impact" && model?.isBlast) {
     return {
       text: "This task's plan names no files yet, so there is no blast radius to draw.",
@@ -1627,6 +1649,7 @@ const MAX_VIA_SAMPLE = 5;
 
 /** The tooltip sentence for an edge (spec §3.4, acceptance 3 and 10). */
 export function edgeSentence(e, nodeById) {
+  if (e.svc) return serviceEdgeSentence(e, nodeById);
   const s = nodeById.get(e.source);
   const t = nodeById.get(e.target);
   const a = nodeName(s);
@@ -1676,6 +1699,7 @@ export function edgeSentence(e, nodeById) {
 
 function nodeTip(nd) {
   const meta = [];
+  if (nd.svc) return serviceTip(nd);
   if (nd.ghost) {
     meta.push("outside this area");
     const files = nd.raw?.filesUsed ?? nd.aggregates?.files;
@@ -1845,6 +1869,21 @@ function stylesheet() {
         "z-index": 2,
       },
     },
+    // --- Services and Data flow (§4) -------------------------------------------------------------
+    // A service, a step and a response are all labelled *inside* the shape, in two lines: what it is
+    // called, then what it is and who provides it. 11px is what fits 26 characters in 170px.
+    {
+      selector: "node[svc = 'service'], node[svc = 'step'], node[svc = 'entry'], node[svc = 'response']",
+      style: { "font-size": 11, "font-weight": 600, "text-wrap": "wrap", "text-valign": "center", "text-halign": "center", "text-margin-y": 0, "text-background-opacity": 0, "min-zoomed-font-size": 6, "line-height": 1.3 },
+    },
+    { selector: "node.unused", style: { "border-style": "dashed" } },
+    // The payload channel (§4): exact solid, inferred dotted, and "not derivable" drawn back so the
+    // eye lands on the steps whose shape the repo does state.
+    { selector: "edge[payload = 'heuristic']", style: { "line-style": "dotted" } },
+    { selector: "edge[payload = 'none']", style: { opacity: 0.5 } },
+    { selector: "edge[labelColor]", style: { color: "data(labelColor)" } },
+    { selector: "edge[svc = 'step']", style: { "font-size": 11, "min-zoomed-font-size": 7, "text-max-width": 150, "text-wrap": "ellipsis", "text-background-opacity": 0.9 } },
+    { selector: "edge[svc = 'op']", style: { "font-size": 11, "min-zoomed-font-size": 6, "font-weight": 600 } },
     { selector: "edge.straight", style: { "curve-style": "straight" } },
     { selector: "edge[kind = 'ipc']", style: { "line-style": "dotted", "line-color": AREA_HUES[2], "target-arrow-color": AREA_HUES[2] } },
     { selector: "edge[kind = 'tests']", style: { "line-style": "dotted", "line-color": COLORS.knowNone, "target-arrow-color": COLORS.knowNone, width: 1 } },
@@ -1869,7 +1908,10 @@ function stylesheet() {
     { selector: "node.soft", style: { "overlay-opacity": 0.12 } },
     { selector: "node.hl", style: { "border-color": COLORS.selection, "border-width": 2, "overlay-opacity": 0.25, "min-zoomed-font-size": 0, opacity: 1, "z-index": 10 } },
     { selector: "node.hl[?ghost]", style: { opacity: 1 } },
-    { selector: "edge.hl", style: { "line-color": COLORS.edgeActive, "target-arrow-color": COLORS.edgeActive, "overlay-opacity": 0.18, opacity: 1, "z-index": 10 } },
+    // A highlighted edge always shows its label, whatever the zoom — the same promise `.hl` makes for
+    // a node's label. On the flow map that is what makes reading the story walk the flow: the step
+    // the paragraph is about lights up *with its payload*, at a zoom where nothing else is labelled.
+    { selector: "edge.hl", style: { "line-color": COLORS.edgeActive, "target-arrow-color": COLORS.edgeActive, "overlay-opacity": 0.18, opacity: 1, "min-zoomed-font-size": 0, "z-index": 10 } },
     { selector: "node:selected", style: { "border-color": COLORS.selection, "border-width": 2, "overlay-opacity": 0.25, "min-zoomed-font-size": 0, "z-index": 10 } },
     { selector: "edge:selected", style: { "line-color": COLORS.edgeActive, "target-arrow-color": COLORS.edgeActive } },
     { selector: "node:active", style: { "overlay-opacity": 0.18 } },
@@ -2108,6 +2150,7 @@ export function createMap(container, opts = {}) {
       depth: showOpts.depth ?? controls.depth,
       direction: showOpts.direction ?? controls.direction,
       mode: showOpts.mode ?? controls.mode,
+      all: showOpts.all ?? controls.all,
     };
     const prevModel = model;
     const next = buildModel(view, { level: showOpts.level, lens, task: showOpts.task ?? showOpts.slug ?? null, areaCompounds: showOpts.areaCompounds });
@@ -2200,7 +2243,7 @@ export function createMap(container, opts = {}) {
     const layoutIds = next.nodes.filter((n) => !n.compound).map((n) => n.id);
     // A layout computed for a landscape canvas is the wrong shape for a portrait one, so the cache is
     // only reusable while the rank direction still matches (F01/F04).
-    const wantDir = next.layout?.name === "dagre" ? rankDirFor(next.layout.rankDir) : null;
+    const wantDir = next.layout?.name === "dagre" ? (next.layout.fixedDir ? next.layout.rankDir : rankDirFor(next.layout.rankDir)) : null;
     const dirOk = !wantDir || !cached?.dir || cached.dir === wantDir;
     // Positions are shaped to the pane they were computed in (see `fillTarget`), so a cache written
     // for a differently shaped pane is the wrong shape here whatever its rank direction says.
@@ -2335,6 +2378,10 @@ export function createMap(container, opts = {}) {
         target[n.id()] = { x: x + n.width() / 2, y: 0 };
         x += n.width() + spec.gap;
       });
+    } else if (spec.name === "bipartite") {
+      // The Services map (§4): "the files on the left, grouped; the services on the right, ranked"
+      // *is* the layout, so the builder places every node and nothing here re-derives it.
+      for (const nd of next.nodes) if (nd.pos && !nd.compound) target[nd.id] = { ...nd.pos };
     } else {
       // The graph should be shaped like the canvas it has to fit in: a wide, short map column wants
       // ranks running left to right, a tall one wants them top to bottom (F04). Guessing from the
@@ -2342,8 +2389,10 @@ export function createMap(container, opts = {}) {
       // came out 596x1111 and hung 141px off the bottom edge (F3). Both directions are laid out and
       // the one that actually fits better wins; the passes below run on each candidate, since they
       // change the shape as much as the ranking does.
-      const first = rankDirFor(spec.rankDir);
-      const dirs = first === "TB" ? ["TB", "LR"] : ["LR", "TB"];
+      // A flow reads left to right because that is what a flow is (§4); it does not get to be
+      // re-ranked into a column because the pane is portrait.
+      const first = spec.fixedDir ? spec.rankDir : rankDirFor(spec.rankDir);
+      const dirs = spec.fixedDir ? [first] : first === "TB" ? ["TB", "LR"] : ["LR", "TB"];
       let bestScore = -Infinity;
       let bestDir = first;
       let bestTarget = null;
@@ -2352,10 +2401,13 @@ export function createMap(container, opts = {}) {
         l.run();
         const candidate = {};
         for (const n of cy.nodes()) if (!n.isParent()) candidate[n.id()] = { ...n.position() };
-        wrapWideRanks(candidate, next);
-        bandExplorer(candidate, next);
-        spreadLabelBoxes(candidate, next);
-        if (next.level === "dir") bandGhosts(candidate, next);
+        if (spec.grid) gridRanks(candidate, next);
+        else if (!spec.shaped) {
+          wrapWideRanks(candidate, next);
+          bandExplorer(candidate, next);
+          spreadLabelBoxes(candidate, next);
+          if (next.level === "dir") bandGhosts(candidate, next);
+        }
         const score = layoutScore(candidate, next);
         if (score > bestScore + 0.001) {
           bestScore = score;
@@ -2366,8 +2418,12 @@ export function createMap(container, opts = {}) {
       lastLayoutDir = bestDir;
       Object.assign(target, bestTarget ?? {});
     }
-    // dagre has decided the structure; this decides how much of the pane it occupies.
-    fillTarget(target, next);
+    // dagre has decided the structure; this decides how much of the pane it occupies. The flow opts
+    // in (`fill`), because a short flow is otherwise a flat band across a portrait pane at a third of
+    // the readable zoom, and these passes only scale gaps and move whole ranks in order. The
+    // bipartite Services map opts out: it is already shaped to the pane, and the same passes stretch
+    // its two columns apart until the files are off one edge and the services off the other.
+    if (!spec.shaped || spec.fill) fillTarget(target, next);
     lastLayoutAspect = canvasAspect();
     cy.batch(() => {
       for (const n of cy.nodes()) if (!n.isParent() && before.has(n.id())) n.position(before.get(n.id()));
@@ -2681,6 +2737,41 @@ export function createMap(container, opts = {}) {
    * dagre's x/y for the explorer with bands: hop 1 nearest the focus, wrapped into rows that fit the
    * canvas, widest fan-in first.
    */
+  /**
+   * A flow keeps dagre's left-to-right ranks and its order inside them, but a hop is allowed to be
+   * more than one node wide. `onRequestPost` makes thirty-three calls in the ground-truth repo; one
+   * column of thirty-three is a mile-high strip that fits only at a zoom where no label survives, so
+   * a hop taller than GRID_ROWS is dealt into stacked columns *inside its own rank* and the ranks
+   * after it move right. Left to right still means "later in the flow"; up and down still mean
+   * nothing, which is what a rank is.
+   */
+  const GRID_ROWS = 13;
+  function gridRanks(target, next) {
+    const byId = new Map(next.nodes.map((n) => [n.id, n]));
+    const ids = Object.keys(target).filter((id) => byId.get(id) && !byId.get(id).compound);
+    if (ids.length < 4) return;
+    const ranks = new Map();
+    for (const id of ids) {
+      const key = Math.round(target[id].x / 8) * 8;
+      if (!ranks.has(key)) ranks.set(key, []);
+      ranks.get(key).push(id);
+    }
+    const keys = Array.from(ranks.keys()).sort((a, b) => a - b);
+    const rowH = 66;
+    const colW = 200;
+    const rankGap = 150; // the channel an edge label is drawn in
+    let x = 0;
+    for (const k of keys) {
+      const list = ranks.get(k).sort((a, b) => target[a].y - target[b].y || a.localeCompare(b));
+      const cols = Math.max(1, Math.ceil(list.length / GRID_ROWS));
+      const rows = Math.ceil(list.length / cols);
+      list.forEach((id, i) => {
+        target[id] = { x: x + Math.floor(i / rows) * colW, y: ((i % rows) - (rows - 1) / 2) * rowH };
+      });
+      x += (cols - 1) * colW + rankGap + (byId.get(list[0])?.w ?? 170);
+    }
+  }
+
   function bandExplorer(target, next) {
     if (next.level !== "impact" || next.isBlast) return;
     const byId = new Map(next.nodes.map((n) => [n.id, n]));
@@ -2911,6 +3002,10 @@ export function createMap(container, opts = {}) {
       textColor: COLORS.text,
       foldCount: nd.foldCount,
       task: nd.task ?? "",
+      // Only the services and flow levels carry these, and `[svc]` selectors must not match a node
+      // that has no business with them, so they are added rather than defaulted.
+      ...(nd.svc ? { svc: nd.svc } : null),
+      ...(nd.svcKind ? { svcKind: nd.svcKind } : null),
     };
   }
 
@@ -2926,8 +3021,12 @@ export function createMap(container, opts = {}) {
   function edgeData(e, next) {
     // Cycle members are not given a colour of their own: `edge.cycle` dashes whatever the edge's own
     // kind already says, so `--bad` stays available for something that is actually wrong.
-    const color = e.kind === "ipc" ? AREA_HUES[2] : e.kind === "tests" ? COLORS.knowNone : e.kind === "touches" ? COLORS.warn : next.level === "impact" ? e.sideColor : COLORS.edge;
+    const color = e.color ?? (e.kind === "ipc" ? AREA_HUES[2] : e.kind === "tests" ? COLORS.knowNone : e.kind === "touches" ? COLORS.warn : next.level === "impact" ? e.sideColor : COLORS.edge);
     return {
+      ...(e.svc ? { svc: e.svc } : null),
+      ...(e.op ? { op: e.op } : null),
+      ...(e.payload ? { payload: e.payload } : null),
+      ...(e.labelColor ? { labelColor: e.labelColor } : null),
       id: e.id,
       source: e.source,
       target: e.target,
@@ -2955,7 +3054,7 @@ export function createMap(container, opts = {}) {
         // The second label line follows the lens, in the same batch as the fill so the swap stays
         // instant and the map never describes a different variable than the legend (F06).
         const data = { fill: p.fill, border: p.border, bw: p.bw, bgOpacity: p.bgOpacity, textColor: p.textColor };
-        if (nd.labelLine1) data.label = nodeLabel(nd, lens, model.heatCtx);
+        if (nd.labelLine1 && !nd.svc) data.label = nodeLabel(nd, lens, model.heatCtx);
         ele.data(data);
         const state = ele.classes().filter((c) => STATE_CLASSES.has(c));
         ele.classes([...p.classes, ...state]);
@@ -3245,7 +3344,7 @@ export function createMap(container, opts = {}) {
     // new size, so the next resize sees no change and the mismatch is never asked about again. Ask
     // here, where it is visible whatever caused it. Re-shaping records the new aspect, so it runs once.
     const aspectNow = canvasAspect();
-    const shapedElsewhere = Boolean(lastLayoutAspect && aspectNow) && Math.abs(Math.log(aspectNow / lastLayoutAspect)) > 0.12;
+    const shapedElsewhere = Boolean(lastLayoutAspect && aspectNow) && Math.abs(Math.log(aspectNow / lastLayoutAspect)) > 0.12 && !model?.shaped;
     if (shapedElsewhere && model?.layout) {
       runDagre(model, positionsKey(repo, model.level, model.root));
       return;
@@ -3269,7 +3368,9 @@ export function createMap(container, opts = {}) {
     // The readability floor: 12px labels below 9px rendered are a smear, so a graph that would need
     // less zoom than that is drawn bigger and clipped, and the user pans to the rest. The floor may
     // lift the zoom by at most 30% — a graph needing half of it is better seen small than mostly gone.
-    const floored = clamp(Math.max(roomiest.z, Math.min(FIT_MIN_ZOOM, roomiest.z * 1.3)), 0.1, FIT_MAX_ZOOM);
+    const floored = model?.fitWhole
+      ? clamp(roomiest.z, 0.1, FIT_MAX_ZOOM)
+      : clamp(Math.max(roomiest.z, Math.min(FIT_MIN_ZOOM, roomiest.z * 1.3)), 0.1, FIT_MAX_ZOOM);
 
     // Choose the frame. Each legend candidate reserved the card along one axis; on that axis the
     // graph has to fit, because the card is there, and on the other it may overflow off the canvas
@@ -3592,7 +3693,7 @@ export function createMap(container, opts = {}) {
       testsBtn.setAttribute("aria-pressed", shown ? "true" : "false");
       testsBtn.setAttribute("aria-label", `${label} (T)`);
       testsBtn.title = `${label} (T)`;
-      testsBtn.hidden = level === "workspace";
+      testsBtn.hidden = level === "workspace" || level === "flow" || level === "flows";
     }
     if (opts.wireToolbar && !toolbarWired) {
       toolbarWired = true;
@@ -3608,12 +3709,53 @@ export function createMap(container, opts = {}) {
     }
     if (!extra) return;
     extra.textContent = "";
-    if (level !== "impact") return;
     const sep = () => {
       const s = document.createElement("span");
       s.className = "float__sep";
       return s;
     };
+    // The flow tracer walks six hops; a reader who only wants the handler's own calls says so here,
+    // and the router re-traces at that depth (`/api/flow?depth=`).
+    if (level === "flow") {
+      extra.appendChild(sep());
+      const range = document.createElement("label");
+      range.className = "range";
+      range.innerHTML = `<span>Hops</span><input type="range" min="1" max="6" step="1" aria-label="Hops (1 to 6)"><output></output>`;
+      const input = range.querySelector("input");
+      const out = range.querySelector("output");
+      input.value = String(clamp(controls.depth ?? 6, 1, 6));
+      out.textContent = input.value;
+      input.addEventListener("input", () => {
+        out.textContent = input.value;
+      });
+      input.addEventListener("change", () => {
+        controls.depth = Number(input.value);
+        emit("depth", controls.depth);
+      });
+      extra.appendChild(range);
+      return;
+    }
+    // The Services map ranks by fan-in and folds the tail (§4). One button unfolds it.
+    if (level === "services") {
+      const folded = model?.counts?.folded ?? 0;
+      if (!folded && !controls.all) return;
+      extra.appendChild(sep());
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn--tool";
+      btn.setAttribute("aria-pressed", controls.all ? "true" : "false");
+      const label = controls.all ? "Top services only" : `Show all (${folded} more)`;
+      btn.title = controls.all ? "Draw only the services with the most callers" : "Draw every service, including the ones with a single caller";
+      btn.setAttribute("aria-label", label);
+      btn.textContent = label;
+      btn.addEventListener("click", () => {
+        controls.all = !controls.all;
+        emit("all", controls.all);
+      });
+      extra.appendChild(btn);
+      return;
+    }
+    if (level !== "impact") return;
     extra.appendChild(sep());
     // Depth 1–3
     const range = document.createElement("label");
@@ -3900,4 +4042,903 @@ export function createMap(container, opts = {}) {
       return cy;
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Services and Data flow (services-and-flows-spec.md §4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Node shape by service kind (§4). Every shape here is wide enough to hold the two-line label a
+ * service node carries (name, then "<what it is> · <provider>"), so the shape is a second cue and
+ * never the only one: a reader who cannot tell a barrel from a bucket still reads the words.
+ */
+export const SERVICE_SHAPES = {
+  database: "barrel",
+  table: "rectangle",
+  kv: "round-rectangle",
+  bucket: "bottom-round-rectangle",
+  queue: "right-rhomboid",
+  "durable-object": "hexagon",
+  assets: "tag",
+  api: "round-octagon",
+  var: "ellipse",
+  secret: "concave-hexagon",
+  vectorize: "round-hexagon",
+  ai: "round-tag",
+  hyperdrive: "cut-rectangle",
+  analytics: "octagon",
+};
+/** What a service kind is called in a sentence. */
+export const SERVICE_NOUNS = {
+  database: "database",
+  table: "table",
+  kv: "KV namespace",
+  bucket: "bucket",
+  queue: "queue",
+  "durable-object": "durable object",
+  assets: "assets binding",
+  api: "HTTP API",
+  var: "var",
+  secret: "secret",
+  vectorize: "vectorize index",
+  ai: "AI binding",
+  hyperdrive: "hyperdrive",
+  analytics: "analytics dataset",
+};
+/** Operation colours (§4): read `--up` cyan, write `--down` orange, touch muted. */
+export const OP_COLORS = { read: COLORS.up, write: COLORS.down, touch: COLORS.edge };
+export const OP_VERBS = { read: "reads", write: "writes to", touch: "touches" };
+const SERVICE_W = 170;
+const SERVICE_H = 46;
+const STEP_W = 172;
+const STEP_H = 44;
+/** Services drawn before the rest fold into one node; `?all=1` draws every one of them. */
+export const MAX_SERVICE_NODES = 18;
+
+export function serviceNoun(kind) {
+  return SERVICE_NOUNS[kind] ?? String(kind ?? "service");
+}
+export function serviceShape(kind) {
+  return SERVICE_SHAPES[kind] ?? "round-rectangle";
+}
+/** The name a service is known by on screen: its binding, else its human name. */
+export function serviceLabel(s) {
+  return s?.binding || s?.name || String(s?.id ?? "").replace(/^svc:[^:]+:/, "");
+}
+/** "wrangler.toml:97" — the line that declares a service, or documents it when nothing declares it. */
+export function declaredLine(s) {
+  const at = s?.declaredAt;
+  return at?.file ? `${at.file}:${at.line ?? 1}` : null;
+}
+
+/** Every field of a model node, so the level builders only state what differs. */
+function blankNode(over) {
+  return {
+    kind: "file",
+    label: "",
+    fullLabel: "",
+    path: "",
+    parent: null,
+    compound: false,
+    ghost: false,
+    side: null,
+    hop: null,
+    center: false,
+    planned: false,
+    actual: false,
+    task: null,
+    otherTask: false,
+    collision: [],
+    foldCount: 0,
+    foldIds: [],
+    role: "source",
+    area: null,
+    areaLabel: null,
+    subGroup: null,
+    subLabel: null,
+    hue: COLORS.explorerFill,
+    w: 20,
+    h: 20,
+    size: 20,
+    shape: "ellipse",
+    lines: 0,
+    lang: "",
+    knowledge: null,
+    aggregates: null,
+    history: null,
+    commits30: null,
+    heat: null,
+    heatWindow: HEAT_WINDOW,
+    author: null,
+    inDegree: 0,
+    outDegree: 0,
+    testedBy: [],
+    entry: false,
+    entryKinds: [],
+    labelLine1: null,
+    labelCompact: false,
+    entryLine: "",
+    tasks: [],
+    state: null,
+    raw: null,
+    ...over,
+  };
+}
+
+/** The model every level shares, with the fields the services and flow levels never use zeroed. */
+function baseModel(over) {
+  const nodes = over.nodes ?? [];
+  return {
+    view: over.view ?? {},
+    level: over.level,
+    root: over.root ?? "-",
+    compoundId: null,
+    areasById: over.areasById ?? new Map(),
+    nodes,
+    nodeById: new Map(nodes.map((n) => [n.id, n])),
+    edges: over.edges ?? [],
+    heatThresholds: [],
+    heatWindow: HEAT_WINDOW,
+    heatCtx: { window: HEAT_WINDOW, modal: null },
+    people: [],
+    peopleById: new Map(),
+    primaryTask: null,
+    isBlast: false,
+    hiddenTests: over.hiddenTests ?? 0,
+    testsShown: Boolean(over.testsShown),
+    counts: over.counts ?? {},
+    layout: over.layout,
+    shaped: true, // positions come from the builder or from a fixed-direction dagre: no re-shaping
+    opts: over.opts ?? {},
+    ...over,
+  };
+}
+
+/** The level-1 area a repo-relative file path belongs to: the longest AreaRef whose path prefixes it. */
+function areaForPath(path, areas) {
+  const p = String(path ?? "");
+  let best = null;
+  for (const a of areas ?? []) {
+    const dir = dirPathOf(a.id);
+    const pre = dir === "." || dir === "" ? "" : `${dir}/`;
+    if (pre === "" || p.startsWith(pre)) {
+      if (!best || pre.length > (best.pre?.length ?? 0)) best = { area: a, pre };
+    }
+  }
+  return best?.area ?? null;
+}
+
+/**
+ * The Services map (§4): a bipartite layout — the files that touch a service on the left, grouped
+ * into their level-1 areas, the services on the right ranked by fan-in. Positions are computed here
+ * rather than by dagre, because "left, grouped" and "right, ranked" *is* the layout; dagre would
+ * re-derive a worse version of it from the edges.
+ *
+ * `view`: { level:'services', index: ServiceIndex, areas: AreaRef[], focus?: serviceId, all?, tests? }
+ */
+function buildServiceModel(view, opts = {}) {
+  const index = view.index ?? { services: [], edges: [] };
+  const lensKey = opts.lens ?? view.lens ?? "structure";
+  const focus = view.focus ?? null;
+  const showTests = Boolean(view.tests);
+  const areas = Array.isArray(view.areas) ? view.areas : [];
+  const hueOf = areaHueResolver(areas);
+  const areasById = areaIndex({ areas });
+
+  const allServices = Array.isArray(index.services) ? index.services : [];
+  const byId = new Map(allServices.map((s) => [s.id, s]));
+  const allEdges = (Array.isArray(index.edges) ? index.edges : []).filter((e) => byId.has(e.service));
+  const testEdges = allEdges.filter((e) => e.viaTest);
+  let edgesIn = showTests ? allEdges : allEdges.filter((e) => !e.viaTest);
+  if (focus) {
+    const family = new Set([focus, ...allServices.filter((s) => s.parent === focus).map((s) => s.id)]);
+    edgesIn = edgesIn.filter((e) => family.has(e.service));
+  }
+
+  // Fan-in is the number of distinct files that touch a service: the rank the spec orders by.
+  const fanIn = new Map();
+  const filesOf = new Map();
+  for (const e of edgesIn) {
+    if (!filesOf.has(e.service)) filesOf.set(e.service, new Set());
+    filesOf.get(e.service).add(e.file);
+  }
+  for (const [id, set] of filesOf) fanIn.set(id, set.size);
+
+  let services = focus ? allServices.filter((s) => s.id === focus || s.parent === focus) : allServices.slice();
+  const rank = (s) => [-(fanIn.get(s.id) ?? 0), -(s.uses ?? 0), s.kind === "var" ? 1 : 0, serviceLabel(s).toLowerCase()];
+  services.sort((a, b) => {
+    const ra = rank(a);
+    const rb = rank(b);
+    for (let i = 0; i < ra.length; i += 1) {
+      if (ra[i] < rb[i]) return -1;
+      if (ra[i] > rb[i]) return 1;
+    }
+    return 0;
+  });
+  // Every *declared* service is drawn whatever its fan-in: a binding nothing touches ranks last by
+  // definition, and it is one of the two states this page exists to show. The remaining seats go to
+  // the top of the fan-in ranking, and the tail folds into one node the toolbar can unfold.
+  let folded = [];
+  if (!(view.all || focus)) {
+    const keep = new Set(services.filter((s) => s.declared !== false).map((s) => s.id));
+    const seats = Math.max(MAX_SERVICE_NODES, keep.size);
+    for (const s of services) {
+      if (keep.size >= seats) break;
+      keep.add(s.id);
+    }
+    folded = services.filter((s) => !keep.has(s.id));
+    services = services.filter((s) => keep.has(s.id));
+  }
+  const drawnIds = new Set(services.map((s) => s.id));
+  const edges = edgesIn.filter((e) => drawnIds.has(e.service));
+  const fileIds = Array.from(new Set(edges.map((e) => e.file))).sort();
+
+  const nodes = [];
+  const areaOrder = [];
+  const groups = new Map();
+  for (const path of fileIds) {
+    const a = areaForPath(path, areas);
+    const key = a?.id ?? "area:root";
+    if (!groups.has(key)) {
+      groups.set(key, { key, area: a, label: a?.label ?? "repo root", files: [] });
+      areaOrder.push(key);
+    }
+    groups.get(key).files.push(path);
+  }
+  areaOrder.sort((x, y) => groups.get(y).files.length - groups.get(x).files.length || String(x).localeCompare(String(y)));
+
+  // Left side: one stack per area, 34px a file, the compound drawn around it. A stack taller than
+  // LEFT_ROWS starts a second column rather than running off the pane — whole groups only, so a
+  // compound is always a clean rectangle.
+  const ROW = 40; // a 12px label hangs under each dot: less than this and two file names touch
+  const GROUP_GAP = 36;
+  const LEFT_ROWS = 15;
+  const LEFT_COL_W = 230;
+  let y = 0;
+  let leftCol = 0;
+  let leftHeightMax = 0;
+  for (const key of areaOrder) {
+    const g = groups.get(key);
+    if (y > 0 && y / ROW + g.files.length > LEFT_ROWS) {
+      leftHeightMax = Math.max(leftHeightMax, y - GROUP_GAP);
+      leftCol += 1;
+      y = 0;
+    }
+    const leftX = leftCol * LEFT_COL_W;
+    const hue = g.area ? areaHue(g.area, hueOf) : COLORS.areaOther;
+    const compoundId = `area:${key}`;
+    const top = y;
+    for (const path of g.files) {
+      const touches = edges.filter((e) => e.file === path);
+      const size = clamp(18 + Math.sqrt(new Set(touches.map((t) => t.service)).size) * 5, 18, 34);
+      nodes.push(
+        blankNode({
+          id: path,
+          kind: "file",
+          label: basename(path),
+          fullLabel: path,
+          path,
+          parent: compoundId,
+          role: touches.every((t) => t.viaTest) ? "test" : "source",
+          area: g.area?.id ?? null,
+          areaLabel: g.label,
+          hue,
+          w: size,
+          h: size,
+          size,
+          shape: "ellipse",
+          svc: "file",
+          outDegree: new Set(touches.map((t) => t.service)).size,
+          pos: { x: leftX, y },
+        }),
+      );
+      y += ROW;
+    }
+    nodes.push(
+      blankNode({
+        id: compoundId,
+        kind: "dir",
+        label: g.label,
+        fullLabel: g.label,
+        path: g.area ? dirPathOf(g.area.id) : ".",
+        compound: true,
+        area: g.area?.id ?? null,
+        hue,
+        shape: "round-rectangle",
+        svc: "area",
+        pos: { x: leftX, y: (top + y - ROW) / 2 },
+      }),
+    );
+    y += GROUP_GAP;
+  }
+  const leftHeight = Math.max(leftHeightMax, Math.max(0, y - GROUP_GAP));
+  const leftWidth = (leftCol + 1) * LEFT_COL_W;
+
+  // Right side: services in rank order, read down the first column and on into the next. Ranked by
+  // fan-in either way; wrapping keeps a repo with fifty services from becoming a mile-high strip.
+  const SROW = SERVICE_H + 16;
+  const SCOL_W = SERVICE_W + 34;
+  const total = services.length + (folded.length ? 1 : 0);
+  const rightCols = clamp(Math.ceil(total / 12), 1, 4);
+  const rightRows = Math.max(1, Math.ceil(total / rightCols));
+  const rightHeight = Math.max(0, Math.min(total, rightRows) * SROW - (SROW - SERVICE_H));
+  const rightX = leftWidth + 150;
+  const height = Math.max(leftHeight, rightHeight);
+  const leftShift = (height - leftHeight) / 2;
+  for (const n of nodes) if (n.pos) n.pos.y += leftShift;
+  const rightShift = (height - rightHeight) / 2;
+  const seatAt = (i) => ({ x: rightX + Math.floor(i / rightRows) * SCOL_W, y: (i % rightRows) * SROW + rightShift });
+  let seat = 0;
+  for (const s of services) {
+    const declared = s.declared !== false;
+    const used = (fanIn.get(s.id) ?? 0) > 0;
+    nodes.push(
+      blankNode({
+        id: s.id,
+        kind: "service",
+        svc: "service",
+        svcKind: s.kind,
+        label: `${serviceLabel(s)}\n${serviceSubLine(s, declared, used)}`,
+        labelLine1: serviceLabel(s),
+        fullLabel: serviceLabel(s),
+        path: s.name ?? serviceLabel(s),
+        w: SERVICE_W,
+        h: SERVICE_H,
+        size: SERVICE_H,
+        shape: serviceShape(s.kind),
+        hue: COLORS.explorerFill,
+        declared,
+        unused: !used,
+        provider: s.provider ?? null,
+        notes: s.notes ?? 0,
+        knowledge: { own: s.notes ?? 0, inherited: 0, stale: 0, byType: {}, lastNoteDate: null, lowestConfidence: null },
+        inDegree: fanIn.get(s.id) ?? 0,
+        raw: s,
+        pos: seatAt(seat),
+      }),
+    );
+    seat += 1;
+  }
+  if (folded.length) {
+    nodes.push(
+      blankNode({
+        id: "fold:services",
+        kind: "fold",
+        svc: "fold",
+        label: `+${folded.length} more`,
+        fullLabel: `${folded.length} services with fewer callers`,
+        foldCount: folded.length,
+        foldIds: folded.map((s) => s.id),
+        w: 150,
+        h: 36,
+        shape: "round-rectangle",
+        pos: seatAt(seat),
+      }),
+    );
+  }
+
+  const modelEdges = [];
+  for (const e of edges) {
+    const id = `${e.file}->${e.service}:${e.op}`;
+    modelEdges.push({
+      id,
+      source: e.file,
+      target: e.service,
+      kind: "uses",
+      op: e.op,
+      weight: e.count ?? e.sources?.length ?? 1,
+      names: [],
+      via: [],
+      confidence: e.confidence ?? "exact",
+      viaTest: Boolean(e.viaTest),
+      cycle: false,
+      cycleReturn: false,
+      spoke: true,
+      width: clamp(1.2 + Math.log2(Math.max(1, e.count ?? 1)) * 0.9, 1.2, 4),
+      label: String(e.count ?? e.sources?.length ?? 1),
+      color: OP_COLORS[e.op] ?? COLORS.edge,
+      labelColor: COLORS.muted,
+      sources: Array.isArray(e.sources) ? e.sources : [],
+      svc: "op",
+      raw: e,
+    });
+  }
+  modelEdges.sort((a, b) => a.id.localeCompare(b.id));
+
+  return baseModel({
+    view,
+    level: "services",
+    root: focus ? `services:${focus}` : view.all ? "services:all" : "services",
+    areasById,
+    nodes,
+    edges: modelEdges,
+    hiddenTests: showTests ? 0 : new Set(testEdges.map((e) => e.file)).size,
+    testsShown: showTests,
+    counts: { services: allServices.length, shown: services.length, folded: folded.length, files: fileIds.length, undeclared: allServices.filter((s) => s.declared === false).length, unused: (index.unused ?? []).length },
+    layout: { name: "bipartite", shaped: true },
+    focus,
+    opts,
+  });
+}
+
+/** "KV namespace · cloudflare", "secret · declared nowhere", "assets binding · unused". */
+function serviceSubLine(s, declared, used) {
+  const noun = serviceNoun(s.kind);
+  if (!declared) return `${noun} · declared nowhere`;
+  if (!used) return `${noun} · unused`;
+  return s.provider ? `${noun} · ${s.provider}` : noun;
+}
+
+/**
+ * The Data flow map (§4): dagre `rankdir: LR` from the entry through every function to the services
+ * and the response, with each step's payload on its edge. Exact payloads are drawn solid, payloads
+ * inferred from a signature dotted, and a step whose shape nothing in the repo states says so in
+ * words — that difference is the page.
+ *
+ * `view`: { level:'flow', flow: Flow, services: ServiceNode[] }
+ */
+function buildFlowModel(view, opts = {}) {
+  const flow = view.flow ?? { steps: [], services: [] };
+  const steps = Array.isArray(flow.steps) ? flow.steps : [];
+  const svcById = new Map((Array.isArray(view.services) ? view.services : []).map((s) => [s.id, s]));
+
+  const seen = new Map();
+  const order = [];
+  const note = (id) => {
+    if (id == null || seen.has(id)) return;
+    seen.set(id, true);
+    order.push(String(id));
+  };
+  for (const s of steps) {
+    note(s.from);
+    note(s.to);
+  }
+
+  const nodes = [];
+  for (const id of order) {
+    if (id.startsWith("svc:")) {
+      const s = svcById.get(id) ?? { id, kind: id.split(":")[1] ?? "api", binding: null, name: id.split(":").slice(2).join(":"), declared: true, provider: null };
+      const declared = s.declared !== false;
+      nodes.push(
+        blankNode({
+          id,
+          kind: "service",
+          svc: "service",
+          svcKind: s.kind,
+          label: `${serviceLabel(s)}\n${serviceSubLine(s, declared, true)}`,
+          labelLine1: serviceLabel(s),
+          fullLabel: serviceLabel(s),
+          path: s.name ?? serviceLabel(s),
+          w: SERVICE_W,
+          h: SERVICE_H,
+          size: SERVICE_H,
+          shape: serviceShape(s.kind),
+          hue: COLORS.explorerFill,
+          declared,
+          provider: s.provider ?? null,
+          notes: s.notes ?? 0,
+          knowledge: { own: s.notes ?? 0, inherited: 0, stale: 0, byType: {}, lastNoteDate: null, lowestConfidence: null },
+          raw: s,
+        }),
+      );
+      continue;
+    }
+    if (id.startsWith("resp:")) {
+      nodes.push(
+        blankNode({
+          id,
+          kind: "response",
+          svc: "response",
+          label: "Response",
+          fullLabel: "Response",
+          path: flow.route ? `${flow.method ?? "GET"} ${flow.route} response` : "response",
+          w: 120,
+          h: 40,
+          shape: "round-rectangle",
+          hue: COLORS.ok,
+        }),
+      );
+      continue;
+    }
+    if (id.startsWith("sym:")) {
+      const rest = id.slice(4);
+      const cut = rest.lastIndexOf("#");
+      const file = cut > 0 ? rest.slice(0, cut) : rest;
+      const name = cut > 0 ? rest.slice(cut + 1) : rest;
+      const entry = id === flow.entry;
+      nodes.push(
+        blankNode({
+          id,
+          kind: "step",
+          svc: entry ? "entry" : "step",
+          label: `${name}\n${basename(file)}`,
+          labelLine1: name,
+          fullLabel: name,
+          path: file,
+          file,
+          symbol: name,
+          entry,
+          w: STEP_W,
+          h: STEP_H,
+          shape: "round-rectangle",
+          hue: entry ? COLORS.info : COLORS.explorerFill,
+        }),
+      );
+      continue;
+    }
+    // A plain file id: the request's point of arrival (step one's `from`).
+    nodes.push(
+      blankNode({
+        id,
+        kind: "step",
+        svc: "entry",
+        label: `${flow.title ?? basename(id)}\n${basename(id)}`,
+        labelLine1: flow.title ?? basename(id),
+        fullLabel: id,
+        path: id,
+        file: id,
+        entry: true,
+        w: STEP_W,
+        h: STEP_H,
+        shape: "round-rectangle",
+        hue: COLORS.info,
+      }),
+    );
+  }
+
+  const edges = [];
+  const seenEdge = new Map();
+  steps.forEach((s, i) => {
+    const base = `${s.from}->${s.to}:${s.kind}:${s.label}`;
+    const n = (seenEdge.get(base) ?? 0) + 1;
+    seenEdge.set(base, n);
+    const pay = s.input ?? null;
+    const text = payloadLabel(pay);
+    edges.push({
+      id: n > 1 ? `${base}#${n}` : base,
+      source: s.from,
+      target: s.to,
+      kind: s.kind === "read" || s.kind === "write" ? "uses" : s.kind === "respond" ? "respond" : "call",
+      op: s.kind === "read" ? "read" : s.kind === "write" ? "write" : null,
+      weight: 1,
+      names: pay?.fields ?? [],
+      via: [],
+      confidence: s.confidence ?? "exact",
+      payload: pay ? pay.confidence : "none",
+      cycle: false,
+      cycleReturn: false,
+      spoke: true,
+      width: s.kind === "read" || s.kind === "write" ? 2 : 1.4,
+      label: text,
+      color: s.kind === "read" ? OP_COLORS.read : s.kind === "write" ? OP_COLORS.write : s.kind === "respond" ? COLORS.ok : COLORS.edge,
+      labelColor: !pay ? COLORS.faint : pay.confidence === "heuristic" ? COLORS.warn : COLORS.muted,
+      step: s,
+      stepIndex: i + 1,
+      svc: "step",
+      raw: s,
+    });
+  });
+
+  return baseModel({
+    view,
+    level: "flow",
+    root: `flow:${flow.id ?? "?"}`,
+    nodes,
+    edges,
+    counts: { steps: steps.length, services: (flow.services ?? []).length, depth: flow.depth ?? 0, dropped: (flow.dropped ?? []).reduce((a, d) => a + (d.count ?? 0), 0) },
+    // A flow this size only fits at a zoom where no label is drawn anyway, so the readability floor
+    // buys nothing and costs the shape: hold the whole walk, and let the reader zoom into a hop.
+    fitWhole: nodes.length > 36,
+    layout: { name: "dagre", rankDir: "LR", fixedDir: true, shaped: true, grid: true, fill: true, ranker: "network-simplex", nodeDimensionsIncludeLabels: false, fit: false, animate: true, animationDuration: dur(MOTION.move), animationEasing: "ease-out", padding: 30, spacingFactor: 1, rankSep: 150, nodeSep: 22 },
+    flow,
+    opts,
+  });
+}
+
+/** The Data flow index (§4): every entry point on the left, the services each one reaches on the right. */
+function buildFlowsModel(view, opts = {}) {
+  const flows = Array.isArray(view.flows) ? view.flows : [];
+  const svcById = new Map((Array.isArray(view.services) ? view.services : []).map((s) => [s.id, s]));
+  const reached = new Map();
+  for (const f of flows) for (const id of f.services ?? []) reached.set(id, (reached.get(id) ?? 0) + 1);
+
+  const nodes = [];
+  const ROW = 66;
+  const services = Array.from(reached.keys()).sort((a, b) => (reached.get(b) ?? 0) - (reached.get(a) ?? 0) || a.localeCompare(b));
+  // Both sides wrap into columns: a repo with fifty entry points is a wall, not a list, and one
+  // column of fifty fits only at a zoom where nothing on it can be read.
+  const ROWS = 12;
+  const ECOL_W = 232;
+  const SCOL_W2 = SERVICE_W + 34;
+  const eCols = Math.max(1, Math.ceil(flows.length / ROWS));
+  const eRows = Math.max(1, Math.ceil(flows.length / eCols));
+  const sCols = Math.max(1, Math.ceil(services.length / ROWS));
+  const sRows = Math.max(1, Math.ceil(Math.max(1, services.length) / sCols));
+  const height = Math.max(eRows, sRows) * ROW;
+  const eShift = (height - eRows * ROW) / 2;
+  const sShift = (height - sRows * ROW) / 2;
+  const gap = services.length ? 200 : 0;
+  const rightX = eCols * ECOL_W + gap;
+  flows.forEach((f, i) => {
+    nodes.push(
+      blankNode({
+        id: `flow:${f.id}`,
+        kind: "step",
+        svc: "entry",
+        label: `${f.title}\n${f.steps} step${f.steps === 1 ? "" : "s"} · ${basename(f.source?.file ?? "")}`,
+        labelLine1: f.title,
+        fullLabel: f.title,
+        path: f.source?.file ?? "",
+        file: f.source?.file ?? "",
+        entry: true,
+        w: 200,
+        h: STEP_H,
+        shape: "round-rectangle",
+        hue: COLORS.info,
+        raw: f,
+        pos: { x: Math.floor(i / eRows) * ECOL_W, y: (i % eRows) * ROW + eShift },
+      }),
+    );
+  });
+  services.forEach((id, i) => {
+    const s = svcById.get(id) ?? { id, kind: id.split(":")[1] ?? "api", binding: null, name: id.split(":").slice(2).join(":"), declared: true };
+    const declared = s.declared !== false;
+    nodes.push(
+      blankNode({
+        id,
+        kind: "service",
+        svc: "service",
+        svcKind: s.kind,
+        label: `${serviceLabel(s)}\n${serviceSubLine(s, declared, true)}`,
+        labelLine1: serviceLabel(s),
+        fullLabel: serviceLabel(s),
+        path: s.name ?? serviceLabel(s),
+        w: SERVICE_W,
+        h: SERVICE_H,
+        shape: serviceShape(s.kind),
+        hue: COLORS.explorerFill,
+        declared,
+        provider: s.provider ?? null,
+        notes: s.notes ?? 0,
+        knowledge: { own: s.notes ?? 0, inherited: 0, stale: 0, byType: {}, lastNoteDate: null, lowestConfidence: null },
+        raw: s,
+        pos: { x: rightX + Math.floor(i / sRows) * SCOL_W2, y: (i % sRows) * ROW + sShift },
+      }),
+    );
+  });
+  const edges = [];
+  for (const f of flows) {
+    for (const id of f.services ?? []) {
+      if (!reached.has(id)) continue;
+      edges.push({
+        id: `flow:${f.id}->${id}`,
+        source: `flow:${f.id}`,
+        target: id,
+        kind: "uses",
+        op: null,
+        weight: 1,
+        names: [],
+        via: [],
+        confidence: "exact",
+        cycle: false,
+        cycleReturn: false,
+        spoke: true,
+        width: 1.4,
+        label: "",
+        color: COLORS.edge,
+        labelColor: COLORS.muted,
+        svc: "reaches",
+        raw: f,
+      });
+    }
+  }
+  return baseModel({
+    view,
+    level: "flows",
+    root: "flows",
+    nodes,
+    edges,
+    counts: { flows: flows.length, services: services.length },
+    // Same reasoning as the flow map: past this many entry points the readability floor would clip
+    // the last columns off a picture whose whole point is "here is everything that starts a flow".
+    fitWhole: flows.length + services.length > 36,
+    layout: { name: "bipartite", shaped: true },
+    opts,
+  });
+}
+
+/** The edge label for a payload: the field list when short, a count when long, and words when null. */
+export function payloadLabel(pay) {
+  if (!pay || !Array.isArray(pay.fields) || pay.fields.length === 0) return "shape not derivable";
+  const list = `{ ${pay.fields.join(", ")} }`;
+  const text = list.length <= 34 ? list : `${pay.fields.length} fields`;
+  return pay.confidence === "heuristic" ? `~ ${text}` : text;
+}
+
+/**
+ * The clause behind a payload label — the fields, where they were read, and (when they were only
+ * inferred from a signature) that they were. `null` when nothing was derivable, so the caller writes
+ * that in its own words rather than presenting an empty list as a payload.
+ */
+export function payloadClause(pay) {
+  if (!pay || !Array.isArray(pay.fields) || pay.fields.length === 0) return null;
+  const list = `{ ${pay.fields.join(", ")} }`;
+  const where = pay.source?.file ? ` (${pay.source.file}:${pay.source.line ?? 1})` : "";
+  if (pay.confidence === "heuristic") return `${list} — field names taken from the signature, not from the data${where}`;
+  return `${list} — read from ${pay.shape ?? "the code"}${where}`;
+}
+
+/** Paint for the services and flow levels: the shape and the words say what a node is, the border what state it is in. */
+function paintServiceNode(nd, lens) {
+  const out = { fill: COLORS.explorerFill, border: COLORS.lineStrong, bw: 1.5, bgOpacity: 1, classes: ["svc", `svc-${nd.svc}`], textColor: COLORS.text, hatch: false, stale: false };
+  if (nd.svc === "file") {
+    out.fill = nd.hue;
+    out.border = nd.hue;
+    out.bw = 1;
+    if (nd.role === "test") {
+      out.bgOpacity = 0;
+      out.border = COLORS.muted;
+    }
+    return out;
+  }
+  if (nd.svc === "response") {
+    out.fill = COLORS.panel2;
+    out.border = COLORS.ok;
+    out.bw = 2;
+    return out;
+  }
+  if (nd.svc === "entry") {
+    out.fill = COLORS.panel2;
+    out.border = COLORS.info;
+    out.bw = 2;
+    return out;
+  }
+  if (nd.svc === "step") {
+    out.fill = COLORS.panel2;
+    out.border = COLORS.lineStrong;
+    return out;
+  }
+  // A service. Undeclared is the headline (§4): it takes `--bad`. Declared and untouched is a
+  // dashed border — a state, not a fault.
+  out.fill = COLORS.explorerFill;
+  if (nd.declared === false) {
+    out.border = COLORS.bad;
+    out.bw = 2;
+    out.classes.push("undeclared");
+  } else if (nd.unused) {
+    out.border = COLORS.warn;
+    out.classes.push("unused");
+  }
+  if (lens === "knowledge") {
+    out.fill = (nd.notes ?? 0) > 0 ? COLORS.knowOwn : COLORS.knowNone;
+    out.textColor = labelOn(out.fill);
+    // `--know-none` is near-black on `--bg`: without an outline an unnoted service is a hole in the
+    // canvas (§5.1's shapeEdge rule). The undeclared and unused borders still win — they are the
+    // page's headline, and a lens may not take them.
+    if (nd.declared !== false && !nd.unused) out.border = out.fill === COLORS.knowNone ? COLORS.shapeEdge : out.fill;
+  }
+  return out;
+}
+
+/** Legend rows for the two new levels (§5.5 rules 7–8: only what the canvas cannot explain itself). */
+function serviceLegend(model, lens) {
+  const rows = [];
+  const nodes = model.nodes.filter((n) => !n.compound);
+  const edges = model.edges;
+  const push = (row) => {
+    if (row.count > 0) rows.push(row);
+  };
+  if (model.level === "flow" || model.level === "flows") {
+    const byPayload = (p) => edges.filter((e) => e.payload === p);
+    push({ label: "Payload read from the code", color: COLORS.muted, kind: "edge", count: byPayload("exact").length, isolate: byPayload("exact").map((e) => e.id) });
+    push({ label: "Field names from the signature", color: COLORS.warn, kind: "edge-dotted", count: byPayload("heuristic").length, isolate: byPayload("heuristic").map((e) => e.id) });
+    push({ label: "Shape not derivable", color: COLORS.faint, kind: "edge", count: byPayload("none").length, isolate: byPayload("none").map((e) => e.id) });
+    for (const [op, label] of [["read", "Reads a service"], ["write", "Writes to a service"]]) {
+      const list = edges.filter((e) => e.op === op);
+      push({ label, color: OP_COLORS[op], kind: "edge", count: list.length, isolate: list.map((e) => e.id) });
+    }
+    const svcNodes = nodes.filter((n) => n.svc === "service");
+    push({ label: "Service", color: COLORS.lineStrong, kind: "ring", count: svcNodes.length, isolate: svcNodes.map((n) => n.id) });
+    const undeclared = svcNodes.filter((n) => n.declared === false);
+    push({ label: "Declared nowhere", color: COLORS.bad, kind: "ring", count: undeclared.length, isolate: undeclared.map((n) => n.id) });
+    return { title: model.level === "flow" ? "Line = payload · Colour = operation" : "Ring = whether a manifest declares it", rows };
+  }
+  // Services: the left column is coloured by area, the edges by operation, the borders by state.
+  const areasSeen = new Map();
+  for (const n of nodes) {
+    if (n.svc !== "file") continue;
+    const key = n.areaLabel ?? "repo root";
+    if (!areasSeen.has(key)) areasSeen.set(key, { label: key, color: n.hue, ids: [] });
+    areasSeen.get(key).ids.push(n.id);
+  }
+  for (const a of Array.from(areasSeen.values()).sort((x, y) => y.ids.length - x.ids.length)) {
+    push({ label: a.label, color: a.color, kind: "fill", count: a.ids.length, isolate: a.ids });
+  }
+  for (const [op, label] of [["read", "Reads"], ["write", "Writes"], ["touch", "Touches"]]) {
+    const list = edges.filter((e) => e.op === op);
+    push({ label, color: OP_COLORS[op], kind: "edge", count: list.length, isolate: list.map((e) => e.id) });
+  }
+  const heur = edges.filter((e) => e.confidence === "heuristic");
+  push({ label: "Matched through a name", color: COLORS.muted, kind: "edge-dotted", count: heur.length, isolate: heur.map((e) => e.id) });
+  const svcNodes = nodes.filter((n) => n.svc === "service");
+  if (lens === "knowledge") {
+    const noted = svcNodes.filter((n) => (n.notes ?? 0) > 0);
+    const unnoted = svcNodes.filter((n) => !(n.notes ?? 0));
+    push({ label: "A note about it", color: COLORS.knowOwn, kind: "fill", count: noted.length, isolate: noted.map((n) => n.id) });
+    push({ label: "Nobody has written about it", color: COLORS.knowNone, kind: "fill", count: unnoted.length, isolate: unnoted.map((n) => n.id) });
+  }
+  const undeclared = svcNodes.filter((n) => n.declared === false);
+  push({ label: "Used in code, declared nowhere", color: COLORS.bad, kind: "ring", count: undeclared.length, isolate: undeclared.map((n) => n.id) });
+  const unused = svcNodes.filter((n) => n.unused && n.declared !== false);
+  push({ label: "Declared, nothing touches it", color: COLORS.warn, kind: "ring", count: unused.length, isolate: unused.map((n) => n.id) });
+  const title = lens === "knowledge" ? "Colour = area · Fill = notes on each service" : "Colour = area · Line = operation";
+  return { title, rows };
+}
+
+/** Footer counts for the two new levels. */
+function serviceFooter(model) {
+  const c = model.counts ?? {};
+  if (model.level === "flow") {
+    const parts = [plural(c.steps ?? 0, "step"), plural((c.depth ?? 0) + 1 > 0 ? c.depth ?? 0 : 0, "hop"), plural(c.services ?? 0, "service")];
+    if (c.dropped) parts.push(`${c.dropped} more not drawn`);
+    return parts.filter(Boolean).join(" · ");
+  }
+  if (model.level === "flows") return [plural(c.flows ?? 0, "entry point"), plural(c.services ?? 0, "service")].join(" · ");
+  const parts = [];
+  if (c.folded) parts.push(`${c.shown} of ${c.services} services`);
+  else parts.push(plural(c.shown ?? 0, "service"));
+  parts.push(plural(c.files ?? 0, "file"));
+  parts.push(plural(model.edges.length, "edge"));
+  if (c.folded) parts.push(`${c.folded} folded`);
+  if (model.hiddenTests) parts.push(`${plural(model.hiddenTests, "test file")} hidden`);
+  return parts.join(" · ");
+}
+
+/** Tooltip for a services / flow node. */
+function serviceTip(nd) {
+  if (nd.svc === "file") {
+    const n = nd.outDegree ?? 0;
+    return { path: nd.fullLabel, meta: [n ? `touches ${plural(n, "service")}` : null, nd.role === "test" ? "test file" : null].filter(Boolean) };
+  }
+  if (nd.svc === "entry" || nd.svc === "step") {
+    return { path: nd.symbol ? `${nd.symbol} — ${nd.file}` : nd.path, meta: [nd.entry ? "the entry point" : null].filter(Boolean) };
+  }
+  if (nd.svc === "response") return { path: nd.path, meta: ["what the handler sends back"] };
+  if (nd.svc === "fold") return { path: `${nd.foldCount} services with fewer callers`, meta: [nd.foldIds.slice(0, 6).map((id) => id.replace(/^svc:[^:]+:/, "")).join(", "), nd.foldIds.length > 6 ? "…" : null].filter(Boolean) };
+  const s = nd.raw ?? {};
+  const meta = [];
+  meta.push(s.name && s.name !== nd.fullLabel ? `${serviceNoun(nd.svcKind)} ${s.name}` : serviceNoun(nd.svcKind));
+  if (s.provider) meta.push(s.provider);
+  const line = declaredLine(s);
+  if (s.declared === false) meta.push(line ? `declared nowhere — documented in ${line}` : "declared nowhere: set outside this repo");
+  else if (line) meta.push(`declared in ${line}`);
+  if (s.uses != null) meta.push(plural(s.uses, "call site"));
+  if (nd.unused) meta.push("no code touches it");
+  if ((nd.notes ?? 0) > 0) meta.push(plural(nd.notes, "note"));
+  return { path: nd.fullLabel, meta };
+}
+
+/** The sentence behind an edge on the two new levels. */
+function serviceEdgeSentence(e, nodeById) {
+  const s = nodeById.get(e.source);
+  const t = nodeById.get(e.target);
+  if (e.svc === "op") {
+    const where = (e.sources ?? []).slice(0, 3).map((r) => `${r.file}:${r.line}`).join(", ");
+    const n = e.weight ?? 1;
+    const heur = e.confidence === "heuristic" ? " Found through a name — a binding handed over as a parameter, or an alias — so it holds for this call site, not for every caller." : "";
+    const test = e.viaTest ? " In a test." : "";
+    return `${basename(s?.fullLabel ?? e.source)} ${OP_VERBS[e.op] ?? "touches"} ${t?.fullLabel ?? e.target} in ${n === 1 ? "one place" : `${n} places`}${where ? ` (${where}${(e.sources ?? []).length > 3 ? ", …" : ""})` : ""}.${heur}${test}`;
+  }
+  if (e.svc === "reaches") return `${s?.fullLabel ?? e.source} reaches ${t?.fullLabel ?? e.target}.`;
+  const step = e.step ?? {};
+  const a = s?.fullLabel ?? e.source;
+  const b = t?.fullLabel ?? e.target;
+  const verb = step.kind === "read" ? "reads" : step.kind === "write" ? "writes to" : step.kind === "respond" ? "answers with" : "calls";
+  const at = step.source?.file ? ` (${step.source.file}:${step.source.line ?? 1})` : "";
+  const carried = payloadClause(step.input);
+  const returned = payloadClause(step.output);
+  const head = `Step ${e.stepIndex}. ${a} ${verb} ${b}${at}`;
+  const body = carried ? `${head}, carrying ${carried}.` : `${head}. What it carries is not derivable from the code.`;
+  return returned ? `${body} It returns ${returned}.` : body;
 }

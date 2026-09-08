@@ -26,9 +26,12 @@ import { allNoteFiles, staleEntriesFor, type NoteEntry, type NoteFile, type Note
 import type { RepoPaths } from "./paths.js";
 import { currentPerson, inferMode, loadPeople, type Mode, type PeopleFile, type ReggieConfig } from "./people.js";
 import { isTestLike } from "./roles.js";
+import type { ServiceIndex, ServiceKind, ServiceNode } from "./services.js";
+import type { Flow, FlowDrop, FlowStep, Payload } from "./flows.js";
 import { fileSymbols, type CodeSymbol } from "./symbols.js";
 import { STATE_MACHINE, getTaskDetail, listTasks, stateDefinition, type StateMachine, type TaskDetail, type TaskInfo, type TaskState } from "./tasks.js";
 import { containerView, dirIdOf, dirPathOf, dirView, level1, resolveDirId, type Level1, type ViewGraph, type ViewNode } from "./views.js";
+import { slugify } from "./util.js";
 import type { WorkspaceSummary } from "./workspace.js";
 
 // ---------------------------------------------------------------------------
@@ -309,11 +312,34 @@ export function routeFor(repo: string, nodeId: string, query: RouteQuery = {}): 
     if (p === "." || p === "") return withQuery(base, query);
     return withQuery(`${base}/area/${encodeRouteId(p)}`, query);
   }
+  if (id.startsWith("svc:")) return withQuery(`${base}/services`, { ...query, service: id });
+  if (id.startsWith("flow:")) return withQuery(`${base}/flow/${encodeRouteId(id.slice(5))}`, query);
+  if (id.startsWith("resp:")) return withQuery(`${base}/flow/${encodeRouteId(id.slice(5))}`, query);
   if (id.startsWith("task:")) return withQuery(`${base}/task/${encodeRouteId(id.slice(5))}`, query);
   if (id.startsWith("person:")) return withQuery(`${base}/person/${encodeRouteId(id.slice(7))}`, query);
-  if (id.startsWith("sym:")) return withQuery(`${base}/symbol/${encodeRouteId(id.slice(4))}`, query);
+  if (id.startsWith("sym:")) {
+    // A flow step names a symbol as `sym:<file>#<name>`; the graph names one as `sym:<file>::<name>`.
+    const hash = id.indexOf("#");
+    if (hash !== -1) return withQuery(`${base}/file/${encodeRouteId(id.slice(4, hash))}`, { ...query, symbol: id.slice(hash + 1) });
+    return withQuery(`${base}/symbol/${encodeRouteId(id.slice(4))}`, query);
+  }
   if (id.startsWith("fold:") || id.startsWith("entity:")) return withQuery(base, query);
   return withQuery(`${base}/file/${encodeRouteId(id)}`, query);
+}
+
+/** `#/repo/<r>/services` — the Services page (services-and-flows-spec.md §4). */
+export function servicesRouteFor(repo: string): string {
+  return `${routeFor(repo, ROOT_DIR_ID)}/services`;
+}
+
+/** `#/repo/<r>/flows` — the Data flow index. */
+export function flowsRouteFor(repo: string): string {
+  return `${routeFor(repo, ROOT_DIR_ID)}/flows`;
+}
+
+/** `#/repo/<r>/flow/<id>` — one traced flow. */
+export function flowRouteFor(repo: string, id: string): string {
+  return `${routeFor(repo, ROOT_DIR_ID)}/flow/${encodeRouteId(id)}`;
 }
 
 /** `[[` and `|` would break the markup, so labels are sanitised rather than escaped. */
@@ -749,13 +775,22 @@ function pathCrumbs(ctx: StoryContext, entityPath: string, isDir: boolean): Crum
 // ---------------------------------------------------------------------------
 
 /** The repo landing page: nine sections, question first (spec §2, Level 1). */
-export function repoStory(ctx: StoryContext): Story {
+/**
+ * What the repo story can say about the two derived pages. Passed in rather than derived here
+ * so `story.ts` stays free of the detectors, and so a page with nothing on it is never linked.
+ */
+export interface RepoStoryOptions {
+  services?: ServiceIndex;
+  flows?: readonly { services: readonly string[] }[];
+}
+
+export function repoStory(ctx: StoryContext, opts: RepoStoryOptions = {}): Story {
   const sections: StorySection[] = [
     needsYouSection(ctx),
     whatSection(ctx),
     madeOfSection(ctx),
     startsSection(ctx),
-    talksSection(ctx),
+    talksSection(ctx, opts),
     flightSection(ctx),
     recentSection(ctx),
     repoGapsSection(ctx),
@@ -957,7 +992,7 @@ function startsSection(ctx: StoryContext): StorySection {
   return section("starts", "Where it starts", paragraphs, { text: EMPTY_TEXT.repoStarts });
 }
 
-function talksSection(ctx: StoryContext): StorySection {
+function talksSection(ctx: StoryContext, opts: RepoStoryOptions = {}): StorySection {
   const view = ctx.views.container();
   const paragraphs: Paragraph[] = [];
   const ranked = [...view.edges].sort((a, b) => (b.weight ?? 1) - (a.weight ?? 1) || a.source.localeCompare(b.source));
@@ -996,6 +1031,33 @@ function talksSection(ctx: StoryContext): StorySection {
       }),
     );
   });
+
+  // The two derived pages, linked only when they have something on them: an empty page is a
+  // worse answer than the empty text this section already carries.
+  const services = opts.services;
+  if (services && services.services.length > 0) {
+    const undeclared = services.undeclared.length;
+    const headline = undeclared > 0 ? ` ${numberWord(undeclared)} of them ${undeclared === 1 ? "is" : "are"} used in code and declared nowhere.` : " Every one of them is declared.";
+    paragraphs.push(
+      para(
+        "talks-services",
+        "fact",
+        `Outside itself, this repo talks to ${countPhrase(services.services.length, "service")}: databases, namespaces, buckets and the APIs it calls.${headline} ${linkRoute(servicesRouteFor(ctx.repo), "Services")} lists them with the line that declares each one.`,
+        [ROOT_DIR_ID, ...services.services.slice(0, 6).map((s) => s.id)],
+      ),
+    );
+  }
+  const flows = opts.flows;
+  if (flows && flows.length > 0) {
+    paragraphs.push(
+      para(
+        "talks-flows",
+        "fact",
+        `Data enters at ${countPhrase(flows.length, "entry point")}. ${linkRoute(flowsRouteFor(ctx.repo), "Data flow")} traces each one to the services it reaches, with the payload on every step.`,
+        [ROOT_DIR_ID],
+      ),
+    );
+  }
 
   return section("talks", "How the pieces talk", paragraphs, { text: EMPTY_TEXT.repoTalks });
 }
@@ -2021,5 +2083,507 @@ function explainEntity(ctx: StoryContext, node: GraphNode): Explain {
       sentence(last ? `The last entry was written on ${formatDate(last.date, ctx.now)}.` : "It has no dated entry.", [node.id]),
     ],
     actions: explainActions(ctx, node, annotated[0] ?? null),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Services and data flow (services-and-flows-spec.md §4)
+// ---------------------------------------------------------------------------
+
+/** How each service kind reads inside a sentence. */
+const SERVICE_KIND_WORDS: Record<ServiceKind, string> = {
+  database: "database",
+  table: "table",
+  kv: "KV namespace",
+  bucket: "bucket",
+  queue: "queue",
+  "durable-object": "Durable Object",
+  assets: "assets binding",
+  api: "external API",
+  var: "plain variable",
+  secret: "secret",
+  vectorize: "Vectorize index",
+  ai: "AI binding",
+  hyperdrive: "Hyperdrive binding",
+  analytics: "analytics dataset",
+};
+
+export function serviceKindWord(kind: ServiceKind): string {
+  return SERVICE_KIND_WORDS[kind] ?? "service";
+}
+
+/** The name a service goes by in prose: its binding when it has one, else its human name. */
+function serviceName(node: ServiceNode): string {
+  return node.binding ?? node.name;
+}
+
+function serviceLink(ctx: StoryContext, node: ServiceNode): string {
+  return link(ctx.repo, node.id, serviceName(node));
+}
+
+/** The kind as its provider names it: Cloudflare calls a database D1 and a bucket R2. */
+function providerKindWord(node: ServiceNode): string {
+  const base = serviceKindWord(node.kind);
+  if (node.provider === "cloudflare") {
+    if (node.kind === "database") return `D1 ${base}`;
+    if (node.kind === "bucket") return `R2 ${base}`;
+    return base;
+  }
+  return node.provider ? `${node.provider} ${base}` : base;
+}
+
+/** "a" or "an", so a kind can be named without the sentence tripping over itself. */
+function article(word: string): string {
+  return /^[aeiou]/i.test(word) ? "an" : "a";
+}
+
+/** "the D1 database jacob-chat-logs", "a KV namespace", "an external API". */
+function serviceDescription(node: ServiceNode): string {
+  const kind = providerKindWord(node);
+  const named = node.name && node.name !== serviceName(node) ? ` ${node.name}` : "";
+  return named ? `the ${kind}${named}` : `${article(kind)} ${kind}`;
+}
+
+/** "three files read", "one file reads" — the count and its verb, agreeing. */
+function filesVerb(n: number, verb: string): string {
+  return `${countPhrase(n, "file")} ${n === 1 ? `${verb}s` : verb}`;
+}
+
+/**
+ * Where the fact came from: a manifest *declares*, an example file only *documents*. The
+ * difference is the whole point of the Needs-attention list, so the wording never blurs it.
+ */
+function serviceDeclaredPhrase(ctx: StoryContext, node: ServiceNode): string {
+  const at = node.declaredAt;
+  if (!at) return node.declared ? "It is declared, but the line was not recorded." : "No manifest declares it.";
+  const where = `${link(ctx.repo, at.file, baseName(at.file))} at line ${at.line}`;
+  return node.declared
+    ? `It is declared in ${where}.`
+    : `No manifest declares it; it is only documented in ${where}, which records the name and does not provision it.`;
+}
+
+/** Files on each side of one service, tests excluded — a test does not say what the product does. */
+interface ServiceSides {
+  readers: string[];
+  writers: string[];
+  touchers: string[];
+  files: string[];
+}
+
+function serviceSides(index: ServiceIndex): Map<string, ServiceSides> {
+  const out = new Map<string, ServiceSides>();
+  for (const e of index.edges) {
+    if (e.viaTest) continue;
+    let hit = out.get(e.service);
+    if (!hit) {
+      hit = { readers: [], writers: [], touchers: [], files: [] };
+      out.set(e.service, hit);
+    }
+    if (!hit.files.includes(e.file)) hit.files.push(e.file);
+    const side = e.op === "read" ? hit.readers : e.op === "write" ? hit.writers : hit.touchers;
+    if (!side.includes(e.file)) side.push(e.file);
+  }
+  for (const hit of out.values()) {
+    hit.files.sort();
+    hit.readers.sort();
+    hit.writers.sort();
+    hit.touchers.sort();
+  }
+  return out;
+}
+
+const NO_SIDES: ServiceSides = { readers: [], writers: [], touchers: [], files: [] };
+
+/** "[[…|a.js]], [[…|b.js]] and two more" — files as links, never more than `shown` of them. */
+function fileLinks(ctx: StoryContext, files: readonly string[], shown = 3): string {
+  const links = files.slice(0, shown).map((f) => link(ctx.repo, f, baseName(f)));
+  return joinPhrases(withMore(links, files.length));
+}
+
+/** The entity note written about a service, matched by binding or human name like `services.ts` does. */
+function serviceNoteOf(ctx: StoryContext, node: ServiceNode): NoteFile | undefined {
+  const wanted = new Set([node.binding, node.name].filter((v): v is string => Boolean(v)).map((v) => slugify(v, 80)));
+  return ctx.notes.find((n) => n.kind === "entity" && wanted.has(slugify(n.entity.slice(n.entity.indexOf(":") + 1), 80)));
+}
+
+/** The Level-1 areas a set of files sits in. */
+function areasOfFiles(ctx: StoryContext, files: readonly string[]): string[] {
+  const l1 = ctx.views.level1();
+  return uniqStrings(files.map((f) => l1.areaOf(f)));
+}
+
+/** Paragraphs per service in `talks-to` before the rest is summed up. */
+const MAX_SERVICE_PARAGRAPHS = 24;
+/** Services named inside one collapsed list paragraph. */
+const MAX_LISTED_SERVICES = 12;
+
+function needsAttentionSection(ctx: StoryContext, index: ServiceIndex, sides: Map<string, ServiceSides>): StorySection {
+  const paragraphs: Paragraph[] = [];
+
+  // 1. Undeclared secrets, most-read first: the single most valuable thing this page says.
+  const secrets = index.undeclared.filter((s) => s.kind === "secret").sort((a, b) => b.uses - a.uses || a.name.localeCompare(b.name));
+  secrets.forEach((node, i) => {
+    const side = sides.get(node.id) ?? NO_SIDES;
+    const bits = [
+      `${serviceLink(ctx, node)} is read in ${countPhrase(node.uses, "place")} and no manifest declares it, so it is set outside this repo — a dashboard secret, or missing.`,
+    ];
+    if (node.declaredAt) bits.push(`It is documented in ${link(ctx.repo, node.declaredAt.file, baseName(node.declaredAt.file))} at line ${node.declaredAt.line}, which records the name and does not provision it.`);
+    else bits.push("Nothing in the repo documents it.");
+    if (side.files.length > 0) bits.push(`It is read from ${fileLinks(ctx, side.files)}.`);
+    paragraphs.push(
+      para(`needs-attention-secret-${i + 1}`, "gap", bits.join(" "), [node.id, ...side.files.slice(0, 5)], {
+        chips: [
+          chip("Undeclared", "yes", "bad", "The code reads this name; no manifest in the repo declares it."),
+          chip("Call sites", String(node.uses), "muted", "Reads of this name outside tests."),
+        ],
+      }),
+    );
+  });
+
+  // 2. Declared and never touched.
+  index.unused.forEach((node, i) => {
+    paragraphs.push(
+      para(
+        `needs-attention-unused-${i + 1}`,
+        "gap",
+        `${serviceLink(ctx, node)} is ${serviceDescription(node)}. ${serviceDeclaredPhrase(ctx, node)} No code outside tests touches it, so it is either dead or reached in a way Reggie cannot see.`,
+        [node.id, node.declaredAt?.file],
+        { chips: [chip("Unused", "yes", "warn", "Declared in a manifest; no call site was found.")] },
+      ),
+    );
+  });
+
+  // 3. Written from more than one area: two owners of one store, which is where surprises live.
+  let n = 0;
+  for (const node of index.services) {
+    const side = sides.get(node.id) ?? NO_SIDES;
+    if (side.writers.length < 2) continue;
+    const areas = areasOfFiles(ctx, side.writers);
+    if (areas.length < 2) continue;
+    n += 1;
+    const labels = areas.map((a) => link(ctx.repo, a, areaLabelOf(ctx, a)));
+    paragraphs.push(
+      para(
+        `needs-attention-shared-${n}`,
+        "gap",
+        `${serviceLink(ctx, node)} is written from ${joinPhrases(labels)}. Two areas write to one ${serviceKindWord(node.kind)}, so a change to the shape in one can break the other: ${fileLinks(ctx, side.writers, 4)}.`,
+        [node.id, ...areas, ...side.writers.slice(0, 5)],
+        { chips: [chip("Writers", String(side.writers.length), "warn", "Files outside tests that write to this service.")] },
+      ),
+    );
+  }
+
+  return section("needs-attention", "Needs attention", paragraphs, {
+    text: "Nothing needs attention: every name the code reads is declared, every declared binding is used, and no service is written from two areas.",
+  });
+}
+
+function talksToSection(ctx: StoryContext, index: ServiceIndex, sides: Map<string, ServiceSides>): StorySection {
+  const paragraphs: Paragraph[] = [];
+  // Plain variables and secrets have sections of their own; this one is about the stores and
+  // the APIs, which is what "talks to" means to a reader.
+  const main = index.services.filter((s) => s.kind !== "var" && s.kind !== "secret");
+  main.slice(0, MAX_SERVICE_PARAGRAPHS).forEach((node, i) => {
+    const side = sides.get(node.id) ?? NO_SIDES;
+    const bits = [`${serviceLink(ctx, node)} is ${serviceDescription(node)}.`, serviceDeclaredPhrase(ctx, node)];
+    const parent = node.parent ? index.services.find((s) => s.id === node.parent) : undefined;
+    if (parent) bits.push(`It lives in ${serviceLink(ctx, parent)}.`);
+    const traffic: string[] = [];
+    if (side.readers.length > 0) traffic.push(`${filesVerb(side.readers.length, "read")} it (${fileLinks(ctx, side.readers)})`);
+    if (side.writers.length > 0) traffic.push(`${filesVerb(side.writers.length, "write")} to it (${fileLinks(ctx, side.writers)})`);
+    if (side.touchers.length > 0 && side.readers.length === 0 && side.writers.length === 0) {
+      traffic.push(`${filesVerb(side.touchers.length, "name")} it without an operation Reggie could classify (${fileLinks(ctx, side.touchers)})`);
+    }
+    bits.push(traffic.length > 0 ? `${capitalise(joinPhrases(traffic))}.` : "No code outside tests touches it.");
+    const chips: Chip[] = [chip("Kind", node.kind, "muted", `Service kind: ${node.kind}`)];
+    if (node.provider) chips.push(chip("Provider", node.provider, "info", `Provider: ${node.provider}`));
+    if (!node.declared) chips.push(chip("Undeclared", "yes", "bad", "The code uses it; no manifest declares it."));
+    paragraphs.push(para(`talks-to-${i + 1}`, "fact", bits.join(" "), [node.id, node.declaredAt?.file, ...side.files.slice(0, 5)], { chips }));
+    const note = serviceNoteOf(ctx, node);
+    if (note) paragraphs.push(...noteParagraphs(ctx, `talks-to-${i + 1}-note`, [note], [node.id]));
+  });
+
+  if (main.length > MAX_SERVICE_PARAGRAPHS) {
+    const rest = main.slice(MAX_SERVICE_PARAGRAPHS);
+    paragraphs.push(
+      para("talks-to-rest", "list", `${countPhrase(rest.length, "other service")} on the map: ${joinPhrases(withMore(rest.slice(0, MAX_LISTED_SERVICES).map((s) => serviceLink(ctx, s)), rest.length))}.`, rest.map((s) => s.id)),
+    );
+  }
+
+  const vars = index.services.filter((s) => s.kind === "var");
+  if (vars.length > 0) {
+    const names = withMore(vars.slice(0, MAX_LISTED_SERVICES).map((s) => serviceLink(ctx, s)), vars.length);
+    const declared = vars.filter((s) => s.declared).length;
+    paragraphs.push(
+      para(
+        "talks-to-vars",
+        "list",
+        `${countPhrase(vars.length, "plain variable")} ${vars.length === 1 ? "configures" : "configure"} the code rather than name a store: ${joinPhrases(names)}. ${declared === vars.length ? "Every one is declared." : `${numberWord(vars.length - declared)} of them ${vars.length - declared === 1 ? "is" : "are"} read from the environment with nothing in the repo declaring ${vars.length - declared === 1 ? "it" : "them"}.`}`,
+        vars.map((s) => s.id),
+      ),
+    );
+  }
+
+  return section("talks-to", "What this repo talks to", paragraphs, {
+    text: "No service was found. Reggie reads wrangler.toml, firebase.json, the SDK dependencies in package.json, `env.` and `process.env.` in the code, and literal fetch hosts.",
+  });
+}
+
+function secretsSection(ctx: StoryContext, index: ServiceIndex, sides: Map<string, ServiceSides>): StorySection {
+  const secrets = index.services.filter((s) => s.kind === "secret").sort((a, b) => b.uses - a.uses || a.name.localeCompare(b.name));
+  const paragraphs = secrets.map((node, i) => {
+    const side = sides.get(node.id) ?? NO_SIDES;
+    const where = node.declared
+      ? serviceDeclaredPhrase(ctx, node)
+      : node.declaredAt
+        ? `It comes from outside the repo. The name is written down in ${link(ctx.repo, node.declaredAt.file, baseName(node.declaredAt.file))} at line ${node.declaredAt.line}; the value is not.`
+        : "It comes from outside the repo, and nothing here writes the name down.";
+    const read = side.files.length > 0 ? ` It is read in ${countPhrase(node.uses, "place")}, from ${fileLinks(ctx, side.files)}.` : "";
+    return para(`secrets-${i + 1}`, node.declared ? "fact" : "gap", `${serviceLink(ctx, node)} is a secret. ${where}${read}`, [node.id, node.declaredAt?.file, ...side.files.slice(0, 5)], {
+      chips: [chip("Declared", node.declared ? "yes" : "no", node.declared ? "ok" : "bad", node.declared ? "A manifest declares it." : "Set outside this repo.")],
+    });
+  });
+  return section("secrets", "Where the secrets come from", paragraphs, {
+    text: "No credential-shaped name was found. A name ending in KEY, SECRET, TOKEN or PASSWORD that the code reads would appear here.",
+  });
+}
+
+function notWiredSection(ctx: StoryContext, index: ServiceIndex): StorySection {
+  const paragraphs = index.unused.map((node, i) =>
+    para(
+      `not-wired-${i + 1}`,
+      "gap",
+      `${serviceLink(ctx, node)} — ${serviceDescription(node)} — is declared and never used. ${serviceDeclaredPhrase(ctx, node)}`,
+      [node.id, node.declaredAt?.file],
+      { chips: [chip("Kind", node.kind, "muted", `Service kind: ${node.kind}`)] },
+    ),
+  );
+  return section("not-wired", "What is not wired up", paragraphs, { text: "Every declared binding is used somewhere in the code." });
+}
+
+/**
+ * The Services page (spec §4): what the repo talks to, in the order a reader needs it —
+ * what is wrong first, then what is there, then the credentials, then the dead wiring.
+ */
+export function servicesStory(ctx: StoryContext, index: ServiceIndex): Story {
+  const sides = serviceSides(index);
+  const sections: StorySection[] = [
+    needsAttentionSection(ctx, index, sides),
+    talksToSection(ctx, index, sides),
+    secretsSection(ctx, index, sides),
+    notWiredSection(ctx, index),
+  ];
+  const undeclared = index.undeclared.length;
+  const subtitle =
+    undeclared === 0
+      ? `${countPhrase(index.services.length, "service")}, every one of them declared.`
+      : `${countPhrase(index.services.length, "service")}, ${numberWord(undeclared)} of them used in code and declared nowhere.`;
+
+  return {
+    scope: "services",
+    id: ctx.repo,
+    title: "What this repo talks to",
+    subtitle,
+    crumbs: [...repoCrumbs(ctx), { label: "Services", route: servicesRouteFor(ctx.repo) }],
+    sections,
+    next: [{ label: "Data flow", route: flowsRouteFor(ctx.repo) }],
+  };
+}
+
+// --- one flow ---------------------------------------------------------------
+
+/** A step's node id turned into the name a sentence can use. */
+function flowNodeLabel(id: string): string {
+  const value = String(id ?? "");
+  if (value.startsWith("sym:")) {
+    const hash = value.indexOf("#");
+    return hash === -1 ? value.slice(4) : value.slice(hash + 1);
+  }
+  if (value.startsWith("resp:")) return "the response";
+  if (value.startsWith("svc:")) return value.slice(value.lastIndexOf(":") + 1);
+  return baseName(value);
+}
+
+/** The file a step's node lives in, or null for a service or the response. */
+function flowNodeFile(id: string): string | null {
+  const value = String(id ?? "");
+  if (value.startsWith("svc:") || value.startsWith("resp:")) return null;
+  if (value.startsWith("sym:")) {
+    const hash = value.indexOf("#");
+    return hash === -1 ? value.slice(4) : value.slice(4, hash);
+  }
+  return value || null;
+}
+
+/**
+ * What a payload is, said without overstating it. An `exact` payload names the construct it
+ * was read from; a `heuristic` one says the names came from the signature rather than the
+ * data, which is the difference between knowing and guessing.
+ */
+function payloadPhrase(p: Payload | null): string | null {
+  if (!p || p.fields.length === 0) return null;
+  const fields = `{ ${p.fields.join(", ")} }`;
+  return p.confidence === "heuristic"
+    ? `${fields} — field names taken from the ${p.shape ?? "signature"}, not from the data`
+    : `${fields}, read from ${p.shape ?? "a literal in the code"}`;
+}
+
+/** "What it sends is { a, b }, read from object literal." / "… is not derivable from the code." */
+function payloadClause(p: Payload | null, lead: string): string {
+  const phrase = payloadPhrase(p);
+  return phrase ? `${lead} is ${phrase}.` : `${lead} is not derivable from the code.`;
+}
+
+/** "carrying { a, b }, read from request.json()" — the mid-sentence form. */
+function carryingPhrase(p: Payload | null, verb = "carrying"): string {
+  const phrase = payloadPhrase(p);
+  return phrase ? `${verb} ${phrase}` : "and what it carries is not derivable from the code";
+}
+
+/** The service a step lands on, when §1 knows it. */
+function flowServiceOf(services: readonly ServiceNode[] | undefined, id: string): ServiceNode | undefined {
+  return services?.find((s) => s.id === id);
+}
+
+function flowStepParagraph(ctx: StoryContext, step: FlowStep, i: number, services: readonly ServiceNode[] | undefined): Paragraph {
+  const number = `Step ${numberWord(i + 1)}.`;
+  const from = `\`${flowNodeLabel(step.from)}\``;
+  const toFile = flowNodeFile(step.to);
+  const site = step.source.file;
+  const at = `${link(ctx.repo, site, baseName(site))} at line ${step.source.line}`;
+  // Where the callee lives, said once: the same file, or the other one plus the call site.
+  const where = toFile === null || toFile === site ? `in ${at}` : `in ${link(ctx.repo, toFile, baseName(toFile))}, called from ${at}`;
+  const chips: Chip[] = [];
+  const bits: string[] = [number];
+
+  if (i === 0) {
+    bits.push(`The request arrives at \`${flowNodeLabel(step.to)}\` in ${at}, ${carryingPhrase(step.input)}.`);
+    bits.push(step.output ? payloadClause(step.output, "The first thing it returns") : "What it returns is not derivable from the body alone; the response steps below say what it sends.");
+  } else if (step.kind === "read" || step.kind === "write" || step.to.startsWith("svc:")) {
+    const node = flowServiceOf(services, step.to);
+    const what = node ? `, ${serviceDescription(node)},` : ", which no manifest declares,";
+    const verb = step.kind === "read" ? "reads from" : step.kind === "write" ? "writes to" : "touches";
+    const target = node ? serviceLink(ctx, node) : link(ctx.repo, step.to, flowNodeLabel(step.to));
+    bits.push(`${from} ${verb} ${target}${what} calling \`${step.label}\` in ${at}.`);
+    bits.push(payloadClause(step.input, "What it sends"));
+    if (step.via) bits.push(`The binding arrived as the \`${step.via}\` parameter, resolved through one call site, so this operation is inferred rather than read off \`env\`.`);
+  } else if (step.kind === "respond") {
+    bits.push(`${from} answers with \`${step.label}\` in ${at}, ${carryingPhrase(step.output)}.`);
+  } else if (step.kind === "import") {
+    bits.push(`${from} enters the module ${toFile ? link(ctx.repo, toFile, baseName(toFile)) : flowNodeLabel(step.to)}, called from ${at}. No symbol of that name was found there, so what it does is not derivable.`);
+  } else {
+    bits.push(`${from} calls \`${step.label}\` ${where}, passing ${payloadPhrase(step.input) ?? "arguments the code does not name"}.`);
+    bits.push(payloadClause(step.output, "What it returns"));
+  }
+
+  if (step.confidence === "heuristic") chips.push(chip("Confidence", "heuristic", "warn", "Resolved through a name, not a declaration."));
+  const payload = step.input ?? step.output;
+  if (payload) chips.push(chip("Payload", payload.confidence, payload.confidence === "exact" ? "ok" : "warn", payload.shape ? `Read from: ${payload.shape}` : "Payload shape"));
+  else chips.push(chip("Payload", "not derivable", "muted", "Nothing in the code names what this step carries."));
+
+  return para(`step-${i + 1}`, "fact", bits.join(" "), [step.from, step.to, step.source.file], {
+    chips,
+    source: { file: step.source.file, confidence: step.confidence },
+  });
+}
+
+/**
+ * "nine steps at hop one and nine at hop two went past what one hop may draw" — what a cap
+ * actually cost, grouped by reason so the sentence never repeats itself. A `depth` drop names
+ * the limit it hit, which is the depth the caller asked for and not always the ceiling.
+ */
+function dropPhrase(drops: readonly FlowDrop[]): string {
+  const reasons: FlowDrop["reason"][] = ["hop-budget", "step-cap", "depth"];
+  const clauses: string[] = [];
+  for (const reason of reasons) {
+    const group = drops.filter((d) => d.reason === reason);
+    if (group.length === 0) continue;
+    const noun = reason === "depth" ? "call" : "step";
+    const parts = group.map((d, i) => (i === 0 ? `${countPhrase(d.count, noun)} at hop ${numberWord(d.hop)}` : `${numberWord(d.count)} at hop ${numberWord(d.hop)}`));
+    const limit = (group[0]?.hop ?? 1) - 1;
+    const tail =
+      reason === "depth"
+        ? `${group.length === 1 && group[0]?.count === 1 ? "was" : "were"} not followed, because the walk stops at ${countPhrase(limit, "hop")}`
+        : reason === "hop-budget"
+          ? "went past what one hop may draw"
+          : "went past the total step budget";
+    clauses.push(`${joinPhrases(parts)} ${tail}`);
+  }
+  return joinPhrases(clauses);
+}
+
+function flowGapsSection(ctx: StoryContext, flow: Flow): StorySection {
+  const paragraphs: Paragraph[] = [];
+  const missing = flow.steps.filter((s) => !s.input && !s.output);
+  const guessed = flow.steps.filter((s) => s.input?.confidence === "heuristic" || s.output?.confidence === "heuristic");
+  const inferred = flow.steps.filter((s) => s.via !== null);
+
+  if (missing.length > 0 || guessed.length > 0) {
+    const bits: string[] = [];
+    if (missing.length > 0) {
+      bits.push(
+        `${capitalise(countPhrase(missing.length, "step"))} ${missing.length === 1 ? "carries" : "carry"} nothing this repo names: no object literal at the call site, no annotated parameter, no JSDoc, and no parameter list worth reading — so the payload is left empty rather than guessed (${fileLinks(ctx, uniqStrings(missing.map((s) => s.source.file)), 3)}).`,
+      );
+    }
+    if (guessed.length > 0) {
+      bits.push(
+        `${capitalise(countPhrase(guessed.length, "step"))} ${guessed.length === 1 ? "shows" : "show"} field names taken from the callee's signature, not from the data that actually flows: the names are real, the values may be anything.`,
+      );
+    }
+    paragraphs.push(para("not-derivable-1", "gap", bits.join(" "), uniqStrings([...missing, ...guessed].slice(0, 8).flatMap((s) => [s.from, s.to]))));
+  }
+
+  if (inferred.length > 0) {
+    paragraphs.push(
+      para(
+        "not-derivable-inferred",
+        "gap",
+        `${capitalise(countPhrase(inferred.length, "operation"))} ${inferred.length === 1 ? "was" : "were"} found only by following a binding handed over as a parameter (${joinPhrases(uniqStrings(inferred.map((s) => `\`${s.via}\``)))}). One call site is not proof that every caller passes the same binding, so ${inferred.length === 1 ? "it is" : "they are"} marked inferred.`,
+        uniqStrings(inferred.flatMap((s) => [s.from, s.to])),
+      ),
+    );
+  }
+
+  if (flow.truncated) {
+    // The per-hop rule is only worth explaining when it is the rule that bit.
+    const why = flow.dropped.some((d) => d.reason === "hop-budget")
+      ? " Each hop may draw only its share of the step budget, so a wide entry point cannot spend what the deeper hops need: what is missing here is breadth, not depth."
+      : "";
+    paragraphs.push(para("not-derivable-truncated", "gap", `The walk stopped short: ${dropPhrase(flow.dropped)}.${why}`, [flow.entry]));
+  }
+
+  return section("not-derivable", "What could not be derived", paragraphs, {
+    text: "Nothing is missing: every step's payload was read from a literal in the code, and no cap bit.",
+  });
+}
+
+export interface FlowStoryOptions {
+  /** Declared services from §1, so a step can name the store it lands on. */
+  services?: readonly ServiceNode[];
+}
+
+/**
+ * One flow, narrated step by step (spec §4). Each paragraph's refs are its own step's two
+ * node ids, so reading the story walks the map.
+ */
+export function flowStory(ctx: StoryContext, flow: Flow, opts: FlowStoryOptions = {}): Story {
+  const steps = flow.steps.map((step, i) => flowStepParagraph(ctx, step, i, opts.services));
+  const reached = flow.services.map((id) => {
+    const node = flowServiceOf(opts.services, id);
+    return node ? serviceLink(ctx, node) : link(ctx.repo, id, flowNodeLabel(id));
+  });
+  const stepsSection = section("steps", "How the data moves", steps, {
+    text: "Nothing was traced from this entry point: its body makes no call, no service operation and no response Reggie could resolve.",
+  });
+  const subtitle = `${countPhrase(flow.steps.length, "step")} over ${countPhrase(flow.depth, "hop")}, reaching ${flow.services.length > 0 ? joinPhrases(reached) : "no service"}.`;
+
+  return {
+    scope: "flow",
+    id: flow.id,
+    title: flow.title,
+    subtitle,
+    crumbs: [...repoCrumbs(ctx), { label: "Data flow", route: flowsRouteFor(ctx.repo) }, { label: flow.title, route: flowRouteFor(ctx.repo, flow.id) }],
+    sections: [stepsSection, flowGapsSection(ctx, flow)],
+    next: [{ label: "Services", route: servicesRouteFor(ctx.repo) }],
   };
 }

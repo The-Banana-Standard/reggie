@@ -8,12 +8,15 @@ import { claimTask, releaseTask } from "./claim.js";
 import { buildContext } from "./context.js";
 import { checkGeneratedBlock, renderGeneratedBlock } from "./docs.js";
 import { collectFacts } from "./facts.js";
+import { detectFlows, MAX_FLOW_HOPS, traceFlow, type Payload } from "./flows.js";
+import { buildGraph, type RepoGraph } from "./graph.js";
 import { createIssue, createPullRequest, ghAvailable } from "./gh.js";
 import { currentBranch, defaultBranch, git } from "./git.js";
 import { appendJournal, detectTool, readJournal, renderJournalEntry } from "./journal.js";
 import { isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, type LaunchInput } from "./launch.js";
 import { startMcpServer } from "./mcp.js";
 import { startServer } from "./serve.js";
+import { detectServices, type ServiceNode } from "./services.js";
 import { addNote, findNotes, NOTE_TYPES, notesForPath, renderNoteFile, staleEntries, type Confidence, type NoteType } from "./notes.js";
 import { onboard, refreshDocs } from "./onboard.js";
 import { decidePacket, scaffoldPacket } from "./packet.js";
@@ -22,7 +25,7 @@ import { currentPerson, loadConfig, loadPeople, type Person, type ReggieConfig }
 import { lintPlan, parsePlan, renderPlanTemplate, riskFromFiles, RISKS, setPlanRisk, type Risk } from "./plan.js";
 import { getTask, listTasks, readIntake, renderTaskLine, STATE_MACHINE, stateDefinition, type TaskInfo, type TaskState } from "./tasks.js";
 import { isPriority, isSize, scaffoldBrief, type TriageInput } from "./triage.js";
-import { isSafeSlug, parseIntOption, readText, slugify, writeIfMissing, writeText } from "./util.js";
+import { isSafeSlug, parseIntOption, readText, slugify, uniq, writeIfMissing, writeText } from "./util.js";
 import { autoDetectWorkspace, discoverWorkspace, type Workspace } from "./workspace.js";
 
 const VERSION = "3.0.0-alpha.1";
@@ -600,6 +603,111 @@ function planningPrompt(c: Ctx, slug: string): string {
     "---END PROMPT---",
   ].join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// Services and data flow (services-and-flows-spec.md §1–§2)
+// ---------------------------------------------------------------------------
+
+/** The graph both detectors read, built once per command. */
+function repoGraph(c: Ctx): RepoGraph {
+  return buildGraph(c.paths);
+}
+
+function serviceLine(node: ServiceNode, files: readonly string[]): string {
+  const name = node.binding ?? node.name;
+  const named = node.name && node.name !== name ? ` (${node.name})` : "";
+  const where = node.declared ? `declared ${node.declaredAt ? `${node.declaredAt.file}:${node.declaredAt.line}` : "somewhere"}` : "UNDECLARED";
+  return `  ${name.padEnd(28)} ${node.kind.padEnd(15)} ${where}${named}\n    ${files.length > 0 ? `${files.length} file${files.length === 1 ? "" : "s"}: ${files.slice(0, 4).join(", ")}${files.length > 4 ? ` +${files.length - 4}` : ""}` : "no call site outside tests"}`;
+}
+
+program
+  .command("services")
+  .description("What this repo talks to: bindings, stores and APIs, undeclared ones first")
+  .option("--json", "machine-readable output")
+  .action((opts: { json?: boolean }) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    const index = detectServices(c.paths, repoGraph(c));
+    if (opts.json) return out(JSON.stringify(index, null, 2));
+    const files = new Map<string, string[]>();
+    for (const e of index.edges) {
+      if (e.viaTest) continue;
+      const list = files.get(e.service) ?? [];
+      if (!list.includes(e.file)) list.push(e.file);
+      files.set(e.service, list);
+    }
+    if (index.services.length === 0) return out("No service found. Reggie reads wrangler.toml, firebase.json, package.json dependencies, env reads and literal fetch hosts.");
+
+    const secrets = index.undeclared.filter((s) => s.kind === "secret");
+    if (secrets.length > 0) {
+      out(`Undeclared secrets (${secrets.length}) — read in code, declared by no manifest`);
+      for (const s of secrets) out(`${serviceLine(s, files.get(s.id) ?? [])}`);
+      out("");
+    }
+    const rest = index.services.filter((s) => !secrets.includes(s));
+    out(`Services (${rest.length})`);
+    for (const s of rest) out(serviceLine(s, files.get(s.id) ?? []));
+    if (index.unused.length > 0) {
+      out("");
+      out(`Declared and never used (${index.unused.length}): ${index.unused.map((s) => s.binding ?? s.name).join(", ")}`);
+    }
+    out("");
+    out(`${index.services.length} services, ${index.undeclared.length} undeclared, ${index.edges.length} edges. Detail: reggie services --json`);
+  });
+
+function payloadText(p: Payload | null): string {
+  if (!p || p.fields.length === 0) return "not derivable";
+  return `{ ${p.fields.join(", ")} }${p.confidence === "heuristic" ? ` (${p.shape ?? "inferred"}, heuristic)` : ""}`;
+}
+
+program
+  .command("flows [id]")
+  .description("Where data enters and where it goes; with an id, one flow traced step by step")
+  .option("--depth <n>", "hops to walk (1-6)", (v) => parseIntOption(v, "--depth"), MAX_FLOW_HOPS)
+  .option("--json", "machine-readable output")
+  .action((id: string | undefined, opts: { depth: number; json?: boolean }) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    const graph = repoGraph(c);
+    const services = detectServices(c.paths, graph).services;
+    const depth = Math.max(1, Math.min(MAX_FLOW_HOPS, opts.depth));
+
+    if (!id) {
+      const index = detectFlows(c.paths, graph, { services });
+      if (opts.json) return out(JSON.stringify(index, null, 2));
+      if (index.flows.length === 0) return out("No entry point found. Reggie looks for Cloudflare handlers, Express/Hono routes, Next routes, CLI mains and MCP tools.");
+      for (const kind of uniq(index.flows.map((f) => f.kind))) {
+        out(`${kind} (${index.flows.filter((f) => f.kind === kind).length})`);
+        for (const f of index.flows.filter((f) => f.kind === kind)) {
+          const steps = `${f.steps} step${f.steps === 1 ? "" : "s"}`;
+          const hops = `${f.depth} hop${f.depth === 1 ? "" : "s"}`;
+          out(`  ${f.id}\n    ${f.title} · ${steps} · ${hops}${f.truncated ? " · truncated" : ""} · ${f.services.length > 0 ? f.services.join(", ") : "no service"}`);
+        }
+      }
+      out("");
+      return out(`${index.flows.length} entry points. Trace one: reggie flows <id>`);
+    }
+
+    const flow = traceFlow(c.paths, graph, id, { depth, services });
+    if (opts.json) return out(JSON.stringify(flow, null, 2));
+    out(`${flow.title}   ${flow.entry}`);
+    out(`${flow.steps.length} step${flow.steps.length === 1 ? "" : "s"}, ${flow.depth} hop${flow.depth === 1 ? "" : "s"}${flow.truncated ? "" : ", complete"}`);
+    out("");
+    flow.steps.forEach((s, i) => {
+      const via = s.via ? ` via ${s.via}` : "";
+      out(`${String(i + 1).padStart(3)}. ${s.kind.padEnd(8)} ${s.label}${via}   ${s.source.file}:${s.source.line}${s.confidence === "heuristic" ? "  [heuristic]" : ""}`);
+      out(`     in:  ${payloadText(s.input)}`);
+      out(`     out: ${payloadText(s.output)}`);
+    });
+    if (flow.services.length > 0) {
+      out("");
+      out(`Reaches: ${flow.services.join(", ")}`);
+    }
+    if (flow.truncated) {
+      out("");
+      for (const d of flow.dropped) {
+        out(d.reason === "depth" ? `Not followed: ${d.count} call${d.count === 1 ? "" : "s"} at hop ${d.hop} (the walk stops at ${d.hop - 1} hops)` : `Dropped: ${d.count} step${d.count === 1 ? "" : "s"} at hop ${d.hop} (${d.reason})`);
+      }
+    }
+  });
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   fail(err instanceof Error ? err.message : String(err));

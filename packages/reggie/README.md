@@ -41,6 +41,8 @@ npm link            # puts `reggie` on your PATH
 | `reggie packet <slug> [--force]` | Scaffold the completion packet from the plan, the diff, and the evidence folder. Never overwrites an existing packet unless forced. |
 | `reggie decide <slug> approved\|needs-work [--comment t]` | Record a verdict in the packet (solo mode or no-PR review). |
 | `reggie pr <slug> [--draft]` | Push the task branch and open a PR whose body is the packet. Needs `gh`. |
+| `reggie services [--json]` | What the repo talks to: every binding, store and API, with the manifest line that declares it and the files that touch it. Names the ones the code reads and no manifest declares first. |
+| `reggie flows [id] [--depth n] [--json]` | Where data enters and where it goes. With no id, the entry points grouped by kind with their step counts and the services they reach; with one, that flow traced step by step, each step's payload in and out, and what any cap dropped. |
 | `reggie people` | Who is registered and which mode is active. |
 | `reggie mcp` | Start the MCP server on stdio. |
 | `reggie serve [--port 4310] [--host 127.0.0.1]` | Local read-only web view: the import graph (TypeScript, JavaScript, Rust) with notes and task plans overlaid, plus tabs for tasks, notes, and the journal. Click a node for its read-before-edit note chain and its imports. |
@@ -53,14 +55,18 @@ Claims are explicit: `reggie claim` commits a small `claim.md` on the task branc
 
 Derived, never stored:
 
-| State | Derived from |
-|---|---|
-| ungroomed | intake line, no plan |
-| grooming | `plan/<slug>` branch, or a plan on disk that fails the contract |
-| groomed | `plan.md` merged to the default branch (solo mode also accepts a passing plan on disk) |
-| in-process | `task/<slug>` branch with commits |
-| awaiting-decision | open PR from that branch, or a packet on the branch |
-| done | PR merged, or packet approved on the default branch |
+Four phases: capture it, shape it, plan it, build it.
+
+| State | Phase | Derived from |
+|---|---|---|
+| ungroomed | capture | an intake line, with no `brief.md` |
+| groomed | shape | `brief.md` exists; a plan draft that fails the contract also lands here |
+| planned | plan | `plan.md` passes the contract on the default branch (solo mode also accepts a passing plan on disk) |
+| in-process | build | `task/<slug>` branch with commits |
+| awaiting-decision | review | open PR from that branch, or a packet on the branch |
+| done | done | PR merged, or packet approved on the default branch |
+
+A brief is the cheap half of grooming: the problem, the area, a size and a priority, written from the intake line without reading much code. A plan is the expensive half. Splitting them lets you shape a whole backlog in one pass and plan only what you decide to build.
 
 ## MCP server
 

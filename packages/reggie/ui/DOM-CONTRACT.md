@@ -11,6 +11,7 @@ Every container below exists on first paint and is never replaced, only filled.
 | `app` | Root wrapper; gets `is-dense` in Dense mode | app.js |
 | `header` | 48px header | app.js |
 | `crumbs` | Breadcrumb `<nav>`; rendered from `story.crumbs` (`renderCrumbs`) | app.js |
+| `nav` | Header navigation `<nav>`: Overview / Services / Data flow / Tasks for the current repo (`renderNav`); empty on the workspace level, hidden by CSS at ≤1100px where the header row is already full | app.js |
 | `search-trigger` | "Search ⌘K" button | app.js |
 | `lens` | Lens segmented control (`role=radiogroup`) | app.js |
 | `lens-structure`, `lens-knowledge`, `lens-tests`, `lens-heat`, `lens-owners` | Lens buttons (`data-lens`) | app.js |
@@ -36,7 +37,7 @@ Every container below exists on first paint and is never replaced, only filled.
 | `toasts` | Toast region (`aria-live=polite`) | app.js |
 | `icons` | Inline `<svg><symbol>` set; `#i-<name>` | — |
 
-Icons: `repo area file symbol task person note journal entry test stale external search fit zoom-in zoom-out relayout close copy back`. Use `<svg class="i"><use href="#i-file"/></svg>` (14px) or `class="i i--16"` (toolbar). In JS: `icon("file")`, `icon("fit", 16)`.
+Icons: `repo area file symbol task person note journal entry test stale external search fit zoom-in zoom-out relayout close copy back service flow`. Use `<svg class="i"><use href="#i-file"/></svg>` (14px) or `class="i i--16"` (toolbar). In JS: `icon("file")`, `icon("fit", 16)`.
 
 ## 2. Class names (`styles.css`)
 
@@ -47,6 +48,10 @@ Icons: `repo area file symbol task person note journal entry test stale external
 - `.tabs`, `.tabs__tab`, `.tabs__tab.is-active`.
 - `.crumbs`, `.crumbs__item`, `.crumbs__item.is-muted` (greyed Workspace crumb), `.crumbs__sep`, `.crumbs__last` (page title, 22px/600).
 - `.crumbs--mini` on `#mini-crumbs` — `display: none` above 1100px, a one-line crumb tail below it.
+- `.nav` > `.nav__item` (`.is-active` for the level in view) — the header's page navigation.
+- `.app` sets `grid-template-columns: minmax(0, 1fr)`: an `auto` track is floored by its items'
+  min-content, so a long breadcrumb widened the whole page and pushed the header tools off the right
+  edge. With a 0 floor the breadcrumb shrinks and ellipsises instead.
 
 ### Story
 - `.sections` (62ch measure), `.section` (`id="sec-<sectionId>"`, `data-section`), `.section__h` (17px/600 + 1px rule), `.section__more` (hidden in Dense).
@@ -62,6 +67,11 @@ Icons: `repo area file symbol task person note journal entry test stale external
   - `.card.card--spotlight` — the Spotlight card (in `#spotlight`), with `.card__crumbs` and `.card__close`.
   - `.card.card--error` — inline error card (`errorCard()`), `.card--renderer` centres a card in the map stage, `.card--status` is the first-load card.
   - `.card.card--empty` — dashed empty-state card containing a form.
+  - `.card.card--capped` — the Data flow page's "Not every step is drawn" notice: what a cap hid,
+    in words, from `Flow.dropped` (`droppedSentence`). Amber left border.
+  - `.card.card--flow` — one entry point on the Data flow index: `.card__title` link, its route in
+    `.flow-row__route`, chips (Method / Steps / Hops / Capped), and `.flow-row__body` naming the
+    file it starts in and the services it reaches.
 - State classes on paragraphs/cards: `.is-reading` (IntersectionObserver), `.is-tinted` (map hover → left border `--info` 60%), `.is-hot` (background tint).
 - Card internals: `.card__head`, `.card__title`, `.card__body`, `.card__chips`, `.card__actions`.
 - Empty-state block: `.empty` > `.empty__text` + `.empty__hint` (command as secondary hint) + optional `.form`.
@@ -69,8 +79,20 @@ Icons: `repo area file symbol task person note journal entry test stale external
 - `.story__actions` — the "Read the source" row app.js prepends to `#sections` at the file level; `.spot__via` — the `<ul>` of file pairs app.js appends to a Spotlight pinned from an edge tap.
 - `.ws-tiles` > `.ws-tile` (> `.ws-tile__name`, `.ws-tile__meta`, `.ws-tile__bar` > `.ws-tile__seg`) — the workspace tile strip, a block inside `#map-col` under `#map-stage` (map.css).
 
+### Services and Data flow (`services-and-flows-spec.md` §4)
+- `.declared` > `.declared__file` > `.declared__list` > `.declared__row` (`.declared__what`,
+  `.declared__line`) — the "Declared in this repo" index at the foot of the Services story: every
+  declared service grouped by the manifest that names it, with its line. It exists because the
+  services story gives a paragraph only to services that carry an operation and collapses the plain
+  vars into a truncated list, so a declared `[vars]` entry can otherwise never have its line printed
+  (§5 acceptance 1).
+- `?service=<id>` on the services route focuses one service: the map filters to it and its files, and
+  the Spotlight is pinned from `/api/service?id=`. Closing the Spotlight clears the query.
+- `?all=1` draws every service instead of the top of the fan-in ranking; `?tests=1` adds the files
+  only tests touch; `?depth=1..6` on a flow route re-traces it at that many hops.
+
 ### Links and chips
-- `.link.link--<kind>` — produced only by `entityLink()`; kinds: `repo area file symbol task person note journal entry test`.
+- `.link.link--<kind>` — produced only by `entityLink()`; kinds: `repo area file symbol task person note journal entry test service flow`.
 - `.chip` with `.chip__k` (label, `--faint-text`) and `.chip__v` (value); tones `.chip--ok .chip--warn .chip--bad .chip--info .chip--muted`; `.chip--code` (mono); `.chip--state.state--<taskState>` (filled state colour). `.chips` is a wrapping row.
 - Task states are `ungroomed groomed planned in-process awaiting-decision done` — `grooming` is gone. `--state-planned` is the palette's violet `#bb9af7`.
 - Task state utilities `.state--<state>` set `--state`; `.state-dot` draws it.
@@ -122,7 +144,7 @@ in the hash and is written with `replaceState`, never `setQuery` — switching v
 ## 4. Module interfaces (ES modules, `.js`, no bundler)
 
 ### `app.js` (owner of routing, cache, links, toasts, POSTs, keyboard)
-Exports: `h, mount, icon, $, esc, storage, parseRoute, formatRoute, routeForNode, currentRoute, navigate, setQuery, parentRoute, encodeId, api, invalidate, withRepo, errorCard, entityLink, kindForRoute, linkify, chip, chipFrom, stateChip, STATE_LABELS, GLOSSARY, CHIP_LABELS, LENSES, LENS_KEYS, toast, post, postCapture, postNote, postDecide, postJournal, state, on, emit, renderCrumbs, crumbsFor, setLens, setDense, rendererAvailable, rendererFailureCard, RENDERER_FAILURE_TEXT, storyParams, skeleton, section, render, openPalette, closePalette, recentRoutes, unwind, boot, ensureMap, ensureReader, mapUrlFor`.
+Exports: `droppedSentence, h, mount, icon, $, esc, storage, parseRoute, formatRoute, routeForNode, currentRoute, navigate, setQuery, parentRoute, encodeId, api, invalidate, withRepo, errorCard, entityLink, kindForRoute, linkify, chip, chipFrom, stateChip, STATE_LABELS, GLOSSARY, CHIP_LABELS, LENSES, LENS_KEYS, toast, post, postCapture, postNote, postDecide, postJournal, state, on, emit, renderCrumbs, crumbsFor, setLens, setDense, rendererAvailable, rendererFailureCard, RENDERER_FAILURE_TEXT, storyParams, skeleton, section, render, openPalette, closePalette, recentRoutes, unwind, boot, ensureMap, ensureReader, mapUrlFor`.
 - `api(url, {fresh})` → JSON with a 10 s URL-keyed cache; throws `Error` with `.status`.
 - `post(url, body)` → JSON; same-origin fetch; invalidates the `/api/` cache.
 - `state.map` / `state.reader` are set by the integrator once `createMap` / `createReader` run; keyboard `F`, `T`, `1–5`, `Escape`, `Backspace` act through them.
@@ -161,6 +183,26 @@ that level's reserved channel under every lens. The title states what is drawn a
 earlier build appended an implementer's caveat ("(30 days had no spread)"), which is a note about the
 code, not a fact about the repo.
 
+**The two new levels** (`services`, `flows`, `flow`) are built by `buildModel` from their own
+payloads rather than from a `ViewGraph`: pass `{ level, ... }` as the view and the same `level` in the
+show options. `map.show({ level: 'services', index, areas, focus?, all?, tests? })`,
+`map.show({ level: 'flows', flows, services })`, `map.show({ level: 'flow', flow, services })`.
+- Services is a bipartite layout computed by the builder (`layout.name = 'bipartite'`, `shaped: true`,
+  so the shaping passes and `fillTarget` are skipped): the files that touch a service on the left in
+  their Level-1 area compounds, the services on the right ranked by fan-in and wrapped into columns.
+  Every *declared* service is drawn whatever its rank; the tail folds into `fold:services`, which the
+  toolbar's "Show all" button and a tap both unfold (`?all=1`).
+- Flow is dagre `rankDir: 'LR'` with `fixedDir` (a flow is not re-ranked into a column for a portrait
+  pane) and `grid: true`, which deals a hop wider than `GRID_ROWS` into stacked columns inside its own
+  rank. `fitWhole` on a model over 36 nodes asks `fit()` to hold the whole graph rather than clip at
+  the readability floor, because at those zooms no label is drawn either way.
+- Node data: `svc` (`service | file | area | step | entry | response | fold`) and `svcKind` (the
+  `ServiceKind`) drive the stylesheet. Edge data: `op` (`read | write | touch`), `payload`
+  (`exact | heuristic | none`) and `labelColor`. Exact payloads are solid, heuristic dotted, and
+  "shape not derivable" is drawn back at 0.5 opacity — the distinction is the page.
+- Exports: `SERVICE_SHAPES`, `SERVICE_NOUNS`, `OP_COLORS`, `OP_VERBS`, `MAX_SERVICE_NODES`,
+  `serviceNoun`, `serviceShape`, `serviceLabel`, `declaredLine`, `payloadLabel`, `payloadClause`.
+
 `window.__reggieMap` — a debug handle (`{ cy, getModel, getLens, fit }`) set when the instance is
 created. For inspection from a browser session only; nothing in the app reads it.
 When `window.cytoscape` is missing, `createMap` returns the same surface with no-ops.
@@ -171,7 +213,7 @@ export function renderStory(container, story /* Story */, deps /* { map, reader,
 export function renderSpotlight(container, explain /* /api/explain payload */, deps /* { map, repo, onClose, onAddNote } */)
 export function renderSkeleton(container, sectionHeadings /* string[] */)
 export function renderParagraph(p /* Paragraph */, deps) → Element     // link helper: one paragraph
-export function sectionHeadingsFor(scope, lens) → string[]                // the fixed headings per scope
+export function sectionHeadingsFor(scope, lens) → string[]                // the fixed headings per scope (repo, area, file, task, workspace, services, flow)
 export function dedupeChips(chips, seenValues?) → chips[]                 // one chip per fact
 ```
 Every chip row goes through `dedupeChips`: chips are keyed by their canonical label ("By" and
@@ -205,6 +247,9 @@ export function rememberedTool()   // localStorage `reggie.launch.tool`, "claude
 | file | `/api/story?scope=file&id=<path>` + `/api/explain?id=` | `/api/impact?id=&depth=&direction=&tests=` |
 | tasks | `/api/tasks` + `/api/state-machine` (+ `/api/tasks?all=1` when Completed is first shown, and `/api/task/<slug>` lazily behind each read action) | board |
 | task | `/api/task/<slug>` | `/api/impact?slug=` |
+| services | `/api/story?scope=services` | `/api/services` + `/api/graph?level=container` (for the Level-1 areas the file column is grouped and coloured by) |
+| flows | the index is rendered by app.js from `/api/flows` (there is no `scope=flows` story) | `/api/flows` + `/api/services` (for each service's kind and shape) |
+| flow | `/api/story?scope=flow&id=&depth=` | `/api/flow?id=&depth=` + `/api/services` |
 
 ## 5. Additive server field the client relies on
 

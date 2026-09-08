@@ -184,7 +184,11 @@ button { cursor: pointer; }
 .btn--tool .i, .i--16 { width: 16px; height: 16px; }
 
 /* ---------- 3.1 Shell grid ---------- */
-.app { min-height: 100vh; display: grid; grid-template-rows: var(--header-h) 1fr; }
+/* The single column is `minmax(0, 1fr)`, not the implicit `auto`: an `auto` track is floored by its
+   items' min-content, so one long breadcrumb in the header widened the whole page and pushed the
+   lens and Dense off the right edge (the flow level, whose crumb trail is four deep, at 1280px).
+   With a 0 floor the header's own flex rules do the work: the breadcrumb shrinks and ellipsises. */
+.app { min-height: 100vh; display: grid; grid-template-rows: var(--header-h) 1fr; grid-template-columns: minmax(0, 1fr); }
 
 .header {
   position: sticky; top: 0; z-index: 20;
@@ -195,6 +199,26 @@ button { cursor: pointer; }
   border-bottom: 1px solid var(--line);
 }
 .header__tools { display: flex; align-items: center; gap: var(--s-2); margin-left: auto; flex: 0 0 auto; }
+
+/* ---------- Header navigation (the repo-level pages: Overview, Services, Data flow, Tasks) ---------- */
+.nav { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.nav:empty { display: none; }
+.nav__item {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 26px; padding: 0 var(--s-2); border-radius: 6px;
+  color: var(--muted); font-size: var(--fs-label); font-weight: 500; white-space: nowrap;
+}
+.nav__item .i { opacity: 0.8; }
+.nav__item:hover { color: var(--text); background: var(--panel-2); text-decoration: none; }
+.nav__item.is-active { color: var(--text); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.nav__item:focus-visible { outline: 2px solid var(--info); outline-offset: 1px; }
+/* The labels go first and the glyphs stay, so the row keeps its four targets while the breadcrumb
+   and the lens keep their width. */
+@media (max-width: 1240px) { .nav__item span { display: none; } .nav__item { padding: 0 6px; } }
+/* Below the stacking breakpoint the header is full: breadcrumb, lens, search and Dense already
+   measure ~980px of a 1000px row, so the nav steps out rather than pushing the row into a
+   horizontal scroll. Both pages stay reachable from the breadcrumb and from the repo story. */
+@media (max-width: 1100px) { .nav { display: none; } }
 .kbd {
   font-family: var(--font); font-size: var(--fs-sub); color: var(--muted);
   border: 1px solid var(--line-strong); border-radius: 4px; padding: 0 4px; line-height: 16px;
@@ -344,6 +368,10 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 .card--journal { border-left-color: var(--line-strong); }
 .card--decision { border-left-color: var(--warn); }
 .card--error { border-left-color: var(--bad); }
+/* A flow whose caps hid steps says so above the story, in the same register as an error card but in
+   the warning colour: this is a true statement about a limit, not a failure (§4). */
+.card--capped { border-left-color: var(--warn); }
+.card--capped .card__head { color: var(--warn); }
 .card--status { text-align: left; }
 .card--renderer { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: 420px; }
 /* An empty state is a hole, not a raised card: the page ground also lifts --faint-text inside it from
@@ -610,3 +638,24 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 .badge--new { background: var(--ok); color: var(--bg); }
 .badge--mod { background: var(--warn); color: var(--bg); }
 .badge--del { background: var(--bad); color: var(--bg); }
+
+/* ---------- Services and Data flow (services-and-flows-spec.md §4) ---------- */
+.link--service .i { color: var(--up); }
+.link--flow .i { color: var(--info); }
+.card--flow { border-left-color: var(--line-strong); }
+.card--flow .card__head { align-items: baseline; gap: var(--s-2); flex-wrap: wrap; }
+.card--flow .card__title { font-size: var(--fs-body); }
+.card--flow .card__chips { margin: 4px 0 0; }
+.flow-row__route { color: var(--muted); font-size: var(--fs-meta); }
+.flow-row__body { font-size: var(--fs-meta); margin-top: 6px; line-height: 1.6; }
+.flow-row__body .link { font-size: var(--fs-meta); }
+/* A lens with nothing to say about the nodes on screen is switched off, not left live and inert. */
+.seg__btn:disabled { color: var(--faint-text); cursor: not-allowed; }
+.seg__btn:disabled:hover { background: none; }
+/* "Declared in this repo": the index that guarantees every declaration prints its line (§4). */
+.declared { list-style: none; margin: 0; padding: 0; font-size: var(--fs-meta); }
+.declared__file { margin: 0 0 var(--s-3); }
+.declared__list { list-style: none; margin: 4px 0 0; padding: 0 0 0 var(--s-3); border-left: 1px solid var(--line); }
+.declared__row { display: flex; align-items: baseline; gap: 6px; padding: 2px 0; }
+.declared__what { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.declared__line { color: var(--faint-text); font-variant-numeric: tabular-nums; flex: 0 0 auto; }

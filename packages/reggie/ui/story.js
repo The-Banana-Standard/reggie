@@ -95,13 +95,23 @@ const HEADINGS = {
     ["repos", "Repos"],
     ["connect", "How they connect"],
   ],
+  services: [
+    ["needs-attention", "Needs attention"],
+    ["talks-to", "What this repo talks to"],
+    ["secrets", "Where the secrets come from"],
+    ["not-wired", "What is not wired up"],
+  ],
+  flow: [
+    ["steps", "How the data moves"],
+    ["not-derivable", "What could not be derived"],
+  ],
 };
 const GAPS_HEADING = ["gaps", "What nobody has written down"];
 
 const NOTE_TYPES = ["why", "how", "gotcha", "verify", "data-source", "decision"];
 const CONFIDENCES = ["high", "medium", "low"];
-const KIND_LABEL = { repo: "repo", dir: "area", area: "area", file: "file", symbol: "symbol", sym: "symbol", task: "task", person: "person", entity: "entity", fold: "area", ghost: "area", note: "note", journal: "journal" };
-const KIND_ICON = { repo: "repo", dir: "area", area: "area", file: "file", symbol: "symbol", sym: "symbol", task: "task", person: "person", entity: "note", fold: "area", ghost: "area", note: "note", journal: "journal", entry: "entry", test: "test" };
+const KIND_LABEL = { repo: "repo", dir: "area", area: "area", file: "file", symbol: "symbol", sym: "symbol", task: "task", person: "person", entity: "entity", fold: "area", ghost: "area", note: "note", journal: "journal", service: "service", flow: "data flow" };
+const KIND_ICON = { repo: "repo", dir: "area", area: "area", file: "file", symbol: "symbol", sym: "symbol", task: "task", person: "person", entity: "note", fold: "area", ghost: "area", note: "note", journal: "journal", entry: "entry", test: "test", service: "service", flow: "flow" };
 const LINK_RE = /\[\[([^\]|]+)\|([^\]|]*)(?:\|([a-z-]+))?\]\]/g;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

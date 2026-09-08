@@ -7,7 +7,7 @@
 // (ui/DOM-CONTRACT.md §"Route → data").
 
 import { renderStory, renderSpotlight, renderSkeleton, sectionHeadingsFor, closeSpotlight, focusNoteForm } from "./story.js";
-import { createMap } from "./map.js";
+import { createMap, SERVICE_NOUNS } from "./map.js";
 import { createReader } from "./reader.js";
 import { renderBoard, renderTaskPage, unmountBoard } from "./board.js";
 
@@ -17,7 +17,7 @@ import { renderBoard, renderTaskPage, unmountBoard } from "./board.js";
 
 export const LENSES = ["structure", "knowledge", "tests", "heat", "owners"];
 export const LENS_KEYS = { 1: "structure", 2: "knowledge", 3: "tests", 4: "heat", 5: "owners" };
-export const LEVELS = ["workspace", "repo", "area", "file", "symbol", "tasks", "task", "people", "person", "time"];
+export const LEVELS = ["workspace", "repo", "area", "file", "symbol", "tasks", "task", "services", "flows", "flow", "people", "person", "time"];
 export const CACHE_TTL_MS = 10_000;
 export const VENDOR_EXPECTED = "/vendor/cytoscape.min.js";
 export const RENDERER_FAILURE_TEXT =
@@ -233,6 +233,12 @@ export function parseRoute(hash) {
       return { ...route, level: "symbol", id: rest };
     case "tasks":
       return { ...route, level: "tasks" };
+    case "services":
+      return { ...route, level: "services" };
+    case "flows":
+      return { ...route, level: "flows" };
+    case "flow":
+      return { ...route, level: "flow", id: rest };
     case "task":
       return { ...route, level: "task", id: rest };
     case "people":
@@ -274,6 +280,15 @@ export function formatRoute(route) {
     case "tasks":
       path = `/repo/${encodeId(route.repo)}/tasks`;
       break;
+    case "services":
+      path = `/repo/${encodeId(route.repo)}/services`;
+      break;
+    case "flows":
+      path = `/repo/${encodeId(route.repo)}/flows`;
+      break;
+    case "flow":
+      path = `/repo/${encodeId(route.repo)}/flow/${encodeId(route.id)}`;
+      break;
     case "task":
       path = `/repo/${encodeId(route.repo)}/task/${encodeId(route.id)}`;
       break;
@@ -301,7 +316,15 @@ export function routeForNode(repo, nodeId, query) {
   if (id.startsWith("dir:")) return formatRoute({ ...base, level: "area", id: id.slice(4).replace(/\/+$/, "") });
   if (id.startsWith("task:")) return formatRoute({ ...base, level: "task", id: id.slice(5) });
   if (id.startsWith("person:")) return formatRoute({ ...base, level: "person", id: id.slice(7) });
-  if (id.startsWith("sym:")) return formatRoute({ ...base, level: "symbol", id: id.slice(4) });
+  if (id.startsWith("svc:")) return formatRoute({ ...base, level: "services", query: { ...(query ?? {}), service: id } });
+  if (id.startsWith("resp:")) return formatRoute({ ...base, level: "flow", id: id.slice(5) });
+  if (id.startsWith("sym:")) {
+    const rest = id.slice(4);
+    const cut = rest.lastIndexOf("#");
+    // A flow step names a symbol with `#`; the symbol level addresses it with `::`.
+    if (cut > 0) return formatRoute({ ...base, level: "symbol", id: `${rest.slice(0, cut)}::${rest.slice(cut + 1)}` });
+    return formatRoute({ ...base, level: "symbol", id: rest });
+  }
   if (id.startsWith("ghost:")) return routeForNode(repo, id.replace(/^ghost:(up|down):/, ""), query);
   if (id.startsWith("fold:") || id.startsWith("entity:")) return formatRoute({ ...base, level: "repo" });
   return formatRoute({ ...base, level: "file", id });
@@ -358,6 +381,11 @@ export function parentRoute(route) {
       return { level: "file", repo: route.repo, id: route.id.split("::")[0], query: {} };
     case "task":
       return { level: "tasks", repo: route.repo, query: {} };
+    case "flow":
+      return { level: "flows", repo: route.repo, query: {} };
+    case "services":
+    case "flows":
+      return { level: "repo", repo: route.repo, query: {} };
     case "person":
       return { level: "people", repo: route.repo, query: {} };
     case "repo":
@@ -439,6 +467,8 @@ export function entityLink(kind, route, label, opts = {}) {
 
 const ICON_KIND = {
   repo: "repo",
+  service: "service",
+  flow: "flow",
   dir: "area",
   area: "area",
   file: "file",
@@ -463,6 +493,8 @@ export function kindForRoute(route) {
   if (/^#?\/repo\/[^/]+\/file\//.test(r)) return "file";
   if (/^#?\/repo\/[^/]+\/symbol\//.test(r)) return "symbol";
   if (/^#?\/repo\/[^/]+\/task(s)?(\/|$)/.test(r)) return "task";
+  if (/^#?\/repo\/[^/]+\/services/.test(r)) return "service";
+  if (/^#?\/repo\/[^/]+\/flows?(\/|$)/.test(r)) return "flow";
   if (/^#?\/repo\/[^/]+\/pe(ople|rson)/.test(r)) return "person";
   if (/^#?\/repo\/[^/]+\/time/.test(r)) return "journal";
   if (/^#?\/repo\/[^/]+$/.test(r)) return "repo";
@@ -690,6 +722,16 @@ export function crumbsFor(route) {
     case "tasks":
       out.push({ label: "Tasks", route: formatRoute({ level: "tasks", repo, query: {} }) });
       break;
+    case "services":
+      out.push({ label: "Services", route: formatRoute({ level: "services", repo, query: {} }) });
+      break;
+    case "flows":
+      out.push({ label: "Data flow", route: formatRoute({ level: "flows", repo, query: {} }) });
+      break;
+    case "flow":
+      out.push({ label: "Data flow", route: formatRoute({ level: "flows", repo, query: {} }) });
+      out.push({ label: route.id, route: formatRoute(route) });
+      break;
     case "task":
       out.push({ label: "Tasks", route: formatRoute({ level: "tasks", repo, query: {} }) });
       out.push({ label: route.id, route: formatRoute(route) });
@@ -748,6 +790,41 @@ function wireHeader() {
     navigate({ level: "repo", repo: ev.target.value, query: {} });
   });
   $("tab-map")?.addEventListener("click", () => setQuery({ tab: null }));
+}
+
+/** The repo-level pages, in the header, with the current one marked (§4). */
+const NAV_ITEMS = [
+  ["repo", "Overview", "repo"],
+  ["services", "Services", "service"],
+  ["flows", "Data flow", "flow"],
+  ["tasks", "Tasks", "task"],
+];
+const NAV_ACTIVE = { repo: "repo", area: "repo", file: "repo", symbol: "repo", services: "services", flows: "flows", flow: "flows", tasks: "tasks", task: "tasks" };
+function renderNav(route) {
+  const nav = $("nav");
+  if (!nav) return;
+  const repo = route.repo ?? state.facts?.facts?.name ?? null;
+  if (!repo || route.level === "workspace" || route.level === "home") {
+    mount(nav, []);
+    return;
+  }
+  const active = NAV_ACTIVE[route.level] ?? null;
+  mount(
+    nav,
+    NAV_ITEMS.map(([level, label, glyph]) =>
+      h(
+        "a",
+        {
+          class: `nav__item${level === active ? " is-active" : ""}`,
+          href: formatRoute({ level, repo, query: {} }),
+          "aria-current": level === active ? "page" : null,
+          title: label,
+        },
+        icon(glyph),
+        h("span", {}, label),
+      ),
+    ),
+  );
 }
 
 function renderRepoSwitcher() {
@@ -842,6 +919,9 @@ const LEVEL_NAMES = {
   symbol: "Symbol",
   tasks: "Task board",
   task: "Task",
+  services: "Services",
+  flows: "Data flow",
+  flow: "Data flow",
   people: "People",
   person: "Person",
   time: "Timeline",
@@ -870,6 +950,14 @@ export function storyParams(route) {
     case "task":
       q.set("scope", "task");
       q.set("id", route.id);
+      break;
+    case "services":
+      q.set("scope", "services");
+      break;
+    case "flow":
+      q.set("scope", "flow");
+      q.set("id", route.id);
+      if (route.query?.depth) q.set("depth", route.query.depth);
       break;
     default:
       return null;
@@ -926,6 +1014,7 @@ export async function render(route) {
   }
 
   renderRepoSwitcher();
+  renderNav(route);
   rememberRoute(route.hash);
   document.title = titleFor(route);
   emit("route", route);
@@ -940,7 +1029,7 @@ function titleFor(route) {
 }
 
 /** Story scope per route level (`/api/story?scope=`); levels without a story render their own column. */
-const STORY_SCOPE = { workspace: "workspace", repo: "repo", area: "area", file: "file", symbol: "file", task: "task" };
+const STORY_SCOPE = { workspace: "workspace", repo: "repo", area: "area", file: "file", symbol: "file", task: "task", services: "services", flow: "flow" };
 
 /** The file a file/symbol route points at, and the symbol name when the route names one. */
 function fileOf(route) {
@@ -990,11 +1079,19 @@ function wireMapEvents(map) {
   map.on("edgeTap", (edge) => pinEdgeSpotlight(edge));
   map.on("depth", (n) => {
     if (state.route?.level === "task") return; // board.js owns the blast-radius depth
-    setQuery({ depth: Number(n) === 1 ? null : String(n) });
+    // The explorer's default depth is 1 and drops out of the URL; a flow's default is the tracer's
+    // six hops, so *one* hop is a choice worth keeping in the hash.
+    const isFlow = state.route?.level === "flow";
+    const drop = isFlow ? Number(n) === 6 : Number(n) === 1;
+    setQuery({ depth: drop ? null : String(n) });
   });
   map.on("direction", (dir) => {
     if (state.route?.level === "task") return;
     setQuery({ dir: dir === "both" ? null : dir });
+  });
+  map.on("all", (on) => setQuery({ all: on ? "1" : null }));
+  map.on("fold", (id) => {
+    if (state.route?.level === "services" && String(id).startsWith("fold:")) setQuery({ all: "1" });
   });
 }
 
@@ -1009,6 +1106,22 @@ function onNodeTap(id, nd) {
     toast(`${nd?.foldCount ?? "Several"} files are folded into this node; raise the depth or open the area to see them.`, { tone: "info" });
     return;
   }
+  // §4: on the Services map a service pins its Spotlight and filters the map to it, and a file
+  // opens its file page — the two questions that map is drawn to answer.
+  if (sid.startsWith("svc:")) {
+    if (route.level === "services") return setQuery({ service: sid });
+    state.map?.select?.(sid);
+    pinServiceSpotlight(sid, route, state.renderToken);
+    return undefined;
+  }
+  if (route.level === "services" && nd?.svc === "file") return navigate(routeForNode(route.repo, sid));
+  if (route.level === "flow" || route.level === "flows") {
+    const path = nd?.file ?? (sid.startsWith("sym:") ? sid.slice(4).split("#")[0] : null);
+    if (!path) return undefined;
+    state.map?.select?.(sid);
+    pinSpotlight(path);
+    return undefined;
+  }
   state.map?.select?.(sid);
   pinSpotlight(sid);
   return undefined;
@@ -1020,10 +1133,22 @@ function onNodeOpen(id, nd) {
   if (!route) return;
   const sid = String(id);
   if (nd?.kind === "fold" || sid.startsWith("fold:")) return onNodeTap(sid, nd);
+  if (sid.startsWith("flow:")) return navigate(formatRoute({ level: "flow", repo: route.repo, id: sid.slice(5), query: {} }));
+  if ((route.level === "flow" || route.level === "flows") && nd?.file) return navigate(routeForNode(route.repo, nd.file));
   const repo = sid.startsWith("repo:") ? sid.slice(5) : route.repo;
   const target = routeForNode(repo, sid);
   if (target && target !== location.hash) navigate(target);
   return undefined;
+}
+
+/** Close the pinned card without treating it as the reader dismissing the service focus. */
+function closeSpotlightQuietly() {
+  state.quietSpotlightClose = true;
+  try {
+    closeSpotlight({ immediate: true });
+  } finally {
+    state.quietSpotlightClose = false;
+  }
 }
 
 function spotlightDeps(route) {
@@ -1032,6 +1157,13 @@ function spotlightDeps(route) {
     repo: route?.repo ?? null,
     reader: state.reader,
     route,
+    // Dismissing the Spotlight on the Services page is how you leave a focused service, so it puts
+    // the whole map back rather than leaving the canvas filtered with nothing saying why.
+    onClose: () => {
+      if (state.quietSpotlightClose) return;
+      const r = currentRoute();
+      if (r.level === "services" && r.query?.service) setQuery({ service: null });
+    },
     onAddNote: () => {
       if (!focusNoteForm()) toast("Open a file or an area to add a note there.", { tone: "warn" });
     },
@@ -1172,7 +1304,10 @@ async function renderLevel(route, token) {
   const scope = STORY_SCOPE[route.level] ?? null;
 
   // Leaving a level: unpin the Spotlight, put the canvas back, close the reader, drop workspace tiles.
-  closeSpotlight({ immediate: true });
+  closeSpotlightQuietly();
+  // A node selected on the level being left keeps its white ring when the same id is drawn on the
+  // next one (a service is on the Services map, the flow index and every flow that reaches it).
+  state.map?.select?.(null);
   if (route.level !== "tasks" && route.level !== "task") unmountBoard(stage);
   if (route.level !== "file" && route.level !== "symbol") state.reader?.close?.();
   if (route.level !== "workspace") $("map-col")?.querySelector(".ws-tiles")?.remove();
@@ -1184,6 +1319,7 @@ async function renderLevel(route, token) {
   if (main) main.dataset.level = route.level ?? "";
   renderCrumbs(crumbsFor(route));
   if (scope) renderSkeleton(sections, sectionHeadingsFor(scope, state.lens));
+  else if (route.level === "flows") renderSkeleton(sections, ["Cloudflare handlers", "HTTP routes", "Program entry points"]);
   else mount(sections, section("loading", LEVEL_NAMES[route.level] ?? "Loading", skeleton()));
 
   switch (route.level) {
@@ -1191,6 +1327,12 @@ async function renderLevel(route, token) {
       return renderTasksLevel(route, token);
     case "task":
       return renderTaskLevel(route, token);
+    case "services":
+      return renderServicesLevel(route, token);
+    case "flows":
+      return renderFlowsLevel(route, token);
+    case "flow":
+      return renderFlowLevel(route, token);
     case "people":
     case "person":
     case "time":
@@ -1206,12 +1348,30 @@ async function renderLevel(route, token) {
  * hidden on exactly the levels `mapUrlFor` draws no graph for, the same way the tests toggle is.
  */
 const GRAPHLESS_LEVELS = new Set(["tasks", "people", "person", "time"]);
+/** The levels whose maps carry no history, no coverage and no authorship to colour by (§4). */
+const SERVICE_LEVELS = new Set(["services", "flows", "flow"]);
+const SERVICE_LENSES = new Set(["structure", "knowledge"]);
 function syncGraphChrome(route) {
   const graphless = GRAPHLESS_LEVELS.has(route.level ?? "");
   const lens = $("lens");
   if (lens) lens.hidden = graphless;
   const tabs = $("map-tabs");
   if (tabs) tabs.hidden = graphless;
+  // A lens that cannot say anything about the nodes on screen is disabled rather than left live and
+  // inert: the Services and Data flow maps draw services and steps, which have notes but no commits,
+  // no test coverage and no authors of their own.
+  const limited = SERVICE_LEVELS.has(route.level ?? "");
+  for (const btn of document.querySelectorAll("#lens .seg__btn")) {
+    if (!btn.dataset.tip) btn.dataset.tip = btn.title;
+    const ok = !limited || SERVICE_LENSES.has(btn.dataset.lens);
+    btn.disabled = !ok;
+    btn.setAttribute("aria-disabled", ok ? "false" : "true");
+    btn.title = ok
+      ? limited && btn.dataset.lens === "knowledge"
+        ? "Colour = notes about each service (2)"
+        : btn.dataset.tip
+      : "Not on this page: a service has notes, but no commits, no tests and no authors of its own";
+  }
 }
 
 function syncTestsButton(route) {
@@ -1219,7 +1379,7 @@ function syncTestsButton(route) {
   if (!btn) return;
   const on = route.query?.tests === "1";
   btn.setAttribute("aria-pressed", on ? "true" : "false");
-  btn.hidden = !(route.level === "area" || route.level === "file" || route.level === "symbol");
+  btn.hidden = !(route.level === "area" || route.level === "file" || route.level === "symbol" || route.level === "services");
 }
 
 /** Workspace, repo, area, file and symbol: story column + Cytoscape map, fetched together. */
@@ -1396,6 +1556,402 @@ function renderWorkspaceTiles(ws, route) {
 }
 
 /** #/repo/<name>/tasks — story column becomes the Needs-you queue, map column becomes the board. */
+// ---------------------------------------------------------------------------
+// Services and Data flow (services-and-flows-spec.md §4)
+// ---------------------------------------------------------------------------
+
+/** Promise → { value } | { error }, so one failed panel never blanks the other. */
+function settle(p) {
+  return p.then((value) => ({ value }), (error) => ({ error }));
+}
+
+/** The entry kinds `/api/flows` reports, in the order the index lists them, with a heading each. */
+const FLOW_KIND_HEADINGS = [
+  ["cloudflare", "Cloudflare handlers"],
+  ["http-route", "HTTP routes"],
+  ["next-route", "Next.js route handlers"],
+  ["next-page", "Next.js pages"],
+  ["mcp", "MCP tools"],
+  ["cli", "CLI commands"],
+  ["main", "Program entry points"],
+];
+const DROP_REASONS = {
+  "hop-budget": "each hop may draw only its share of the step budget, so a wide entry point cannot spend what the deeper hops need",
+  "step-cap": "the whole walk is capped at 200 steps",
+  depth: (flow) => `the walk stops at ${flow?.depth ? `hop ${flow.depth}` : "the hop limit"}, which is as far as this trace was asked to go`,
+};
+const FLOW_DEPTHS = ["1", "2", "3", "4", "5", "6"];
+
+function flowDepth(route) {
+  return FLOW_DEPTHS.includes(String(route.query?.depth)) ? Number(route.query.depth) : 6;
+}
+
+/** "18 steps are not drawn: nine at hop one and nine at hop two" — what a cap cost, in words. */
+export function droppedSentence(flow) {
+  const list = (Array.isArray(flow?.dropped) ? flow.dropped : []).filter((d) => (d?.count ?? 0) > 0);
+  if (!list.length) return null;
+  const total = list.reduce((a, d) => a + d.count, 0);
+  const parts = list.map((d) => `${d.count} at hop ${d.hop}`);
+  const where = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  const reasons = Array.from(new Set(list.map((d) => {
+    const r = DROP_REASONS[d.reason];
+    return typeof r === "function" ? r(flow) : r ?? d.reason;
+  })));
+  const widthOnly = list.every((d) => d.reason === "hop-budget");
+  const tail = widthOnly ? " What is missing is breadth, not depth: every hop below is still walked." : "";
+  return `${total} step${total === 1 ? "" : "s"} of this flow ${total === 1 ? "is" : "are"} not drawn — ${where} — because ${reasons.join(", and ")}.${tail}`;
+}
+
+/** Services: story from `/api/story?scope=services`, map from `/api/services` (§4). */
+async function renderServicesLevel(route, token) {
+  const sections = $("sections");
+  const mapCol = $("map-col");
+  const map = ensureMap();
+  const focus = route.query?.service ?? null;
+  const mapUrl = withRepo("/api/services");
+  if (state.rendererOk) mapCol?.classList.add("is-loading");
+  const [story, index, graph] = await Promise.all([
+    settle(api(withRepo(`/api/story?${storyParams(route)}`))),
+    settle(api(mapUrl)),
+    // The map groups the files that touch a service into their Level-1 areas, and takes the hue for
+    // each area from the same list the repo map colours by, so one area is one colour everywhere.
+    state.rendererOk ? settle(api(withRepo("/api/graph?level=container"))) : Promise.resolve({ value: null }),
+  ]);
+  if (token !== state.renderToken) return;
+
+  if (story.error) {
+    state.story = null;
+    mount(sections, errorCard("/api/story", story.error.message, () => render(route)));
+  } else if (story.value) {
+    state.story = story.value;
+    renderCrumbs(story.value.crumbs?.length ? story.value.crumbs : crumbsFor(route));
+    renderStory(sections, story.value, storyDeps(route));
+    if (index.value) appendDeclaredList(sections, index.value, route);
+  }
+
+  mapCol?.classList.remove("is-loading");
+  if (!state.rendererOk) {
+    $("map-footer").textContent = "map unavailable";
+  } else if (index.error) {
+    toast(`\`/api/services\` failed: ${index.error.message}`, { tone: "bad" });
+    $("map-footer").textContent = "the services payload failed; the story is unaffected";
+  } else if (index.value && map) {
+    const view = {
+      level: "services",
+      index: index.value,
+      areas: graph.value?.areas ?? [],
+      focus,
+      all: route.query?.all === "1",
+      tests: route.query?.tests === "1",
+    };
+    try {
+      map.show(view, { level: "services", lens: state.lens, repo: route.repo ?? "repo", tests: view.tests, all: view.all });
+    } catch (err) {
+      console.error("map.show failed", err);
+      toast("The map could not draw the services; the story is unaffected.", { tone: "warn" });
+    }
+  }
+  if (focus) await pinServiceSpotlight(focus, route, token);
+  return undefined;
+}
+
+/**
+ * Every declared binding with the line that declares it, in one place (§5 acceptance 1). The story
+ * gives a paragraph to the services that carry an operation and collapses the plain vars into a
+ * truncated list, so a `[vars]` entry can be declared, drawn on the map, and still never have its
+ * line printed in prose. This block is the index that guarantees it: one row per declaration.
+ */
+function appendDeclaredList(sections, index, route) {
+  const declared = (index.services ?? []).filter((s) => s.declared !== false && s.declaredAt?.file);
+  if (!declared.length) return;
+  const repo = route.repo;
+  const byFile = new Map();
+  for (const s of declared) {
+    if (!byFile.has(s.declaredAt.file)) byFile.set(s.declaredAt.file, []);
+    byFile.get(s.declaredAt.file).push(s);
+  }
+  const rows = [];
+  for (const [file, list] of Array.from(byFile.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+    list.sort((a, b) => (a.declaredAt.line ?? 0) - (b.declaredAt.line ?? 0));
+    rows.push(
+      h(
+        "li",
+        { class: "declared__file" },
+        entityLink("file", formatRoute({ level: "file", repo, id: file, query: {} }), file, { refs: file }),
+        h(
+          "ul",
+          { class: "declared__list" },
+          list.map((s) =>
+            h(
+              "li",
+              { class: "declared__row", dataset: { refs: s.id } },
+              entityLink("service", formatRoute({ level: "services", repo, query: { service: s.id } }), s.binding || s.name, { refs: s.id }),
+              h("span", { class: "declared__what muted" }, ` ${SERVICE_NOUNS[s.kind] ?? s.kind}${s.name && s.name !== (s.binding || s.name) ? ` ${s.name}` : ""}`),
+              h("span", { class: "declared__line" }, `line ${s.declaredAt.line ?? 1}`),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  const sec = section(
+    "declared",
+    "Declared in this repo",
+    h("p", { class: "para para--fact" }, `${declared.length} binding${declared.length === 1 ? "" : "s"} ${declared.length === 1 ? "is" : "are"} named by a manifest in the repo, with the line that names each one.`),
+    h("ul", { class: "declared section__more" }, rows),
+  );
+  sections.appendChild(sec);
+  for (const el of sec.querySelectorAll("[data-refs]")) {
+    const refs = el.dataset.refs.split(" ").filter(Boolean);
+    el.addEventListener("mouseenter", () => state.map?.highlight?.(refs));
+    el.addEventListener("mouseleave", () => state.map?.clearHighlight?.());
+  }
+}
+
+/** The Spotlight for one service, built from `/api/service?id=` the way `/api/explain` builds one. */
+async function pinServiceSpotlight(id, route, token) {
+  try {
+    const d = await api(withRepo(`/api/service?id=${encodeURIComponent(id)}`));
+    if (token != null && token !== state.renderToken) return;
+    state.quietSpotlightClose = true;
+    try {
+      renderSpotlight($("spotlight"), serviceExplain(d, route), spotlightDeps(route));
+    } finally {
+      state.quietSpotlightClose = false;
+    }
+    state.map?.select?.(id);
+  } catch (err) {
+    if (err.status === 404) {
+      toast(`No service is called \`${id}\`.`, { tone: "warn" });
+      setQuery({ service: null });
+      return;
+    }
+    toast(`\`/api/service\` failed: ${err.message}`, { tone: "warn" });
+  }
+}
+
+/** `/api/service` payload → the four-sentence Spotlight shape `story.js` renders. */
+function serviceExplain(payload, route) {
+  const s = payload?.service ?? {};
+  const repo = route?.repo ?? state.route?.repo;
+  const name = s.binding || s.name || s.id;
+  const fileLink = (p) => `[[${formatRoute({ level: "file", repo, id: p, query: {} })}|${p.split("/").pop()}]]`;
+  const noun = SERVICE_NOUNS[s.kind] ?? s.kind ?? "service";
+  const where = s.declaredAt ? `${s.declaredAt.file} at line ${s.declaredAt.line}` : null;
+  const sentences = [];
+  const first = s.name && s.name !== name ? `${name} is the ${noun} ${s.name}` : `${name} is a ${noun}`;
+  sentences.push({
+    text: s.declared === false
+      ? `${first}. No manifest in this repo declares it, so its value is set outside the repo${where ? `; the name is written down in ${fileLink(s.declaredAt.file)} at line ${s.declaredAt.line}` : ""}.`
+      : `${first}${s.provider ? `, provided by ${s.provider}` : ""}. It is declared in ${where ? `${fileLink(s.declaredAt.file)} at line ${s.declaredAt.line}` : "a manifest"}.`,
+    refs: [s.id, s.declaredAt?.file].filter(Boolean),
+  });
+  const readers = s.readers ?? [];
+  const writers = s.writers ?? [];
+  const files = s.files ?? [];
+  sentences.push({
+    text: files.length
+      ? `${readers.length ? `${readers.length} file${readers.length === 1 ? "" : "s"} read it (${readers.slice(0, 3).map(fileLink).join(", ")}${readers.length > 3 ? ", …" : ""})` : "Nothing reads it"}; ${writers.length ? `${writers.length} write${writers.length === 1 ? "s" : ""} to it (${writers.slice(0, 3).map(fileLink).join(", ")}${writers.length > 3 ? ", …" : ""})` : "nothing writes to it"}.`
+      : "No code outside tests touches it, so it is either dead or reached in a way Reggie cannot see.",
+    refs: [s.id, ...files.slice(0, 8)],
+  });
+  const sites = (payload.callSites ?? []).flatMap((c) => (c.sources ?? []).map((r) => `${r.file}:${r.line}`));
+  sentences.push({
+    text: sites.length
+      ? `${s.uses ?? sites.length} call site${(s.uses ?? sites.length) === 1 ? "" : "s"}, the first at \`${sites[0]}\`${payload.children?.length ? `. It holds ${payload.children.length} table${payload.children.length === 1 ? "" : "s"}: ${payload.children.map((c) => `[[${formatRoute({ level: "services", repo, query: { service: c.id } })}|${c.binding || c.name}]]`).join(", ")}` : ""}.`
+      : "Nothing in the code names it.",
+    refs: [s.id],
+  });
+  const flows = payload.flows ?? [];
+  const tasks = payload.tasks ?? [];
+  const bits = [];
+  if (flows.length) bits.push(`${flows.length} flow${flows.length === 1 ? "" : "s"} reach it: ${flows.map((f) => `[[${formatRoute({ level: "flow", repo, id: f.id, query: {} })}|${f.title}]]`).join(", ")}`);
+  if (tasks.length) bits.push(`${tasks.length} task${tasks.length === 1 ? "" : "s"} plan to touch its files: ${tasks.map((t) => `[[${formatRoute({ level: "task", repo, id: t.slug, query: {} })}|${t.slug}]]`).join(", ")}`);
+  if ((s.notes ?? 0) > 0) bits.push(`${s.notes} note${s.notes === 1 ? "" : "s"} in the notebook`);
+  sentences.push({ text: bits.length ? `${bits.join(". ")}.` : "No flow reaches it, no task names it and nobody has written about it.", refs: [s.id] });
+
+  const actions = [];
+  if (s.declaredAt?.file) actions.push({ label: `Open ${s.declaredAt.file}`, route: formatRoute({ level: "file", repo, id: s.declaredAt.file, query: {} }) });
+  if (flows.length) actions.push({ label: `Trace ${flows[0].title}`, route: formatRoute({ level: "flow", repo, id: flows[0].id, query: {} }) });
+  else if (files.length) actions.push({ label: `Open ${files[0].split("/").pop()}`, route: formatRoute({ level: "file", repo, id: files[0], query: {} }) });
+  return {
+    id: s.id,
+    kind: "service",
+    title: name,
+    crumbs: [{ label: "Services", route: formatRoute({ level: "services", repo, query: {} }) }, { label: noun, route: formatRoute({ level: "services", repo, query: { service: s.id } }) }],
+    route: null,
+    sentences,
+    actions,
+  };
+}
+
+/** The Data flow index (§4): entry points grouped by kind, each with route, step count and services. */
+async function renderFlowsLevel(route, token) {
+  const sections = $("sections");
+  const mapCol = $("map-col");
+  const map = ensureMap();
+  if (state.rendererOk) mapCol?.classList.add("is-loading");
+  const [flows, index] = await Promise.all([settle(api(withRepo("/api/flows"))), settle(api(withRepo("/api/services")))]);
+  if (token !== state.renderToken) return;
+  renderCrumbs(crumbsFor(route));
+  state.story = null;
+  if (flows.error) {
+    mount(sections, errorCard("/api/flows", flows.error.message, () => render(route)));
+    mapCol?.classList.remove("is-loading");
+    return;
+  }
+  const list = flows.value?.flows ?? [];
+  const svcById = new Map((index.value?.services ?? []).map((s) => [s.id, s]));
+  const repo = route.repo;
+  const serviceLink = (id) => {
+    const s = svcById.get(id);
+    return entityLink("service", formatRoute({ level: "services", repo, query: { service: id } }), s ? s.binding || s.name : id.replace(/^svc:[^:]+:/, ""), { refs: id });
+  };
+  const nodes = [];
+  nodes.push(
+    h(
+      "p",
+      { class: "story__subtitle muted" },
+      list.length
+        ? `Data enters this repo at ${list.length} ${list.length === 1 ? "entry point" : "entry points"}. Each one is traced to the services it reaches, with the payload on every step.`
+        : "Nothing in this repo answers a request, runs a command or registers a tool, so there is no flow to trace.",
+    ),
+  );
+  const seen = new Set();
+  for (const [kind, heading] of FLOW_KIND_HEADINGS) {
+    const group = list.filter((f) => f.kind === kind);
+    for (const f of group) seen.add(f.id);
+    if (!group.length) continue;
+    nodes.push(section(`flows-${kind}`, heading, ...group.map((f, i) => flowRow(f, repo, serviceLink, i))));
+  }
+  const rest = list.filter((f) => !seen.has(f.id));
+  if (rest.length) nodes.push(section("flows-other", "Other entry points", ...rest.map((f, i) => flowRow(f, repo, serviceLink, i))));
+  if (!list.length) {
+    nodes.push(
+      section(
+        "flows-empty",
+        "Entry points",
+        h(
+          "div",
+          { class: "card card--empty empty" },
+          h("p", { class: "empty__text" }, "No entry point was found in this repo."),
+          h("p", { class: "empty__hint" }, "A Cloudflare handler, an Express or Hono route, a Next route or page, a CLI command or an MCP tool registration is what starts a flow."),
+        ),
+      ),
+    );
+  }
+  mount(sections, nodes);
+  sections.classList.remove("is-skeleton");
+
+  mapCol?.classList.remove("is-loading");
+  if (!state.rendererOk) {
+    $("map-footer").textContent = "map unavailable";
+  } else if (map) {
+    try {
+      map.show({ level: "flows", flows: list, services: index.value?.services ?? [] }, { level: "flows", lens: state.lens, repo: route.repo ?? "repo" });
+    } catch (err) {
+      console.error("map.show failed", err);
+      toast("The map could not draw the entry points; the list is unaffected.", { tone: "warn" });
+    }
+  }
+  return undefined;
+}
+
+/** One entry point in the index: its title, where it is, how far it goes and what it reaches. */
+function flowRow(f, repo, serviceLink, i) {
+  const to = formatRoute({ level: "flow", repo, id: f.id, query: {} });
+  const chips = [
+    f.method ? chip("Method", f.method, { tone: "info" }) : null,
+    chip("Steps", String(f.steps), { tone: f.truncated ? "warn" : "muted" }),
+    chip("Hops", String(f.depth), { tone: "muted" }),
+    f.truncated ? chip("Capped", "yes", { tone: "warn", tip: "A cap hid some steps; the flow page says which" }) : null,
+  ].filter(Boolean);
+  const row = h(
+    "div",
+    { class: `card card--flow${i > 0 ? " section__more" : ""}`, dataset: { refs: `flow:${f.id}` } },
+    h(
+      "div",
+      { class: "card__head" },
+      h("a", { class: "card__title link link--flow", href: to }, icon("flow"), h("span", {}, f.title)),
+      f.route ? h("code", { class: "flow-row__route" }, f.route) : null,
+    ),
+    h("div", { class: "card__chips chips" }, chips),
+    h(
+      "div",
+      { class: "card__body flow-row__body" },
+      h("span", { class: "muted" }, "Starts in "),
+      entityLink("file", formatRoute({ level: "file", repo, id: f.source?.file ?? "", query: {} }), `${f.source?.file ?? "?"}:${f.source?.line ?? 1}`, { refs: f.source?.file }),
+      f.services?.length
+        ? h("span", {}, h("span", { class: "muted" }, " · reaches "), ...f.services.flatMap((id, n) => (n > 0 ? [document.createTextNode(", "), serviceLink(id)] : [serviceLink(id)])))
+        : h("span", { class: "muted" }, " · reaches no service"),
+    ),
+  );
+  wireRowRefs(row, [`flow:${f.id}`, ...(f.services ?? [])]);
+  return row;
+}
+
+/** Hover a row → light its node and the services it reaches on the map beside it. */
+function wireRowRefs(el, refs) {
+  const list = refs.filter(Boolean);
+  el.dataset.refs = list.join(" ");
+  el.addEventListener("mouseenter", () => state.map?.highlight?.(list));
+  el.addEventListener("mouseleave", () => state.map?.clearHighlight?.());
+}
+
+/** One flow (§4): the story walks it, the map draws it, and a cap that hid steps says so in words. */
+async function renderFlowLevel(route, token) {
+  const sections = $("sections");
+  const mapCol = $("map-col");
+  const map = ensureMap();
+  const depth = flowDepth(route);
+  const q = `id=${encodeURIComponent(route.id)}${depth !== 6 ? `&depth=${depth}` : ""}`;
+  if (state.rendererOk) mapCol?.classList.add("is-loading");
+  const [story, flow, index] = await Promise.all([
+    settle(api(withRepo(`/api/story?${storyParams(route)}`))),
+    settle(api(withRepo(`/api/flow?${q}`))),
+    settle(api(withRepo("/api/services"))),
+  ]);
+  if (token !== state.renderToken) return;
+
+  if (story.error) {
+    state.story = null;
+    mount(sections, errorCard("/api/story", story.error.message, () => render(route)));
+  } else if (story.value) {
+    state.story = story.value;
+    renderCrumbs(story.value.crumbs?.length ? story.value.crumbs : crumbsFor(route));
+    renderStory(sections, story.value, storyDeps(route));
+  }
+  // A flow that lost steps to a cap says so at the top, in words, with what was lost: a partial
+  // picture presented as a whole one is exactly the confident wrong answer this page exists against.
+  const dropped = droppedSentence(flow.value);
+  if (dropped && !story.error) {
+    sections.prepend(
+      h(
+        "div",
+        { class: "card card--error card--capped", role: "status" },
+        h("div", { class: "card__head" }, h("strong", {}, "Not every step is drawn")),
+        h("div", { class: "card__body" }, dropped),
+      ),
+    );
+  }
+
+  mapCol?.classList.remove("is-loading");
+  if (!state.rendererOk) {
+    $("map-footer").textContent = "map unavailable";
+  } else if (flow.error) {
+    toast(`\`/api/flow\` failed: ${flow.error.message}`, { tone: "bad" });
+    $("map-footer").textContent = "the flow payload failed; the story is unaffected";
+  } else if (flow.value && map) {
+    try {
+      map.show({ level: "flow", flow: flow.value, services: index.value?.services ?? [] }, { level: "flow", lens: state.lens, repo: route.repo ?? "repo", depth });
+    } catch (err) {
+      console.error("map.show failed", err);
+      toast("The map could not draw this flow; the story is unaffected.", { tone: "warn" });
+    }
+  }
+  return undefined;
+}
+
 async function renderTasksLevel(route, token) {
   const wrap = (p) => p.then((value) => ({ value }), (error) => ({ error }));
   const [tasks, sm, people] = await Promise.all([
@@ -1696,6 +2252,9 @@ function wireKeyboard() {
     } else if (ev.key === "t" || ev.key === "T") {
       $("tb-tests")?.click();
     } else if (LENS_KEYS[ev.key]) {
+      // A lens the current level has switched off (see `syncGraphChrome`) is off for the keyboard
+      // too, or `4` would leave the Heat button lit over a map that does not draw heat.
+      if ($(`lens-${LENS_KEYS[ev.key]}`)?.disabled) return;
       setLens(LENS_KEYS[ev.key]);
     } else if (ev.key === "Backspace") {
       const up = state.route ? parentRoute(state.route) : null;
