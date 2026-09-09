@@ -56,6 +56,13 @@ codex "Read .reggie/ONBOARDING.md and do what it says."
 
 When the agent is done, look at `.reggie/notes/_repo.md` and the folder notes. Fix anything wrong. Then commit everything, including `.reggie/`. Nothing in it is a cache.
 
+If the repo already keeps a backlog — a `TASKS.md` of open work, a `HISTORY.md` of finished work, a
+folder of per-task plans from whatever ran before — you do not have to migrate any of it. Reggie
+finds those files and reads them as tasks, in place. It never writes to them: you keep editing the
+Markdown, and the board follows. Run `reggie tasks` after onboarding and you should see your real
+backlog, not an empty one. The formats it reads, and how to point it at a different file, are in
+[the reference](../packages/reggie/README.md#the-backlog-you-already-had).
+
 ## 3. Your first task, at the keyboard
 
 The loop is capture, plan, execute, decide. Here it is end to end.

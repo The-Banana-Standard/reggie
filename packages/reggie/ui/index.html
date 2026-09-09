@@ -5,9 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <title>Reggie</title>
-<!-- The server serves no icon, so every page load asked for /favicon.ico and logged a 404 in the
-     console. An empty data: icon answers the browser without a request. -->
-<link rel="icon" href="data:,">
+<link rel="icon" href="/ui/reggie-logo.png" type="image/png">
+<meta name="theme-color" content="#ff6b00">
 <link rel="stylesheet" href="/ui/styles.css">
 <link rel="stylesheet" href="/ui/story.css">
 <link rel="stylesheet" href="/ui/map.css">
@@ -90,6 +89,10 @@
 
 <div id="app" class="app">
   <header id="header" class="header">
+    <a class="brand" href="#/" title="Reggie — a repo manager for Claude Code and Codex">
+      <img class="brand__mark" src="/ui/reggie-logo.png" alt="" width="24" height="24" decoding="async">
+      <span class="brand__name">reggie</span>
+    </a>
     <nav id="crumbs" class="crumbs" aria-label="Breadcrumb"></nav>
     <nav id="nav" class="nav" aria-label="Pages"></nav>
     <div class="header__tools">

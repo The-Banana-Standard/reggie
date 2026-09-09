@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
 import { lintBrief, PRIORITIES, SIZES, type Priority, type Size } from "./brief.js";
+import { staleBuildWarning } from "./build-state.js";
 import { capture, removeFromIntake } from "./capture.js";
 import { claimTask, releaseTask } from "./claim.js";
 import { buildContext } from "./context.js";
@@ -63,6 +64,16 @@ function out(line: string): void {
 function fail(message: string): never {
   process.stderr.write(`reggie: ${message}\n`);
   process.exit(1);
+}
+
+/**
+ * Say so when `dist/` is behind `src/`. A linked development checkout otherwise runs the previous
+ * build in silence, and the symptom — an endpoint that 404s, a page that renders nothing — reads
+ * as a broken feature rather than as an unbuilt one.
+ */
+function warnIfStale(): void {
+  const warning = staleBuildWarning(import.meta.url);
+  if (warning) process.stderr.write(`${warning}\n\n`);
 }
 
 const program = new Command();
@@ -564,6 +575,7 @@ program
   .option("--workspace <dir>", "serve every repo listed in the CLAUDE.md of this workspace directory")
   .option("--no-workspace", "serve only this repo, even when a workspace CLAUDE.md names it")
   .action(async (opts: { port: number; host: string; workspace?: string | boolean }) => {
+    warnIfStale();
     const c = ctx(program.opts<{ root?: string }>().root);
     let workspace: Workspace | null = null;
     if (typeof opts.workspace === "string") {

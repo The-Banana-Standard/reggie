@@ -11,3 +11,6 @@ sources: packages/reggie/src/tasks.ts
 State derivation order matters and is written top down: merged or approved wins over an open pull request, which wins over a packet, which wins over a branch, which wins over a plan, which wins over a brief. The plan branches sit above the brief branch on purpose, so a task that has a plan but no brief still reads as planned rather than being dragged backwards.
 sources: packages/reggie/src/tasks.ts
 
+## decision · 2026-09-09 · Claude via jacobpress · high
+A legacy backlog line never overrides git. Every branch, packet and pull-request check runs first; only then does the file decide. The [planned] tag alone is not enough for the planned state either — it needs the plan document to really exist, because on the first real repo 44 of 47 plan documents belonged to items the author had explicitly parked.
+

@@ -86,6 +86,18 @@
   --note-data-source: #73daca;
   --note-decision: #f06fb1;
 
+  /* ---------- Reggie brand ----------
+     The accent the desktop app carried: #FF6B00 on near-black, with the mascot as the mark. It is
+     confined to chrome — the wordmark, the primary button, the active tab, the focus ring — and
+     never touches the canvas. Every colour on the map already means something (an area, a state, a
+     note type, a heat step), and a brand hue mixed into that vocabulary would read as data.
+     6.6:1 on --bg, and --brand-ink takes the same ratio the other way for a label on a brand fill. */
+  --brand: #ff6b00;
+  --brand-dim: #cc5500;
+  --brand-ink: #14171d;
+  --brand-glow: rgba(255, 107, 0, 0.22);
+  --brand-line: rgba(255, 107, 0, 0.35);
+
   --edge: #5a677e;
   --edge-active: #ffffff;
   /* Outline for near-black semantic fills (undocumented, untested, no commits): 3.3:1 on --bg (§5.7). */
@@ -177,7 +189,7 @@ button { cursor: pointer; }
 
 /* Focus rings: 2px --info everywhere (§5.7) */
 :focus { outline: none; }
-:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
 
 /* Icons (§5.4): 14px in links and chips, 16px in toolbar buttons */
 .i { width: 14px; height: 14px; flex: 0 0 auto; vertical-align: -2px; fill: none; stroke: currentColor; }
@@ -200,6 +212,27 @@ button { cursor: pointer; }
 }
 .header__tools { display: flex; align-items: center; gap: var(--s-2); margin-left: auto; flex: 0 0 auto; }
 
+/* ---------- Brand ----------
+   The mark and the wordmark, left of the breadcrumb, linking home. Mono, because every other
+   surface Reggie has is a terminal. The mark is the desktop app's mascot at 24px; it is decorative
+   (alt=""), so the wordmark carries the name for a screen reader. */
+.brand {
+  display: inline-flex; align-items: center; gap: 7px;
+  flex: 0 0 auto; height: 28px; padding-right: var(--s-3);
+  border-right: 1px solid var(--line);
+  color: var(--text);
+}
+.brand:hover { text-decoration: none; }
+.brand:hover .brand__name { color: var(--brand); }
+.brand__mark { width: 24px; height: 24px; border-radius: 6px; display: block; }
+.brand__name {
+  font-family: var(--mono); font-size: var(--fs-label); font-weight: 600; letter-spacing: 0.02em;
+  color: var(--text);
+  transition: color 0.15s ease;
+}
+/* The breadcrumb is what a narrow header needs; the wordmark shrinks to the mark alone. */
+@media (max-width: 900px) { .brand__name { display: none; } .brand { padding-right: var(--s-2); } }
+
 /* ---------- Header navigation (the repo-level pages: Overview, Services, Data flow, Tasks) ---------- */
 .nav { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
 .nav:empty { display: none; }
@@ -210,8 +243,9 @@ button { cursor: pointer; }
 }
 .nav__item .i { opacity: 0.8; }
 .nav__item:hover { color: var(--text); background: var(--panel-2); text-decoration: none; }
-.nav__item.is-active { color: var(--text); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line-strong); }
-.nav__item:focus-visible { outline: 2px solid var(--info); outline-offset: 1px; }
+.nav__item.is-active { color: var(--text); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--brand-line); }
+.nav__item.is-active .i { opacity: 1; color: var(--brand); }
+.nav__item:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
 /* The labels go first and the glyphs stay, so the row keeps its four targets while the breadcrumb
    and the lens keep their width. */
 @media (max-width: 1240px) { .nav__item span { display: none; } .nav__item { padding: 0 6px; } }
@@ -296,7 +330,7 @@ button { cursor: pointer; }
   background: none; border: 0; border-bottom: 2px solid transparent;
   color: var(--muted); font-size: var(--fs-label); font-weight: 500; padding: 0 var(--s-3);
 }
-.tabs__tab.is-active { color: var(--text); border-bottom-color: var(--info); }
+.tabs__tab.is-active { color: var(--text); border-bottom-color: var(--brand); }
 .tabs__tab:disabled { color: var(--faint-text); cursor: not-allowed; }
 
 /* ---------- Breadcrumb ---------- */
@@ -442,7 +476,7 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 }
 .btn:hover { border-color: var(--info); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn--primary { background: var(--info); border-color: var(--info); color: var(--bg); }
+.btn--primary { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); font-weight: 600; }
 .btn--primary:hover { filter: brightness(1.08); }
 .btn--ok { border-color: var(--ok); color: var(--ok); }
 .btn--warn { border-color: var(--warn); color: var(--warn); }
@@ -465,7 +499,7 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 }
 .seg__btn:last-child { border-right: 0; }
 .seg__btn:hover { color: var(--text); }
-.seg__btn.is-active { background: var(--panel-2); color: var(--info); }
+.seg__btn.is-active { background: var(--panel-2); color: var(--brand); }
 .seg__btn:focus-visible { outline-offset: -2px; }
 
 .select {
@@ -580,7 +614,7 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 }
 .palette__input::placeholder { color: var(--faint-text); }
 /* The search field is the modal's first stop; it must show the ring like every other control. */
-.palette__input:focus-visible { outline: 2px solid var(--info); outline-offset: -2px; border-radius: 0; }
+.palette__input:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 0; }
 .palette__results { max-height: 50vh; overflow: auto; padding: var(--s-1) 0; }
 .palette__group { padding: 6px 14px 2px; font-size: var(--fs-sub); text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .palette__row {

@@ -5,6 +5,7 @@ import { pullRequestForBranch, type PullRequest } from "./gh.js";
 import { readJournal, type JournalEntry } from "./journal.js";
 import { parseBrief, type BriefMeta } from "./brief.js";
 import { listEvidence, parsePacketVerdict, type Verdict } from "./packet.js";
+import { readLegacy, type LegacyBacklog, type LegacyItem } from "./legacy.js";
 import { briefFile, briefRelPath, claimRelPath, packetFile, packetRelPath, planFile, planRelPath, REGGIE_DIR, TASKS_REL_DIR, type RepoPaths } from "./paths.js";
 import type { Mode, ReggieConfig, RiskRules } from "./people.js";
 import { lintPlan, parsePlan, type PlanMeta, type Risk } from "./plan.js";
@@ -175,6 +176,32 @@ export interface TaskBriefInfo {
   problem: string;
 }
 
+/** What a card shows for a task that came from the repo's own TASKS.md or HISTORY.md. */
+export interface TaskLegacyInfo {
+  /** Which file the line is in, repo-relative, and the line number, so the UI can cite it. */
+  file: string;
+  line: number;
+  source: "tasks" | "history";
+  /** Heading trail above the line, outermost first. */
+  section: string[];
+  /** The `>` note introducing that section, when it had one. */
+  initiative: string | null;
+  /** The author tagged it [parked]: shaped, but deliberately not being worked on. */
+  parked: boolean;
+  /** [code], [manual], [content] and friends. */
+  kinds: string[];
+  depends: string[];
+  conflicts: string[];
+  tier: string | null;
+  /** The whole description, tags removed. */
+  description: string;
+  /** A plan document from the old pipeline folder, when one exists for this slug. */
+  planFile: string | null;
+  /** That plan folder is not in git, so only this machine has it. */
+  planUntracked: boolean;
+  completedAt: string | null;
+}
+
 export interface TaskInfo {
   slug: string;
   title: string;
@@ -198,6 +225,8 @@ export interface TaskInfo {
   planLintOk: boolean | null;
   packetExists: boolean;
   intake: IntakeItem | null;
+  /** Set when the task came from the repo's own backlog file rather than from `.reggie/`. */
+  legacy: TaskLegacyInfo | null;
   reason: string;
   /** Paths from the plan's "Files to touch"; folder entries keep their trailing slash. */
   planFiles: string[];
@@ -292,10 +321,13 @@ interface Snapshot {
   intake: IntakeItem[];
   taskBranches: BranchInfo[];
   planBranches: BranchInfo[];
+  /** The backlog the repo already kept, in TASKS.md / HISTORY.md and an old plan folder. */
+  legacy: LegacyBacklog;
 }
 
 function snapshot(paths: RepoPaths, config: ReggieConfig): Snapshot {
   const base = defaultBranch(paths.root, config.defaultBranch);
+  const legacy = markUntrackedPlans(paths.root, readLegacy(paths, config.legacy));
   return {
     base,
     checkedOut: currentBranch(paths.root),
@@ -305,7 +337,28 @@ function snapshot(paths: RepoPaths, config: ReggieConfig): Snapshot {
     intake: readIntake(paths),
     taskBranches: listBranches(paths.root, "task/"),
     planBranches: listBranches(paths.root, "plan/"),
+    legacy,
   };
+}
+
+/**
+ * Which of the old pipeline's plan documents git actually has.
+ *
+ * This is not `git check-ignore` on the folder: a folder holding one tracked `.gitkeep` is not
+ * ignored, while every plan inside it still is. It is per file, from one `ls-files` over the
+ * folder, because the claim the UI makes with it — "your teammates can read this plan" — is only
+ * true of a file git is carrying.
+ */
+function markUntrackedPlans(root: string, legacy: LegacyBacklog): LegacyBacklog {
+  if (!legacy.planDir || legacy.plans.size === 0) return legacy;
+  const r = git(["ls-files", "-z", "--", legacy.planDir], { cwd: root, allowFailure: true });
+  const tracked = new Set(r.stdout.split("\0").filter(Boolean));
+  let anyUntracked = false;
+  for (const plan of legacy.plans.values()) {
+    plan.untracked = !tracked.has(plan.file);
+    if (plan.untracked) anyUntracked = true;
+  }
+  return { ...legacy, planDirUntracked: anyUntracked };
 }
 
 function allSlugs(paths: RepoPaths, snap: Snapshot): string[] {
@@ -318,6 +371,7 @@ function allSlugs(paths: RepoPaths, snap: Snapshot): string[] {
     const m = /^\.reggie\/tasks\/([a-z0-9][a-z0-9-]*)\//.exec(p);
     if (m?.[1]) slugs.add(m[1]);
   }
+  for (const slug of snap.legacy.items.keys()) slugs.add(slug);
   return Array.from(slugs).sort();
 }
 
@@ -385,9 +439,26 @@ interface ResolvedTask {
   known: boolean;
 }
 
+/** The directory a legacy item's files agree on, deepest common prefix, "" when they do not. */
+function legacyArea(files: { path: string }[]): string {
+  const dirs = uniq(files.map((f) => f.path.replace(/\/[^/]*$/, "")).filter((d) => d && !d.includes("*")));
+  if (dirs.length === 0) return "";
+  const parts = dirs.map((d) => d.split("/"));
+  const first = parts[0] ?? [];
+  const common: string[] = [];
+  for (let i = 0; i < first.length; i += 1) {
+    const seg = first[i];
+    if (seg === undefined || !parts.every((p) => p[i] === seg)) break;
+    common.push(seg);
+  }
+  return common.length ? `${common.join("/")}/` : "";
+}
+
 function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTask {
   const root = paths.root;
   const intake = snap.intake.find((i) => i.slug === slug) ?? null;
+  const legacyItem = snap.legacy.items.get(slug) ?? null;
+  const legacyPlan = snap.legacy.plans.get(slug) ?? null;
   const branch = snap.taskBranches.find((b) => b.name === `task/${slug}`) ?? null;
   const planBranch = snap.planBranches.find((b) => b.name === `plan/${slug}`) ?? null;
 
@@ -414,7 +485,7 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
 
   const planContent = planLocal ?? planDefault ?? planOnWork;
   const parsed = planContent ? parsePlan(planContent) : null;
-  const title = parsed?.meta.title || parsedBrief?.meta.title || intake?.text || slug;
+  const title = parsed?.meta.title || parsedBrief?.meta.title || intake?.text || legacyItem?.title || slug;
   // The plan settles the risk; until there is one, the brief's guess is what a card can show.
   const risk: Risk | "unset" = parsed?.meta.risk ?? parsedBrief?.meta.risk ?? "unset";
   const planLintOk = planContent ? lintPlan(planContent).ok : null;
@@ -448,6 +519,13 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
     const ahead = aheadCount(root, refFor(branch), snap.base);
     state = "in-process";
     reason = `${branch.name} has ${ahead} commit${ahead === 1 ? "" : "s"} ahead of ${snap.base}`;
+  } else if (legacyItem?.done) {
+    // The author ticked it off in the repo's own backlog. Nothing in git contradicts that here —
+    // every branch, packet and pull request check above has already had its turn.
+    state = "done";
+    reason = legacyItem.completedAt
+      ? `ticked off in ${legacyItem.file} on ${legacyItem.completedAt}`
+      : `ticked off in ${legacyItem.file}:${legacyItem.line}`;
   } else if (planOnDefault && planLintOk) {
     state = "planned";
     reason = `plan on ${snap.base} passes the contract`;
@@ -471,6 +549,22 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
     // A brief and nothing else: triage has shaped it, planning has not started.
     state = "groomed";
     reason = briefLocal !== null ? "brief on disk; no plan yet" : `brief on ${snap.base}; no plan yet`;
+  } else if (legacyItem && legacyItem.planned && legacyPlan) {
+    // The backlog says planned *and* the plan document is really there. The tag alone is not
+    // enough: a folder of plans can outlive the decision to build any of them.
+    state = "planned";
+    reason = `${legacyItem.file} marks it planned and ${legacyPlan.file} exists`;
+  } else if (legacyItem && !legacyItem.ungroomed) {
+    // Shaped by hand: it sits under a real heading with a priority, a size, or a file list.
+    state = "groomed";
+    const shaped = [legacyItem.priority !== "unset" ? "a priority" : null, legacyItem.size !== "unset" ? "a size" : null, legacyItem.files.length ? "a file list" : null].filter(
+      Boolean,
+    );
+    const where = legacyItem.section.length ? ` under ${legacyItem.section[legacyItem.section.length - 1]}` : "";
+    reason = shaped.length ? `${legacyItem.file} gives it ${shaped.join(" and ")}${where}` : `listed in ${legacyItem.file}${where}`;
+  } else if (legacyItem) {
+    state = "ungroomed";
+    reason = `${legacyItem.file}:${legacyItem.line}, still under ${legacyItem.section[legacyItem.section.length - 1] ?? "Ungroomed"}`;
   } else {
     state = "ungroomed";
     reason = intake ? "intake item with no brief" : "task directory with no brief";
@@ -478,11 +572,14 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
 
   const owner = claim?.person || branch?.author || planBranch?.author || parsed?.meta.author || parsedBrief?.meta.author || null;
   const ownerEmail = claim?.email || branch?.email || planBranch?.email || null;
-  const lastActivity = branch?.date || planBranch?.date || (planLocal ? lastCommitDate(root, planRelPath(slug)) : null);
+  const lastActivity = branch?.date || planBranch?.date || (planLocal ? lastCommitDate(root, planRelPath(slug)) : null) || legacyItem?.completedAt || null;
   const age = ageInDays(lastActivity, snap.now) ?? ageInDays(intakeDate(intake), snap.now);
   const planFiles = parsed ? uniq(parsed.files.map(normalizePlanPath).filter(Boolean)) : [];
   const changedFiles = branch ? branchChangedFiles(root, snap.base, refFor(branch)) : [];
 
+  // A legacy line carries the same three facts a brief does — priority, size, roughly where —
+  // so it fills the same shape and the card renders identically. `exists` stays false: there is
+  // no brief.md, and the "brief" badge must keep meaning that a brief was written.
   const brief: TaskBriefInfo | null = parsedBrief
     ? {
         exists: hasBrief,
@@ -490,6 +587,33 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
         size: parsedBrief.meta.size,
         priority: parsedBrief.meta.priority,
         problem: parsedBrief.problem,
+      }
+    : legacyItem
+      ? {
+          exists: false,
+          area: legacyArea(legacyItem.files),
+          size: legacyItem.size,
+          priority: legacyItem.priority,
+          problem: legacyItem.description,
+        }
+      : null;
+
+  const legacy: TaskLegacyInfo | null = legacyItem
+    ? {
+        file: legacyItem.file,
+        line: legacyItem.line,
+        source: legacyItem.source,
+        section: legacyItem.section,
+        initiative: legacyItem.initiative,
+        parked: legacyItem.parked,
+        kinds: legacyItem.kinds,
+        depends: legacyItem.depends,
+        conflicts: legacyItem.conflicts,
+        tier: legacyItem.tier,
+        description: legacyItem.description,
+        planFile: legacyPlan?.file ?? null,
+        planUntracked: legacyPlan?.untracked ?? false,
+        completedAt: legacyItem.completedAt,
       }
     : null;
 
@@ -512,8 +636,9 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
     planLintOk,
     packetExists: Boolean(packetLocal || packetOnBranch || packetDefault),
     intake,
+    legacy,
     reason,
-    planFiles,
+    planFiles: planFiles.length ? planFiles : uniq(legacyItem?.files.map((f) => f.path) ?? []),
     changedFiles,
   };
 
@@ -522,10 +647,20 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
     intake !== null ||
     branch !== null ||
     planBranch !== null ||
+    legacyItem !== null ||
     existsSync(path.join(paths.tasks, slug)) ||
     Array.from(snap.onBase).some((p) => p.startsWith(onBasePrefix));
 
-  return { info, branch, briefContent, planContent, packetContent: packetLocal ?? packetOnBranch ?? packetDefault, claim, known };
+  return {
+    info,
+    branch,
+    briefContent,
+    // With no plan of its own, a legacy task can still show the plan the old pipeline wrote.
+    planContent: planContent ?? legacyPlan?.content ?? null,
+    packetContent: packetLocal ?? packetOnBranch ?? packetDefault,
+    claim,
+    known,
+  };
 }
 
 export function renderTaskLine(t: TaskInfo): string {
@@ -619,6 +754,13 @@ export interface TaskDetail {
   task: TaskInfo;
   brief: TaskBriefDetail | null;
   plan: TaskPlanDetail | null;
+  /**
+   * Which kind of document `plan` was parsed from. "legacy" means a plan the old pipeline wrote:
+   * readable, but never written against the plan contract, so its front matter is empty and its
+   * headings are whatever that pipeline used. The UI has to say so rather than show it as a plan
+   * that passed a lint it was never given.
+   */
+  planSource: "reggie" | "legacy" | null;
   packet: TaskPacketDetail | null;
   claim: ClaimInfo | null;
   journal: JournalEntry[];
@@ -824,6 +966,7 @@ export function getTaskDetail(paths: RepoPaths, config: ReggieConfig, slug: stri
     task: resolved.info,
     brief,
     plan,
+    planSource: plan ? (resolved.info.planExists || resolved.info.planOnDefault || resolved.info.planLintOk !== null ? "reggie" : "legacy") : null,
     packet,
     claim: resolved.claim,
     journal,

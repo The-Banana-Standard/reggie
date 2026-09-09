@@ -109,6 +109,9 @@ const COLUMN_EMPTY = {
   done: "Nothing has finished yet. A task lands here when its packet is approved or its PR merges.",
 };
 
+/** Shown when a column's only tasks are ones the backlog tags [parked]. */
+const COLUMN_ALL_PARKED = "Nothing here that anyone means to start. Every task in this column is tagged **parked** in the backlog; turn on **Show parked** above to see them.";
+
 const EMPTY_BOARD_TEXT =
   "No tasks yet. Work moves through four phases here: **capture** it as one line, **shape** it into a brief that says what it is and where it probably lives, **plan** it against the code, then **build** it on a `task/<slug>` branch until the packet is approved. Add the first one below.";
 
@@ -1039,6 +1042,10 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     doneLoaded: (Array.isArray(data.tasks) ? data.tasks : []).some((t) => t.state === "done"),
     loadingDone: false,
     busy: new Set(), // slugs with a POST in flight
+    // Items the repo's own backlog tags [parked] are shaped but deliberately not being worked on.
+    // They are hidden by default: on a real backlog they can be the whole Groomed column, and a
+    // column of work nobody intends to start says nothing about what is ready.
+    showParked: false,
   };
 
   const target = storyTarget(storyEl);
@@ -1050,11 +1057,23 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
   const completedEl = h("div", { class: "completed", "aria-label": "Completed tasks" });
   if (wrap) mount(wrap, headEl, stripEl, emptySlot, boardEl, completedEl);
 
-  const openTasks = () => model.tasks.filter((t) => t.state !== "done");
+  const openTasks = () => shownTasks().filter((t) => t.state !== "done");
   const isEmpty = () => model.tasks.length === 0 && Object.values(model.sm.counts).every((n) => !n);
 
+  /** What the board is counting: everything, or everything the parked filter is not hiding. */
+  function shownTasks() {
+    return model.showParked ? model.tasks : model.tasks.filter((t) => !t.legacy?.parked);
+  }
+
   function recount() {
-    model.sm = normalizeStateMachine({ ...(data.stateMachine ?? {}), counts: isEmpty() ? {} : data.stateMachine?.counts }, model.tasks, model.doneLoaded ? [] : ["done"]);
+    // The strip counts what the columns draw, so it is derived from the same filtered list — a
+    // pill reading 44 over a column showing none of them is the one thing this board must not do.
+    // The server's count is still the fallback for `done`, which `/api/tasks` leaves out entirely.
+    model.sm = normalizeStateMachine(
+      { ...(data.stateMachine ?? {}), counts: isEmpty() ? {} : data.stateMachine?.counts },
+      shownTasks(),
+      model.doneLoaded ? [] : ["done"],
+    );
     model.soleOwner = soleOwner(model.tasks);
   }
 
@@ -1137,7 +1156,38 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
         ? `${openCount === 1 ? "1 task" : `${openCount} tasks`} still moving`
         : `${doneCount === 1 ? "1 task" : `${doneCount} tasks`} finished`,
     );
-    mount(headEl, seg, counts, toolSwitch());
+    if (!model.showParked) {
+      const hidden = model.tasks.filter((t) => t.legacy?.parked && (model.view === "completed" ? t.state === "done" : t.state !== "done")).length;
+      if (hidden) counts.appendChild(h("span", { class: "faint" }, `, ${hidden} parked and hidden`));
+    }
+    mount(headEl, seg, counts, parkedToggle(), toolSwitch());
+  }
+
+  function setParked(on) {
+    if (model.showParked === on) return;
+    model.showParked = on;
+    recount();
+    draw();
+  }
+
+  /**
+   * Only appears when the backlog actually parks something. Hidden by default, because a parked
+   * item is one the author has said out loud they are not starting, and a column full of them
+   * reads as a queue of ready work.
+   */
+  function parkedToggle() {
+    const parked = model.tasks.filter((t) => t.legacy?.parked && (model.view === "completed" ? t.state === "done" : t.state !== "done"));
+    if (parked.length === 0) return null;
+    return h(
+      "label",
+      { class: "board-head__parked", title: `${parked.length} ${parked.length === 1 ? "task is" : "tasks are"} tagged [parked] in the backlog file: shaped, but nobody means to start them.` },
+      h("input", {
+        type: "checkbox",
+        checked: model.showParked,
+        on: { change: (ev) => setParked(Boolean(ev.target.checked)) },
+      }),
+      h("span", {}, `Show parked (${parked.length})`),
+    );
   }
 
   /**
@@ -1223,6 +1273,16 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
       else if (t.planLintOk === false) out.push(h("span", { class: "badge badge--bad", title: `Plan fails the contract: reggie plan lint ${t.slug}` }, "plan ✗"));
     }
     if (t.brief?.exists) out.push(h("span", { class: "badge", title: "Triage wrote a brief for this task" }, "brief"));
+    if (t.legacy) {
+      out.push(
+        h(
+          "span",
+          { class: "badge badge--legacy", title: `Read from the repo's own backlog: ${t.legacy.file} line ${t.legacy.line}. Reggie never writes to that file.` },
+          basename(t.legacy.file),
+        ),
+      );
+    }
+    if (t.legacy?.parked) out.push(h("span", { class: "badge badge--parked", title: "The backlog tags this [parked]: shaped, but deliberately not being worked on." }, "parked"));
     if (t.packetExists) out.push(h("span", { class: "badge", title: "A completion packet exists for this task" }, "packet"));
     if (t.pr) {
       out.push(
@@ -1250,10 +1310,26 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     const size = b.size && b.size !== "unset" ? b.size : null;
     const risk = t.risk && t.risk !== "unset" ? t.risk : null;
     if (!b.exists) {
-      // A brief is not required retroactively (tasks spec §2): a task that already has a plan and a
-      // branch is not "unshaped", it predates triage, so only Ungroomed says the shaping is missing.
+      // A legacy line carries the same decisions a brief does, written by hand instead of by
+      // triage, so it earns the same chips — with the source named, because the priority came
+      // from a Markdown file the author edits, not from anything Reggie wrote.
+      if (t.legacy && (priority || size)) {
+        return [
+          priority ? chip("Priority", priority, { tone: PRIORITY_TONE[priority] ?? "muted", tip: `${t.legacy.file} gives it ${priority}` }) : null,
+          size ? chip("Size", size, { tone: null, tip: `${t.legacy.file} calls it ${size}` }) : null,
+          risk ? chip("Risk", risk, { tone: RISK_TONE[risk], tip: RISK_TIPS[risk] }) : null,
+          b.area ? chip("Area", b.area, { tip: `Every file the backlog line names is under ${b.area}` }) : null,
+        ].filter(Boolean);
+      }
       return [
-        t.state === "ungroomed" ? chip(null, "not shaped yet", { tone: "muted", tip: "No brief.md: nothing has decided the priority, the size, or where this lives." }) : null,
+        t.state === "ungroomed"
+          ? chip(null, "not shaped yet", {
+              tone: "muted",
+              tip: t.legacy
+                ? `${t.legacy.file} lists it with no priority and no size, under a heading that says it is not shaped yet.`
+                : "No brief.md: nothing has decided the priority, the size, or where this lives.",
+            })
+          : null,
         risk ? chip("Risk", risk, { tone: RISK_TONE[risk], tip: RISK_TIPS[risk] }) : null,
       ].filter(Boolean);
     }
@@ -1322,11 +1398,26 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
 
   /** The card actions §7 lists for each state. */
   function actionsFor(t) {
+    // A task read out of the repo's own backlog has no intake line, no brief and no packet, so
+    // the read button that would open one opens the backlog entry instead — the only record of
+    // it that exists.
+    const legacyOnly = Boolean(t.legacy) && !t.brief?.exists;
     switch (t.state) {
       case "ungroomed":
-        return [readButton(t, "intake", "Read the intake line"), shapeButton(t), launchFor(t, "chat", "Discuss")];
+        return [
+          legacyOnly && !t.intake ? readButton(t, "legacy", "Read the backlog entry") : readButton(t, "intake", "Read the intake line"),
+          shapeButton(t),
+          launchFor(t, "chat", "Discuss"),
+        ];
       case "groomed":
-        return [readButton(t, "brief", "Read the brief"), launchFor(t, "plan", "Plan it", "btn--primary"), launchFor(t, "chat", "Discuss")];
+        return [
+          legacyOnly ? readButton(t, "legacy", "Read the backlog entry") : readButton(t, "brief", "Read the brief"),
+          // The old pipeline left a plan here even though the backlog never marked it planned;
+          // it is the best description of the work that exists, so it stays one click away.
+          t.legacy?.planFile ? readButton(t, "plan", "Read the old plan") : null,
+          launchFor(t, "plan", "Plan it", "btn--primary"),
+          launchFor(t, "chat", "Discuss"),
+        ].filter(Boolean);
       case "planned":
         return [readButton(t, "plan", "Read the plan"), launchFor(t, "implement", "Start", "btn--primary"), launchFor(t, "chat", "Discuss")];
       case "in-process":
@@ -1334,7 +1425,7 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
       case "awaiting-decision":
         return [readButton(t, "packet", "Read the packet"), decideButton(t), launchFor(t, "chat", "Discuss")];
       case "done":
-        return [readButton(t, "completion", "What was done")];
+        return legacyOnly ? [readButton(t, "legacy", "What was done")] : [readButton(t, "completion", "What was done")];
       default:
         return [launchFor(t, "chat", "Discuss")];
     }
@@ -1476,6 +1567,8 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
 
   function detailPanel(t, kind) {
     if (kind === "intake") return h("div", { class: "detail__body" }, detailContent(t, kind, null));
+    // The whole backlog entry is already on the card; opening it costs no request.
+    if (kind === "legacy") return h("div", { class: "detail__body" }, detailContent(t, kind, model.detail.get(t.slug) ?? null));
     if (kind === "decide") return h("div", { class: "detail__body" }, decidePanel(t));
     const d = model.detail.get(t.slug);
     if (d === undefined) fetchDetail(t.slug);
@@ -1570,7 +1663,67 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
       return packetBlock(d.packet, t.slug);
     }
     if (kind === "completion") return completionBlock(t, d);
+    if (kind === "legacy") return legacyBlock(t);
     return null;
+  }
+
+  /**
+   * The backlog entry, as the repo's own file wrote it. This is the whole record for a task that
+   * predates `.reggie/` — the description, what the author tagged it with, the files they expected
+   * to touch, and the heading it sits under — so it ends with where to go and edit it.
+   */
+  function legacyBlock(t) {
+    const g = t.legacy;
+    if (!g) return h("p", { class: "para para--warn" }, "This task did not come from a backlog file.");
+    const where = g.section.length ? g.section.join(" › ") : "no heading";
+    const files = (t.planFiles ?? []).map((f) =>
+      h("li", { class: "done-file", dataset: { refs: f } }, entityLink("file", fileRoute(ctx.repo, f), f, { refs: f })),
+    );
+    const rel = (slugs, label, tip) =>
+      slugs.length
+        ? h(
+            "div",
+            { class: "detail__sec" },
+            h("h4", { class: "task-sub", title: tip }, `${label} (${slugs.length})`),
+            h("div", { class: "chips" }, slugs.map((x) => h("a", { class: "chip chip--link", href: taskRoute(ctx.repo, x), title: `Go to ${x}` }, x))),
+          )
+        : null;
+    return h(
+      "div",
+      {},
+      h(
+        "div",
+        { class: "chips detail__chips" },
+        chip("From", `${g.file}:${g.line}`, { tip: "Reggie reads this file and never writes to it. Edit the line there and the board follows." }),
+        chip("Under", where, { tip: "The heading trail above the line in that file" }),
+        g.completedAt ? chip("Finished", fmtDate(g.completedAt) ?? g.completedAt, { tone: "ok", tip: g.completedAt }) : null,
+        g.parked ? chip(null, "parked", { tone: "muted", tip: "Tagged [parked]: shaped, but deliberately not being worked on." }) : null,
+        ...g.kinds.map((k) => chip(null, k, { tip: `The backlog tags this as ${k} work` })),
+        g.tier ? chip("Tier", g.tier, { tip: "The model tier the old pipeline picked for this task" }) : null,
+      ),
+      h("h4", { class: "task-sub" }, "What the line says"),
+      h("p", { class: "para para--fact" }, inline(g.description || t.title || t.slug, { repo: ctx.repo })),
+      g.initiative
+        ? h(
+            "div",
+            { class: "detail__sec" },
+            h("h4", { class: "task-sub", title: "The note written above this group of tasks in the same file" }, "The note on its section"),
+            h("p", { class: "para" }, inline(g.initiative, { repo: ctx.repo })),
+          )
+        : null,
+      rel(g.depends, "Waits for", "The backlog says these have to land first"),
+      rel(g.conflicts, "Cannot run beside", "These touch the same files, so they are serial with this one"),
+      files.length
+        ? h("div", { class: "detail__sec" }, h("h4", { class: "task-sub" }, `Files the line names (${files.length})`), h("ul", { class: "done-files" }, files))
+        : null,
+      g.planFile
+        ? h(
+            "p",
+            { class: "hint" },
+            `A plan for this exists at ${g.planFile}${g.planUntracked ? ", which git is not tracking — it is only on this machine" : ""}.`,
+          )
+        : null,
+    );
   }
 
   /**
@@ -1636,6 +1789,23 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
 
   function completionBlock(t, d) {
     const c = d?.completion ?? null;
+    // A task ticked off in the repo's own backlog has no packet, no verdict and no criteria, and
+    // saying so four times over teaches the reader nothing. What closed it is the line itself,
+    // which usually carries the commit, the suite counts and what was checked — so show that.
+    const noRecord = !c || (!c.verdict && (c.criteria ?? []).length === 0 && !(c.diff?.commits > 0) && (c.journal ?? []).length === 0);
+    if (noRecord && t.legacy) {
+      return h(
+        "div",
+        { class: "done-detail__body" },
+        h("h4", { class: "task-sub" }, "How it was recorded"),
+        h(
+          "p",
+          { class: "hint" },
+          `This one predates Reggie's packets: it was ticked off by hand in ${t.legacy.file}, line ${t.legacy.line}. There is no verdict and no acceptance criteria — what closed it is what the line says.`,
+        ),
+        legacyBlock(t),
+      );
+    }
     if (!c) {
       return h(
         "p",
@@ -1804,8 +1974,10 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
 
   // --- columns -----------------------------------------------------------------
   function column(s) {
-    const items = sortTasks(model.tasks.filter((t) => t.state === s.id));
-    const count = model.sm.counts[s.id] ?? items.length;
+    const all = sortTasks(model.tasks.filter((t) => t.state === s.id));
+    const parked = all.filter((t) => t.legacy?.parked);
+    const items = model.showParked ? all : all.filter((t) => !t.legacy?.parked);
+    const count = model.showParked ? model.sm.counts[s.id] ?? all.length : items.length;
     const head = h(
       "div",
       { class: "board__head", tabindex: "-1", title: s.rule ? `Rule: ${s.rule}` : s.definition || null },
@@ -1815,7 +1987,20 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     );
     const def = h("div", { class: "board__def", title: s.definition || null }, COLUMN_RULE[s.id] ?? firstSentence(s.rule ?? s.definition ?? ""));
     const list = h("div", { class: "board__cards", role: "list", "aria-label": `${s.label} tasks` }, items.map(card));
-    if (items.length === 0) list.appendChild(h("div", { class: "board__none" }, inline(COLUMN_EMPTY[s.id] ?? "Nothing here.", { repo: ctx.repo })));
+    if (items.length === 0) list.appendChild(h("div", { class: "board__none" }, inline(parked.length && !model.showParked ? COLUMN_ALL_PARKED : COLUMN_EMPTY[s.id] ?? "Nothing here.", { repo: ctx.repo })));
+    else if (parked.length && !model.showParked) {
+      list.appendChild(
+        h(
+          "div",
+          { class: "board__hidden-note" },
+          h(
+            "button",
+            { class: "btn btn--small btn--ghost", type: "button", title: "Parked items are tagged [parked] in the backlog file", on: { click: () => setParked(true) } },
+            `${parked.length} more, parked`,
+          ),
+        ),
+      );
+    }
     const extras = s.id === "ungroomed" ? [shapeTheseControls(), addForm()] : [];
     return h("section", { class: `board__col state--${s.id}`, dataset: { state: s.id }, "aria-label": s.label }, head, def, ...extras, list);
   }
@@ -2048,7 +2233,16 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
           h(
             "p",
             { class: "para para--fact" },
-            "The owner writes a completion packet on the task branch, which puts the task in Awaiting decision. A decider approves it or sends it back. An approved packet on the default branch — or a merged pull request — is what makes a task done; nothing here is marked finished by hand.",
+            (() => {
+              const base =
+                "The owner writes a completion packet on the task branch, which puts the task in Awaiting decision. A decider approves it or sends it back. An approved packet on the default branch — or a merged pull request — is what makes a task done.";
+              const ticked = model.tasks.filter((t) => t.state === "done" && t.legacy).length;
+              // Most repos arrive with a backlog of hand-ticked work. Claiming nothing here is
+              // marked finished by hand would be false on the page that is showing it.
+              return ticked
+                ? `${base} ${ticked} of these predate that: they were ticked off by hand in the repo's own backlog file, so what closed them is whatever the line says.`
+                : `${base} Nothing here is marked finished by hand.`;
+            })(),
           ),
           h("p", { class: "hint" }, "From a terminal: ", h("code", {}, "reggie tasks"), " reports the same six states as this page."),
         ),
@@ -2120,6 +2314,9 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
 
   if (model.view === "completed") ensureDone();
   syncViewQuery(model.view);
+  // model.sm was built from the unfiltered payload before shownTasks() existed; recount once so
+  // the first paint's strip agrees with the first paint's columns.
+  recount();
   draw();
   wireKeys();
   hookStoryHover(target, ctx);

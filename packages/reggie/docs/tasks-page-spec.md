@@ -123,3 +123,63 @@ Empty states use the register the rest of the product uses: say why it is empty 
 8. The Completed view shows, for a finished task, the verdict, who decided it, each criterion with pass or fail and a working evidence link, the files changed, and the journal for that task.
 9. `reggie tasks` from the CLI reports the same six states as the page for the same repo.
 10. Typecheck clean, tests green, zero console errors, and no node drawn outside the canvas on the task page at 1600, 1280 and 1000 px.
+
+## 9. The backlog the repo already had
+
+Most repos adopting Reggie arrive with a hand-written backlog: a `TASKS.md` of open work, a
+`HISTORY.md` of finished work, often a folder of per-slug plans from whatever pipeline ran before.
+A tasks page that ignores those files is not empty, it is **wrong** — it reports four captured items
+over a repo whose real backlog is two hundred lines long in a file the author edits every week.
+
+So those files are a task source, read in place. `src/legacy.ts` owns the reading; nothing writes.
+
+**Discovery.** At the repo root, matched case-insensitively against the real directory listing and
+resolved to a real path first — on a case-insensitive filesystem `TASKS.md` and `tasks.md` are one
+file, and reading both would double every task. Open: `tasks.md`, `backlog.md`, `todo.md`. Finished:
+`history.md`, `done.md`, `completed.md`. Plans: `.pipeline/`, `.tasks/`, `tasks/`, as
+`<dir>/<slug>/task.md` or `<dir>/<slug>.md`. `config.yaml`'s `legacy:` key overrides any of the
+three with a path, or switches one off with `false`.
+
+**Line grammar.** A checkbox bullet, then a slug in either spelling files settle into: `slug: text`
+while the item is open, `slug text` once it is a record (that one requires a hyphenated lowercase
+token, so an ordinary sentence's first word is not mistaken for a slug). An indented `files:` line
+below binds to the item above it. Headings become the item's section trail; a `>` block under a
+heading is the note on that group.
+
+**Tags are a whitelist, not a pattern.** A `[...]` group becomes metadata only when it is one of the
+known words; everything else — a Markdown link, a bracketed aside, `[P1]` quoted inside prose —
+stays in the title. Recognised: `P0`–`P9`; `trivial|simple|small|moderate|medium|complex|large`
+mapped onto the brief contract's small/medium/large; kind words (`code`, `manual`, `content`, …);
+`planned`; `parked`; `depends:`/`conflicts:`; `tier:`.
+
+**State.** Git still decides. A legacy item supplies "this task exists" plus the author's shaping,
+and every branch, packet and pull-request check runs first. Only then: ticked box or history file →
+done; under an `Ungroomed` heading → ungroomed; `[planned]` **and** the plan document really on disk
+→ planned; anything else → groomed. The tag alone is not enough for `planned`: a folder of plans
+outlives the decision to build them, and on the first real repo this ran against, 44 of 47 plan
+documents belonged to items the author had explicitly parked.
+
+**Parked.** `[parked]` is a flag, not a state — inventing a seventh state for it would break the
+derivation's one-to-one with `STATE_MACHINE`. Parked tasks are hidden behind a **Show parked (n)**
+toggle in the board head, because a column of work nobody intends to start reads as a queue of
+ready work. The strip counts what the columns draw, never the unfiltered total.
+
+**Attribution.** Every legacy task carries `file`, `line` and `source` and says so on the card: a
+badge naming the file, and a detail panel that opens with `TASKS.md:66`. A plan from the old folder
+is checked against `git ls-files` per file — not `git check-ignore` on the folder, which returns
+"not ignored" for a folder holding one tracked `.gitkeep` while every plan inside it is ignored — so
+the page only promises a teammate can read a plan when git is actually carrying it.
+
+## 10. Acceptance for the legacy backlog
+
+11. Every checkbox line in the repo's backlog files appears on the board exactly once: no line
+    dropped, no slug duplicated, and the count matches an independent scan of both files.
+12. A line's priority, size and file list reach the card as the same chips a brief produces, while
+    the `brief` badge stays off — nothing claims a brief was written.
+13. A task with a `task/<slug>` branch reads as in-process even when the backlog ticks it done.
+14. A card cites the file and line it came from, and the reason string names that file.
+15. Parked tasks are hidden by default; the head says how many, and the strip agrees with the columns.
+16. Opening a finished legacy task shows what the line says — not four separate statements that no
+    packet, verdict, diff or journal was recorded.
+17. A repo with no backlog file behaves exactly as before, and `legacy: {enabled: false}` switches
+    the whole source off.

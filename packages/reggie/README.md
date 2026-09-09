@@ -68,6 +68,47 @@ Four phases: capture it, shape it, plan it, build it.
 
 A brief is the cheap half of grooming: the problem, the area, a size and a priority, written from the intake line without reading much code. A plan is the expensive half. Splitting them lets you shape a whole backlog in one pass and plan only what you decide to build.
 
+## The backlog you already had
+
+Most repos arrive with a hand-written backlog. Reggie reads it in place, as a task source, and never
+writes to it: the Markdown file stays yours to edit, and the board follows what it says.
+
+Found automatically at the repo root, case-insensitively: `TASKS.md` (or `BACKLOG.md`, `TODO.md`) for
+open work, `HISTORY.md` (or `DONE.md`, `COMPLETED.md`) for finished work, and `.pipeline/` (or
+`.tasks/`) for per-slug plan documents an older pipeline left behind.
+
+Lines are read in either of the two shapes those files settle into. Only the tag words below are
+taken as metadata, so a Markdown link or a bracketed aside stays in the title:
+
+```markdown
+### Chatbot — Core Experience
+- [ ] wrap-rail-pills: Pills wrap instead of clipping [P1] [moderate] [code] [depends: pin-docs]
+  files: src/Rail.js (MOD), src/__tests__/rail.test.js (NEW)
+- [x] pin-context-docs Pinned pills became guarantees -- 2026-09-05
+```
+
+| Tag | Becomes |
+|---|---|
+| `[P1]` `[P2]` `[P3]` | the priority chip |
+| `[trivial]` `[simple]` `[small]` `[moderate]` `[complex]` | the size chip (small, medium, large) |
+| `[code]` `[manual]` `[content]` and friends | a kind badge |
+| `[planned]` | planned, but only when the plan document really exists |
+| `[parked]` | hidden from the board until you tick **Show parked** |
+| `[depends: a, b]` `[conflicts: c]` | links to those tasks |
+| `[tier: opus:high]` | shown as written |
+
+State still comes from git. A legacy line supplies "this task exists" plus the author's own shaping;
+a `task/<slug>` branch, a packet or a pull request overrides it. A ticked box means done, a line
+under an `Ungroomed` heading means ungroomed, and anything else the file shapes means groomed.
+
+Point Reggie elsewhere, or switch a source off, in `.reggie/config.yaml`:
+
+```yaml
+legacy:
+  tasks: docs/BACKLOG.md
+  history: false
+```
+
 ## MCP server
 
 `.mcp.json` (written by `onboard`) points Claude Code at `reggie mcp`. For Codex: `codex mcp add reggie -- reggie mcp`.

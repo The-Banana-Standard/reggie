@@ -22,11 +22,24 @@ export interface RiskRules {
   medium: string[];
 }
 
+/**
+ * Where the repo's own backlog lives, when it keeps one outside `.reggie/`. Reggie finds
+ * `TASKS.md`, `HISTORY.md` and a plan folder on its own; these keys only exist to point it
+ * somewhere else, or to switch a source off with `false`.
+ */
+export interface LegacyConfig {
+  tasks?: string | false;
+  history?: string | false;
+  plans?: string | false;
+  enabled?: boolean;
+}
+
 export interface ReggieConfig {
   mode: Mode;
   defaultBranch?: string;
   mcpServerName: string;
   risk: RiskRules;
+  legacy?: LegacyConfig;
 }
 
 export const DEFAULT_RISK: RiskRules = {
@@ -106,6 +119,17 @@ export function loadConfig(paths: RepoPaths): ReggieConfig {
     const r = c.risk as Record<string, unknown>;
     if (Array.isArray(r.high)) base.risk.high = r.high.filter((x): x is string => typeof x === "string");
     if (Array.isArray(r.medium)) base.risk.medium = r.medium.filter((x): x is string => typeof x === "string");
+  }
+  if (c.legacy === false) base.legacy = { enabled: false };
+  else if (c.legacy && typeof c.legacy === "object") {
+    const l = c.legacy as Record<string, unknown>;
+    const legacy: LegacyConfig = {};
+    for (const key of ["tasks", "history", "plans"] as const) {
+      if (l[key] === false) legacy[key] = false;
+      else if (typeof l[key] === "string" && l[key]) legacy[key] = l[key] as string;
+    }
+    if (l.enabled === false) legacy.enabled = false;
+    base.legacy = legacy;
   }
   return base;
 }
