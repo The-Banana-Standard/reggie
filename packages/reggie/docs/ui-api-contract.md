@@ -308,6 +308,9 @@ Unchanged (`{ text }`).
 
 ## GET /api/export?view=container|area|impact&id=&format=mermaid|svg ⧗
 
+## Reaching the server from a phone (the serve key)
+`reggie serve --host 0.0.0.0` (any non-loopback bind) reads or mints a key at `.reggie/.cache/serve-key` and prints each network address with `?key=<key>` appended. Every `/api` request that arrives over a **non-loopback socket** must present that key, as the `X-Reggie-Key` header or a `key` query parameter; without it the answer is 401 `{error:"key required…"}`, and when the server was not started for the network at all it is 403. Loopback sockets never need the key, whatever the bind. The static shell (`/`, `/ui/*`, `/vendor/*`) is served without the key so the page can ask for it (a 401 on any API call shows a paste-the-key card). A keyed POST may carry an `Origin` equal to the request's own `Host`; the `Sec-Fetch-Site` rule and the loopback origin rule are unchanged. The Host header must still be a loopback name or a bare IP literal, so a LAN or tailnet address works and a DNS name does not. `/api/feed.xml` builds its enclosure URLs from the request's `Host`, appending the key when the request carried one, so a podcast app on the phone can play what it lists.
+
 ## Static
 `GET /` → `ui/index.html`. `GET /ui/<file>` → `packages/reggie/ui/<file>` (html, js, css, svg; `..` refused). `GET /vendor/<file>` → whitelisted `node_modules` files (`cytoscape.min.js`, `dagre.min.js`, `cytoscape-dagre.js`, `d3.min.js`), `cache-control: public, max-age=31536000, immutable`; 404 when the module is not installed.
 

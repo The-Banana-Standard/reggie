@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161a22">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="color-scheme" content="dark">
 <title>Reggie</title>
 <link rel="icon" href="/ui/reggie-logo.png" type="image/png">
@@ -99,6 +102,7 @@
     <nav id="crumbs" class="crumbs" aria-label="Breadcrumb"></nav>
     <nav id="nav" class="nav" aria-label="Pages"></nav>
     <div class="header__tools">
+      <button id="map-toggle" class="btn btn--ghost map-toggle" type="button" aria-pressed="false" aria-label="Show the map" title="Show the map" hidden>Map</button>
       <button id="search-trigger" class="btn btn--ghost" type="button" aria-label="Search (Command K)" title="Search (⌘K)">
         <svg class="i"><use href="#i-search"/></svg><span>Search</span><kbd class="kbd">⌘K</kbd>
       </button>

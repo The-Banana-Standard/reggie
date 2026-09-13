@@ -601,10 +601,11 @@ program
   .command("serve")
   .description("Start a local read-only web view: the repo guidebook, its map, the task board, notes and journal")
   .option("--port <n>", "port to listen on (default: $PORT, else 4310)", (v) => parseIntOption(v, "--port"), process.env.PORT ? parseIntOption(process.env.PORT, "PORT") : 4310)
-  .option("--host <host>", "interface to bind", "127.0.0.1")
+  .option("--host <host>", "interface to bind; 0.0.0.0 reaches your phone on the same Wi-Fi or tailnet, behind a key", "127.0.0.1")
+  .option("--key <key>", "the key a phone must present when --host is not loopback (default: read or minted at .reggie/.cache/serve-key)")
   .option("--workspace <dir>", "serve every repo listed in the CLAUDE.md of this workspace directory")
   .option("--no-workspace", "serve only this repo, even when a workspace CLAUDE.md names it")
-  .action(async (opts: { port: number; host: string; workspace?: string | boolean }) => {
+  .action(async (opts: { port: number; host: string; key?: string; workspace?: string | boolean }) => {
     warnIfStale();
     const c = ctx(program.opts<{ root?: string }>().root);
     let workspace: Workspace | null = null;
@@ -615,7 +616,7 @@ program
     } else if (opts.workspace !== false) {
       workspace = autoDetectWorkspace(c.root);
     }
-    const server = await startServer(c.paths, c.config, { port: opts.port, host: opts.host, workspace });
+    const server = await startServer(c.paths, c.config, { port: opts.port, host: opts.host, workspace, key: opts.key ?? null });
     if (workspace) {
       out(`Reggie is serving the ${workspace.name} workspace from ${workspace.root}`);
       for (const name of server.repos) out(`  ${name}`);
@@ -624,7 +625,14 @@ program
       out(`Reggie is serving ${c.root}`);
       for (const name of server.repos) out(`  ${name}`);
     }
-    out(`Open ${server.url}`);
+    if (server.key) {
+      out(`On this machine: http://127.0.0.1:${server.port}/`);
+      for (const a of server.addresses) out(`On your phone (same Wi-Fi or tailnet): http://${a}:${server.port}/?key=${server.key}`);
+      if (server.addresses.length === 0) out(`No network address was found to print; the key is ${server.key}`);
+      out(`The key is in .reggie/.cache/serve-key; delete the file to rotate it. Open the address once and the page remembers it.`);
+    } else {
+      out(`Open ${server.url}`);
+    }
     out("Press Ctrl+C to stop.");
   });
 

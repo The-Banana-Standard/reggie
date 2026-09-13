@@ -1,0 +1,6 @@
+run 1: reggie serve --host 0.0.0.0 --port 4399
+  On this machine: http://127.0.0.1:4399/
+  On your phone (same Wi-Fi or tailnet): http://192.168.1.18:4399/?key=K_rfieQYWcJVWKbfoNx_LUG8
+run 2: reggie serve --host 0.0.0.0 --port 4399
+  On this machine: http://127.0.0.1:4399/
+  On your phone (same Wi-Fi or tailnet): http://192.168.1.18:4399/?key=K_rfieQYWcJVWKbfoNx_LUG8

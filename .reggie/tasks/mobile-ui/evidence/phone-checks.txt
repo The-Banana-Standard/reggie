@@ -1,0 +1,41 @@
+Browser pane, viewport 390x844, server started with `reggie serve --host 0.0.0.0 --port 4315` from this worktree.
+The pane refuses non-loopback addresses, so the page was driven over 127.0.0.1; the network path
+(401 without the key, 200 with it, keyed POST accepted, keyless POST refused, feed <link> at the
+LAN address) was exercised with curl against http://192.168.1.18:4315 — see curl-lan.txt.
+
+Overview (#/repo/reggie) opened as /?key=K_rfieQYWcJVWKbfoNx_LUG8:
+  href after load:            http://127.0.0.1:4315/#/repo/reggie   (key stripped from the address)
+  localStorage reggie:key:    K_rfieQYWcJVWKbfoNx_LUG8
+  #map-col display:           none
+  #map-toggle hidden:         false
+  header scrollWidth>client:  false
+  document scrollWidth>client: false
+  innerWidth:                 390
+
+Map button pressed:
+  #map-col display/position:  flex / fixed, top 48, 390x796 (fills the viewport below the header)
+  button label:               "Close map"
+  Cytoscape canvases present: 3
+Map button pressed again:     #map-col display none
+
+Tasks (#/repo/reggie/tasks):
+  #map-toggle hidden:         true
+  board visible:              true, scrollWidth > clientWidth (columns scroll sideways), 5 columns
+  document scrollWidth>client: false
+
+Task with a plan (#/repo/reggie/task/mobile-ui):
+  Listen row present:         true ("1289 words, about 8:36 spoken")
+  header/document overflow:   false / false
+  sections:                   state, owner, problem, approach, files, criteria, verification, assumptions, scope, bail, risk, packet, journal
+
+Task without a plan (#/repo/reggie/task/try-the-new-guidebook):
+  Listen row present:         true ("304 words, about 2:02 spoken")
+  answer form present:        true
+  sections:                   state, written, lives, known, resembles, unclear, next, answer, journal
+  header/document overflow:   false / false
+
+Tasks again, after the column fix (board.css phone rules matched to .board-wrap specificity):
+  column width / flex-basis:  327.6px (84vw of 390)
+  column height / board height: 958.8 / 974.8 (the stack takes its height from its cards; the page scrolls)
+  cards:                      4, first card fully visible
+  document scrollWidth>client: false

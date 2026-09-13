@@ -1,0 +1,14 @@
+$ curl -s -o /dev/null -w "%{http_code}\n" http://192.168.1.18:4315/api/facts
+401
+$ curl -s -o /dev/null -w "%{http_code}\n" -H "x-reggie-key: $KEY" http://192.168.1.18:4315/api/facts
+200
+$ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:4315/api/facts
+200
+$ curl -s -o /dev/null -w "%{http_code}\n" http://192.168.1.18:4315/
+200   (the static shell loads without the key, so the page can ask for it)
+$ curl -s -X POST -H "content-type: application/json" -H "x-reggie-key: $KEY" -H "origin: http://192.168.1.18:4315" -d '{"slug":"mobile-ui","text":"x"}' http://192.168.1.18:4315/api/intake
+{"slug":"mobile-ui","added":["x"],"createdLine":false}   (the test line was removed from intake.md afterwards)
+$ curl -s -X POST -H "content-type: application/json" -H "origin: http://192.168.1.18:4315" -d '{"slug":"mobile-ui","text":"x"}' http://192.168.1.18:4315/api/intake
+{"error":"key required: open the address `reggie serve` printed, which carries ?key=, or paste the key from .reggie/.cache/serve-key"}
+$ curl -s "http://192.168.1.18:4315/api/feed.xml?key=$KEY" | grep "<link>"
+    <link>http://192.168.1.18:4315</link>

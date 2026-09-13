@@ -2,7 +2,7 @@
 // narration script at once, with nothing made on disk; an episode is the same script rendered
 // to an audio file by the server, playable here and listed in the private feed a podcast app
 // can subscribe to. Both come from GET /api/narration, so what you hear is what the page says.
-import { h, mount, toast, api, post, withRepo, icon } from "./app.js";
+import { h, mount, toast, api, post, withRepo, withKey, icon } from "./app.js";
 
 /** The one utterance in flight, so a second Listen stops the first instead of talking over it. */
 let speaking = null;
@@ -108,9 +108,10 @@ export function listenControls(opts) {
 
   const showEpisode = (ep) => {
     if (!ep?.route) return;
-    const src = url(ep.route) + (url(ep.route).includes("?") ? "&" : "?") + `t=${encodeURIComponent(ep.madeAt ?? "")}`;
+    // The audio element and a podcast app cannot send the key as a header, so it rides in the URL.
+    const src = withKey(url(ep.route) + (url(ep.route).includes("?") ? "&" : "?") + `t=${encodeURIComponent(ep.madeAt ?? "")}`);
     const audio = h("audio", { controls: true, preload: "none", src });
-    const feed = url("/api/feed.xml");
+    const feed = withKey(url("/api/feed.xml"));
     mount(
       player,
       audio,
