@@ -123,10 +123,6 @@
     <section id="map-col" class="map-col" aria-label="Map">
       <!-- Sticky mini-breadcrumb (§3.1): only visible under 1100px, where the map stacks on top. -->
       <div id="mini-crumbs" class="crumbs--mini" aria-hidden="true"></div>
-      <div id="map-tabs" class="tabs" role="tablist">
-        <button id="tab-map" class="tabs__tab is-active" type="button" role="tab" aria-selected="true" data-tab="map">Map</button>
-        <button id="tab-treemap" class="tabs__tab" type="button" role="tab" aria-selected="false" data-tab="treemap" disabled title="Treemap is not in this release">Treemap</button>
-      </div>
       <div id="map-stage" class="map-stage">
         <div id="cy" class="map-canvas" aria-label="Map canvas"></div>
         <div id="toolbar" class="float float--toolbar" role="toolbar" aria-label="Map tools">
@@ -161,9 +157,6 @@
 <script src="/vendor/cytoscape.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.4/cytoscape.min.js'"></script>
 <script src="/vendor/dagre.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js'"></script>
 <script src="/vendor/cytoscape-dagre.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js'"></script>
-<!-- d3 7.9.0 is stretch (Treemap, Timeline). Uncomment when treemap.js lands:
-<script src="/vendor/d3.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js'"></script>
--->
 <script type="module" src="/ui/app.js"></script>
 </body>
 </html>

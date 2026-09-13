@@ -217,8 +217,28 @@ export function collectFacts(root: string): RepoFacts {
     /^(manage|main|app)\.py$/,
     /^functions\/(index|src\/index)\.[jt]s$/,
   ];
+  // The patterns above are anchored to a package root, not to the repo root. In a monorepo the
+  // product often lives under `packages/<name>/`, so matching only from the repo root reports
+  // "none detected" for a repo whose whole reason to exist is a CLI. Collect every directory
+  // holding a manifest and test each file against the patterns relative to the deepest one
+  // above it, so `packages/reggie/src/cli.ts` matches `^src/cli\.ts$` exactly as a single-package
+  // repo's `src/cli.ts` would.
+  const packageRoots = new Set<string>([""]);
   for (const file of all) {
-    if (entryPatterns.some((re) => re.test(file))) entryPoints.push(file);
+    const base = path.posix.basename(file);
+    if (!MANIFEST_FILES.includes(base)) continue;
+    const dir = path.posix.dirname(file);
+    packageRoots.add(dir === "." ? "" : dir);
+  }
+  for (const file of all) {
+    for (const root of packageRoots) {
+      if (root !== "" && !file.startsWith(`${root}/`)) continue;
+      const rel = root === "" ? file : file.slice(root.length + 1);
+      if (entryPatterns.some((re) => re.test(rel))) {
+        entryPoints.push(file);
+        break;
+      }
+    }
   }
 
   const ci = all.filter((f) => f.startsWith(".github/workflows/")).map((f) => path.posix.basename(f));

@@ -4,170 +4,88 @@
   <img src="reggie-logo.png" alt="Reggie" width="200">
 </p>
 
-**Brain-dump to merged PR. Reggie is a desktop app and agent system for Claude Code that turns messy notes into shipped code.**
+**A repo manager for Claude Code and Codex.** Reggie keeps tasks, plans, notes, and a plain-English journal inside each repo, derives task state from git, and serves a local web view that explains the code and the work.
 
-Dump features, bugs, and half-formed ideas into `TASKS.md`. Run `/reggie-init-tasks` to groom them into implementation-ready plans. Run `/reggie-code-workflow` in as many terminals as you want — each session picks a different task and ships it through a pipeline with quality gates. Reggie is a Tauri v2 desktop app backed by a bundled 36-agent pipeline system with memory. Everything runs locally — no external APIs, no cloud dependencies.
+Reggie does not run your sessions. Claude Code, Codex, or a plain terminal do that. Reggie is the shared ledger and map that every tool and every person reads and writes.
 
-See [resources/docs/REGGIE.md](resources/docs/REGGIE.md) for the agent-system philosophy and principles.
-
-> **Preview: Reggie v3, the repo manager.** The `repo-manager` branch replaces the desktop app with a small CLI and MCP server that keep tasks, plans, notes, and a plain-English journal inside each repo and read task state from git. It works with Claude Code and Codex. Start at [docs/getting-started.md](docs/getting-started.md); the design is in [docs/repo-manager-vision.md](docs/repo-manager-vision.md).
+Everything runs locally — no external APIs, no cloud dependencies. Start at [docs/getting-started.md](docs/getting-started.md); the design and its open questions are in [docs/repo-manager-vision.md](docs/repo-manager-vision.md).
 
 ---
 
-## Daily Driver Loop
+## The loop
 
 ```text
-Brain dump -> /reggie-init-tasks -> /reggie-code-workflow (xN in parallel)
+capture -> shape (brief) -> plan -> build -> decide
 ```
 
-1. Brain dump features/bugs/ideas into `TASKS.md`.
-2. Run `/reggie-init-tasks` to turn rough notes into implementation-ready plans.
-3. Run `/reggie-code-workflow` in one or many terminals; each session auto-picks a different eligible task and runs it in its own worktree.
+1. `reggie capture "…"` puts a raw idea in `.reggie/intake.md`.
+2. `reggie triage <slug>` shapes it into a brief: the problem, the suspected area, a size and a priority.
+3. Plan in your tool's own plan mode against Reggie's plan contract, then `reggie plan lint <slug>`.
+4. `reggie claim <slug>` starts a `task/<slug>` branch; the plan names the evidence that will prove it works.
+5. `reggie packet <slug>` writes the completion packet, and the PR body is that packet.
 
-For a new project, run `/reggie-new-repo` first. For an existing project, run `/reggie-onboard` first. Both paths feed the same loop above.
-
----
-
-## Features
-
-- **Workspace management** — group projects into workspaces and switch between them
-- **Terminal multiplexer** — run Claude Code, Codex, and shell sessions side by side with split view
-- **Session history** — browse past Claude Code sessions per project
-- **Skills manager** — install, uninstall, and browse Claude Code slash-command skills
-- **Daily planner** — built-in task management
-- **GitHub dashboard** — view issues and PRs via the GitHub CLI
-- **Light & dark themes**
-- **Bundled 36-agent pipeline system** — installed to `~/.claude/` on first launch, with quality gates and memory
+Task state is not stored — it is read from git. An intake line means ungroomed; a brief means groomed; a plan that passes the contract means planned; a `task/<slug>` branch means in process; an open PR means awaiting decision; a merge means done.
 
 ---
 
-## Installation
+## Install
 
-### Pre-built releases
-
-Download from [Releases](https://github.com/The-Banana-Standard/reggie/releases).
-
-| Platform | File |
-|----------|------|
-| macOS (Apple Silicon) | `Reggie_x.x.x_aarch64.dmg` |
-| macOS (Intel)         | `Reggie_x.x.x_x64.dmg`     |
-| Windows               | `Reggie_x.x.x_x64-setup.exe` |
-| Linux (Debian/Ubuntu) | `Reggie_x.x.x_amd64.deb`   |
-| Linux (other)         | `Reggie_x.x.x_amd64.AppImage` |
-
-> **macOS users**: If macOS shows "Reggie is damaged and can't be opened", run:
-> ```bash
-> xattr -cr /Applications/Reggie.app
-> ```
-
-### Build from source
-
-**Prerequisites:**
-- [Rust](https://rustup.rs/) (stable toolchain)
-- [Node.js](https://nodejs.org/) v18+
-- [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/)
+Requires Node.js 20+.
 
 ```bash
 git clone https://github.com/The-Banana-Standard/reggie.git
-cd reggie
-npm install
-npm run tauri build
+cd reggie/packages/reggie
+npm install --legacy-peer-deps
+npm run build
+npm link
 ```
+
+Then, in any repo you want Reggie to manage:
+
+```bash
+reggie onboard
+```
+
+That writes `.reggie/`, generates the `CLAUDE.md` and `AGENTS.md` blocks both tools auto-load, and registers the MCP server so Claude Code and Codex reach the same state through the same tools.
+
+---
+
+## The web view
+
+```bash
+reggie serve
+```
+
+Opens a local, read-mostly view of the repo: a plain-English story column beside a map that stays in lockstep with it, from the whole repo down to a single file, plus a task board, the services the code talks to, and how data flows through it. Nothing is hand-written — every fact is derived from the code, git, and the notes, and anything inferred by a heuristic says so.
 
 ---
 
 ## Development
 
 ```bash
-# Run in development mode (hot reload)
-npm run tauri dev
-
-# Run frontend tests
-npm test
-
-# Run Rust tests
-cargo test --manifest-path src-tauri/Cargo.toml
-
-# Frontend-only dev server (no Tauri shell, limited use)
-npm run dev
+cd packages/reggie
+npm install --legacy-peer-deps
+npm test          # vitest
+npm run typecheck
+npm run build
+npm run dev -- serve --port 4311   # run the CLI from source
 ```
 
-The Vite dev server runs on port 1420 with HMR enabled.
-
----
-
-## What's bundled: the agent system
-
-Reggie ships with a 36-agent pipeline system that installs to `~/.claude/` on first launch:
-
-```
-resources/
-  agents/      36 agent definitions
-  commands/    35 slash commands
-  hooks/       stats tracking hook
-  docs/        system documentation
-  registries/  MCP and skills registries
-```
-
-On each launch, Reggie compares its bundled version against `~/.claude/.reggie-version`. If the bundled version is newer, all resources are re-installed automatically. In dev mode (`npm run tauri dev`), symlinks are used instead of copies for live editing.
-
-**What happens on first launch:**
-- Creates `~/.claude/{agents,commands,hooks,docs}` if missing
-- Copies `reggie-*` prefixed files (your custom agents/commands are never touched)
-- Merges PostToolUse stats hook into `settings.json` (preserves existing config)
-- Creates local overlay files (`mcp-registry.local.yaml`, `skills-registry.local.yaml`) if missing
-- Offers to configure `ENABLE_TOOL_SEARCH=auto:5` in your shell profile
-
-See [resources/docs/REGGIE.md](resources/docs/REGGIE.md) for agent-system philosophy.
-
----
-
-## Key Commands
-
-| Command | What it does |
-|---------|-------------|
-| `/reggie-guide` | Help and command map |
-| `/reggie-init-tasks` | Turn raw backlog notes into implementation-ready tasks |
-| `/reggie-code-workflow` | Run full implementation pipeline with quality gates (`[code]`, `[design]` tasks) |
-| `/reggie-debug-workflow` | Diagnose before fixing — Socratic debug dialogue (`[debug]` tasks) |
-| `/reggie-system-change` | Formalize changes to agent system components (`[reggie-system]` tasks) |
-| `/reggie-manual-task` | Walk through a manual task step-by-step (`[manual]` tasks) |
-| `/reggie-find-tools` | Scan project and optionally configure MCP servers |
-| `/reggie-status` | Show current task and pipeline stage |
-
----
-
-## Architecture
-
-- **Backend:** Rust (Tauri v2, portable-pty, tokio)
-- **Frontend:** React 19 + TypeScript (strict), xterm.js v6
-- **Storage:** JSON file (`app_data_dir/bookmarks.json`) via Tauri `read_bookmarks` / `write_bookmarks` commands
-- **Build:** Vite 7, Cargo
-
----
-
-## Capabilities Model
-
-Versioned in git:
-- `resources/registries/mcp-registry.yaml` (curated MCP registry)
-- `resources/registries/skills-registry.yaml` (curated community skills registry)
-
-Local/generated in `~/.claude/`:
-- `capability-manifest.yaml` (generated by `/reggie-refresh-capabilities`)
-- `mcp-registry.local.yaml` (optional local MCP overlay)
-- `skills-registry.local.yaml` (optional local skills overlay)
-
-`/reggie-find-tools` remains explicit and interactive. `/reggie-refresh-capabilities` is optional and refreshes local generated state.
+`npm test`, `npm run build`, and `npm run typecheck` also work from the repo root and delegate here.
 
 ---
 
 ## Documentation
 
-- [resources/docs/REGGIE.md](resources/docs/REGGIE.md) — Philosophy and principles
-- [resources/docs/PORTABLE-PACKAGE.md](resources/docs/PORTABLE-PACKAGE.md) — Full system reference
-- [resources/docs/reggie-quickstart.md](resources/docs/reggie-quickstart.md) — Quickstart and install/update paths
-- [resources/docs/agents-is-all-you-need.md](resources/docs/agents-is-all-you-need.md) — Why agents over tools
-- [docs/open-source-release-checklist.md](docs/open-source-release-checklist.md) — Release operations
+- [docs/getting-started.md](docs/getting-started.md) — install, onboard, and the first task
+- [docs/how-reggie-structures-a-repo.md](docs/how-reggie-structures-a-repo.md) — what lands in `.reggie/` and why
+- [docs/information-paradigm.md](docs/information-paradigm.md) — notes, journal, and evidence: the three audiences
+- [docs/repo-manager-vision.md](docs/repo-manager-vision.md) — the v3 direction, its decisions and open forks
+- [packages/reggie/docs/](packages/reggie/docs/) — the web UI spec, API contract, and page specs
+
+## The v2 agent system
+
+`resources/` still holds the 37-agent, 36-command pipeline system that Reggie v2 installed into `~/.claude/`. v3 borrows procedures instead of shipping them — planning happens in each tool's native plan mode, and review, security, and simplify steps are delegated to the tools' own commands — so these files are retained for the v2 line rather than extended. See [resources/docs/REGGIE.md](resources/docs/REGGIE.md).
 
 ## Contributing
 

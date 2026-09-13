@@ -553,6 +553,14 @@ describe("GET tasks, task detail, state machine and evidence", () => {
     expect((await fetch(`${base}/api/evidence?slug=../etc&file=tests.txt`)).status).toBe(400);
     expect((await fetch(`${base}/api/evidence?slug=${fx.slugs.awaiting}&file=nope.txt`)).status).toBe(404);
   });
+
+  it("serves evidence sandboxed, so agent-written HTML cannot reach this origin's write routes", async () => {
+    const res = await fetch(`${base}/api/evidence?slug=${fx.slugs.awaiting}&file=tests.txt`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-security-policy")).toBe("sandbox");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+  });
 });
 
 describe("GET history, notes, journal, people, search, workspace and context", () => {
@@ -660,11 +668,11 @@ describe("GET history, notes, journal, people, search, workspace and context", (
     expect(byPath.text.length).toBeGreaterThan(0);
   });
 
-  it("reserves the stretch routes with 501", async () => {
+  it("404s the withdrawn stretch routes rather than promising them with a 501", async () => {
     for (const route of ["/api/treemap?root=src", "/api/timeline", "/api/export?view=container"]) {
       const { status, body } = await get(route);
-      expect(status).toBe(501);
-      expect(body).toEqual({ error: "not implemented" });
+      expect(status).toBe(404);
+      expect(body).toEqual({ error: "not found" });
     }
   });
 

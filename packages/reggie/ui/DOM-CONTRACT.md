@@ -23,7 +23,6 @@ Every container below exists on first paint and is never replaced, only filled.
 | `sections` | Story sections container (or the Needs-you queue on the board) | story.js / board.js |
 | `mini-crumbs` | Sticky mini-breadcrumb above the canvas; the last two crumbs, only visible under 1100px | app.js |
 | `map-col` | Map column (gets `is-disabled` on renderer failure, `is-loading` while a payload is in flight) | app.js |
-| `map-tabs`, `tab-map`, `tab-treemap` | Tabs row; Treemap is disabled (stretch) | app.js |
 | `map-stage` | Positioned wrapper around the canvas and its floating cards | map.js |
 | `cy` | Cytoscape container (`createMap($("cy"))`); board.js hides it and mounts the board in `map-stage` | map.js / board.js |
 | `toolbar` | Floating toolbar card | map.js |

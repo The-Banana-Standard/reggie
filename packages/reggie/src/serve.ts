@@ -52,6 +52,23 @@ const CONTENT_TYPES: Record<string, string> = {
   ".map": "application/json; charset=utf-8",
 };
 
+/**
+ * Evidence is written by agents, and `.html` and `.svg` are active content. Served plainly they
+ * would run with same-origin access to this server — which has POST routes that write files into
+ * the repo and start sessions. `sandbox` with no allow-tokens puts the response in a unique opaque
+ * origin: no scripts, no forms, no same-origin reads. `nosniff` stops a mislabelled file being
+ * re-interpreted as one of them. A test report still renders; it just cannot reach back in here.
+ */
+export function evidenceHeaders(type: string): Record<string, string> {
+  return {
+    "content-type": type,
+    "cache-control": "no-store",
+    "content-security-policy": "sandbox",
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "no-referrer",
+  };
+}
+
 /** Content types for `/api/evidence`; anything else is served as a download. */
 const EVIDENCE_TYPES: Record<string, string> = {
   ".txt": "text/plain; charset=utf-8",
@@ -872,10 +889,6 @@ function route(res: ServerResponse, url: URL, registry: RepoRegistry, primary: {
       return json(res, 200, workspaceSummary(registry));
     case "/api/context":
       return contextRoute(res, c, url);
-    case "/api/treemap":
-    case "/api/timeline":
-    case "/api/export":
-      return json(res, 501, { error: "not implemented" });
     default:
       return json(res, 404, { error: "not found" });
   }
@@ -1392,7 +1405,7 @@ function evidenceRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
   const ext = path.extname(file).toLowerCase();
   const type = EVIDENCE_TYPES[ext] ?? "application/octet-stream";
   if (existsSync(full) && statSync(full).isFile()) {
-    res.writeHead(200, { "content-type": type, "cache-control": "no-store", "content-length": statSync(full).size });
+    res.writeHead(200, { ...evidenceHeaders(type), "content-length": statSync(full).size });
     createReadStream(full).pipe(res);
     return;
   }
@@ -1401,7 +1414,7 @@ function evidenceRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
     const onBranch = fileAtRef(c.root, `task/${slug}`, `.reggie/tasks/${slug}/evidence/${file}`);
     if (onBranch !== null) {
       const body = Buffer.from(onBranch, "utf8");
-      res.writeHead(200, { "content-type": type, "cache-control": "no-store", "content-length": body.length });
+      res.writeHead(200, { ...evidenceHeaders(type), "content-length": body.length });
       res.end(body);
       return;
     }

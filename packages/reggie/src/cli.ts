@@ -7,7 +7,7 @@ import { staleBuildWarning } from "./build-state.js";
 import { capture, removeFromIntake } from "./capture.js";
 import { claimTask, releaseTask } from "./claim.js";
 import { buildContext } from "./context.js";
-import { checkGeneratedBlock, renderGeneratedBlock } from "./docs.js";
+import { checkComposedFile, checkGeneratedBlock, composeAgentsMd, curatedSections, renderGeneratedBlock } from "./docs.js";
 import { collectFacts } from "./facts.js";
 import { detectFlows, MAX_FLOW_HOPS, traceFlow, type Payload } from "./flows.js";
 import { buildGraph, type RepoGraph } from "./graph.js";
@@ -117,9 +117,12 @@ docs
   .action(() => {
     const c = ctx(program.opts<{ root?: string }>().root);
     const facts = collectFacts(c.root);
+    // AGENTS.md is composed whole from CLAUDE.md's curated half, so checking only its generated
+    // block would miss the drift that matters most: rules Codex never gets to read.
+    const curated = curatedSections(readText(c.paths.claudeMd) ?? "");
     const results = [
       checkGeneratedBlock(c.paths.claudeMd, renderGeneratedBlock(facts, c.config, "claude")),
-      checkGeneratedBlock(c.paths.agentsMd, renderGeneratedBlock(facts, c.config, "codex")),
+      checkComposedFile(c.paths.agentsMd, composeAgentsMd(facts.name, curated, renderGeneratedBlock(facts, c.config, "codex"))),
     ];
     let bad = false;
     for (const r of results) {

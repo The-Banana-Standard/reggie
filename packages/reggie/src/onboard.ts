@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { agentsMdTemplate, applyGeneratedBlock, claudeMdTemplate, END_MARKER, renderGeneratedBlock, START_MARKER, type ApplyResult } from "./docs.js";
+import { applyAgentsMd, applyGeneratedBlock, claudeMdTemplate, composeAgentsMd, curatedSections, END_MARKER, renderGeneratedBlock, START_MARKER, type ApplyResult } from "./docs.js";
 import { collectFacts, detectName, type RepoFacts } from "./facts.js";
 import { isRepo } from "./git.js";
 import { ensureLayout, type LayoutResult } from "./layout.js";
@@ -41,13 +41,15 @@ export function onboard(root: string): OnboardResult {
   const provisional = `${START_MARKER}\n${END_MARKER}`;
   const preName = detectName(root);
   const createdClaude = writeIfMissing(paths.claudeMd, claudeMdTemplate(preName)(provisional));
-  const createdAgents = writeIfMissing(paths.agentsMd, agentsMdTemplate(preName)(provisional));
+  // Both files must exist before collectFacts, or the generated file count is short by one and
+  // `docs check` reports stale the moment onboarding finishes. The real content lands below.
+  const createdAgents = writeIfMissing(paths.agentsMd, composeAgentsMd(preName, "", provisional));
 
   const facts = collectFacts(root);
-  const docs: ApplyResult[] = [
-    applyGeneratedBlock(paths.claudeMd, renderGeneratedBlock(facts, config, "claude"), claudeMdTemplate(facts.name)),
-    applyGeneratedBlock(paths.agentsMd, renderGeneratedBlock(facts, config, "codex"), agentsMdTemplate(facts.name)),
-  ];
+  const claudeDoc = applyGeneratedBlock(paths.claudeMd, renderGeneratedBlock(facts, config, "claude"), claudeMdTemplate(facts.name));
+  // AGENTS.md is composed from CLAUDE.md's curated half, so it is written after CLAUDE.md is final.
+  const curated = curatedSections(readText(paths.claudeMd) ?? "");
+  const docs: ApplyResult[] = [claudeDoc, applyAgentsMd(paths.agentsMd, facts.name, curated, renderGeneratedBlock(facts, config, "codex"))];
   if (createdClaude && docs[0]) docs[0].action = "created";
   if (createdAgents && docs[1]) docs[1].action = "created";
 
@@ -73,10 +75,11 @@ export function refreshDocs(root: string): { results: ApplyResult[]; facts: Repo
   const people = loadPeople(paths);
   const { config } = ensureConfig(paths, inferMode(people));
   const facts = collectFacts(root);
-  const results = [
-    applyGeneratedBlock(paths.claudeMd, renderGeneratedBlock(facts, config, "claude"), claudeMdTemplate(facts.name)),
-    applyGeneratedBlock(paths.agentsMd, renderGeneratedBlock(facts, config, "codex"), agentsMdTemplate(facts.name)),
-  ];
+  // CLAUDE.md is the source for curated prose; AGENTS.md is composed from it. Refresh CLAUDE.md
+  // first so the mirror picks up any curated edits made in the same pass.
+  const claudeResult = applyGeneratedBlock(paths.claudeMd, renderGeneratedBlock(facts, config, "claude"), claudeMdTemplate(facts.name));
+  const curated = curatedSections(readText(paths.claudeMd) ?? "");
+  const results = [claudeResult, applyAgentsMd(paths.agentsMd, facts.name, curated, renderGeneratedBlock(facts, config, "codex"))];
   return { results, facts };
 }
 
