@@ -684,10 +684,12 @@ export function checkHostHeader(req: IncomingMessage): string | null {
 }
 
 /**
- * `Sec-Fetch-Site` must be absent, `same-origin` or `none`; a present `Origin` must be this
- * server's own loopback origin. Deliberately *not* compared against the `Host` header: `Host` is
- * attacker-controlled, so `origin === "http://" + host` is trivially satisfiable and would let a
- * rebound page through (`checkHostHeader` is the other half of that defence).
+ * `Sec-Fetch-Site` must be absent, `same-origin` or `none`. On a loopback socket a present `Origin`
+ * must be this server's own loopback origin, deliberately *not* compared against the `Host` header:
+ * `Host` is attacker-controlled, so `origin === "http://" + host` is trivially satisfiable and would
+ * let a rebound page through (`checkHostHeader` is the other half of that defence). On a network
+ * socket the request has already presented the serve key (`keyed`), which a rebound page cannot, so
+ * the origin is not checked further.
  */
 export function checkPostOrigin(req: IncomingMessage, port: number, opts: { keyed?: boolean } = {}): string | null {
   const site = req.headers["sec-fetch-site"];
@@ -705,14 +707,10 @@ export function checkPostOrigin(req: IncomingMessage, port: number, opts: { keye
   const sameHost = LOOPBACK_HOSTS.has(parsed.hostname);
   const samePort = parsed.port === String(port) || (parsed.port === "" && port === 80);
   if (parsed.protocol === "http:" && sameHost && samePort) return null;
-  // Over the network the key is the defence, not the origin: a page that presented the key may
-  // POST from the address it was served on. Host is attacker-controlled, which is exactly why this
-  // branch is reachable only after checkKey passed on a non-loopback socket.
-  if (opts.keyed) {
-    const rawHost = req.headers.host;
-    const hostHeader = (Array.isArray(rawHost) ? rawHost[0] : rawHost) ?? "";
-    if (parsed.protocol === "http:" && hostHeader && parsed.host === hostHeader) return null;
-  }
+  // Over the network the key is the defence, not the origin: a rebound or cross-site page cannot
+  // present it, and Sec-Fetch-Site above already refuses a cross-site request outright. So a keyed
+  // request may carry whatever Origin its address (or a proxy in front) gave it.
+  if (opts.keyed) return null;
   return "origin does not match this server";
 }
 
@@ -817,7 +815,9 @@ export function startServer(paths: RepoPaths, config: ReggieConfig, opts: ServeO
   // The caller already loaded the config for `paths.root`; every other repo loads its own.
   const primary = { root: path.resolve(paths.root), config };
   let boundPort = opts.port;
-  const key = opts.key ?? (isLoopbackHost(opts.host) ? null : readOrMintServeKey(paths.root));
+  // The key exists exactly when the bind is not loopback: a key on a loopback-only server would
+  // never be checked, and a handle saying "key" would lie about being reachable.
+  const key = isLoopbackHost(opts.host) ? null : (opts.key ?? readOrMintServeKey(paths.root));
 
   const handler = (req: IncomingMessage, res: ServerResponse): void => {
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? opts.host}`);
@@ -2028,7 +2028,8 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
     ]);
     return json(res, readOnly.has(url.pathname) ? 405 : 404, { error: readOnly.has(url.pathname) ? "method not allowed" : "not found" });
   }
-  if (!keyed && !isLoopbackAddress(req.socket.remoteAddress ?? undefined)) return json(res, 403, { error: "writes are accepted from this machine only" });
+  // `keyed` says the dispatcher already checked the serve key on a network socket; loopback
+  // sockets arrive with it false and are trusted as before.
   const originProblem = checkPostOrigin(req, port, { keyed });
   if (originProblem) return json(res, 403, { error: originProblem });
 
@@ -2043,6 +2044,12 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
     person = currentPerson(c.root, peopleOf(c));
   } catch (err) {
     return json(res, 500, { error: err instanceof Error ? err.message : "no current person" });
+  }
+  // A write over the network is attributed to whoever runs `reggie serve`, because the key carries
+  // no identity. Alone that is the same person; in a team it would be a silent takeover, so it is
+  // refused until the key can name a person.
+  if (keyed && c.config.mode === "team") {
+    return json(res, 403, { error: "writes over the network are attributed to the machine's owner, so in team mode they are refused; write from the machine running reggie serve, or switch to solo mode" });
   }
 
   switch (url.pathname) {

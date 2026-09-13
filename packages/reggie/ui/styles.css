@@ -707,7 +707,6 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
   #lens, #dense { display: none; }
   #search-trigger .kbd { display: none; }
   .map-toggle { display: inline-flex; }
-  .map-toggle[hidden] { display: none; }
   .crumbs { gap: var(--s-1); }
   .crumbs__last { font-size: var(--fs-label); }
 
@@ -720,8 +719,9 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
     height: auto; z-index: 30; border: 0;
   }
   .app.is-map-open .story { visibility: hidden; }
-  .main[data-level="tasks"] .map-col { display: flex; order: -1; position: static; height: auto; min-height: 0; border-left: 0; border-bottom: 1px solid var(--line); }
-  .main[data-level="tasks"] .map-col .crumbs--mini { display: none; }
+  /* data-map="payload" is set by app.js for the levels whose map column is the page itself. */
+  .main[data-map="payload"] .map-col { display: flex; order: -1; position: static; height: auto; min-height: 0; border-left: 0; border-bottom: 1px solid var(--line); }
+  .main[data-map="payload"] .map-col .crumbs--mini { display: none; }
 
   .btn, .btn--small, .seg__btn { min-height: 34px; }
   .btn--small { height: auto; padding: 0 10px; font-size: var(--fs-label); }

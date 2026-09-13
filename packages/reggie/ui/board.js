@@ -33,6 +33,7 @@ import {
   storage,
   section,
   skeleton,
+  withKey,
 } from "./app.js";
 import { renderStory } from "./story.js";
 import { listenControls, stopListening } from "./listen.js";
@@ -1882,7 +1883,7 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     if (!e.exists) {
       return h("span", { class: "evidence-missing", title: `The packet cites evidence/${name}, but no such file was saved on the branch or in the working tree.` }, icon("stale"), h("code", { class: "evidence-code" }, name), " never saved");
     }
-    return h("a", { class: "link link--file evidence-link", href: withRepoOnce(e.route), target: "_blank", rel: "noopener", title: `Open evidence/${name}` }, icon("external"), h("span", {}, name));
+    return h("a", { class: "link link--file evidence-link", href: withKey(withRepoOnce(e.route)), target: "_blank", rel: "noopener", title: `Open evidence/${name}` }, icon("external"), h("span", {}, name));
   }
 
   function completionBlock(t, d) {
@@ -3048,7 +3049,8 @@ function evidenceName(entry) {
 function evidenceLink(ctx, slug, entry) {
   const name = evidenceName(entry);
   if (!name || name.includes("/") || name.includes("..")) return h("code", { class: "evidence-code", title: "Not an evidence file" }, entry);
-  const url = withRepoOnce(`/api/evidence?slug=${encodeURIComponent(slug)}&file=${encodeURIComponent(name)}`);
+  // The browser follows this itself, so the serve key rides in the URL rather than a header.
+  const url = withKey(withRepoOnce(`/api/evidence?slug=${encodeURIComponent(slug)}&file=${encodeURIComponent(name)}`));
   return h("a", { class: "link link--file evidence-link", href: url, target: "_blank", rel: "noopener", title: `Open evidence/${name}` }, icon("external"), h("span", {}, name));
 }
 

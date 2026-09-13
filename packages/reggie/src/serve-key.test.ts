@@ -71,11 +71,11 @@ describe("checkPostOrigin over the network", () => {
     expect(checkPostOrigin(fakeReq("192.168.1.5", { "sec-fetch-site": "cross-site", origin: "http://192.168.1.18:4310", host: "192.168.1.18:4310" }), port, { keyed: true })).toContain("cross-site");
   });
 
-  it("accepts an origin equal to the request's own host only for a keyed request", () => {
+  it("lets a keyed request keep whatever origin its address or a proxy gave it, and an unkeyed one not", () => {
     const headers = { origin: "http://192.168.1.18:4310", host: "192.168.1.18:4310" };
     expect(checkPostOrigin(fakeReq("192.168.1.5", headers), port, { keyed: true })).toBeNull();
+    expect(checkPostOrigin(fakeReq("192.168.1.5", { origin: "https://mac.tailnet.ts.net", host: "192.168.1.18:4310" }), port, { keyed: true })).toBeNull();
     expect(checkPostOrigin(fakeReq("192.168.1.5", headers), port)).toContain("origin does not match");
-    expect(checkPostOrigin(fakeReq("192.168.1.5", { origin: "http://evil.example.com", host: "192.168.1.18:4310" }), port, { keyed: true })).toContain("origin does not match");
-    expect(checkPostOrigin(fakeReq("192.168.1.5", { origin: "https://192.168.1.18:4310", host: "192.168.1.18:4310" }), port, { keyed: true })).toContain("origin does not match");
+    expect(checkPostOrigin(fakeReq("192.168.1.5", { origin: "http://evil.example.com", host: "192.168.1.18:4310" }), port)).toContain("origin does not match");
   });
 });

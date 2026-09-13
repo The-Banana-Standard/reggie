@@ -1201,6 +1201,10 @@ describe("the serve key and the feed's address", () => {
       const again = await startServer(fx.paths, fx.config, { port: 0, host: "0.0.0.0" });
       expect(again.key).toBe(wide.key);
       await again.close();
+      // A key on a loopback bind would never be checked, so the handle does not pretend to have one.
+      const local = await startServer(fx.paths, fx.config, { port: 0, host: "127.0.0.1", key: "abc" });
+      expect(local.key).toBeNull();
+      await local.close();
     } finally {
       await wide.close();
     }

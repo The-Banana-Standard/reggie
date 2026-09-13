@@ -602,7 +602,7 @@ program
   .description("Start a local read-only web view: the repo guidebook, its map, the task board, notes and journal")
   .option("--port <n>", "port to listen on (default: $PORT, else 4310)", (v) => parseIntOption(v, "--port"), process.env.PORT ? parseIntOption(process.env.PORT, "PORT") : 4310)
   .option("--host <host>", "interface to bind; 0.0.0.0 reaches your phone on the same Wi-Fi or tailnet, behind a key", "127.0.0.1")
-  .option("--key <key>", "the key a phone must present when --host is not loopback (default: read or minted at .reggie/.cache/serve-key)")
+  .option("--key <key>", "the key a phone must present when --host is not loopback (default: read or minted at .reggie/.cache/serve-key); ignored on a loopback bind")
   .option("--workspace <dir>", "serve every repo listed in the CLAUDE.md of this workspace directory")
   .option("--no-workspace", "serve only this repo, even when a workspace CLAUDE.md names it")
   .action(async (opts: { port: number; host: string; key?: string; workspace?: string | boolean }) => {
@@ -629,7 +629,8 @@ program
       out(`On this machine: http://127.0.0.1:${server.port}/`);
       for (const a of server.addresses) out(`On your phone (same Wi-Fi or tailnet): http://${a}:${server.port}/?key=${server.key}`);
       if (server.addresses.length === 0) out(`No network address was found to print; the key is ${server.key}`);
-      out(`The key is in .reggie/.cache/serve-key; delete the file to rotate it. Open the address once and the page remembers it.`);
+      out(opts.key ? "The key came from --key. Open the address once and the page remembers it." : "The key is in .reggie/.cache/serve-key; delete the file to rotate it. Open the address once and the page remembers it.");
+      if (c.config.mode === "team") out("Team mode: the page reads from a phone, but writes are refused over the network because the key names no person.");
     } else {
       out(`Open ${server.url}`);
     }

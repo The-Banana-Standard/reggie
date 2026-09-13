@@ -449,12 +449,19 @@ function keyHeaders(extra = {}) {
   return key ? { ...extra, "x-reggie-key": key } : extra;
 }
 
-let keyPromptShown = false;
-
-/** The server wants a key this page does not have: ask for it in the story column, once. */
+/**
+ * The server wants a key this page does not have: ask for it in the story column. Deferred a tick,
+ * because the render that triggered the 401 is about to replace the column with its own error card;
+ * the prompt lands after that and is added only when no prompt is already on the page.
+ */
 function showKeyPrompt(message) {
-  if (keyPromptShown) return;
-  keyPromptShown = true;
+  setTimeout(() => {
+    if (document.querySelector(".key-prompt")) return;
+    mountKeyPrompt(message);
+  }, 0);
+}
+
+function mountKeyPrompt(message) {
   const input = h("input", { class: "form__input", type: "text", autocomplete: "off", spellcheck: "false", placeholder: "Paste the key", "aria-label": "Serve key" });
   const form = h(
     "form",
@@ -681,6 +688,7 @@ export async function post(url, body) {
   } catch {
     data = null;
   }
+  if (res.status === 401) showKeyPrompt(data?.error);
   if (!res.ok) {
     const err = new Error(data?.error ?? `${res.status} ${res.statusText}`);
     err.status = res.status;
@@ -883,6 +891,8 @@ export function setMapOpen(open) {
   app.classList.toggle("is-map-open", on);
   if (btn) {
     btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.setAttribute("aria-label", on ? "Close the map" : "Show the map");
+    btn.title = on ? "Close the map" : "Show the map";
     mount(btn, on ? "Close map" : "Map");
   }
   state.mapOpen = on;
@@ -892,12 +902,22 @@ export function setMapOpen(open) {
   }
 }
 
+/** Levels whose map column *is* the page (the board, the workspace tiles) rather than a map beside it. */
+const MAP_IS_PAYLOAD = new Set(["tasks", "workspace"]);
+
+/**
+ * One attribute on <main> says whether the map column is payload or optional; the phone CSS and the
+ * Map button both key off it, so adding a level cannot leave the two disagreeing.
+ */
 function syncMapToggle(route) {
+  const level = route?.level ?? "";
+  const main = $("main");
+  if (main) main.dataset.map = MAP_IS_PAYLOAD.has(level) ? "payload" : "map";
   const btn = $("map-toggle");
   if (!btn) return;
-  const level = route?.level ?? "";
-  btn.hidden = level === "tasks" || level === "workspace" || level === "home" || level === "";
-  if (btn.hidden || !isPhone()) setMapOpen(false);
+  btn.hidden = level === "" || level === "home" || MAP_IS_PAYLOAD.has(level);
+  // A new level starts story-first: the overlay never survives navigation.
+  setMapOpen(false);
 }
 
 function wireHeader() {
@@ -910,7 +930,9 @@ function wireHeader() {
   const reader = $("reader");
   if (reader && typeof MutationObserver === "function") {
     new MutationObserver(() => {
-      if (!reader.hidden && isPhone() && !state.mapOpen) setMapOpen(true);
+      if (!isPhone()) return;
+      if (!reader.hidden && !state.mapOpen) setMapOpen(true);
+      else if (reader.hidden && state.mapOpen) setMapOpen(false);
     }).observe(reader, { attributes: true, attributeFilter: ["hidden"] });
   }
   $("search-trigger")?.addEventListener("click", () => openPalette());
