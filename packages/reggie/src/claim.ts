@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { aheadCount, currentBranch, defaultBranch, fileAtRef, git, listBranches, type BranchInfo } from "./git.js";
-import { appendJournal, detectTool } from "./journal.js";
+import { appendJournal, detectTool, sessionName, type ToolName } from "./journal.js";
 import { claimRelPath, type RepoPaths } from "./paths.js";
 import type { Person, ReggieConfig } from "./people.js";
 import { parseClaim, type ClaimInfo } from "./tasks.js";
@@ -11,6 +11,10 @@ import { nowIso, writeText } from "./util.js";
 export interface ClaimOptions {
   worktree?: boolean;
   person: Person;
+  /** The tool the session runs in, when the claim is made by a launcher rather than from inside a session. */
+  tool?: ToolName;
+  /** The session id the launcher minted, so the claim record points back at the chat. */
+  session?: string;
 }
 
 export interface ClaimResult {
@@ -80,14 +84,15 @@ export function claimTask(paths: RepoPaths, config: ReggieConfig, slug: string, 
   const hasClaim = existing ? fileAtRef(root, refFor(existing), claimRelPath(slug)) !== null : false;
   if (!hasClaim) {
     const rel = claimRelPath(slug);
-    writeText(path.join(workdir, rel), renderClaim(opts.person));
+    writeText(path.join(workdir, rel), renderClaim(opts.person, opts));
     git(["add", "--", rel], { cwd: workdir });
-    git(["-c", "commit.gpgsign=false", "commit", "-q", "-m", `meta: claim ${slug}`, "--", rel], { cwd: workdir });
+    // The Task trailer is how history attributes commits to a task once the branch is gone.
+    git(["-c", "commit.gpgsign=false", "commit", "-q", "-m", `meta: claim ${slug}`, "-m", `Task: ${slug}`, "--", rel], { cwd: workdir });
   }
 
   appendJournal(paths, {
     person: opts.person.handle,
-    tool: detectTool(),
+    tool: opts.tool ?? detectTool(),
     slug,
     stage: "claim",
     text: existing ? "Resumed work on the task branch." : `Claimed the task and started a branch from ${base}${worktree ? " in a separate worktree" : ""}.`,
@@ -96,14 +101,15 @@ export function claimTask(paths: RepoPaths, config: ReggieConfig, slug: string, 
   return { branch, worktree, alreadyExisted: Boolean(existing), owner: existing ? branchOwner(root, existing, slug).person : opts.person.name };
 }
 
-function renderClaim(person: Person): string {
+function renderClaim(person: Person, opts: { tool?: ToolName; session?: string } = {}): string {
   return [
     "---",
     `person: ${person.name || person.handle}`,
     `handle: ${person.handle}`,
     `email: ${person.email}`,
     `machine: ${os.hostname()}`,
-    `tool: ${detectTool()}`,
+    `tool: ${opts.tool ?? detectTool()}`,
+    `session: ${opts.session ?? sessionName()}`,
     `date: ${nowIso()}`,
     "---",
     "Claim record. Reggie reads this from the task branch to know who holds the task; the branch's last commit is the heartbeat.",

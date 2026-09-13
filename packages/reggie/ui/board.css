@@ -271,6 +271,8 @@
 }
 .launch__tool { justify-content: flex-start; text-align: left; white-space: nowrap; }
 .launch--compact > .btn:first-child { font-size: var(--fs-sub); }
+.launch__note-label { display: block; padding: var(--s-1) var(--s-1) var(--s-2); }
+.launch__note { width: 100%; min-width: 260px; min-height: 48px; font-size: var(--fs-sub); }
 
 /* Nothing could be spawned (the server said so, or refused): the command itself, ready to copy. */
 .launch-cmd {
@@ -317,3 +319,15 @@
 /* A criterion that claims proof nobody saved: say so where the link would be, rather than link to a 404. */
 .evidence-missing { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-meta); color: var(--warn); }
 .evidence-missing .i { width: 12px; height: 12px; }
+
+/* Listen: the story column, spoken (ui/listen.js) */
+.listen { display: flex; flex-direction: column; gap: var(--s-2); width: 100%; }
+.listen__row { display: flex; gap: var(--s-2); align-items: center; flex-wrap: wrap; }
+.listen__status { margin-left: var(--s-1); }
+.listen__player audio { width: 100%; max-width: 520px; display: block; margin-bottom: var(--s-1); }
+.listen__script { white-space: pre-wrap; font-family: var(--font); font-size: var(--fs-body); line-height: var(--lh-body); background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: var(--s-3); max-height: 40vh; overflow: auto; margin: 0; }
+
+/* A task before it has a plan: the story column, then the answer form */
+.task-story.is-skeleton { min-height: 240px; }
+.form--answer { margin-top: var(--s-2); }
+.form--answer .task-sub { margin-top: 0; }

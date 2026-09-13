@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { git } from "../src/git.js";
 import { briefFile, packetFile } from "../src/paths.js";
 import { startServer, type ServerHandle } from "../src/serve.js";
 import { TASK_STATES } from "../src/tasks.js";
@@ -844,46 +846,62 @@ describe("POST writes", () => {
 });
 
 describe("GET /api/launch", () => {
-  it("describes the session without starting anything", async () => {
-    const body = await ok(`/api/launch?slug=${fx.slugs.inProcess}&tool=claude&mode=implement`);
-    expect(Object.keys(body).sort()).toEqual(["command", "cwd", "description"]);
-    expect(body.command).toBe(`claude '/reggie-execute ${fx.slugs.inProcess}'`);
+  it("describes the session without starting anything, and derives the goal from the task's state", async () => {
+    const body = await ok(`/api/launch?slug=${fx.slugs.inProcess}&tool=claude&mode=build`);
+    expect(Object.keys(body).sort()).toEqual(["command", "cwd", "description", "goal"]);
+    expect(body.goal).toBe("build");
+    expect(body.command.startsWith("claude ")).toBe(true);
+    expect(body.command).not.toContain("/reggie-");
+    expect(body.command).toContain(`Implement \`${fx.slugs.inProcess}\``);
+    expect(body.command).toContain(`.reggie/.cache/context/${fx.slugs.inProcess}.md`);
     expect(body.cwd).toBe(fx.repo.root);
     expect(body.description).toContain("Claude Code");
     expect(body.description).toContain(fx.slugs.inProcess);
   });
 
-  it("spells the Codex prompts out inline, since Codex has no slash commands", async () => {
-    const body = await ok(`/api/launch?slug=${fx.slugs.ungroomed}&tool=codex&mode=chat`);
-    expect(body.command.startsWith("codex ")).toBe(true);
-    expect(body.command).toContain("do not edit any file");
-    expect(body.description).toContain("read-only");
+  it("opens a discussion in plan mode, read-only, for both tools", async () => {
+    const claude = await ok(`/api/launch?slug=${fx.slugs.ungroomed}&tool=claude&mode=discuss`);
+    expect(claude.goal).toBe("shape");
+    expect(claude.command.startsWith("claude --permission-mode plan ")).toBe(true);
+    const codex = await ok(`/api/launch?slug=${fx.slugs.inProcess}&tool=codex&mode=discuss`);
+    expect(codex.goal).toBe("discuss");
+    expect(codex.command.startsWith("codex -s read-only ")).toBe(true);
+    expect(codex.command).toContain("do not edit any file");
+    expect(codex.description).toContain("read-only");
   });
 
-  it("takes several slugs in triage mode and exactly one in every other mode", async () => {
-    const many = await ok(`/api/launch?slug=${fx.slugs.ungroomed}&slug=${fx.slugs.inProcess}&tool=claude&mode=triage`);
-    expect(many.command).toContain("/reggie-triage");
-    expect(many.command).toContain(fx.slugs.ungroomed);
-    expect(many.command).toContain(fx.slugs.inProcess);
+  it("carries the user's note into the prompt", async () => {
+    const body = await ok(`/api/launch?slug=${fx.slugs.inProcess}&tool=claude&mode=discuss&note=${encodeURIComponent("focus on the cache key")}`);
+    expect(body.command).toContain('The user adds, in their own words: "focus on the cache key"');
+  });
 
-    const { status, body } = await get(`/api/launch?slug=${fx.slugs.ungroomed}&slug=${fx.slugs.inProcess}&tool=claude&mode=plan`);
+  it("shapes several ungroomed slugs at once and refuses several of anything else", async () => {
+    const many = await ok(`/api/launch?slug=${fx.slugs.ungroomed}&tool=claude&mode=discuss`);
+    expect(many.goal).toBe("shape");
+    const { status, body } = await get(`/api/launch?slug=${fx.slugs.ungroomed}&slug=${fx.slugs.inProcess}&tool=claude&mode=discuss`);
     expect(status).toBe(400);
-    expect(body.error).toContain("exactly one slug");
+    expect(body.error).toContain("one task unless every task is ungroomed");
+    const build = await get(`/api/launch?slug=${fx.slugs.ungroomed}&tool=claude&mode=build`);
+    expect(build.status).toBe(400);
+    expect(build.body.error).toContain("Discuss it first");
   });
 
-  it("400s an unknown tool, an unknown mode, a bad slug, and no slug at all", async () => {
+  it("400s an unknown tool, an unknown mode, a bad slug, and no slug at all; 404s an unknown task", async () => {
     const cases: [string, string][] = [
-      [`/api/launch?slug=${fx.slugs.inProcess}&tool=emacs&mode=chat`, "tool must be one of"],
-      [`/api/launch?slug=${fx.slugs.inProcess}&tool=claude&mode=refactor`, "mode must be one of"],
-      ["/api/launch?slug=../etc/passwd&tool=claude&mode=chat", "bad slug"],
-      ["/api/launch?tool=claude&mode=chat", "at least one slug"],
-      [`/api/launch?slug=${fx.slugs.inProcess}&mode=chat`, "tool must be one of"],
+      [`/api/launch?slug=${fx.slugs.inProcess}&tool=emacs&mode=discuss`, "tool must be one of"],
+      [`/api/launch?slug=${fx.slugs.inProcess}&tool=claude&mode=plan`, "mode must be one of"],
+      ["/api/launch?slug=../etc/passwd&tool=claude&mode=discuss", "bad slug"],
+      ["/api/launch?tool=claude&mode=discuss", "at least one slug"],
+      [`/api/launch?slug=${fx.slugs.inProcess}&mode=discuss`, "tool must be one of"],
     ];
     for (const [route, message] of cases) {
       const { status, body } = await get(route);
       expect(status, route).toBe(400);
       expect(body.error, route).toContain(message);
     }
+    const missing = await get("/api/launch?slug=no-such-task&tool=claude&mode=discuss");
+    expect(missing.status).toBe(404);
+    expect(missing.body.error).toContain("unknown task");
   });
 });
 
@@ -944,45 +962,74 @@ describe("POST /api/triage", () => {
 
 describe("POST /api/launch", () => {
   it("refuses a cross-site launch with 403 and starts nothing", async () => {
-    const { status, body } = await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "chat" }, { "sec-fetch-site": "cross-site" });
+    const { status, body } = await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "discuss" }, { "sec-fetch-site": "cross-site" });
     expect(status).toBe(403);
     expect(body.error).toContain("cross-site");
   });
 
   it("refuses a foreign Origin with 403", async () => {
-    const { status, body } = await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "chat" }, { origin: "http://evil.example.com" });
+    const { status, body } = await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "discuss" }, { origin: "http://evil.example.com" });
     expect(status).toBe(403);
     expect(body.error).toContain("origin");
   });
 
   it("400s bad input and 404s a task this repo has never heard of", async () => {
-    expect((await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "emacs", mode: "chat" })).status).toBe(400);
-    expect((await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "refactor" })).status).toBe(400);
-    expect((await post("/api/launch", { slugs: ["../etc"], tool: "claude", mode: "chat" })).status).toBe(400);
-    expect((await post("/api/launch", { slugs: [], tool: "claude", mode: "chat" })).status).toBe(400);
-    expect((await post("/api/launch", { slugs: [fx.slugs.inProcess, fx.slugs.ungroomed], tool: "claude", mode: "plan" })).status).toBe(400);
-    const { status, body } = await post("/api/launch", { slugs: ["no-such-task"], tool: "claude", mode: "chat" });
+    expect((await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "emacs", mode: "discuss" })).status).toBe(400);
+    expect((await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "implement" })).status).toBe(400);
+    expect((await post("/api/launch", { slugs: ["../etc"], tool: "claude", mode: "discuss" })).status).toBe(400);
+    expect((await post("/api/launch", { slugs: [], tool: "claude", mode: "discuss" })).status).toBe(400);
+    expect((await post("/api/launch", { slugs: [fx.slugs.inProcess, fx.slugs.ungroomed], tool: "claude", mode: "discuss" })).status).toBe(400);
+    expect((await post("/api/launch", { slugs: [fx.slugs.ungroomed], tool: "claude", mode: "build" })).status).toBe(400);
+    expect((await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "discuss", note: "x".repeat(5000) })).status).toBe(400);
+    const { status, body } = await post("/api/launch", { slugs: ["no-such-task"], tool: "claude", mode: "discuss" });
     expect(status).toBe(404);
     expect(body.error).toContain("unknown task");
   });
 
   // Nothing in this suite may open a Terminal window, so the platform is stubbed away from
   // darwin first: launchSession then takes the branch that returns the command to copy.
-  it("returns the command unlaunched where it cannot open a terminal", async () => {
+  it("writes the context pack, mints a session, and returns the command unlaunched where it cannot open a terminal", async () => {
     const real = process.platform;
     Object.defineProperty(process, "platform", { value: "linux", configurable: true });
     try {
-      const { status, body } = await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "implement" });
+      const { status, body } = await post("/api/launch", { slugs: [fx.slugs.inProcess], tool: "claude", mode: "discuss", note: "start with the cache" });
       expect(status, JSON.stringify(body)).toBe(200);
       expect(body.launched).toBe(false);
-      expect(body.command).toBe(`claude '/reggie-execute ${fx.slugs.inProcess}'`);
+      expect(body.goal).toBe("discuss");
+      expect(body.session).toMatch(/^[0-9a-f-]{36}$/);
+      expect(body.resume).toBe(`claude --resume ${body.session}`);
+      expect(body.command.startsWith(`claude --permission-mode plan --session-id ${body.session} `)).toBe(true);
+      expect(body.command).toContain("start with the cache");
       expect(body.reason).toContain("macOS");
+      const pack = readFileSync(path.join(fx.repo.root, ".reggie", ".cache", "context", `${fx.slugs.inProcess}.md`), "utf8");
+      expect(pack).toContain("# Context pack for " + fx.slugs.inProcess);
+      const record = JSON.parse(readFileSync(path.join(fx.repo.root, ".reggie", ".cache", "launches", `${fx.slugs.inProcess}.json`), "utf8"));
+      expect(record.session).toBe(body.session);
+      expect(record.goal).toBe("discuss");
+    } finally {
+      Object.defineProperty(process, "platform", { value: real, configurable: true });
+    }
+  });
+
+  it("claims the task and starts a build in its worktree, on its branch", async () => {
+    const real = process.platform;
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+    try {
+      const slug = fx.slugs.inProcess;
+      const { status, body } = await post("/api/launch", { slugs: [slug], tool: "codex", mode: "build" });
+      expect(status, JSON.stringify(body)).toBe(200);
+      expect(body.goal).toBe("build");
+      expect(body.cwd).toBe(path.join(fx.repo.root, ".worktree", slug));
+      expect(body.command.startsWith("codex -s workspace-write ")).toBe(true);
+      expect(body.command).toContain(`worktree on branch \`task/${slug}\``);
+      expect(body.command).not.toContain("reggie claim");
+      expect(existsSync(path.join(body.cwd, ".reggie", ".cache", "context", `${slug}.md`))).toBe(true);
+      expect(git(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: body.cwd }).stdout.trim()).toBe(`task/${slug}`);
     } finally {
       Object.defineProperty(process, "platform", { value: real, configurable: true });
     }
   });
 });
-
 describe("the completed view", () => {
   it("says what was actually done for a finished task", async () => {
     const slug = fx.slugs.awaiting;

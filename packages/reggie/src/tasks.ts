@@ -158,6 +158,8 @@ export interface ClaimInfo {
   person: string;
   email: string;
   machine: string;
+  /** The session id the launcher minted, or the name the session gave itself; "" in older claims. */
+  session: string;
   tool: string;
   date: string;
 }
@@ -304,7 +306,7 @@ export function knownSlugs(paths: RepoPaths): Set<string> {
 
 export function parseClaim(content: string): ClaimInfo {
   const get = (key: string) => new RegExp(`^${key}:\\s*(.*)$`, "m").exec(content)?.[1]?.trim() ?? "";
-  return { person: get("person"), email: get("email"), machine: get("machine"), tool: get("tool"), date: get("date") };
+  return { person: get("person"), email: get("email"), machine: get("machine"), tool: get("tool"), session: get("session"), date: get("date") };
 }
 
 export interface TaskListOptions {

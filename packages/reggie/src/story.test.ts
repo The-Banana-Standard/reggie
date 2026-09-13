@@ -1,11 +1,11 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { makeFixtureRepo, type FixtureRepo } from "../test/fixtures.js";
 import { makeTempRepo, type TempRepo } from "../test/helpers.js";
 import { buildGraph, type RepoGraph } from "./graph.js";
 import { repoHistory } from "./history.js";
-import { repoPaths } from "./paths.js";
+import { briefFile, repoPaths } from "./paths.js";
 import { loadConfig } from "./people.js";
 import { detectServices, type ServiceIndex } from "./services.js";
 import { traceFlow, type Flow } from "./flows.js";
@@ -31,6 +31,7 @@ import {
   type Story,
   type StoryContext,
 } from "./story.js";
+import { writeText } from "./util.js";
 import type { WorkspaceSummary } from "./workspace.js";
 
 // ---------------------------------------------------------------------------
@@ -472,13 +473,73 @@ describe("taskStory", () => {
     expect(text).toContain(fixture.slugs.inProcess);
   });
 
-  it("explains an ungroomed task instead of showing an empty plan", () => {
+  it("explains an ungroomed task from what was written, instead of ten empty plan sections", () => {
     const story = taskStory(ctx, fixture.slugs.ungroomed)!;
-    const problem = sectionOf(story, "problem");
-    expect(problem.paragraphs).toHaveLength(0);
-    expect(problem.empty?.text).toContain("No plan yet.");
-    expect(problem.empty?.text).toContain("Plan it in plan mode against the contract");
+    expect(sectionIds(story)).toEqual(["state", "written", "lives", "known", "resembles", "unclear", "next", "journal"]);
+    const written = sectionOf(story, "written");
+    expect(written.paragraphs[0]?.text).toContain("Split the big area into two packages");
+    expect(written.paragraphs[0]?.text).toContain("wrote this down on");
+    expect(written.paragraphs.some((p) => p.text.includes("no detail under the line"))).toBe(true);
+    // "big" and "packages" are words in the line; src/big/ carries one of them.
+    const lives = sectionOf(story, "lives");
+    expect(lives.paragraphs[0]?.text).toContain("src/big");
+    expect(lives.paragraphs[0]?.text).toContain("name match, not an understanding");
+    expect(lives.paragraphs[0]?.refs).toContain("dir:src/big/");
+    const known = sectionOf(story, "known");
+    expect(known.paragraphs.some((p) => p.text.includes("chain must stay in order"))).toBe(true);
+    const unclear = sectionOf(story, "unclear");
+    expect(unclear.paragraphs[0]?.kind).toBe("list");
+    expect(unclear.paragraphs[0]?.text).toContain("Why it matters now");
+    expect(sectionOf(story, "next").paragraphs[0]?.text).toContain(`reggie launch ${fixture.slugs.ungroomed} --run`);
+    expect(JSON.stringify(story)).not.toContain("No plan yet");
+    expectParagraphContract(story);
     expectLinksWellFormed(story, ctx.repo);
+  });
+
+  it("tells a groomed task's story from its brief", () => {
+    const slug = fixture.slugs.ungroomed;
+    writeText(briefFile(fixture.paths, slug), [
+      "---",
+      `slug: ${slug}`,
+      "title: Split the big area into two packages",
+      "area: src/big",
+      "size: medium",
+      "risk: low",
+      "priority: P2",
+      "author: test",
+      "created: 2026-09-13",
+      "---",
+      "# Split the big area into two packages",
+      "",
+      "## Problem",
+      "The big area is one forty-five file chain and nobody can tell where a change lands.",
+      "",
+      "## Why now",
+      "Two agents collided in it last week.",
+      "",
+      "## Suspected area",
+      "- src/big/ because the chain lives there",
+      "",
+      "## Open questions",
+      "- Should the split follow the chain order or the shape importers?",
+      "",
+      "## Not this",
+      "- Renaming the files; that is a separate task.",
+      "",
+    ].join("\n"));
+    try {
+      const story = taskStory(contextFor(fixture.repo.root), slug)!;
+      expect(sectionIds(story)).toEqual(["state", "ask", "why-now", "area", "questions", "not-this", "next", "journal"]);
+      expect(sectionOf(story, "ask").paragraphs[0]?.text).toContain("nobody can tell where a change lands");
+      expect(sectionOf(story, "ask").paragraphs[0]?.chips?.map((c) => c.value)).toEqual(["P2", "medium", "low", "src/big"]);
+      expect(sectionOf(story, "area").paragraphs[0]?.refs).toContain("dir:src/big/");
+      expect(sectionOf(story, "questions").paragraphs[0]?.text).toContain("chain order");
+      expect(sectionOf(story, "next").paragraphs[0]?.text).toContain("one question is still open");
+      expectParagraphContract(story);
+      expectLinksWellFormed(story, ctx.repo);
+    } finally {
+      rmSync(briefFile(fixture.paths, slug), { force: true });
+    }
   });
 
   it("keeps every paragraph and link well formed for an in-process task", () => {

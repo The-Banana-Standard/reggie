@@ -58,7 +58,7 @@ Two new project commands installed by `onboard`, alongside the existing four: `r
 - `reggie triage [slug]` — scaffold `brief.md` from the intake line. `--all` scaffolds one for every ungroomed item. `--title`, `--area`, `--size`, `--priority` prefill; `--force` rewrites a brief that is already there.
 - `reggie brief lint <slug>` — check a brief against its contract; exit 1 on errors.
 - `reggie brief show <slug>` — print it.
-- `reggie launch <slug...> --tool claude|codex --mode chat|triage|plan|implement` — print the command, and run it with `--run`. `triage` accepts several slugs; the other modes take exactly one.
+- `reggie launch <slug...> --tool claude|codex --mode discuss|build [--note "…"]` — print the command, and run it with `--run`. The goal (shape, plan, discuss, build) follows from the task's state; `discuss` accepts several slugs only when every one is ungroomed. `--run` writes the context pack for each task, mints a Claude session id, and for a build claims the task and opens the session in its worktree. (Superseded 2026-09-13: the four modes `chat|triage|plan|implement` and their slash commands are gone.)
 - `reggie tasks` output gains the new states.
 
 Shipped, with these differences from the lines above:
@@ -98,14 +98,16 @@ Per-card actions, by state:
 
 | State | Actions |
 |---|---|
-| ungroomed | Read the intake line; **Shape it** (triage: POST, or launch a triage session); **Discuss** |
-| groomed | **Read the brief**; **Plan it** (launch plan mode in Claude or Codex); **Discuss** |
-| planned | **Read the plan**; **Start** (launch implement, Claude or Codex); **Discuss** |
-| in-process | Read the plan; open the branch; **Discuss** |
+| ungroomed | Read the intake line (with a form to add what you meant); **Shape it** (a discussion in plan mode that ends in a brief); Scaffold a brief (POST /api/triage, secondary) |
+| groomed | **Read the brief**; **Plan it** (a discussion in plan mode that ends in a plan) |
+| planned | **Read the plan**; **Start** (claims the task, opens its worktree, builds); **Discuss** |
+| in-process | Read the plan; **Resume** (build, in the worktree); open the branch; **Discuss** |
 | awaiting-decision | Read the packet; Approve / Needs work; **Discuss** |
 | done | **What was done** (the completion block) |
 
-Every launch action offers both tools. Remember the last tool used in `localStorage` and default to it. Before spawning, show the exact command in the button's tooltip; after spawning, toast what was started. If the platform cannot spawn, show the command in a copyable field instead and say why.
+Every launch action offers both tools. Remember the last tool used in `localStorage` and default to it. The tool menu carries a textarea for the user's own words (`note`), appended verbatim to the prompt. Before spawning, show the exact command in the button's tooltip; after spawning, toast what was started and how to reopen the chat. If the platform cannot spawn, show the command in a copyable field instead and say why.
+
+A task page for a task with no plan renders the task story (`/api/story?scope=task`) instead of ten empty plan sections, then a form that adds detail under the intake line (`POST /api/intake`). Every task page carries the Listen control (`ui/listen.js`): read the narration aloud with the browser's voice, make an episode (`POST /api/episode`), or show the script.
 
 An **Add a task** form sits at the top of the Ungroomed column, always visible: one text field, an optional detail field, POSTing to `/api/capture`, and the new card appears without a reload.
 

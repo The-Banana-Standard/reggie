@@ -3,22 +3,25 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
-import { capture } from "./capture.js";
+import { addIntakeDetail, capture } from "./capture.js";
 import { buildContext } from "./context.js";
 import { collectFacts, type RepoFacts } from "./facts.js";
+import { listEpisodes, makeEpisode, readEpisode, renderFeed } from "./episode.js";
 import { detectFlows, MAX_FLOW_HOPS, traceFlow, type Flow, type FlowIndex } from "./flows.js";
 import { currentBranch, defaultBranch, fileAtRef, git } from "./git.js";
 import { buildGraph, flatGraph, jsImports, type GraphEdge, type GraphNode, type RepoGraph } from "./graph.js";
 import { commitsPerDayFor, historyFor, HISTORY_LOG_FORMAT, parseNumstatLog, recentFor, repoHistory, type CommitInfo, type HistoryIndex, type LogCommit } from "./history.js";
 import { appendJournal, readJournal, type JournalEntry } from "./journal.js";
-import { isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, type LaunchMode, type LaunchTool } from "./launch.js";
+import { claimTask } from "./claim.js";
+import { isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, MAX_NOTE_CHARS, mintSession, recordLaunch, resolveGoal, writeContextFile, type LaunchMode, type LaunchTask, type LaunchTool } from "./launch.js";
+import { narrate } from "./narrate.js";
 import { addNote, allNoteFiles, NOTE_TYPES, notesForPath, notesIndex, readNoteFile, staleEntriesFor, type Confidence as NoteConfidence, type NoteEntry, type NoteFile, type NoteType, type StaleEntry } from "./notes.js";
 import { decidePacket, locatePacket, materializePacket } from "./packet.js";
 import { evidenceDir, type RepoPaths } from "./paths.js";
 import { currentPerson, handleFor, inferMode, loadPeople, type PeopleFile, type Person, type ReggieConfig } from "./people.js";
 import { roleOf } from "./roles.js";
 import { detectServices, type ServiceIndex, type ServiceNode } from "./services.js";
-import { areaStory, buildStoryContext, explain, fileStory, flowStory, repoStory, routeFor, servicesStory, taskStory, workspaceStory, type Lens, type StoryContext } from "./story.js";
+import { areaStory, buildStoryContext, explain, fileStory, flowStory, repoStory, routeFor, servicesStory, taskStory, workspaceStory, type Lens, type Story, type StoryContext } from "./story.js";
 import { extractSymbols, fileSymbols, SYMBOL_ENGINE, symbolLang } from "./symbols.js";
 import { getTaskDetail, knownSlugs, listTasks, STATE_MACHINE, TASK_STATES, type PacketCriterion, type TaskDetail, type TaskInfo, type TaskState } from "./tasks.js";
 import { scaffoldBrief } from "./triage.js";
@@ -738,7 +741,7 @@ export function startServer(paths: RepoPaths, config: ReggieConfig, opts: ServeO
           return;
         }
         if (method !== "GET" && method !== "HEAD") return json(res, 405, { error: "method not allowed" });
-        return handleGet(res, url, registry, primary);
+        return handleGet(req, res, url, registry, primary, boundPort);
       }
       return json(res, 404, { error: "not found" });
     } catch (err) {
@@ -822,17 +825,17 @@ function handleStatic(url: URL, method: string, res: ServerResponse): boolean {
 // GET routes
 // ---------------------------------------------------------------------------
 
-function handleGet(res: ServerResponse, url: URL, registry: RepoRegistry, primary: { root: string; config: ReggieConfig }): void {
+function handleGet(req: IncomingMessage, res: ServerResponse, url: URL, registry: RepoRegistry, primary: { root: string; config: ReggieConfig }, port: number): void {
   // A rejected query parameter is bad input, not a server fault: 400, not the outer handler's 500.
   try {
-    return route(res, url, registry, primary);
+    return route(req, res, url, registry, primary, port);
   } catch (err) {
     if (err instanceof BadQuery) return json(res, 400, { error: err.message });
     throw err;
   }
 }
 
-function route(res: ServerResponse, url: URL, registry: RepoRegistry, primary: { root: string; config: ReggieConfig }): void {
+function route(req: IncomingMessage, res: ServerResponse, url: URL, registry: RepoRegistry, primary: { root: string; config: ReggieConfig }, port: number): void {
   const requested = url.searchParams.get("repo");
   const c = registry.resolve(requested);
   if (!c) return json(res, 404, { error: `unknown repo: ${requested ?? ""}` });
@@ -851,6 +854,12 @@ function route(res: ServerResponse, url: URL, registry: RepoRegistry, primary: {
       return impactRoute(res, c, url);
     case "/api/story":
       return storyRoute(res, c, registry, url);
+    case "/api/narration":
+      return narrationRoute(res, c, registry, url);
+    case "/api/episode":
+      return episodeRoute(req, res, c, url);
+    case "/api/feed.xml":
+      return feedRoute(res, c, url, port);
     case "/api/explain":
       return explainRoute(res, c, url);
     case "/api/file":
@@ -1080,40 +1089,98 @@ function impactRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
   return json(res, 200, impactView(g, [clean], opts));
 }
 
-function storyRoute(res: ServerResponse, c: RepoCtx, registry: RepoRegistry, url: URL): void {
+/** The story a scope and id name, or the status and error the route should answer with. */
+function buildStory(c: RepoCtx, registry: RepoRegistry, url: URL): { ok: true; story: Story } | { ok: false; status: number; error: string } {
   const scope = url.searchParams.get("scope") ?? "repo";
-  if (scope === "workspace") return json(res, 200, workspaceStory(workspaceSummary(registry)));
+  if (scope === "workspace") return { ok: true, story: workspaceStory(workspaceSummary(registry)) };
   const lens = qLens(url);
   const days = qInt(url, "days", 14, 1, MAX_DAYS);
   const ctx = storyContextOf(c, c.name, lens, days);
   const id = url.searchParams.get("id") ?? "";
-  if (scope === "repo") return json(res, 200, repoStory(ctx, { services: servicesOf(c), flows: flowsOf(c).flows }));
-  if (scope === "services") return json(res, 200, servicesStory(ctx, servicesOf(c)));
+  if (scope === "repo") return { ok: true, story: repoStory(ctx, { services: servicesOf(c), flows: flowsOf(c).flows }) };
+  if (scope === "services") return { ok: true, story: servicesStory(ctx, servicesOf(c)) };
   if (scope === "flow") {
-    if (!id) return json(res, 400, { error: "id is required for scope=flow" });
-    if (badId(id)) return json(res, 400, { error: "bad id" });
+    if (!id) return { ok: false, status: 400, error: "id is required for scope=flow" };
+    if (badId(id)) return { ok: false, status: 400, error: "bad id" };
     const depth = Math.min(qInt(url, "depth", MAX_FLOW_HOPS, 1, MAX_QUERY_DEPTH), MAX_FLOW_HOPS);
     const flow = flowOf(c, id, depth);
-    return flow ? json(res, 200, flowStory(ctx, flow, { services: servicesOf(c).services })) : json(res, 404, { error: `unknown flow: ${id}` });
+    return flow ? { ok: true, story: flowStory(ctx, flow, { services: servicesOf(c).services }) } : { ok: false, status: 404, error: `unknown flow: ${id}` };
   }
   if (scope === "area") {
-    if (!id) return json(res, 400, { error: "id is required for scope=area" });
-    if (safeRepoPath(id) === null && id !== ".") return json(res, 400, { error: "bad id" });
+    if (!id) return { ok: false, status: 400, error: "id is required for scope=area" };
+    if (safeRepoPath(id) === null && id !== ".") return { ok: false, status: 400, error: "bad id" };
     const story = areaStory(ctx, id);
-    return story ? json(res, 200, story) : json(res, 404, { error: `unknown area: ${id}` });
+    return story ? { ok: true, story } : { ok: false, status: 404, error: `unknown area: ${id}` };
   }
   if (scope === "file") {
     const clean = safeRepoPath(id);
-    if (clean === null) return json(res, 400, { error: "bad id" });
+    if (clean === null) return { ok: false, status: 400, error: "bad id" };
     const story = fileStory(ctx, clean);
-    return story ? json(res, 200, story) : json(res, 404, { error: `unknown file: ${id}` });
+    return story ? { ok: true, story } : { ok: false, status: 404, error: `unknown file: ${id}` };
   }
   if (scope === "task") {
-    if (!isSafeSlug(id)) return json(res, 400, { error: "bad slug" });
+    if (!isSafeSlug(id)) return { ok: false, status: 400, error: "bad slug" };
     const story = taskStory(ctx, id);
-    return story ? json(res, 200, story) : json(res, 404, { error: `unknown task: ${id}` });
+    return story ? { ok: true, story } : { ok: false, status: 404, error: `unknown task: ${id}` };
   }
-  return json(res, 400, { error: `unknown scope: ${scope}` });
+  return { ok: false, status: 400, error: `unknown scope: ${scope}` };
+}
+
+function storyRoute(res: ServerResponse, c: RepoCtx, registry: RepoRegistry, url: URL): void {
+  const r = buildStory(c, registry, url);
+  return r.ok ? json(res, 200, r.story) : json(res, r.status, { error: r.error });
+}
+
+/** The same story, spoken: what the Listen button reads and what an episode is made from. */
+function narrationRoute(res: ServerResponse, c: RepoCtx, registry: RepoRegistry, url: URL): void {
+  const r = buildStory(c, registry, url);
+  if (!r.ok) return json(res, r.status, { error: r.error });
+  const scope = url.searchParams.get("scope") ?? "repo";
+  const id = url.searchParams.get("id") ?? "";
+  const episode = readEpisode(c.root, scope, id);
+  return json(res, 200, { ...narrate(r.story, { repo: c.name }), scope, id, episode: episode ? episodeSummary(episode, scope, id) : null });
+}
+
+function episodeSummary(e: { bytes: number; seconds: number; madeAt: string; voice: string }, scope: string, id: string): { route: string; bytes: number; seconds: number; madeAt: string; voice: string } {
+  return { route: `/api/episode?scope=${encodeURIComponent(scope)}&id=${encodeURIComponent(id)}`, bytes: e.bytes, seconds: e.seconds, madeAt: e.madeAt, voice: e.voice };
+}
+
+/** The audio for an episode already made, with byte ranges so `<audio>` can seek and podcast apps can resume. */
+function episodeRoute(req: IncomingMessage, res: ServerResponse, c: RepoCtx, url: URL): void {
+  const scope = url.searchParams.get("scope") ?? "";
+  const id = url.searchParams.get("id") ?? "";
+  if (!scope) return json(res, 400, { error: "scope is required" });
+  const episode = readEpisode(c.root, scope, id);
+  if (!episode) return json(res, 404, { error: "no episode has been made for this yet; POST /api/episode to make one" });
+  const size = statSync(episode.file).size;
+  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? "");
+  const headers: Record<string, string | number> = {
+    "content-type": "audio/mp4",
+    "accept-ranges": "bytes",
+    "cache-control": "no-store",
+    "content-disposition": `inline; filename="${episode.key}.m4a"`,
+  };
+  if (range) {
+    const start = range[1] ? Number.parseInt(range[1], 10) : 0;
+    const end = range[2] ? Math.min(Number.parseInt(range[2], 10), size - 1) : size - 1;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) {
+      res.writeHead(416, { "content-range": `bytes */${size}` });
+      res.end();
+      return;
+    }
+    res.writeHead(206, { ...headers, "content-range": `bytes ${start}-${end}/${size}`, "content-length": end - start + 1 });
+    return void createReadStream(episode.file, { start, end }).pipe(res);
+  }
+  res.writeHead(200, { ...headers, "content-length": size });
+  createReadStream(episode.file).pipe(res);
+}
+
+function feedRoute(res: ServerResponse, c: RepoCtx, url: URL, port: number): void {
+  const base = `http://127.0.0.1:${port}`;
+  const repo = url.searchParams.get("repo");
+  const body = renderFeed(c.root, c.name, base, repo ? `&repo=${encodeURIComponent(repo)}` : "");
+  res.writeHead(200, { "content-type": "application/rss+xml; charset=utf-8", "cache-control": "no-store", "content-length": Buffer.byteLength(body) });
+  res.end(body);
 }
 
 function explainRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
@@ -1354,16 +1421,14 @@ interface LaunchRequest {
   tool: LaunchTool;
   mode: LaunchMode;
   slugs: string[];
+  note?: string;
 }
 
 /**
- * The one gate every launch input passes through, whether it arrives as a query string or a
- * JSON body. Nothing unvalidated may reach a command line: the tool and the mode must be
- * members of their closed sets, every slug must be a safe slug, and only triage may name more
- * than one. `launchCommand` re-checks all of it — this exists so the failure is a 400 with a
- * sentence, rather than a thrown error.
+ * Shared by GET and POST: the tool, the mode, the slugs and the note, validated before anything
+ * is looked up. Which prompt runs follows from the tasks' states, resolved in `launchTasks`.
  */
-function parseLaunch(rawSlugs: readonly string[], rawTool: string | null, rawMode: string | null): { ok: true; value: LaunchRequest } | { ok: false; error: string } {
+function parseLaunch(rawSlugs: readonly string[], rawTool: string | null, rawMode: string | null, rawNote: string | null): { ok: true; value: LaunchRequest } | { ok: false; error: string } {
   const tool = (rawTool ?? "").trim();
   if (!isLaunchTool(tool)) return { ok: false, error: `tool must be one of ${LAUNCH_TOOLS.join(", ")}` };
   const mode = (rawMode ?? "").trim();
@@ -1371,21 +1436,36 @@ function parseLaunch(rawSlugs: readonly string[], rawTool: string | null, rawMod
   const slugs = uniq(rawSlugs.map((s) => s.trim()).filter((s) => s !== ""));
   if (slugs.length === 0) return { ok: false, error: "at least one slug is required" };
   if (slugs.some((s) => !isSafeSlug(s))) return { ok: false, error: "bad slug" };
-  if (mode !== "triage" && slugs.length > 1) return { ok: false, error: `${mode} takes exactly one slug; only triage runs over several tasks at once` };
-  return { ok: true, value: { tool, mode, slugs } };
+  const note = (rawNote ?? "").trim();
+  if (note.length > MAX_NOTE_CHARS) return { ok: false, error: `note is longer than ${MAX_NOTE_CHARS} characters` };
+  const value: LaunchRequest = { tool, mode, slugs };
+  if (note) value.note = note;
+  return { ok: true, value };
 }
 
-/** Slugs that name nothing in this repo, so a session is never opened on an invented task. */
-function unknownSlugs(c: RepoCtx, slugs: readonly string[]): string[] {
-  const known = new Set(tasksOf(c).map((t) => t.slug));
-  return slugs.filter((s) => !known.has(s));
+/** The tasks a launch names, with their states; null for any slug this repo has never heard of. */
+function launchTasks(c: RepoCtx, slugs: readonly string[]): { ok: true; tasks: LaunchTask[] } | { ok: false; missing: string[] } {
+  const byS = new Map(tasksOf(c).map((t) => [t.slug, t]));
+  const missing = slugs.filter((s) => !byS.has(s));
+  if (missing.length > 0) return { ok: false, missing };
+  return { ok: true, tasks: slugs.map((s) => ({ slug: s, state: byS.get(s)!.state })) };
 }
 
 function launchRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
-  const parsed = parseLaunch(url.searchParams.getAll("slug"), url.searchParams.get("tool"), url.searchParams.get("mode"));
+  const parsed = parseLaunch(url.searchParams.getAll("slug"), url.searchParams.get("tool"), url.searchParams.get("mode"), url.searchParams.get("note"));
   if (!parsed.ok) return json(res, 400, { error: parsed.error });
-  const { command, cwd, description } = launchCommand({ repo: c.root, ...parsed.value });
-  return json(res, 200, { command, cwd, description });
+  const found = launchTasks(c, parsed.value.slugs);
+  if (!found.ok) return json(res, 404, { error: `unknown task: ${found.missing.join(", ")}` });
+  const { tool, mode, note } = parsed.value;
+  try {
+    // Described, not started: no session id, no claim, no context file. The command shows where
+    // the pack will be read from, since that is what the launched command will say too.
+    const input = { repo: c.root, tool, mode, tasks: found.tasks, contextFiles: found.tasks.map((t) => `.reggie/.cache/context/${t.slug}.md`), ...(note ? { note } : {}) };
+    const { command, cwd, description, goal } = launchCommand(input);
+    return json(res, 200, { command, cwd, description, goal });
+  } catch (err) {
+    return json(res, 400, { error: err instanceof Error ? err.message : "cannot launch" });
+  }
 }
 
 function stateMachineRoute(res: ServerResponse, c: RepoCtx): void {
@@ -1814,7 +1894,7 @@ function contextRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
 // ---------------------------------------------------------------------------
 
 async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, registry: RepoRegistry, port: number): Promise<void> {
-  const routes = new Set(["/api/capture", "/api/note", "/api/decide", "/api/journal", "/api/triage", "/api/launch"]);
+  const routes = new Set(["/api/capture", "/api/intake", "/api/note", "/api/decide", "/api/journal", "/api/triage", "/api/launch", "/api/episode"]);
   if (!routes.has(url.pathname)) {
     const readOnly = new Set([
       "/api/facts",
@@ -1822,6 +1902,8 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       "/api/graph",
       "/api/impact",
       "/api/story",
+      "/api/narration",
+      "/api/feed.xml",
       "/api/explain",
       "/api/file",
       "/api/symbols",
@@ -1875,6 +1957,43 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       const result = capture(c.paths, input);
       c.invalidate();
       return json(res, 200, result);
+    }
+    case "/api/intake": {
+      // The user's answer to "what did you mean": detail lines under the intake item, in the
+      // same shape `capture --detail` writes, so the board, the pack and the shaping session all
+      // read it without learning anything new.
+      const slug = str(body.value, "slug");
+      const text = str(body.value, "text");
+      if (!slug || !isSafeSlug(slug)) return json(res, 400, { error: "bad slug" });
+      if (!text || !text.trim()) return json(res, 400, { error: "text is required" });
+      const task = tasksOf(c).find((t) => t.slug === slug);
+      if (!task) return json(res, 404, { error: `unknown task: ${slug}` });
+      const input: { slug: string; text: string; person: Person; source: string; title?: string } = { slug, text, person, source: "web" };
+      if (!task.intake) input.title = task.title;
+      try {
+        const result = addIntakeDetail(c.paths, input);
+        c.invalidate();
+        return json(res, 200, result);
+      } catch (err) {
+        return json(res, 400, { error: err instanceof Error ? err.message : "could not add the detail" });
+      }
+    }
+    case "/api/episode": {
+      // Make (or remake) the audio for a story. The script is the same narration the page reads
+      // aloud, so what you hear in a podcast app is what you would have read on the page.
+      const scope = str(body.value, "scope") ?? "repo";
+      const id = str(body.value, "id") ?? "";
+      const lookup = new URL(`http://x/api/story?scope=${encodeURIComponent(scope)}&id=${encodeURIComponent(id)}`);
+      const story = buildStory(c, registry, lookup);
+      if (!story.ok) return json(res, story.status, { error: story.error });
+      const narration = narrate(story.story, { repo: c.name });
+      try {
+        const voice = str(body.value, "voice");
+        const episode = await makeEpisode(c.root, voice && /^[A-Za-z][A-Za-z ()-]{0,40}$/.test(voice) ? { scope, id, narration, voice } : { scope, id, narration });
+        return json(res, 200, { ...episodeSummary(episode, scope, id), title: episode.title, words: episode.words });
+      } catch (err) {
+        return json(res, 501, { error: err instanceof Error ? err.message : "could not make the episode" });
+      }
     }
     case "/api/note": {
       const entity = str(body.value, "entity");
@@ -1968,11 +2087,39 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       // is built as an argument vector by launch.ts and never interpolated into a shell.
       const raw = strList(body.value, "slugs");
       const single = str(body.value, "slug");
-      const parsed = parseLaunch(single ? [single, ...raw] : raw, str(body.value, "tool"), str(body.value, "mode"));
+      const parsed = parseLaunch(single ? [single, ...raw] : raw, str(body.value, "tool"), str(body.value, "mode"), str(body.value, "note"));
       if (!parsed.ok) return json(res, 400, { error: parsed.error });
-      const missing = unknownSlugs(c, parsed.value.slugs);
-      if (missing.length > 0) return json(res, 404, { error: `unknown task: ${missing.join(", ")}` });
-      return json(res, 200, launchSession({ repo: c.root, ...parsed.value }));
+      const found = launchTasks(c, parsed.value.slugs);
+      if (!found.ok) return json(res, 404, { error: `unknown task: ${found.missing.join(", ")}` });
+      const { tool, mode, note } = parsed.value;
+      let goal: ReturnType<typeof resolveGoal>;
+      try {
+        goal = resolveGoal(mode, found.tasks);
+      } catch (err) {
+        return json(res, 400, { error: err instanceof Error ? err.message : "cannot launch" });
+      }
+      // A build is claimed here, by Reggie, before the session opens: claim is state, and state
+      // is Reggie's. The session then starts in the task's worktree on its branch, so it never
+      // has to find its way there and can never edit the checkout the server is reading.
+      let cwd = c.root;
+      let branch: string | undefined;
+      const session = mintSession(tool);
+      if (goal === "build") {
+        const slug = found.tasks[0]!.slug;
+        try {
+          const claimed = claimTask(c.paths, c.config, slug, { person, worktree: true, tool, ...(session ? { session } : {}) });
+          cwd = claimed.worktree ?? c.root;
+          branch = claimed.branch;
+        } catch (err) {
+          return json(res, 409, { error: err instanceof Error ? err.message : "could not claim the task" });
+        }
+      }
+      const contextFiles = found.tasks.map((t) => writeContextFile(cwd, t.slug, buildContext(c.paths, c.config, { slug: t.slug })));
+      const input = { repo: cwd, tool, mode, tasks: found.tasks, contextFiles, ...(note ? { note } : {}), ...(session ? { session } : {}), ...(branch ? { branch } : {}) };
+      const result = launchSession(input);
+      for (const t of found.tasks) recordLaunch(c.root, { slug: t.slug, tool, goal, session: result.session, resume: result.resume, cwd: result.cwd });
+      c.invalidate();
+      return json(res, 200, result);
     }
     default:
       return json(res, 404, { error: "not found" });

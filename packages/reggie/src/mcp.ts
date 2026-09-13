@@ -5,7 +5,7 @@ import { capture } from "./capture.js";
 import { buildContext } from "./context.js";
 import { appendJournal, detectTool } from "./journal.js";
 import { addNote, findNotes, NOTE_TYPES, renderNoteFile, staleEntries } from "./notes.js";
-import { planFile, repoPaths, type RepoPaths } from "./paths.js";
+import { briefFile, planFile, repoPaths, type RepoPaths } from "./paths.js";
 import { currentPerson, loadConfig, loadPeople, type Person, type ReggieConfig } from "./people.js";
 import { lintPlan, renderPlanTemplate, RISKS } from "./plan.js";
 import { getTask, listTasks, renderTaskLine } from "./tasks.js";
@@ -59,14 +59,16 @@ export async function startMcpServer(root: string): Promise<void> {
     "reggie_task",
     {
       title: "Show one task",
-      description: "State, owner, branch, PR, and the full plan for a task slug.",
+      description: "State, owner, branch, PR, the brief (what the user asked for) and the full plan for a task slug.",
       inputSchema: { slug: slugSchema.describe("Task slug") },
     },
     async ({ slug }) => {
       const task = getTask(c.paths, c.config, slug);
+      const brief = readText(briefFile(c.paths, slug));
       const plan = readText(planFile(c.paths, slug));
       const head = [renderTaskLine(task), `branch: ${task.branch ?? "-"}`, `pr: ${task.pr ? `#${task.pr.number} ${task.pr.state} ${task.pr.url}` : "-"}`, `plan lint: ${task.planLintOk === null ? "no plan" : task.planLintOk ? "passes" : "fails"}`];
-      return text(`${head.join("\n")}\n\n${plan ?? "(no plan.md yet)"}`);
+      // The brief first: it is what the user asked for, decided before the plan said how.
+      return text(`${head.join("\n")}\n\n${brief ? `${brief}\n\n` : "(no brief.md yet)\n\n"}${plan ?? "(no plan.md yet)"}`);
     },
   );
 

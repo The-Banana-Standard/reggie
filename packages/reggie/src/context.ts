@@ -1,10 +1,11 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { parseBrief, type ParsedBrief } from "./brief.js";
 import { collectFacts, summarizeFacts } from "./facts.js";
 import { recentCommits } from "./git.js";
 import { readJournal, renderJournalEntry } from "./journal.js";
 import { notesForPath, readNoteFile, renderNoteFile, staleEntriesFor, type NoteFile } from "./notes.js";
-import { planFile, type RepoPaths } from "./paths.js";
+import { briefFile, planFile, type RepoPaths } from "./paths.js";
 import type { ReggieConfig } from "./people.js";
 import { parsePlan } from "./plan.js";
 import { listTasks } from "./tasks.js";
@@ -28,7 +29,17 @@ export function buildContext(paths: RepoPaths, config: ReggieConfig, req: Contex
 
   let files: string[] = (req.paths ?? []).map((p) => p.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, ""));
   let planTitle = "";
+  let brief: ParsedBrief | null = null;
   if (req.slug) {
+    // The brief is what the user said they want, decided before anyone planned how. It goes
+    // above the plan so a planner reads the intent before the mechanics, and an executor can
+    // tell a deviation from the plan apart from a deviation from the ask.
+    const briefText = readText(briefFile(paths, req.slug));
+    if (briefText) {
+      brief = parseBrief(briefText);
+      files = uniq([...files, ...briefAreaPaths(root, brief)]);
+      out.push(...renderBriefBlock(brief));
+    }
     const plan = readText(planFile(paths, req.slug));
     if (plan) {
       const parsed = parsePlan(plan);
@@ -106,6 +117,7 @@ export function buildContext(paths: RepoPaths, config: ReggieConfig, req: Contex
   out.push("- Read the notes above before editing. After changing a file, add or correct its note.");
   out.push("- Write one plain-English journal entry after each step. Capture unrelated problems; do not fix them here.");
   if (planTitle) out.push("- Deviating from the plan is allowed; record the deviation and why in the completion packet.");
+  if (brief && brief.questions.length > 0) out.push("- Answer the open questions above with the user before planning; if the user is not available, answer them yourself under Assumptions and say so.");
 
   const text = out.join("\n");
   return req.maxLines ? truncateLines(text, req.maxLines) : text;
@@ -117,4 +129,44 @@ function overlaps(paths: RepoPaths, slug: string, files: string[]): boolean {
   if (!plan) return false;
   const planFiles = parsePlan(plan).files;
   return planFiles.some((pf) => files.some((f) => pf === f || pf.startsWith(`${f}/`) || f.startsWith(`${pf}/`)));
+}
+
+/** The brief as the head of the pack: the ask, why it matters now, what it is not, and what is still open. */
+function renderBriefBlock(brief: ParsedBrief): string[] {
+  const out: string[] = [];
+  const shaping = [brief.meta.priority, brief.meta.size, brief.meta.risk === "unset" ? "" : `${brief.meta.risk} risk`, brief.meta.area].filter((v) => v && v !== "unset");
+  out.push(`## What the user is asking for${brief.meta.title ? `: ${brief.meta.title}` : ""}`);
+  if (shaping.length > 0) out.push(`(${shaping.join(" · ")})`);
+  const problem = sectionText(brief, "Problem");
+  out.push(problem || "(the brief's Problem section is empty)");
+  const why = sectionText(brief, "Why now");
+  if (why) out.push("", "Why now: " + why);
+  const not = sectionText(brief, "Not this");
+  if (not) out.push("", "Not this: " + not);
+  if (brief.areas.length > 0) out.push("", "Suspected area:", ...brief.areas.map((a) => `- ${a}`));
+  out.push("");
+  if (brief.questions.length > 0) {
+    out.push("## Open questions still open", ...brief.questions.map((q) => `- ${q}`), "");
+  }
+  return out;
+}
+
+/** A brief section as one block of prose, placeholders dropped; empty when nothing real is there. */
+function sectionText(brief: ParsedBrief, name: string): string {
+  const raw = (brief.sections.get(name) ?? "").trim();
+  if (!raw) return "";
+  const lines = raw.split("\n").map((l) => l.trim()).filter((l) => l && !/^\(.*\)$/.test(l));
+  return lines.join("\n");
+}
+
+/** Paths the brief's Suspected area bullets name, when they exist: the planner starts reading there. */
+function briefAreaPaths(root: string, brief: ParsedBrief): string[] {
+  const found: string[] = [];
+  for (const bullet of brief.areas) {
+    const first = bullet.trim().split(/\s+/)[0] ?? "";
+    const clean = first.replace(/^[`"']+|[`"',:;]+$/g, "").replace(/\/+$/, "");
+    if (!clean || clean.startsWith("(") || clean.includes("..")) continue;
+    if (existsSync(path.join(root, clean))) found.push(clean);
+  }
+  return found;
 }

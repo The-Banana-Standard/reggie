@@ -1,15 +1,27 @@
-import { existsSync, statSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { run } from "./git.js";
-import { isSafeSlug } from "./util.js";
+import type { TaskState } from "./tasks.js";
+import { isSafeSlug, nowIso } from "./util.js";
 
 /** The tools a session can be started in. Exported so callers can validate input against it. */
 export const LAUNCH_TOOLS = ["claude", "codex"] as const;
 export type LaunchTool = (typeof LAUNCH_TOOLS)[number];
 
-/** What the session is being started to do. Exported for the same reason. */
-export const LAUNCH_MODES = ["chat", "triage", "plan", "implement"] as const;
+/**
+ * Two verbs. Discuss opens the tool in its own plan mode with a prompt that frames a
+ * conversation; what the conversation is *for* follows from the task's state (shape a brief,
+ * write a plan, or just talk it through). Build claims the task, then opens the tool in the
+ * task's worktree with the plan. No mode fires a Reggie slash command: the prompt is the whole
+ * instruction, and it is the same text for both tools.
+ */
+export const LAUNCH_MODES = ["discuss", "build"] as const;
 export type LaunchMode = (typeof LAUNCH_MODES)[number];
+
+/** What a session is opened to do, derived from the mode and the task's state. */
+export const LAUNCH_GOALS = ["shape", "plan", "discuss", "build"] as const;
+export type LaunchGoal = (typeof LAUNCH_GOALS)[number];
 
 export function isLaunchTool(value: string): value is LaunchTool {
   return (LAUNCH_TOOLS as readonly string[]).includes(value);
@@ -19,13 +31,27 @@ export function isLaunchMode(value: string): value is LaunchMode {
   return (LAUNCH_MODES as readonly string[]).includes(value);
 }
 
+/** A task as the launcher needs to see it: the slug and where it stands. */
+export interface LaunchTask {
+  slug: string;
+  state: TaskState;
+}
+
 export interface LaunchInput {
-  /** The repository the session runs in. */
+  /** The directory the session runs in: the repository, or the task's worktree for a build. */
   repo: string;
   tool: LaunchTool;
   mode: LaunchMode;
-  /** One slug, except in triage mode, which shapes several tasks in one pass. */
-  slugs: string[];
+  /** One task, except shaping, which takes several ungroomed ones in one conversation. */
+  tasks: LaunchTask[];
+  /** The user's own words, appended verbatim to the prompt. */
+  note?: string;
+  /** A session id minted by the caller, so the chat can be found and resumed later. Claude only. */
+  session?: string;
+  /** Repo-relative paths of context packs written for the session, one per task, in task order. */
+  contextFiles?: string[];
+  /** The task branch a build session is on, when the caller has claimed it. */
+  branch?: string;
 }
 
 export interface LaunchPlan {
@@ -36,14 +62,26 @@ export interface LaunchPlan {
   description: string;
   /** What actually gets executed: the program, then its arguments. Never a shell string. */
   argv: string[];
+  goal: LaunchGoal;
+  /** The session id the tool was told to use, when the tool takes one. */
+  session: string | null;
+  /** How to reopen the same chat later, when that is knowable up front. */
+  resume: string | null;
 }
 
 export interface LaunchResult {
   launched: boolean;
   command: string;
+  cwd: string;
+  goal: LaunchGoal;
+  session: string | null;
+  resume: string | null;
   /** Why nothing was started. Present only when launched is false. */
   reason?: string;
 }
+
+/** The longest note a launch accepts; a prompt is an argument, not a document. */
+export const MAX_NOTE_CHARS = 4000;
 
 /**
  * POSIX single-quote quoting, and the only shell quoting in this module. Inside single
@@ -75,118 +113,171 @@ function assertMode(mode: string): LaunchMode {
 }
 
 /** Slugs are the only caller input that reaches a command string; validate every one. */
-function assertSlugs(mode: LaunchMode, slugs: readonly string[]): [string, ...string[]] {
-  const [first, ...rest] = slugs;
-  if (first === undefined) throw new Error(`launching ${mode} needs at least one slug.`);
-  if (mode !== "triage" && rest.length > 0) {
-    throw new Error(`${mode} takes one slug, got ${slugs.length} (${slugs.join(", ")}). Only triage runs over several tasks at once.`);
-  }
-  for (const slug of [first, ...rest]) {
-    if (!isSafeSlug(slug)) throw new Error(`"${slug}" is not a valid slug. Use lowercase letters, digits, and hyphens.`);
+function assertTasks(tasks: readonly LaunchTask[]): [LaunchTask, ...LaunchTask[]] {
+  const [first, ...rest] = tasks;
+  if (first === undefined) throw new Error("launching needs at least one task.");
+  for (const t of [first, ...rest]) {
+    if (!isSafeSlug(t.slug)) throw new Error(`"${t.slug}" is not a valid slug. Use lowercase letters, digits, and hyphens.`);
   }
   return [first, ...rest];
 }
 
+/**
+ * The goal follows from the state, so a button never has to know which prompt to send and
+ * cannot send the wrong one: an ungroomed task is shaped, a groomed one is planned, anything
+ * else is discussed. Build needs a plan that passed the contract, or a branch already in
+ * progress to resume.
+ */
+export function resolveGoal(mode: LaunchMode, tasks: readonly LaunchTask[]): LaunchGoal {
+  const list = assertTasks(tasks);
+  if (mode === "build") {
+    if (list.length > 1) throw new Error(`build takes one task, got ${list.length} (${list.map((t) => t.slug).join(", ")}).`);
+    const t = list[0];
+    if (t.state === "planned" || t.state === "in-process") return "build";
+    if (t.state === "groomed") throw new Error(`${t.slug} has no plan that passes the contract yet. Plan it first (Discuss), or run \`reggie plan lint ${t.slug}\`.`);
+    if (t.state === "ungroomed") throw new Error(`${t.slug} has not been shaped or planned yet. Discuss it first.`);
+    throw new Error(`${t.slug} is ${t.state.replace("-", " ")}; there is nothing left to build.`);
+  }
+  if (list.every((t) => t.state === "ungroomed")) return "shape";
+  if (list.length > 1) throw new Error(`discuss takes one task unless every task is ungroomed; got ${list.map((t) => `${t.slug} (${t.state})`).join(", ")}.`);
+  return list[0].state === "groomed" ? "plan" : "discuss";
+}
+
 const TOOL_LABEL: Record<LaunchTool, string> = { claude: "Claude Code", codex: "Codex" };
 
-/**
- * The discussion prompt, used by both tools: chat has no slash command because the point
- * is the instruction itself, and it has to forbid editing in words the model cannot miss.
- */
-function chatPrompt(slug: string): string {
+/** Where the pack is: the file the launcher wrote, else the verb that prints it. */
+function contextClause(slug: string, file: string | undefined): string {
+  return file ? `Read \`${file}\` first and all of it; it is the context pack for \`${slug}\` (what \`reggie context ${slug}\` prints).` : `Run \`reggie context ${slug}\` first and read all of it.`;
+}
+
+function noteClause(note: string | undefined): string[] {
+  const text = (note ?? "").trim();
+  return text ? [`The user adds, in their own words: "${text}"`] : [];
+}
+
+/** Shape one or more ungroomed items into briefs, together, before anyone plans them. */
+function shapePrompt(tasks: readonly LaunchTask[], files: readonly string[], note: string | undefined): string {
+  const many = tasks.length > 1;
+  const list = tasks.map((t) => `\`${t.slug}\``).join(", ");
+  const reads = tasks.map((t, i) => contextClause(t.slug, files[i])).join(" ");
   return [
-    `Discuss the Reggie task \`${slug}\` with me.`,
-    `Run \`reggie context ${slug}\` first and read all of it.`,
-    "This is a discussion only: do not edit any file, do not write or update a plan, and do not start the work.",
-    "Answer my questions, lay out the options with their trade-offs, and say plainly what you are unsure about.",
-    "If we settle something worth keeping, offer to capture it with `reggie capture` or to add a note, and do it only if I say yes.",
+    many ? `We are going to shape these captured items into briefs together, before anyone plans them: ${list}.` : `We are going to shape ${list} into a brief together, before anyone plans it.`,
+    reads,
+    "Work from the intake line, the notes and the graph rather than reading much code; a brief is cheap on purpose.",
+    "Ask me the questions whose answers would change the shape of the work, one at a time, and tell me what you think the item is about and where in the code it probably lives.",
+    many
+      ? "When we agree on one, run `reggie triage <slug>` to scaffold `.reggie/tasks/<slug>/brief.md` and fill every section: Problem, Why now, Suspected area, Open questions, Not this; set area, size and priority in the front matter."
+      : `When we agree, run \`reggie triage ${tasks[0]?.slug}\` to scaffold \`.reggie/tasks/${tasks[0]?.slug}/brief.md\` and fill every section: Problem, Why now, Suspected area, Open questions, Not this; set area, size and priority in the front matter.`,
+    "Anything we could not settle becomes an Open question. This is shaping, not planning: no implementation approach and no file-by-file design, and do not start the work.",
+    "Run `reggie brief lint <slug>` and fix every error, then write one journal entry with `reggie journal add --stage triage`.",
+    ...noteClause(note),
   ].join(" ");
 }
 
-/** The Codex form of /reggie-triage: shaping, not planning, over one or more slugs. */
-function triagePrompt(slugs: readonly string[]): string {
-  const list = slugs.join(", ");
+/** Plan one groomed task in the tool's plan mode, ending in a plan that passes the contract. */
+function planPrompt(slug: string, file: string | undefined, note: string | undefined): string {
   return [
-    `Shape these Reggie tasks into briefs: ${list}.`,
-    "For each one, run `reggie context <slug>` and read it, then `reggie triage <slug>` to scaffold `.reggie/tasks/<slug>/brief.md`.",
-    "Work from the intake line, the notes, and the graph rather than reading much code; a brief is cheap on purpose.",
-    "Fill every section (Problem, Why now, Suspected area, Open questions, Not this) and set area, size, and priority in the front matter.",
-    "Keep it short and in plain English. This is shaping, not planning: no implementation approach and no file-by-file design.",
-    "Anything you cannot answer becomes an Open question.",
-    "Run `reggie brief lint <slug>` and fix every error.",
-    "When you are done, write one journal entry with `reggie journal add --stage triage` and say which ones you were least sure about.",
-  ].join(" ");
-}
-
-/** The Codex form of /reggie-plan. Same contract, same CLI verbs, no slash command. */
-function planPrompt(slug: string): string {
-  return [
-    `Plan the Reggie task \`${slug}\`.`,
-    `Run \`reggie context ${slug}\` and read all of it, then \`reggie plan new ${slug}\` if no plan exists yet.`,
-    "Explore the code read-only. Ask me every question whose answer would change the approach; if I am not available, answer it yourself and record it under Assumptions.",
-    `Write the plan into \`.reggie/tasks/${slug}/plan.md\`, filling every section.`,
+    `We are going to plan \`${slug}\` together before anything is built.`,
+    contextClause(slug, file),
+    "Stay in plan mode and read-only while we talk: explore the code, but change nothing.",
+    "Start from the brief's Problem and its open questions. Ask me every question whose answer would change the approach, one at a time, before you propose one; if I am not available, answer it yourself and record it under Assumptions.",
+    `When we agree, write \`.reggie/tasks/${slug}/plan.md\` (\`reggie plan new ${slug}\` scaffolds it) with every section filled: Problem, Approach, Files to touch, Acceptance criteria, Verification strategy, Assumptions, Out of scope, Bail conditions.`,
     "Each acceptance criterion must be a statement a reviewer can check without asking, and each needs a line in Verification strategy naming the evidence that will prove it.",
-    `Run \`reggie plan risk ${slug}\`, then \`reggie plan lint ${slug}\`, and fix every error.`,
-    "Do not start the implementation.",
+    `Then run \`reggie plan risk ${slug}\` and \`reggie plan lint ${slug}\`, fix every error, commit the plan, and stop. Do not start the implementation.`,
     `Finish with one journal entry: \`reggie journal add --slug ${slug} --stage plan\`.`,
+    ...noteClause(note),
   ].join(" ");
 }
 
-/** The Codex form of /reggie-execute. */
-function implementPrompt(slug: string): string {
+/** Talk a task through without touching anything; offer to record what gets settled. */
+function discussPrompt(slug: string, file: string | undefined, note: string | undefined): string {
   return [
-    `Implement the Reggie task \`${slug}\`.`,
-    `Run \`reggie context ${slug}\` and read the plan and the notes it points at, then \`reggie claim ${slug}\` to start the task branch.`,
-    "Execute the plan. You may deviate, but record every deviation and its reason for the packet.",
-    `Produce the evidence named in the plan under Verification strategy and save it under \`.reggie/tasks/${slug}/evidence/\`; never claim a test passed without its output saved.`,
-    "After each file change, add or correct the note for that file. After each step, write one journal entry with `--stage execute`.",
-    "Capture unrelated problems with `reggie capture` instead of fixing them.",
-    `Finish with \`reggie packet ${slug}\`, fill every section honestly, and commit.`,
+    `Let us discuss \`${slug}\` together.`,
+    contextClause(slug, file),
+    "This is a discussion: do not edit any file, do not write or update a plan, and do not start the work.",
+    "Answer my questions, lay out the options with their trade-offs, and say plainly what you are unsure about.",
+    "If we settle something worth keeping, offer to record it: a note with `reggie note add`, a captured item with `reggie capture`, or a change to the brief or plan. Do it only if I say yes.",
+    ...noteClause(note),
   ].join(" ");
 }
 
-/** Claude Code drives these through the project commands `onboard` installs. */
-function claudeArgument(mode: LaunchMode, slugs: [string, ...string[]]): string {
-  switch (mode) {
-    case "chat":
-      return chatPrompt(slugs[0]);
-    case "triage":
-      return `/reggie-triage ${slugs.join(" ")}`;
+/** Review commands differ per tool; everything else in the build prompt is the same text. */
+const REVIEW: Record<LaunchTool, { code: string; security: string; simplify: string }> = {
+  claude: { code: "`/code-review`", security: "`/security-review`", simplify: "`/simplify`" },
+  codex: { code: "`codex review` (or a fresh read of the diff against the plan)", security: "a security review pass over the diff", simplify: "a simplification pass" },
+};
+
+/** Implement one planned task from its worktree, already claimed, through to a completion packet. */
+function buildPrompt(tool: LaunchTool, slug: string, file: string | undefined, branch: string | undefined, note: string | undefined): string {
+  const r = REVIEW[tool];
+  return [
+    `Implement \`${slug}\`.`,
+    branch ? `You are in the task's worktree on branch \`${branch}\`, which Reggie has already claimed for you; work here and commit here.` : `Run \`reggie claim ${slug} --worktree\` first and work in the worktree it creates.`,
+    contextClause(slug, file),
+    "Execute the plan. You may deviate, but record every deviation and its reason for the packet.",
+    `Produce the evidence named under Verification strategy and save it under \`.reggie/tasks/${slug}/evidence/\`; never claim a test passed without its output saved.`,
+    `Reviews by risk class, from the plan's front matter: low, run the repo's own checks; medium, also run ${r.code}; high, also run ${r.security} and have a second pass execute the tests. Run ${r.simplify} when the diff is large. Resolve findings before continuing.`,
+    "After each file change, add or correct the note for that file. After each step, write one journal entry with `--stage execute`. Capture unrelated problems with `reggie capture` instead of fixing them.",
+    `Finish with \`reggie packet ${slug}\`, fill every section honestly, and commit with the trailer \`Task: ${slug}\` in the message. Then ask me to decide (\`reggie decide ${slug}\`) or open a PR whose body is the packet (\`reggie pr ${slug}\`).`,
+    ...noteClause(note),
+  ].join(" ");
+}
+
+function promptFor(tool: LaunchTool, goal: LaunchGoal, tasks: readonly LaunchTask[], input: LaunchInput): string {
+  const files = input.contextFiles ?? [];
+  const first = tasks[0]?.slug ?? "";
+  switch (goal) {
+    case "shape":
+      return shapePrompt(tasks, files, input.note);
     case "plan":
-      return `/reggie-plan ${slugs[0]}`;
-    case "implement":
-      return `/reggie-execute ${slugs[0]}`;
+      return planPrompt(first, files[0], input.note);
+    case "discuss":
+      return discussPrompt(first, files[0], input.note);
+    case "build":
+      return buildPrompt(tool, first, files[0], input.branch, input.note);
   }
 }
 
-/** Codex has no slash commands, so the same work is spelled out inline. */
-function codexArgument(mode: LaunchMode, slugs: [string, ...string[]]): string {
-  switch (mode) {
-    case "chat":
-      return chatPrompt(slugs[0]);
-    case "triage":
-      return triagePrompt(slugs);
-    case "plan":
-      return planPrompt(slugs[0]);
-    case "implement":
-      return implementPrompt(slugs[0]);
+/**
+ * The argument vector per tool. Discussion goals open Claude Code in its plan mode and Codex in
+ * a read-only sandbox, so "change nothing" is enforced by the tool and not only asked for by
+ * the prompt. A build gets the tool's normal editing mode.
+ */
+function argvFor(tool: LaunchTool, goal: LaunchGoal, session: string | undefined, prompt: string): string[] {
+  const readOnly = goal !== "build";
+  if (tool === "claude") {
+    const args = ["claude"];
+    if (readOnly) args.push("--permission-mode", "plan");
+    if (session) args.push("--session-id", session);
+    args.push(prompt);
+    return args;
   }
+  return ["codex", "-s", readOnly ? "read-only" : "workspace-write", prompt];
 }
 
-function describe(tool: LaunchTool, mode: LaunchMode, slugs: [string, ...string[]]): string {
+function describe(tool: LaunchTool, goal: LaunchGoal, tasks: readonly LaunchTask[]): string {
   const label = TOOL_LABEL[tool];
-  switch (mode) {
-    case "chat":
-      return `Discuss ${slugs[0]} in ${label}, read-only: no edits, no plan, no work`;
-    case "triage":
-      return slugs.length === 1
-        ? `Shape ${slugs[0]} into a brief in ${label}`
-        : `Shape ${slugs.length} tasks into briefs in ${label}: ${slugs.join(", ")}`;
+  const slug = tasks[0]?.slug ?? "";
+  switch (goal) {
+    case "shape":
+      return tasks.length === 1 ? `Shape ${slug} into a brief with ${label}, in plan mode` : `Shape ${tasks.length} tasks into briefs with ${label}, in plan mode: ${tasks.map((t) => t.slug).join(", ")}`;
     case "plan":
-      return `Plan ${slugs[0]} in ${label}, against the plan contract`;
-    case "implement":
-      return `Implement ${slugs[0]} in ${label}, from its plan to a completion packet`;
+      return `Plan ${slug} with ${label} in plan mode, against the plan contract`;
+    case "discuss":
+      return `Discuss ${slug} in ${label}, read-only: no edits, no plan, no work`;
+    case "build":
+      return `Build ${slug} in ${label}, from its plan to a completion packet`;
   }
+}
+
+/** A session id for the tools that take one at launch, so the chat is findable before it starts. */
+export function mintSession(tool: LaunchTool): string | null {
+  return tool === "claude" ? randomUUID() : null;
+}
+
+function resumeFor(tool: LaunchTool, session: string | null): string | null {
+  if (tool === "claude") return session ? `claude --resume ${session}` : null;
+  return "codex resume --last";
 }
 
 /**
@@ -197,16 +288,70 @@ function describe(tool: LaunchTool, mode: LaunchMode, slugs: [string, ...string[
 export function launchCommand(input: LaunchInput): LaunchPlan {
   const tool = assertTool(input.tool);
   const mode = assertMode(input.mode);
-  const slugs = assertSlugs(mode, input.slugs);
+  const tasks = assertTasks(input.tasks);
+  const goal = resolveGoal(mode, tasks);
   if (typeof input.repo !== "string" || input.repo.trim() === "") throw new Error("launch needs the repository directory.");
-  const argv = [tool, tool === "claude" ? claudeArgument(mode, slugs) : codexArgument(mode, slugs)];
+  if ((input.note ?? "").length > MAX_NOTE_CHARS) throw new Error(`the note is longer than ${MAX_NOTE_CHARS} characters; put the rest in the brief.`);
+  const session = tool === "claude" ? (input.session ?? null) : null;
+  const prompt = promptFor(tool, goal, tasks, input);
+  const argv = argvFor(tool, goal, session ?? undefined, prompt);
   return {
     command: argv.map(shellQuote).join(" "),
     cwd: path.resolve(input.repo),
-    description: describe(tool, mode, slugs),
+    description: describe(tool, goal, tasks),
     argv,
+    goal,
+    session,
+    resume: resumeFor(tool, session),
   };
 }
+
+/** Where a launch writes the context pack for a task, relative to the session's directory. */
+export function contextFileRel(slug: string): string {
+  if (!isSafeSlug(slug)) throw new Error(`"${slug}" is not a valid slug.`);
+  return `.reggie/.cache/context/${slug}.md`;
+}
+
+/**
+ * Write the pack where the session will look for it. Under `.reggie/.cache/`, which is derived
+ * state and never committed; a file read survives a read-only sandbox and a `reggie` binary
+ * that is not on PATH, which a "run this verb" instruction does not.
+ */
+export function writeContextFile(cwd: string, slug: string, text: string): string {
+  const rel = contextFileRel(slug);
+  const full = path.join(cwd, rel);
+  mkdirSync(path.dirname(full), { recursive: true });
+  writeFileSync(full, text.endsWith("\n") ? text : `${text}\n`, "utf8");
+  return rel;
+}
+
+/** What a launch left behind: enough to find the chat again and to say a session is in flight. */
+export interface LaunchRecord {
+  slug: string;
+  tool: LaunchTool;
+  goal: LaunchGoal;
+  session: string | null;
+  resume: string | null;
+  cwd: string;
+  at: string;
+}
+
+/** `.reggie/.cache/launches/<slug>.json` in the repository the server runs against. */
+export function launchRecordFile(root: string, slug: string): string {
+  if (!isSafeSlug(slug)) throw new Error(`"${slug}" is not a valid slug.`);
+  return path.join(root, ".reggie", ".cache", "launches", `${slug}.json`);
+}
+
+export function recordLaunch(root: string, record: Omit<LaunchRecord, "at">): LaunchRecord {
+  const full = { ...record, at: nowIso() };
+  const file = launchRecordFile(root, record.slug);
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, `${JSON.stringify(full, null, 2)}\n`, "utf8");
+  return full;
+}
+
+/** How long to wait for Terminal before giving up and handing the command back to the caller. */
+export const LAUNCH_TIMEOUT_MS = 8000;
 
 /**
  * Start the session in a new terminal window. macOS only: elsewhere the command comes
@@ -214,20 +359,14 @@ export function launchCommand(input: LaunchInput): LaunchPlan {
  * with an argument vector, never a shell string, and the script it runs is built from
  * validated slugs and a quoted repo path.
  */
-/** How long to wait for Terminal before giving up and handing the command back to the caller. */
-export const LAUNCH_TIMEOUT_MS = 8000;
-
 export function launchSession(input: LaunchInput): LaunchResult {
   const plan = launchCommand(input);
   if (!existsSync(plan.cwd) || !statSync(plan.cwd).isDirectory()) {
     throw new Error(`${plan.cwd} is not a directory; there is nowhere to start the session.`);
   }
+  const base = { command: plan.command, cwd: plan.cwd, goal: plan.goal, session: plan.session, resume: plan.resume };
   if (process.platform !== "darwin") {
-    return {
-      launched: false,
-      command: plan.command,
-      reason: `Reggie can only open a terminal window on macOS, and this is ${process.platform}. Run the command yourself in ${plan.cwd}.`,
-    };
+    return { ...base, launched: false, reason: `Reggie can only open a terminal window on macOS, and this is ${process.platform}. Run the command yourself in ${plan.cwd}.` };
   }
   const line = `cd ${shellQuote(plan.cwd)} && ${plan.command}`;
   const script = `tell application "Terminal" to do script ${appleScriptLiteral(line)}`;
@@ -239,14 +378,14 @@ export function launchSession(input: LaunchInput): LaunchResult {
   });
   if (r.timedOut) {
     return {
+      ...base,
       launched: false,
-      command: plan.command,
       reason: `Terminal did not respond within ${Math.round(LAUNCH_TIMEOUT_MS / 1000)} seconds. macOS may be waiting for you to allow Reggie to control Terminal (System Settings, Privacy & Security, Automation). Run the command yourself in ${plan.cwd}.`,
     };
   }
   if (!r.ok) {
     const detail = (r.stderr || r.stdout).trim();
-    return { launched: false, command: plan.command, reason: `Terminal did not start the session${detail ? `: ${detail}` : "."}` };
+    return { ...base, launched: false, reason: `Terminal did not start the session${detail ? `: ${detail}` : "."}` };
   }
-  return { launched: true, command: plan.command };
+  return { ...base, launched: true };
 }

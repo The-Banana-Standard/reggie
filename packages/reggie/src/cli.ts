@@ -2,7 +2,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
-import { lintBrief, PRIORITIES, SIZES, type Priority, type Size } from "./brief.js";
+import { lintBrief, parseBrief, PRIORITIES, SIZES, type Priority, type Size } from "./brief.js";
 import { staleBuildWarning } from "./build-state.js";
 import { capture, removeFromIntake } from "./capture.js";
 import { claimTask, releaseTask } from "./claim.js";
@@ -14,7 +14,7 @@ import { buildGraph, type RepoGraph } from "./graph.js";
 import { createIssue, createPullRequest, ghAvailable } from "./gh.js";
 import { currentBranch, defaultBranch, git } from "./git.js";
 import { appendJournal, detectTool, readJournal, renderJournalEntry } from "./journal.js";
-import { isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, type LaunchInput } from "./launch.js";
+import { contextFileRel, isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, mintSession, recordLaunch, resolveGoal, writeContextFile, type LaunchGoal, type LaunchInput, type LaunchTask } from "./launch.js";
 import { startMcpServer } from "./mcp.js";
 import { startServer } from "./serve.js";
 import { detectServices, type ServiceNode } from "./services.js";
@@ -193,7 +193,7 @@ program
     if (written === 0) return;
     out("");
     out(`Fill every section, then: reggie brief lint ${slugs.length === 1 ? slugs[0] : "<slug>"}`);
-    out(`Or shape them in a session: reggie launch ${slugs.join(" ")} --mode triage --run`);
+    out(`Or shape them in a session: reggie launch ${slugs.join(" ")} --run`);
   });
 
 /** The board order the tasks page reads in: what is moving first, what has not started last. */
@@ -243,7 +243,7 @@ program
     const groomed = tasks.filter((t) => t.state === "groomed").length;
     out("");
     if (ungroomed > 0) out(`${ungroomed} ungroomed. Shape ${ungroomed === 1 ? "it into a brief" : "them into briefs"}: reggie triage --all`);
-    else if (groomed > 0) out(`${groomed} groomed and unplanned. Plan one: reggie launch <slug> --mode plan --run`);
+    else if (groomed > 0) out(`${groomed} groomed and unplanned. Plan one: reggie launch <slug> --run`);
     else out("Nothing is waiting to be shaped.");
   });
 
@@ -372,26 +372,53 @@ brief
 
 program
   .command("launch <slug...>")
-  .description("Print the command that starts a session on these tasks; --run opens it in a new terminal window")
+  .description("Start a session on a task: discuss (shape, plan or talk it through, in plan mode) or build (claim it, then implement from its worktree). Prints the command; --run opens it in a new terminal window")
   .option("--tool <tool>", `one of ${LAUNCH_TOOLS.join(", ")}`, "claude")
-  .option("--mode <mode>", `one of ${LAUNCH_MODES.join(", ")}`, "chat")
+  .option("--mode <mode>", `one of ${LAUNCH_MODES.join(", ")}`, "discuss")
+  .option("--note <text>", "a sentence of your own, appended to the prompt")
   .option("--run", "start the session instead of only printing it")
-  .action((slugs: string[], opts: { tool: string; mode: string; run?: boolean }) => {
+  .action((slugs: string[], opts: { tool: string; mode: string; note?: string; run?: boolean }) => {
     const c = ctx(program.opts<{ root?: string }>().root);
     if (!isLaunchTool(opts.tool)) fail(`--tool must be one of ${LAUNCH_TOOLS.join(", ")}`);
     if (!isLaunchMode(opts.mode)) fail(`--mode must be one of ${LAUNCH_MODES.join(", ")}`);
-    const input: LaunchInput = { repo: c.root, tool: opts.tool, mode: opts.mode, slugs: slugs.map(requireSlug) };
+    const known = new Map(listTasks(c.paths, c.config).map((t) => [t.slug, t]));
+    const tasks: LaunchTask[] = slugs.map(requireSlug).map((slug) => {
+      const t = known.get(slug);
+      if (!t) fail(`unknown task: ${slug}`);
+      return { slug, state: t.state };
+    });
+    let goal: LaunchGoal;
+    try {
+      goal = resolveGoal(opts.mode, tasks);
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : "cannot launch");
+    }
+    const base: LaunchInput = { repo: c.root, tool: opts.tool, mode: opts.mode, tasks };
+    if (opts.note) base.note = opts.note;
     if (!opts.run) {
-      const session = launchCommand(input);
+      const session = launchCommand({ ...base, contextFiles: tasks.map((t) => contextFileRel(t.slug)) });
       out(session.description);
       out(`cd ${session.cwd}`);
       out(session.command);
+      out(`(the context pack for each task is written to .reggie/.cache/context/<slug>.md when the session is started with --run)`);
       return;
     }
-    const r = launchSession(input);
+    const session = mintSession(opts.tool);
+    let cwd = c.root;
+    if (goal === "build") {
+      const slug = tasks[0]!.slug;
+      const claimed = claimTask(c.paths, c.config, slug, { person: currentPerson(c.root), worktree: true, tool: opts.tool, ...(session ? { session } : {}) });
+      cwd = claimed.worktree ?? c.root;
+      base.branch = claimed.branch;
+    }
+    base.repo = cwd;
+    base.contextFiles = tasks.map((t) => writeContextFile(cwd, t.slug, buildContext(c.paths, c.config, { slug: t.slug })));
+    if (session) base.session = session;
+    const r = launchSession(base);
     out(r.command);
+    for (const t of tasks) recordLaunch(c.root, { slug: t.slug, tool: opts.tool, goal, session: r.session, resume: r.resume, cwd: r.cwd });
     if (!r.launched) fail(r.reason ?? "the session did not start");
-    out(`Started in a new Terminal window, in ${c.root}`);
+    out(`Started in a new Terminal window, in ${cwd}${r.resume ? `. Reopen it later with: ${r.resume}` : ""}`);
   });
 
 program
@@ -573,7 +600,7 @@ program
 program
   .command("serve")
   .description("Start a local read-only web view: the repo guidebook, its map, the task board, notes and journal")
-  .option("--port <n>", "port to listen on", (v) => parseIntOption(v, "--port"), 4310)
+  .option("--port <n>", "port to listen on (default: $PORT, else 4310)", (v) => parseIntOption(v, "--port"), process.env.PORT ? parseIntOption(process.env.PORT, "PORT") : 4310)
   .option("--host <host>", "interface to bind", "127.0.0.1")
   .option("--workspace <dir>", "serve every repo listed in the CLAUDE.md of this workspace directory")
   .option("--no-workspace", "serve only this repo, even when a workspace CLAUDE.md names it")
@@ -603,10 +630,15 @@ program
 
 function planningPrompt(c: Ctx, slug: string): string {
   const item = readIntake(c.paths).find((i) => i.slug === slug);
-  const line = item ? [item.text, ...item.detail].join(" ") : "(no intake line; the user will describe the task)";
+  const briefText = readText(briefFile(c.paths, slug));
+  const brief = briefText ? parseBrief(briefText) : null;
+  // The brief is the shaped ask; the intake line is only what someone typed before shaping.
+  const ask = brief?.problem || (item ? [item.text, ...item.detail].join(" ") : "(no intake line; the user will describe the task)");
+  const questions = brief?.questions.length ? ["Open questions the brief left for you to settle with the user:", ...brief.questions.map((q) => `- ${q}`)] : [];
   return [
     `You are planning the task "${slug}" for the repository at ${c.root}.`,
-    `Intake: ${line}`,
+    `${brief ? "The ask, from the brief" : "Intake"}: ${ask}`,
+    ...questions,
     "",
     "Work read-only. Explore the code. Then write a plan that satisfies Reggie's plan contract exactly:",
     "front matter with slug, title, risk (low|medium|high), deciders, author, created; then these sections in order:",

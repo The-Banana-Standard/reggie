@@ -34,6 +34,8 @@ import {
   section,
   skeleton,
 } from "./app.js";
+import { renderStory } from "./story.js";
+import { listenControls, stopListening } from "./listen.js";
 
 // ---------------------------------------------------------------------------
 // Constants (spec §5.1, §6.8)
@@ -581,6 +583,62 @@ export function captureForm(ctx, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Answering: detail under an intake item (POST /api/intake)
+// ---------------------------------------------------------------------------
+
+/**
+ * The user's reply to what Reggie guessed: a sentence or two that lands under the intake line as
+ * detail, where the board, the context pack and the shaping session all read it. This is the
+ * cheapest way to say what was meant, and it is meant to be used before shaping a task.
+ */
+export function answerForm(ctx, task, opts = {}) {
+  const slug = task.slug;
+  const input = h("textarea", {
+    class: "form__textarea",
+    rows: "3",
+    placeholder: opts.placeholder ?? "Say what you meant: where it is, who feels it, what done looks like, or what Reggie guessed wrong.",
+    "aria-label": `Add detail under ${slug}`,
+  });
+  const err = h("div", { class: "form__error", hidden: true });
+  const submit = h("button", { class: "btn btn--small btn--primary", type: "submit" }, "Add it to the item");
+  const form = h(
+    "form",
+    {
+      class: "form form--answer",
+      on: {
+        submit: async (ev) => {
+          ev.preventDefault();
+          const text = input.value.trim();
+          if (!text) {
+            err.textContent = "Write something first.";
+            err.hidden = false;
+            return;
+          }
+          err.hidden = true;
+          submit.disabled = true;
+          try {
+            const res = await ctx.post("/api/intake", { slug, text });
+            input.value = "";
+            toast(`Added ${res.added?.length === 1 ? "a line" : `${res.added?.length ?? 0} lines`} under \`${slug}\`.`, { tone: "ok" });
+            opts.onAnswered?.(res);
+          } catch (e) {
+            err.textContent = friendlyError(e);
+            err.hidden = false;
+          } finally {
+            submit.disabled = false;
+          }
+        },
+      },
+    },
+    h("h4", { class: "task-sub" }, opts.heading ?? "Add what you meant"),
+    input,
+    err,
+    h("div", { class: "form__actions" }, submit, h("span", { class: "hint" }, "It goes under the line in ", h("code", {}, ".reggie/intake.md"), ", where the shaping session reads it.")),
+  );
+  return form;
+}
+
+// ---------------------------------------------------------------------------
 // Launching sessions (tasks spec §4, §7)
 // ---------------------------------------------------------------------------
 
@@ -594,9 +652,10 @@ function rememberTool(tool) {
   if (LAUNCH_TOOLS.includes(tool)) storage.set(LAUNCH_TOOL_KEY, tool);
 }
 
-function launchUrl(slugs, tool, mode) {
+function launchUrl(slugs, tool, mode, note = "") {
   const qs = slugs.map((s) => `slug=${encodeURIComponent(s)}`).join("&");
-  return `/api/launch?${qs}&tool=${encodeURIComponent(tool)}&mode=${encodeURIComponent(mode)}`;
+  const n = note ? `&note=${encodeURIComponent(note)}` : "";
+  return `/api/launch?${qs}&tool=${encodeURIComponent(tool)}&mode=${encodeURIComponent(mode)}${n}`;
 }
 
 /** A command is one line of shell; a Codex prompt runs past a thousand characters. Toasts get a clip. */
@@ -613,18 +672,28 @@ function clip(text, max = 150) {
  */
 function makeLauncher(ctx) {
   const cache = new Map();
+  /** The sentence the user typed for each launch set, kept until the page re-renders. */
+  const notes = new Map();
+  const noteFor = (slugs) => notes.get(slugs.join(" ")) ?? "";
+  const setNote = (slugs, text) => {
+    const key = slugs.join(" ");
+    if (text && text.trim()) notes.set(key, text.trim());
+    else notes.delete(key);
+  };
   async function describe(slugs, tool, mode) {
-    const key = `${mode}|${tool}|${slugs.join(" ")}`;
+    const note = noteFor(slugs);
+    const key = `${mode}|${tool}|${slugs.join(" ")}|${note}`;
     if (cache.has(key)) return cache.get(key);
-    const plan = await ctx.fetchJson(launchUrl(slugs, tool, mode));
+    const plan = await ctx.fetchJson(launchUrl(slugs, tool, mode, note));
     cache.set(key, plan);
     return plan;
   }
   async function run(slugs, tool, mode, opts = {}) {
     rememberTool(tool);
     let res = null;
+    const note = noteFor(slugs);
     try {
-      res = await ctx.post("/api/launch", { slugs, tool, mode });
+      res = await ctx.post("/api/launch", note ? { slugs, tool, mode, note } : { slugs, tool, mode });
     } catch (e) {
       const text = friendlyError(e);
       toast(`Could not start the ${TOOL_LABEL[tool]} session: ${text}`, { tone: "bad", ms: 8000 });
@@ -633,7 +702,9 @@ function makeLauncher(ctx) {
       return null;
     }
     if (res?.launched) {
-      const el = toast(`Started \`${clip(res.command)}\` in ${TOOL_LABEL[tool]}`, { tone: "ok", ms: 9000 });
+      const where = res.cwd && res.goal === "build" ? ` in its worktree` : "";
+      const again = res.resume ? ` Reopen it later with \`${res.resume}\`.` : "";
+      const el = toast(`Started ${GOAL_WORDS[res.goal] ?? "a session"}${where} in ${TOOL_LABEL[tool]}.${again}`, { tone: "ok", ms: 12000 });
       if (el) el.title = res.command;
       opts.onLaunched?.(res);
     } else {
@@ -643,8 +714,11 @@ function makeLauncher(ctx) {
     }
     return res;
   }
-  return { describe, run };
+  return { describe, run, noteFor, setNote };
 }
+
+/** What a launch does, as the toast says it: the goal comes back from the server, derived from the task's state. */
+const GOAL_WORDS = { shape: "shaping, in plan mode", plan: "planning, in plan mode", discuss: "a read-only discussion", build: "the build" };
 
 /** A readonly field holding a command nobody could spawn, with the reason above it and a Copy button. */
 function commandField(command, reason) {
@@ -776,6 +850,27 @@ function launchAction(launcher, cfg) {
       });
   }
 
+  // The user's own words, appended verbatim to the prompt. Typed here, in the menu that already
+  // decides which tool runs, so the moment of handing work over is also the moment to say what
+  // is meant by it. Kept per launch set until the page re-renders; the tooltip re-reads it.
+  const note = h("textarea", {
+    class: "form__textarea launch__note",
+    rows: "2",
+    placeholder: "Anything the agent should know, in your words (optional)",
+    "aria-label": "A sentence for the agent, appended to the prompt",
+    value: launcher.noteFor?.(slugs) ?? "",
+  });
+  note.addEventListener("input", () => {
+    launcher.setNote?.(slugs, note.value);
+    for (const el of [main, ...menu.querySelectorAll(".launch__tool")]) el.dataset.tipLoaded = "";
+  });
+  note.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) {
+      ev.preventDefault();
+      go(main.dataset.tool);
+    }
+  });
+  menu.appendChild(h("label", { class: "launch__note-label" }, note));
   for (const tool of LAUNCH_TOOLS) {
     const row = h("button", { class: "btn btn--small btn--ghost launch__tool", type: "button", role: "menuitem" }, `${cfg.menuLabel ?? label} in ${TOOL_LABEL[tool]}`);
     row.addEventListener("mouseenter", () => tip(row, tool));
@@ -798,7 +893,7 @@ function launchAction(launcher, cfg) {
     placeMenu();
     document.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onScroll);
-    menu.querySelector("button")?.focus();
+    menu.querySelector("textarea")?.focus();
   });
   wrap.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape" && !menu.hidden) {
@@ -1403,11 +1498,14 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     // it that exists.
     const legacyOnly = Boolean(t.legacy) && !t.brief?.exists;
     switch (t.state) {
+      // Two launch verbs. Discuss opens the tool in plan mode; what the conversation is for
+      // (shape a brief, write a plan, or talk) follows from the state on the server, so no
+      // button can send the wrong prompt. Build claims the task and opens its worktree.
       case "ungroomed":
         return [
           legacyOnly && !t.intake ? readButton(t, "legacy", "Read the backlog entry") : readButton(t, "intake", "Read the intake line"),
+          launchFor(t, "discuss", "Shape it", "btn--primary"),
           shapeButton(t),
-          launchFor(t, "chat", "Discuss"),
         ];
       case "groomed":
         return [
@@ -1415,19 +1513,18 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
           // The old pipeline left a plan here even though the backlog never marked it planned;
           // it is the best description of the work that exists, so it stays one click away.
           t.legacy?.planFile ? readButton(t, "plan", "Read the old plan") : null,
-          launchFor(t, "plan", "Plan it", "btn--primary"),
-          launchFor(t, "chat", "Discuss"),
+          launchFor(t, "discuss", "Plan it", "btn--primary"),
         ].filter(Boolean);
       case "planned":
-        return [readButton(t, "plan", "Read the plan"), launchFor(t, "implement", "Start", "btn--primary"), launchFor(t, "chat", "Discuss")];
+        return [readButton(t, "plan", "Read the plan"), launchFor(t, "build", "Start", "btn--primary"), launchFor(t, "discuss", "Discuss")];
       case "in-process":
-        return [readButton(t, "plan", "Read the plan"), branchButton(t), launchFor(t, "chat", "Discuss")];
+        return [readButton(t, "plan", "Read the plan"), launchFor(t, "build", "Resume", "btn--primary"), branchButton(t), launchFor(t, "discuss", "Discuss")];
       case "awaiting-decision":
-        return [readButton(t, "packet", "Read the packet"), decideButton(t), launchFor(t, "chat", "Discuss")];
+        return [readButton(t, "packet", "Read the packet"), decideButton(t), launchFor(t, "discuss", "Discuss")];
       case "done":
         return legacyOnly ? [readButton(t, "legacy", "What was done")] : [readButton(t, "completion", "What was done")];
       default:
-        return [launchFor(t, "chat", "Discuss")];
+        return [launchFor(t, "discuss", "Discuss")];
     }
   }
 
@@ -1437,13 +1534,13 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     return h(
       "button",
       {
-        class: "btn btn--small btn--primary",
+        class: "btn btn--small btn--ghost",
         type: "button",
         disabled: busy,
-        title: `Write .reggie/tasks/${t.slug}/brief.md from the intake line, which moves this to Groomed`,
+        title: `Scaffold .reggie/tasks/${t.slug}/brief.md from the intake line with every section left to fill in; this moves the card to Groomed, so prefer shaping it in a session`,
         on: { click: () => shape([t.slug]) },
       },
-      busy ? "Shaping…" : "Shape it",
+      busy ? "Scaffolding…" : "Scaffold a brief",
     );
   }
 
@@ -1623,7 +1720,8 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
         h("p", { class: "para para--fact" }, inline(line.text ?? t.title ?? t.slug, { repo: ctx.repo })),
         (line.detail ?? []).length ? h("div", { class: "detail__sec" }, h("h4", { class: "task-sub" }, "Detail"), (line.detail ?? []).map((x) => h("p", { class: "para para--fact" }, inline(x, { repo: ctx.repo })))) : null,
         metaChips(line.meta),
-        h("p", { class: "hint" }, "Shaping it writes a brief: the problem, why now, the suspected area, a size and a priority."),
+        h("p", { class: "hint" }, "Open the task to read what Reggie can say about it, or to hear it: ", entityLink("task", taskRoute(ctx.repo, t.slug), "where it probably lives, what is known there, and what is unclear"), "."),
+        answerForm(ctx, t, { onAnswered: () => ctx.deps?.onCapture?.() }),
       );
     }
     if (kind === "brief") {
@@ -1926,21 +2024,22 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     const btn = h(
       "button",
       {
-        class: "btn btn--small btn--primary board__shape",
+        class: "btn btn--small btn--ghost board__shape",
         type: "button",
         disabled: busy,
         title: picked
-          ? `Write a brief for the ${set.length} ticked ${set.length === 1 ? "task" : "tasks"}`
-          : `Write a brief for every ungroomed task (${set.length}). Tick cards to narrow it.`,
+          ? `Scaffold an empty brief for the ${set.length} ticked ${set.length === 1 ? "task" : "tasks"}`
+          : `Scaffold an empty brief for every ungroomed task (${set.length}). Tick cards to narrow it.`,
         on: { click: () => shape(set) },
       },
-      busy ? "Shaping…" : `Shape these (${set.length})`,
+      busy ? "Scaffolding…" : `Scaffold briefs (${set.length})`,
     );
     const session = launchAction(launcher, {
       slugs: set,
-      mode: "triage",
-      label: "Shape these in a session",
+      mode: "discuss",
+      label: `Shape these in a session (${set.length})`,
       menuLabel: "Shape these",
+      variant: "btn--primary",
       onToolChange: (tool) => {
         storage.set(LAUNCH_TOOL_KEY, tool);
         drawHead();
@@ -1956,7 +2055,7 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     return h(
       "div",
       { class: "board__head-extra" },
-      h("div", { class: "board__shape-row" }, btn, session),
+      h("div", { class: "board__shape-row" }, session, btn),
       picked ? h("p", { class: "hint" }, `${model.selected.size} ticked.`) : null,
     );
   }
@@ -2524,6 +2623,7 @@ function blastControls(mapEl, ctx, blast) {
 export function renderTaskPage(storyEl, mapEl, data = {}, deps = {}) {
   hookRouteOnce();
   activeTaskPage?.destroy();
+  stopListening();
   unmountBoard(mapEl);
   const ctx = makeCtx(data, deps);
   const repo = ctx.repo;
@@ -2582,7 +2682,7 @@ export function renderTaskPage(storyEl, mapEl, data = {}, deps = {}) {
         : null,
       task.pr ? chip("PR", String(task.pr.state ?? "unknown").toLowerCase(), { tip: `State of pull request #${task.pr.number}` }) : null,
     ),
-    h("div", { class: "task-head__actions" }, copyBtn),
+    h("div", { class: "task-head__actions" }, copyBtn, plan ? listenControls({ repo, scope: "task", id: slug }) : null),
     radiusLine,
   );
 
@@ -2611,6 +2711,36 @@ export function renderTaskPage(storyEl, mapEl, data = {}, deps = {}) {
       ? h("div", { class: "chips section__more" }, chip("Person", claim.person, { tip: "Who claimed it" }), chip("Machine", claim.machine, { tip: "Machine the claim was made from" }), chip("Tool", claim.tool), chip("Date", fmtDate(claim.date), { tip: `Claimed ${claim.date}` }))
       : null,
   );
+
+  // --- a task before it has a plan: the story column is its explanation ---------------
+  // Without a plan the ten plan sections would each say "no plan yet". The server's task story
+  // instead says what was written, where it probably lives, what is known there and what is
+  // unclear, and it is the same text the Listen control reads aloud. Render that, then the
+  // answer form, and let the blast-radius map below do what it can.
+  if (!plan) {
+    const listen = listenControls({ repo, scope: "task", id: slug });
+    head.querySelector(".task-head__actions")?.appendChild(listen);
+    if (target) {
+      mount(target, head, h("div", { class: "task-story is-skeleton" }, skeleton()));
+      ctx
+        .fetchJson(`/api/story?scope=task&id=${encodeURIComponent(slug)}`)
+        .then((story) => {
+          const column = target.querySelector(".task-story");
+          if (!column) return;
+          column.classList.remove("is-skeleton");
+          renderStory(column, story, { repo, map: ctx.map, route: appState.route, onJournal: () => deps.onDecide?.(), onCapture: () => deps.onDecide?.(), onNote: () => deps.onDecide?.() });
+          const answer = section("answer", "Say what you meant", answerForm(ctx, task, { heading: task.state === "ungroomed" ? "Add detail under the line" : "Add to the intake detail", onAnswered: () => deps.onDecide?.() }));
+          const journal = column.querySelector('[data-section="journal"], #sec-journal, .section[id$="journal"]');
+          if (journal) journal.before(answer);
+          else column.appendChild(answer);
+          hookStoryHover(target, ctx);
+        })
+        .catch((e) => {
+          const column = target.querySelector(".task-story");
+          if (column) mount(column, h("p", { class: "para para--warn" }, `The story for this task could not be read: ${friendlyError(e)}`));
+        });
+    }
+  }
 
   // --- plan sections -------------------------------------------------------------
   const planSections = [];
@@ -2735,8 +2865,8 @@ export function renderTaskPage(storyEl, mapEl, data = {}, deps = {}) {
       : h("div", { class: "empty" }, h("p", { class: "empty__text" }, "Nothing has been recorded for this task yet. Each step of work adds one plain-English entry."), h("p", { class: "empty__hint" }, h("code", {}, `reggie journal add --slug ${slug} --stage <stage> "what happened"`))),
   );
 
-  if (target) mount(target, head, stateSec, ownerSec, ...planSections, riskSec, packetSec, journalSec);
-  hookStoryHover(target, ctx);
+  if (target && plan) mount(target, head, stateSec, ownerSec, ...planSections, riskSec, packetSec, journalSec);
+  if (plan) hookStoryHover(target, ctx);
 
   // --- blast radius map -----------------------------------------------------------------
   const q = appState.route?.level === "task" ? appState.route.query ?? {} : {};

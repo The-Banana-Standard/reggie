@@ -1,14 +1,16 @@
 # Making the Reggie UI effective for building software with Claude Code and Codex
 
-> **Status (2026-09-13): M0 is built and committed. M1 onward is not started.**
+> **Status (2026-09-13, later): M0 is built. The loop-path fixes and the intake story landed the same day, by hand, ahead of the milestone order below.**
 > The audit this plan rests on, the decisions behind it, and the still-open questions are in
 > `.reggie/discussions/ui-audit-2026-09/`. Read that first if you are new to this work.
 >
-> **One part of this plan is superseded.** M1 says to install the missing `/reggie-triage` project
-> command and keep the slash-command launch path. Jacob has since decided against launching
-> Reggie-specific commands at all: a planning launch should open Claude or Codex in its own plan
-> mode (`claude --permission-mode plan`, `codex --sandbox read-only`) with a prompt framing a
-> discussion. That redesign is unresolved — see the Open forks section of the discussion README.
+> **What landed on 2026-09-13, and where it differs from the plan as written:**
+> - **M1 is done** in its small form: the brief reaches the context pack (`## What the user is asking for`, `## Open questions still open`), the planning prompt and the MCP task tool.
+> - **The launch redesign is done, and it replaced M1's prompt fixes rather than patching them.** Two modes, `discuss` and `build`; the goal (shape, plan, discuss, build) follows from the task's state on the server; no Reggie slash command is ever emitted; Claude opens in `--permission-mode plan` and Codex in `-s read-only` for every discussion; a free-text note rides along; the context pack is written to a file the prompt names; a session id is minted with `--session-id`; a build **claims the task at launch** and opens in the worktree. `src/launch.ts`, `docs/ui-api-contract.md`.
+> - **M2 mostly collapsed into that.** The session id is known before the session starts and is written into the claim record and `.reggie/.cache/launches/<slug>.json`. What remains of M2 is the "open the chat" button and the in-flight card; note that `claude://code/continue?session=` accepts only `last` or a desktop-local id, so the button must use `claude://resume?session=<uuid>` or `claude --resume <uuid>`.
+> - **Not in the plan, built because it is the view you look at most:** the task story for a task without a plan (what was written, where it probably lives, what is known there, what it resembles, what is unclear, what happens next; or the brief as a story), a form that adds detail under the intake line, and narration: every story has a spoken script, a browser read-aloud, an audio episode made with macOS `say`, and a private RSS feed. `src/narrate.ts`, `src/episode.ts`, `ui/listen.js`.
+> - The `Task:` trailer is written on claim commits; the dead Tauri-era backlog was dropped from `TASKS.md`; `.reggie/config.yaml` pins `defaultBranch: repo-manager` while v3 is built on this branch.
+> - **Next, through Reggie itself:** branch diff in the reader (part of M4, needs no working-tree tier), then M5, then the rest of M6, then M-Lang's regex tier, then M3.
 
 ## Context
 

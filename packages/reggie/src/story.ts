@@ -29,7 +29,7 @@ import { isTestLike } from "./roles.js";
 import type { ServiceIndex, ServiceKind, ServiceNode } from "./services.js";
 import type { Flow, FlowDrop, FlowStep, Payload } from "./flows.js";
 import { fileSymbols, type CodeSymbol } from "./symbols.js";
-import { STATE_MACHINE, getTaskDetail, listTasks, stateDefinition, type StateMachine, type TaskDetail, type TaskInfo, type TaskState } from "./tasks.js";
+import { STATE_MACHINE, getTaskDetail, listTasks, stateDefinition, type StateMachine, type TaskBriefDetail, type TaskDetail, type TaskInfo, type TaskState } from "./tasks.js";
 import { containerView, dirIdOf, dirPathOf, dirView, level1, resolveDirId, type Level1, type ViewGraph, type ViewNode } from "./views.js";
 import { slugify } from "./util.js";
 import type { WorkspaceSummary } from "./workspace.js";
@@ -1613,22 +1613,26 @@ export function taskStory(ctx: StoryContext, slug: string): Story | null {
     return taskProseSection(task, plan, spec, plan ? spec.empty : noPlanText);
   };
 
-  // Section ids and order are fixed by ui-api-contract.md.
-  const sections: StorySection[] = [
-    taskStateSection(ctx, task),
-    taskOwnerSection(ctx, task, detail),
-    prose("problem"),
-    prose("approach"),
-    taskFilesSection(ctx, task, detail),
-    taskCriteriaSection(task, detail),
-    prose("verification"),
-    prose("assumptions"),
-    prose("scope"),
-    prose("bail"),
-    taskRiskSection(ctx, task, detail),
-    taskPacketSection(ctx, task, detail),
-    taskJournalSection(ctx, task, detail),
-  ];
+  // Section ids and order are fixed by ui-api-contract.md for a task with a plan. Without one,
+  // the plan sections would each say "no plan yet" ten times over; a task that early is better
+  // explained by what was written, where it probably lives, and what is still unclear.
+  const sections: StorySection[] = plan
+    ? [
+        taskStateSection(ctx, task),
+        taskOwnerSection(ctx, task, detail),
+        prose("problem"),
+        prose("approach"),
+        taskFilesSection(ctx, task, detail),
+        taskCriteriaSection(task, detail),
+        prose("verification"),
+        prose("assumptions"),
+        prose("scope"),
+        prose("bail"),
+        taskRiskSection(ctx, task, detail),
+        taskPacketSection(ctx, task, detail),
+        taskJournalSection(ctx, task, detail),
+      ]
+    : [taskStateSection(ctx, task), ...(detail?.brief ? briefSections(ctx, task, detail.brief) : intakeSections(ctx, task)), taskJournalSection(ctx, task, detail)];
 
   const subtitle = `${stateLabel(task.state)} · ${stateDefinition(task.state)}`;
   const crumbs: Crumb[] = [...repoCrumbs(ctx), { label: "Tasks", route: `${routeFor(ctx.repo, ROOT_DIR_ID)}/tasks` }, { label: task.slug, route: routeFor(ctx.repo, taskId) }];
@@ -1637,6 +1641,185 @@ export function taskStory(ctx: StoryContext, slug: string): Story | null {
   if (firstFile) next.push({ label: baseName(firstFile.path), route: routeFor(ctx.repo, firstFile.nodeId) });
 
   return { scope: "task", id: task.slug, title: task.title || task.slug, subtitle, crumbs, sections, next };
+}
+
+// ---------------------------------------------------------------------------
+// §3.7a A task before it has a plan: the intake story and the brief story
+// ---------------------------------------------------------------------------
+
+const STOP_WORDS = new Set([
+  "the", "and", "for", "that", "this", "with", "from", "into", "when", "then", "than", "them", "they", "there", "their", "have", "has", "had", "not", "but", "are", "was", "were", "been", "being", "will", "would", "should", "could", "can", "cannot", "does", "did", "doing", "done", "make", "made", "need", "needs", "want", "wants", "like", "just", "also", "some", "more", "most", "very", "much", "many", "each", "every", "after", "before", "about", "over", "under", "again", "still", "once", "only", "same", "other", "such", "what", "which", "who", "whom", "whose", "where", "why", "how", "all", "any", "both", "few", "our", "your", "its", "his", "her", "out", "off", "own", "too", "now", "new", "old", "way", "thing", "things", "image", "figure", "please", "able", "better", "instead", "something", "anything", "everything", "nothing", "because", "since", "while", "until", "though", "although", "here", "these", "those", "being", "using", "used", "use", "get", "gets", "getting", "set", "sets", "add", "added", "adding", "fix", "fixed", "show", "shows", "showing", "shown",
+]);
+
+/** The words in a line worth matching against the code: lowercased, split on case and punctuation, stop words dropped. */
+function tokensOf(text: string): string[] {
+  const raw = String(text ?? "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w) && !/^\d+$/.test(w));
+  return uniqStrings(raw);
+}
+
+interface PlaceGuess {
+  files: { node: GraphNode; hits: string[] }[];
+  dirs: { node: GraphNode; hits: string[] }[];
+}
+
+/** Files and folders whose names carry the words in the line: the cheapest honest guess at where it lives. */
+function guessPlaces(ctx: StoryContext, tokens: readonly string[]): PlaceGuess {
+  const files: PlaceGuess["files"] = [];
+  const dirs: PlaceGuess["dirs"] = [];
+  if (tokens.length === 0) return { files, dirs };
+  for (const node of ctx.graph.nodes) {
+    if (node.kind !== "file" && node.kind !== "dir") continue;
+    if (node.role === "test" || node.role === "fixture") continue;
+    const p = node.path.toLowerCase();
+    const base = p.slice(p.lastIndexOf("/") + 1).replace(/\.[a-z0-9]+$/, "");
+    const hits = tokens.filter((t) => base.includes(t) || p.split("/").some((seg) => seg.replace(/\.[a-z0-9]+$/, "") === t));
+    if (hits.length === 0) continue;
+    (node.kind === "file" ? files : dirs).push({ node, hits });
+  }
+  const score = (x: { node: GraphNode; hits: string[] }) => x.hits.length * 10 + (x.node.kind === "file" ? Math.min(x.node.inDegree, 9) : 0);
+  files.sort((a, b) => score(b) - score(a) || a.node.path.localeCompare(b.node.path));
+  dirs.sort((a, b) => score(b) - score(a) || a.node.path.localeCompare(b.node.path));
+  return { files: files.slice(0, 5), dirs: dirs.slice(0, 3) };
+}
+
+/** Notes whose text carries at least two of the words, or that sit on a guessed file or folder. */
+function relatedNotes(ctx: StoryContext, tokens: readonly string[], places: PlaceGuess): NoteFile[] {
+  const wanted = new Set([...places.files.map((f) => f.node.path), ...places.dirs.map((d) => d.node.path.replace(/\/?$/, "/"))]);
+  const out: NoteFile[] = [];
+  for (const note of ctx.notes) {
+    if (note.entity === "_repo") continue;
+    const onPlace = wanted.has(note.entity) || wanted.has(note.entity.replace(/\/?$/, "/"));
+    const textual = note.entries.some((e) => tokens.filter((t) => e.text.toLowerCase().includes(t)).length >= 2);
+    if (onPlace || textual) out.push(note);
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+/** Other tasks that share words with this one or touch the files it probably lives in. */
+function similarTasks(ctx: StoryContext, task: TaskInfo, tokens: readonly string[], places: PlaceGuess): { task: TaskInfo; why: string }[] {
+  const placePaths = new Set(places.files.map((f) => f.node.path));
+  const out: { task: TaskInfo; why: string }[] = [];
+  for (const other of ctx.tasks) {
+    if (other.slug === task.slug) continue;
+    const shared = tokensOf(other.title).filter((t) => tokens.includes(t));
+    const touches = [...other.planFiles, ...other.changedFiles].filter((f) => placePaths.has(f));
+    if (touches.length > 0) out.push({ task: other, why: `it touches ${joinPhrases(touches.slice(0, 2).map((f) => link(ctx.repo, f, baseName(f))))}` });
+    else if (shared.length >= 2) out.push({ task: other, why: `its title shares the words ${joinPhrases(shared.slice(0, 3).map((w) => `"${w}"`))}` });
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+/** What was captured, where it probably lives, what is known there, what it resembles, what is unclear, what comes next. */
+function intakeSections(ctx: StoryContext, task: TaskInfo): StorySection[] {
+  const taskId = `task:${task.slug}`;
+  const line = task.intake;
+  const text = line?.text ?? task.legacy?.description ?? task.title ?? task.slug;
+  const detailLines = line?.detail ?? [];
+  const tokens = tokensOf([text, ...detailLines].join(" "));
+  const places = guessPlaces(ctx, tokens);
+  const notes = relatedNotes(ctx, tokens, places);
+  const similar = similarTasks(ctx, task, tokens, places);
+  const who = task.owner ?? ctx.currentHandle;
+  const when = formatDate(intakeDateOf(task), ctx.now);
+
+  const written: Paragraph[] = [
+    para("written-1", "fact", `${who} wrote this down on ${when}, in one line: "${text.replace(/\s+/g, " ").trim()}"`, [taskId], { chips: [chip("Source", line?.meta?.split(",")[1]?.trim() || (task.legacy ? "backlog" : "intake"), "muted", "Where the line came from")] }),
+  ];
+  if (detailLines.length > 0) {
+    written.push(para("written-2", "fact", detailLines.map((d) => d.trim()).filter(Boolean).join(" "), [taskId]));
+  } else {
+    written.push(para("written-3", "gap", "There is no detail under the line: no example, no screenshot, no sentence about who feels it. Everything below is guessed from those few words alone.", [taskId]));
+  }
+
+  const lives: Paragraph[] = [];
+  if (places.files.length > 0 || places.dirs.length > 0) {
+    const fileLinks = places.files.map((f) => {
+      const area = areaOf(ctx, f.node.id);
+      return `${link(ctx.repo, f.node.id, baseName(f.node.path))}${area ? ` in ${link(ctx.repo, area, areaLabelOf(ctx, area))}` : ""} (${joinPhrases(f.hits.map((h) => `"${h}"`))})`;
+    });
+    const dirLinks = places.dirs.map((d) => `${link(ctx.repo, d.node.id, d.node.path)} (${joinPhrases(d.hits.map((h) => `"${h}"`))})`);
+    const refs = [taskId, ...places.files.map((f) => f.node.id), ...places.dirs.map((d) => d.node.id)];
+    lives.push(
+      para("lives-1", "gap", `Going only by the words in the line, it probably concerns ${joinPhrases([...fileLinks, ...dirLinks])}. That is a name match, not an understanding; a shaping session should confirm or correct it.`, refs, {
+        chips: [chip("How", "words matched to file and folder names", "warn", "Reggie matched the words in the line against paths in the graph; nothing read the code.")],
+      }),
+    );
+    const top = places.files[0];
+    if (top && top.node.inDegree > 0) {
+      lives.push(para("lives-2", "fact", `${link(ctx.repo, top.node.id, baseName(top.node.path))} is imported by ${countPhrase(top.node.inDegree, "other file")}, so a change there reaches further than the file itself.`, [taskId, top.node.id]));
+    }
+  }
+
+  const known: Paragraph[] = notes.length > 0 ? noteParagraphs(ctx, "known", notes, [taskId]) : [];
+
+  const resembles: Paragraph[] = similar.map((s, i) =>
+    para(`resembles-${i + 1}`, "fact", `${link(ctx.repo, `task:${s.task.slug}`, s.task.title || s.task.slug)} (${stateWords(s.task.state)}) looks related: ${s.why}.`, [taskId, `task:${s.task.slug}`]),
+  );
+
+  const unclear: string[] = [];
+  if (places.files.length === 0 && places.dirs.length === 0) unclear.push("Which part of the code this concerns: no file or folder name matches the words in the line.");
+  else unclear.push("Whether the name match above is the right place, or only a place with a similar name.");
+  if (detailLines.length === 0) unclear.push("Why it matters now, and who feels it: the line carries no detail.");
+  unclear.push("What done looks like: nothing yet says how anyone would check that this is finished.");
+  if (/\[image \d+\]/i.test(text)) unclear.push("What the attached image shows: Reggie cannot read images, so whatever it explains is not in this story.");
+
+  const next: Paragraph[] = [
+    para("next-1", "fact", `The next step is to shape it into a brief: a conversation that ends with the problem in plain English, where it probably lives, a size and a priority, and the questions still open. Shape it from the task board, or run \`reggie launch ${task.slug} --run\`. Add a sentence of your own first if any of the guesses above is wrong.`, [taskId]),
+  ];
+
+  return [
+    section("written", "What was written", written),
+    section("lives", "Where it probably lives", lives, { text: "Nothing in the code carries any of the words in the line, so Reggie cannot point at a place. Say where you think it is, in a sentence, and the shaping session starts there." }),
+    section("known", "What is already known there", known, { text: "No note covers the places it probably lives, so whoever shapes it starts from the code alone." }),
+    section("resembles", "What it resembles", resembles, { text: "No other task shares its words or its likely files." }),
+    section("unclear", "What is unclear", [para("unclear-1", "list", unclear.join("\n"), [taskId])]),
+    section("next", "What happens next", next),
+  ];
+}
+
+/** The brief as a story: the ask, why now, where, what is open, what it is not, and what comes next. */
+function briefSections(ctx: StoryContext, task: TaskInfo, brief: TaskBriefDetail): StorySection[] {
+  const taskId = `task:${task.slug}`;
+  const sec = (name: string): string => stripPlaceholders(brief.sections[name] ?? "");
+  const problem = sec("Problem");
+  const why = sec("Why now");
+  const not = sec("Not this");
+  const meta = brief.meta;
+  const shaping: Chip[] = [];
+  if (meta.priority !== "unset") shaping.push(chip("Priority", meta.priority, "info", "Priority set by triage"));
+  if (meta.size !== "unset") shaping.push(chip("Size", meta.size, "muted", "Size guessed by triage"));
+  if (meta.risk !== "unset") shaping.push(chip("Risk", meta.risk, RISK_TONE[meta.risk] ?? "muted", "Risk guessed by triage; the plan settles it"));
+  if (meta.area) shaping.push(chip("Area", meta.area, "muted", "Where the work probably lands"));
+  const ask: Paragraph[] = problem ? [para("ask-1", "fact", problem, [taskId], shaping.length ? { chips: shaping } : {})] : [];
+  const whyNow: Paragraph[] = why ? [para("why-1", "fact", why, [taskId])] : [];
+  const areas: Paragraph[] = brief.areas.map((a, i) => {
+    const first = a.trim().split(/\s+/)[0]?.replace(/^[`"']+|[`"',:;]+$/g, "") ?? "";
+    const node = first ? ctx.graph.nodes.find((n) => n.path === first || n.path === first.replace(/\/$/, "") || `${n.path}/` === first) : undefined;
+    const rest = a.trim().slice(first.length).trim().replace(/^(because|:|-|—)\s*/i, "");
+    const text = node ? `${link(ctx.repo, node.id, first)}${rest ? `, ${rest}` : ""}` : a.trim();
+    return para(`area-${i + 1}`, "fact", text, [taskId, node?.id ?? null]);
+  });
+  const questions: Paragraph[] = brief.questions.length > 0 ? [para("questions-1", "list", brief.questions.join("\n"), [taskId])] : [];
+  const notThis: Paragraph[] = not ? [para("not-1", "fact", not, [taskId])] : [];
+  const next: Paragraph[] = [
+    para("next-1", "fact", brief.questions.length > 0
+      ? `${countPhrase(brief.questions.length, "question is", "questions are")} still open. Answer them here or in the planning session; then plan it in plan mode from the task board, or run \`reggie launch ${task.slug} --run\`.`
+      : `Nothing is open. The next step is a plan: a conversation in plan mode that ends with acceptance criteria a reviewer can check and the evidence that will prove each one. Start it from the task board, or run \`reggie launch ${task.slug} --run\`.`, [taskId]),
+  ];
+  return [
+    section("ask", "What is being asked for", ask, { text: "The brief's Problem section is still the scaffold placeholder. Shaping was started but never finished.", action: { label: "Shape it in a session", command: `reggie launch ${task.slug} --run` } }),
+    section("why-now", "Why now", whyNow, { text: "The brief does not say why this is worth doing ahead of the rest." }),
+    section("area", "Where it probably lives", areas, { text: "The brief names no file or folder." }),
+    section("questions", "Open questions", questions, { text: "The brief leaves no question open." }),
+    section("not-this", "What it is not", notThis, { text: "The brief does not draw a boundary around the work." }),
+    section("next", "What happens next", next),
+  ];
 }
 
 function intakeDateOf(task: TaskInfo): string | null {

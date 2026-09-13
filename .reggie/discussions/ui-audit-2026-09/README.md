@@ -1,6 +1,6 @@
 # Making the Reggie UI effective for building with Claude Code and Codex
 
-Discussion opened 2026-09-09 by jacobpress, with Claude. Status: **direction decided, M0 built, M1 not started.**
+Discussion opened 2026-09-09 by jacobpress, with Claude. Status: **direction decided, M0 built, M1 and the launch redesign built on 2026-09-13; the rest runs through Reggie.**
 
 Read this file first. It is written for someone arriving with no memory of the conversation.
 
@@ -68,7 +68,17 @@ Jacob's calls, in his words where it matters:
 - `journal.ts:28` `sessionName()` returns `process.env.REGGIE_SESSION || "session"` — it captures no real session id, so nothing in `.reggie/` can point back at the chat that produced it.
 - `claude --permission-mode plan "<prompt>"` exists. Codex has no literal plan mode; `codex --sandbox read-only "<prompt>"` is the equivalent.
 
-## Open forks — unresolved, and the reason this discussion is still open
+## Resolved on 2026-09-13
+
+**The launch redesign is settled and built.** Two verbs. *Discuss* opens Claude Code in `--permission-mode plan` (Codex in `-s read-only`) with a prompt that frames a conversation; what it is for follows from the task's state on the server: ungroomed → shape a brief, groomed → write a plan, anything else → talk it through. *Build* claims the task first, then opens the tool in the task's worktree on its branch. No Reggie slash command is fired by anything; the prompt is the whole instruction and is the same text for both tools, with the review commands named per tool. The context pack is written to `.reggie/.cache/context/<slug>.md` and the prompt says to read it, so a read-only sandbox or a missing `reggie` on PATH does not break the session. A free-text note from the user rides along verbatim. Claude sessions get a minted `--session-id`, recorded in the claim and in `.reggie/.cache/launches/<slug>.json`, so "open the chat" is `claude --resume <uuid>` with nothing to discover.
+
+**Where a session opens:** Terminal.app via the existing AppleScript, because plan mode is a real flag there and the session id can be minted. Checked in the desktop app bundle: `claude://code/new?q=<prompt>&folder=<path>` is accepted (prompt up to about 14K characters, no permission-mode parameter), `claude://code/continue?session=` accepts only `last` or a desktop-local `local_…` id, and `claude://resume?session=<uuid>` imports a CLI session. So the deep link is a possible second button for Discuss, and the resume link is the right one for "open the chat". Codex 0.142 has a collaboration plan mode in its config; the CLI switch for it is still unverified, so Codex discussions rely on the read-only sandbox for now.
+
+**The dead backlog was dropped** from `TASKS.md` on 2026-09-13.
+
+**Two audit claims corrected while building:** the M2 deep-link button as written would be rejected (see above), and "Codex has no plan mode" is out of date.
+
+## Open forks — still unresolved
 
 **The launch redesign.** Jacob: *"I don't want it to launch a specific reggie command. I think I want to launch claude or codex in plan mode with a prompt that we are going to have a discussion to plan this."*
 

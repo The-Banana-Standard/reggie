@@ -6,6 +6,8 @@
 
 ## Backlog
 
+Every item the old desktop app left here described that app, its marketplace, its Rust task parser or the `[planned]` tag, all retired on 2026-09-06; they were dropped on 2026-09-13. New work is captured with `reggie capture` into `.reggie/intake.md` and shaped from the tasks page.
+
 ### v2.0.0 Release
 
 (all v2.0.0 release tasks complete or in progress)
@@ -13,41 +15,9 @@
 ### Pipeline System Expansion
 
 ### Reggie UI
-- [ ] debug-promoted-session-no-respawn: Debug why UI doesn't spawn next session after a promoted headless session completes [P2] [complex] [tier: opus:high] [debug] [planned]
-  files: src/components/WorkspaceOverview/CodeWorkflowTab.tsx (READ), src/hooks/useTerminal.ts (READ), src-tauri/src/commands/terminal.rs (READ)
 
 ### Bug Fixes & Tech Debt
 
 ### Other
 
 ### Ungroomed
-- [ ] need-to-figure-out-a-better-way-to-visualize-the-hidden-tabs-once-they-are-hidden-so-we-have-much-more-space-for-the-non-hidden-terminals-image-1: need to figure out a better way to visualize the hidden tabs once they are hidden so we have much more space for the non hidden terminals [Image 1]
-  > attachments: [Image 1]=.reggie/attachments/need-to-figure-out-a-better-way-to-visualize-the-hidden-tabs-once-they-are-hidden-so-we-have-much-more-space-for-the-non-hidden-terminals-image-1-rezyi0/1.png
-- [ ] enable-tool-search-setting-is-showing-not-set-when-it-is-set: enable_tool_search setting is showing not set when it is set
-- [ ] cannot-add-this-grouop-of-things-to-ungroomed-image-1: cannot add this grouop of things to ungroomed [Image 1]
-  > attachments: [Image 1]=.reggie/attachments/cannot-add-this-grouop-of-things-to-ungroomed-image-1-ig5fo5/1.png
-- [ ] one-click-install-from-internet: One-click install of skills, agents, commands, plugins, hooks from internet sources
-  > context: broad install surface for the Reggie UI. Per-unit-type install mechanics differ — skills/agents/commands = file copy to `~/.claude/`, hooks = edit `settings.json`, plugins = bundle. Hooks management folds into this rather than being a standalone feature. Existing `src-tauri/src/installer.rs` is hardcoded to `~/.claude/` system-level install; install/uninstall symmetry is a known footgun there. Also relates to Anthropic's own `/plugin install` — open Q whether to shell out vs. write files directly.
-
-- [ ] federate-marketplace-sources: Aggregate plugins/skills/agents from multiple sources in the Reggie UI marketplace
-  > context: discovery is the user's biggest pain — they don't know what exists. Sources to federate: Anthropic's claude-plugins-official, claude-plugins-community, alirezarezvani/claude-skills, awesome-claude-code, arbitrary GitHub repos. Anthropic's own marketplace is curated and small; community lives elsewhere. Trust/safety surfaces (prompt preview, tool list, source attribution) matter here.
-
-- [ ] mcp-visualization-panel: Visualize MCP servers configured and running in the Reggie UI
-  > context: user wants visibility into what MCPs are active. Suspect Reggie already manages this somewhere but it's not surfaced in the UI. Distinct from the install feature — this is a "see what I have" surface, not "install new things."
-
-- [ ] judge-driven-pipeline-comparison: Use `reggie-judge` to compare two pipelines or two agents on a real task
-  > context: lowest priority of the marketplace cluster. Differentiator vs. other marketplaces — Reggie has `reggie-judge` baked into its architecture, so the marketplace can offer "evaluate these candidates against your codebase" as a recommendation surface. Nobody else can easily copy this. Needs the install/substrate features to exist first to have anything meaningful to compare.
-
-- [ ] dev-build-symlinks-pollute-working-tree: The Tauri dev build replaces `resources/*` with symlinks into `src-tauri/target/debug/reggie-resources/`, creating ~73 typechange entries every release prep
-  > context: discovered 2026-04-28 while prepping v2.1.0. After running the app locally for testing, `git status` showed 73 typechange entries — every file under `resources/agents/`, `resources/commands/`, and `resources/hooks/` had been flipped from regular file (100644) to symlink (120000) pointing into `src-tauri/target/debug/reggie-resources/...`. All 73 flipped at the same minute (Apr 26 17:11), so it's a single dev-build step doing this. This means every "test locally → push a release" cycle requires `git restore --staged resources/` before the release commit, which is fragile (easy to accidentally commit the symlinks and break the bundled distribution). Need to investigate: which Tauri build step is creating these symlinks, why source files are pointing into the build output (reverse of the usual pattern), and whether the dev build can use a separate output dir or copy instead of symlink. Likely fix touches: `src-tauri/build.rs`, `src-tauri/tauri.conf.json` resource bundling, or a custom build script. Workarounds to consider in the meantime: add `resources/` typechanges to a pre-commit guard, or have the dev script restore from HEAD on exit.
-
-- [ ] tauri-capabilities-no-per-command-allowlist: `src-tauri/capabilities/default.json` does not enumerate per-command allowlists, so every `#[tauri::command]` in the binary is reachable from any frontend script in the `main` window. Pre-existing posture; not introduced by any specific task. If the app ever loads third-party content (extensions, embedded webviews of remote pages), this becomes exploitable.
-  > context: discovered during security review of fix-groomed-tasks-refresh-stale (2026-04-30). Pre-existing in main. Severity LOW in current single-user trust model; HIGH if trust model expands.
-
-- [ ] depends-conflicts-tags-bypass-is-safe-slug: `[depends:]` and `[conflicts:]` tag values in `parse_task_line` are split on `,` and inserted into TaskEntry without `is_safe_slug` validation, while the colon-slug at the start of the line is validated. Pre-existing.
-  > context: discovered during security review of fix-dispatch-no-op-with-manual-tasks (2026-05-01). The new BlockedReason::BlockedBy(dep) path is the first surface where these unvalidated dep strings escape into a structured API and a UI text node. No exploit today (React JSX text-node escaping handles it; no shell/path/DB sinks), but the convention everywhere else in the parser is "validate slugs at parse time." Fix is non-trivial because filtering invalid deps would change "task is blocked forever" into "task has no deps" — silently unblocking it. Cleaner approach: skip the entire task line if any dep is invalid (matches the colon-slug behavior). Touches: `src-tauri/src/commands/projects.rs` parse_task_line at the depends/conflicts arms.
-
-- [ ] enforce-planned-tag-requires-task-md: The `[planned]` tag in TASKS.md is supposed to mean "refined enough to pick up" but in practice drifts: items get tagged `[planned]` from the brainstorm step before `/reggie-init-tasks` has written `.pipeline/<slug>/task.md`. Caught 2026-05-06 in personal_website when `/reggie-manual-task add-canonical-answers-for-identity-queries` failed because the slug was `[planned]` but had no task.md (5 of 7 `[planned]` tasks in that repo were in that state). Proposal: enforce the invariant `[planned]` ⇒ `.pipeline/<slug>/task.md` exists.
-  > context: surfaced 2026-05-06 from personal_website. Options: (a) PostToolUse hook on Edit/Write to TASKS.md that rejects adding `[planned]` to a line whose slug has no task.md; (b) make `/reggie-init-tasks` the only path that writes the `[planned]` tag (brainstorm step writes the line untagged; init-tasks adds the tag after writing task.md); (c) lint step in `/reggie-status` that flags drift. Option (b) is cleanest — single writer for the tag — but requires updating brainstorm/init-tasks templates in `~/.claude/agents/`.
-
-<!-- folded into vitest-setupfiles-and-contract-test-fixes (2026-04-25). Original guess (scanner glob bug) was wrong — RUST_COMMANDS is a hand-maintained table; just needs the missing entry. -->
