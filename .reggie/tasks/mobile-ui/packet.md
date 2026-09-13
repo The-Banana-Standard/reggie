@@ -6,9 +6,9 @@ author: jacobpress
 date: 2026-09-13
 branch: task/mobile-ui
 base: repo-manager
-verdict: pending
-decided_by:
-decided_at:
+verdict: approved
+decided_by: jacobpress
+decided_at: 2026-09-13T22:03:44.066Z
 ---
 # Completion: Use Reggie from a phone
 
@@ -93,3 +93,6 @@ Read this top to bottom to decide whether the work is done. Every claim should p
 - The key is a bearer secret in a URL: anyone who sees the printed address, a screenshot of it, or the feed URL in a podcast app has full read access and, in solo mode, write access as the host. Rotation is deleting `.reggie/.cache/serve-key`.
 - The phone layout was verified in a desktop browser at 390px, not on iOS Safari; `:has()` and speechSynthesis are assumed present, and the map overlay's fit on first open depends on a resize observer firing when the column appears.
 - Off Wi-Fi reach depends on Tailscale being on; nothing here starts it or checks it.
+
+## Decision
+- approved by jacobpress on 2026-09-13: Every criterion has evidence; the eight review findings were fixed before the packet. Merged into repo-manager by the same session that built it, in solo mode.
