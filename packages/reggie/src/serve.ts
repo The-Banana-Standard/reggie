@@ -1,5 +1,7 @@
-import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
+import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
@@ -583,6 +585,80 @@ function isLoopbackName(hostname: string): boolean {
   return LOOPBACK_HOSTS.has(hostname) || hostname === "localhost" || hostname.endsWith(".localhost");
 }
 
+/** A bind address that keeps the server on this machine. `0.0.0.0` and `::` are not. */
+export function isLoopbackHost(host: string): boolean {
+  const h = host.trim().replace(/^\[|\]$/g, "");
+  return h === "" || isLoopbackName(h) || h === "127.0.0.1" || h.startsWith("127.") || h === "::1";
+}
+
+// ---------------------------------------------------------------------------
+// The serve key: what a phone on the same Wi-Fi or tailnet has to present
+// ---------------------------------------------------------------------------
+
+/**
+ * A networked serve (any non-loopback bind) requires a capability key on every `/api` request that
+ * arrives over a non-loopback socket. Loopback traffic is unchanged. The key is what a rebound page
+ * or a LAN neighbour cannot forge, which is why an Origin equal to the request's own Host is
+ * acceptable once the key has been presented. It lives under the ignored cache, one per repo per
+ * machine, so the phone's bookmark keeps working across restarts; delete the file to rotate it.
+ */
+export function serveKeyFile(root: string): string {
+  return path.join(root, ".reggie", ".cache", "serve-key");
+}
+
+export function readOrMintServeKey(root: string): string {
+  const file = serveKeyFile(root);
+  const existing = (readText(file) ?? "").trim();
+  if (existing) return existing;
+  const key = randomBytes(18).toString("base64url");
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, `${key}\n`, "utf8");
+  return key;
+}
+
+/** The key a request carries: the header first, else the query string (an audio element or a podcast app cannot set headers). */
+export function keyOf(req: IncomingMessage, url: URL): string | null {
+  const raw = req.headers["x-reggie-key"];
+  const header = Array.isArray(raw) ? raw[0] : raw;
+  if (header && header.trim()) return header.trim();
+  const q = url.searchParams.get("key");
+  return q && q.trim() ? q.trim() : null;
+}
+
+function sameKey(a: string, b: string): boolean {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+/**
+ * Null when the request may proceed. `{ status, error }` when a non-loopback socket has no key to
+ * check against (403: the server was not started for the network) or presented the wrong one (401).
+ */
+export function checkKey(req: IncomingMessage, url: URL, key: string | null): { status: number; error: string } | null {
+  if (isLoopbackAddress(req.socket?.remoteAddress ?? undefined)) return null;
+  if (!key) return { status: 403, error: "this server accepts connections from this machine only; start it with `reggie serve --host 0.0.0.0` to reach it from a phone" };
+  const given = keyOf(req, url);
+  if (given && sameKey(given, key)) return null;
+  return { status: 401, error: "key required: open the address `reggie serve` printed, which carries ?key=, or paste the key from .reggie/.cache/serve-key" };
+}
+
+/** The addresses a phone can reach a networked serve on: every non-internal IPv4 when bound to all interfaces, else the bound one. */
+export function lanAddresses(host: string): string[] {
+  if (isLoopbackHost(host)) return [];
+  const h = host.trim();
+  if (h !== "0.0.0.0" && h !== "::" && h !== "[::]") return [h];
+  const out: string[] = [];
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const ni of list ?? []) {
+      if (ni.internal) continue;
+      if (String(ni.family) !== "IPv4") continue;
+      out.push(ni.address);
+    }
+  }
+  return out;
+}
+
 /**
  * DNS-rebinding guard (spec §8), applied to every method. A page on a domain the attacker owns
  * whose DNS is rebound to 127.0.0.1 reaches this server over a genuinely loopback socket and can
@@ -608,12 +684,14 @@ export function checkHostHeader(req: IncomingMessage): string | null {
 }
 
 /**
- * `Sec-Fetch-Site` must be absent, `same-origin` or `none`; a present `Origin` must be this
- * server's own loopback origin. Deliberately *not* compared against the `Host` header: `Host` is
- * attacker-controlled, so `origin === "http://" + host` is trivially satisfiable and would let a
- * rebound page through (`checkHostHeader` is the other half of that defence).
+ * `Sec-Fetch-Site` must be absent, `same-origin` or `none`. On a loopback socket a present `Origin`
+ * must be this server's own loopback origin, deliberately *not* compared against the `Host` header:
+ * `Host` is attacker-controlled, so `origin === "http://" + host` is trivially satisfiable and would
+ * let a rebound page through (`checkHostHeader` is the other half of that defence). On a network
+ * socket the request has already presented the serve key (`keyed`), which a rebound page cannot, so
+ * the origin is not checked further.
  */
-export function checkPostOrigin(req: IncomingMessage, port: number): string | null {
+export function checkPostOrigin(req: IncomingMessage, port: number, opts: { keyed?: boolean } = {}): string | null {
   const site = req.headers["sec-fetch-site"];
   const siteValue = Array.isArray(site) ? site[0] : site;
   if (siteValue && siteValue !== "same-origin" && siteValue !== "none") return "cross-site request refused";
@@ -629,6 +707,10 @@ export function checkPostOrigin(req: IncomingMessage, port: number): string | nu
   const sameHost = LOOPBACK_HOSTS.has(parsed.hostname);
   const samePort = parsed.port === String(port) || (parsed.port === "" && port === 80);
   if (parsed.protocol === "http:" && sameHost && samePort) return null;
+  // Over the network the key is the defence, not the origin: a rebound or cross-site page cannot
+  // present it, and Sec-Fetch-Site above already refuses a cross-site request outright. So a keyed
+  // request may carry whatever Origin its address (or a proxy in front) gave it.
+  if (opts.keyed) return null;
   return "origin does not match this server";
 }
 
@@ -706,6 +788,8 @@ export interface ServeOptions {
   host: string;
   /** Serve every repo of this workspace; absent or null means single-repo mode on `paths.root`. */
   workspace?: Workspace | null;
+  /** The key a networked serve requires; read or minted from `.reggie/.cache/serve-key` when absent and the bind is not loopback. */
+  key?: string | null;
 }
 
 export interface ServerHandle {
@@ -713,6 +797,10 @@ export interface ServerHandle {
   port: number;
   /** Repo names served, in registry order. */
   repos: string[];
+  /** The key non-loopback clients must present; null when the server is loopback only. */
+  key: string | null;
+  /** Addresses a phone can open, without the key; empty when loopback only. */
+  addresses: string[];
   close: () => Promise<void>;
 }
 
@@ -727,6 +815,9 @@ export function startServer(paths: RepoPaths, config: ReggieConfig, opts: ServeO
   // The caller already loaded the config for `paths.root`; every other repo loads its own.
   const primary = { root: path.resolve(paths.root), config };
   let boundPort = opts.port;
+  // The key exists exactly when the bind is not loopback: a key on a loopback-only server would
+  // never be checked, and a handle saying "key" would lie about being reachable.
+  const key = isLoopbackHost(opts.host) ? null : (opts.key ?? readOrMintServeKey(paths.root));
 
   const handler = (req: IncomingMessage, res: ServerResponse): void => {
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? opts.host}`);
@@ -734,10 +825,15 @@ export function startServer(paths: RepoPaths, config: ReggieConfig, opts: ServeO
     try {
       const hostProblem = checkHostHeader(req);
       if (hostProblem) return json(res, 403, { error: hostProblem });
+      // The static shell is free to load so the page can ask for the key; everything under /api
+      // needs it over the network.
       if (handleStatic(url, method, res)) return;
       if (url.pathname.startsWith("/api/")) {
+        const keyProblem = checkKey(req, url, key);
+        if (keyProblem) return json(res, keyProblem.status, { error: keyProblem.error });
+        const keyed = !isLoopbackAddress(req.socket.remoteAddress ?? undefined);
         if (method === "POST") {
-          void handlePost(req, res, url, registry, boundPort).catch((err: unknown) => sendError(res, err));
+          void handlePost(req, res, url, registry, boundPort, keyed).catch((err: unknown) => sendError(res, err));
           return;
         }
         if (method !== "GET" && method !== "HEAD") return json(res, 405, { error: "method not allowed" });
@@ -756,6 +852,8 @@ export function startServer(paths: RepoPaths, config: ReggieConfig, opts: ServeO
       const address = server.address();
       boundPort = typeof address === "object" && address ? address.port : opts.port;
       resolve({
+        key,
+        addresses: lanAddresses(opts.host),
         url: `http://${opts.host}:${boundPort}/`,
         port: boundPort,
         repos: registry.names(),
@@ -859,7 +957,7 @@ function route(req: IncomingMessage, res: ServerResponse, url: URL, registry: Re
     case "/api/episode":
       return episodeRoute(req, res, c, url);
     case "/api/feed.xml":
-      return feedRoute(res, c, url, port);
+      return feedRoute(req, res, c, url, port);
     case "/api/explain":
       return explainRoute(res, c, url);
     case "/api/file":
@@ -1175,10 +1273,15 @@ function episodeRoute(req: IncomingMessage, res: ServerResponse, c: RepoCtx, url
   createReadStream(episode.file).pipe(res);
 }
 
-function feedRoute(res: ServerResponse, c: RepoCtx, url: URL, port: number): void {
-  const base = `http://127.0.0.1:${port}`;
+/** The feed names its episodes at the address it was asked on, so a podcast app on a phone can play what it lists. */
+function feedRoute(req: IncomingMessage, res: ServerResponse, c: RepoCtx, url: URL, port: number): void {
+  const rawHost = req.headers.host;
+  const hostHeader = (Array.isArray(rawHost) ? rawHost[0] : rawHost) ?? "";
+  const base = `http://${hostHeader || `127.0.0.1:${port}`}`;
   const repo = url.searchParams.get("repo");
-  const body = renderFeed(c.root, c.name, base, repo ? `&repo=${encodeURIComponent(repo)}` : "");
+  const key = keyOf(req, url);
+  const suffix = `${repo ? `&repo=${encodeURIComponent(repo)}` : ""}${key ? `&key=${encodeURIComponent(key)}` : ""}`;
+  const body = renderFeed(c.root, c.name, base, suffix);
   res.writeHead(200, { "content-type": "application/rss+xml; charset=utf-8", "cache-control": "no-store", "content-length": Buffer.byteLength(body) });
   res.end(body);
 }
@@ -1893,7 +1996,7 @@ function contextRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
 // POST routes
 // ---------------------------------------------------------------------------
 
-async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, registry: RepoRegistry, port: number): Promise<void> {
+async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, registry: RepoRegistry, port: number, keyed = false): Promise<void> {
   const routes = new Set(["/api/capture", "/api/intake", "/api/note", "/api/decide", "/api/journal", "/api/triage", "/api/launch", "/api/episode"]);
   if (!routes.has(url.pathname)) {
     const readOnly = new Set([
@@ -1925,8 +2028,9 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
     ]);
     return json(res, readOnly.has(url.pathname) ? 405 : 404, { error: readOnly.has(url.pathname) ? "method not allowed" : "not found" });
   }
-  if (!isLoopbackAddress(req.socket.remoteAddress ?? undefined)) return json(res, 403, { error: "writes are accepted from this machine only" });
-  const originProblem = checkPostOrigin(req, port);
+  // `keyed` says the dispatcher already checked the serve key on a network socket; loopback
+  // sockets arrive with it false and are trusted as before.
+  const originProblem = checkPostOrigin(req, port, { keyed });
   if (originProblem) return json(res, 403, { error: originProblem });
 
   const c = registry.resolve(url.searchParams.get("repo"));
@@ -1940,6 +2044,12 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
     person = currentPerson(c.root, peopleOf(c));
   } catch (err) {
     return json(res, 500, { error: err instanceof Error ? err.message : "no current person" });
+  }
+  // A write over the network is attributed to whoever runs `reggie serve`, because the key carries
+  // no identity. Alone that is the same person; in a team it would be a silent takeover, so it is
+  // refused until the key can name a person.
+  if (keyed && c.config.mode === "team") {
+    return json(res, 403, { error: "writes over the network are attributed to the machine's owner, so in team mode they are refused; write from the machine running reggie serve, or switch to solo mode" });
   }
 
   switch (url.pathname) {

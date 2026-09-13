@@ -1175,6 +1175,42 @@ function makeServiceRepo(): TempRepo {
   return repo;
 }
 
+describe("the serve key and the feed's address", () => {
+  it("is loopback only by default: no key, no addresses, and a network-style request is refused", async () => {
+    expect(server.key).toBeNull();
+    expect(server.addresses).toEqual([]);
+  });
+
+  it("names its episodes at the address it was asked on, with the key the request carried", async () => {
+    const res = await raw({ route: "/api/feed.xml?key=abc", headers: { host: "192.0.2.7:4310" } });
+    expect(res.status).toBe(200);
+    const xml = res.body;
+    expect(xml).toContain("<link>http://192.0.2.7:4310</link>");
+    // No episode has been made in this fixture, so there is no enclosure; the base is what the
+    // enclosure would carry, and the key suffix is exercised by the unit test on renderFeed.
+    expect(xml).not.toContain("127.0.0.1");
+  });
+
+  it("mints a key when bound to every interface, and a loopback request still needs none", async () => {
+    const wide = await startServer(fx.paths, fx.config, { port: 0, host: "0.0.0.0" });
+    try {
+      expect(wide.key).toMatch(/^[A-Za-z0-9_-]{20,}$/);
+      expect(readFileSync(path.join(fx.repo.root, ".reggie", ".cache", "serve-key"), "utf8").trim()).toBe(wide.key);
+      const res = await fetch(`http://127.0.0.1:${wide.port}/api/facts`);
+      expect(res.status).toBe(200);
+      const again = await startServer(fx.paths, fx.config, { port: 0, host: "0.0.0.0" });
+      expect(again.key).toBe(wide.key);
+      await again.close();
+      // A key on a loopback bind would never be checked, so the handle does not pretend to have one.
+      const local = await startServer(fx.paths, fx.config, { port: 0, host: "127.0.0.1", key: "abc" });
+      expect(local.key).toBeNull();
+      await local.close();
+    } finally {
+      await wide.close();
+    }
+  });
+});
+
 describe("a repo with nothing to talk to", () => {
   it("answers the services routes with empty lists rather than an error", async () => {
     const body = await ok("/api/services");

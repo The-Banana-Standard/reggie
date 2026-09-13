@@ -693,3 +693,40 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 .declared__row { display: flex; align-items: baseline; gap: 6px; padding: 2px 0; }
 .declared__what { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .declared__line { color: var(--faint-text); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+
+/* ---------- Phones (below 760px) ----------
+   One column, story first. The map column is hidden until the header's Map button opens it as an
+   overlay under the header, fitted on open; the tasks page keeps its board in that column, as the
+   page's payload, with columns that snap sideways. The lens and Dense step out: both are about the
+   map, and the map is behind a button. Targets grow to a thumb's width. */
+.map-toggle { display: none; }
+@media (max-width: 760px) {
+  :root { --header-h: 48px; }
+  .header { padding: 0 var(--s-3); gap: var(--s-2); }
+  .header__tools { gap: var(--s-1); }
+  #lens, #dense { display: none; }
+  #search-trigger .kbd { display: none; }
+  .map-toggle { display: inline-flex; }
+  .crumbs { gap: var(--s-1); }
+  .crumbs__last { font-size: var(--fs-label); }
+
+  .main, .main[data-level="tasks"], .app.is-dense .main { grid-template-columns: 1fr; }
+  .story { --story-pad: var(--s-3); padding-top: var(--s-4); padding-bottom: calc(var(--s-7) + env(safe-area-inset-bottom, 0px)); }
+  .map-col { display: none; }
+  .app.is-map-open .map-col {
+    display: flex; order: 0;
+    position: fixed; top: var(--header-h); left: 0; right: 0; bottom: 0;
+    height: auto; z-index: 30; border: 0;
+  }
+  .app.is-map-open .story { visibility: hidden; }
+  /* data-map="payload" is set by app.js for the levels whose map column is the page itself. */
+  .main[data-map="payload"] .map-col { display: flex; order: -1; position: static; height: auto; min-height: 0; border-left: 0; border-bottom: 1px solid var(--line); }
+  .main[data-map="payload"] .map-col .crumbs--mini { display: none; }
+
+  .btn, .btn--small, .seg__btn { min-height: 34px; }
+  .btn--small { height: auto; padding: 0 10px; font-size: var(--fs-label); }
+  .form__input, .form__textarea, .form__select { font-size: 16px; } /* iOS zooms into anything smaller */
+  .toasts { left: var(--s-3); right: var(--s-3); bottom: calc(var(--s-3) + env(safe-area-inset-bottom, 0px)); max-width: none; }
+  .palette__box { top: 6vh; width: calc(100vw - 20px); }
+  .palette__hint { display: none; }
+}

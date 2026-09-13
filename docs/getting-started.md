@@ -56,6 +56,18 @@ codex "Read .reggie/ONBOARDING.md and do what it says."
 
 When the agent is done, look at `.reggie/notes/_repo.md` and the folder notes. Fix anything wrong. Then commit everything, including `.reggie/`. Nothing in it is a cache.
 
+## On your phone
+
+`reggie serve` listens on loopback. To read a task's story, hear it, and add what you meant from a phone on the same Wi-Fi or on your tailnet, bind every interface:
+
+```bash
+reggie serve --host 0.0.0.0
+```
+
+It prints an address for each network interface, ending in `?key=…`. Open that on the phone once; the page keeps the key and every request after that carries it. Without the key nothing under `/api` answers, so a neighbour on the network sees only an empty shell. The key lives at `.reggie/.cache/serve-key`; delete the file to rotate it. A podcast app on the phone can subscribe to the same address plus `/api/feed.xml?key=…`.
+
+The page below 760px is one column, story first. The map sits behind a **Map** button in the header, and the tasks board scrolls one column per swipe. The Mac has to be awake and on the same network; reaching it from further away is the vision doc's open fork.
+
 If the repo already keeps a backlog — a `TASKS.md` of open work, a `HISTORY.md` of finished work, a
 folder of per-task plans from whatever ran before — you do not have to migrate any of it. Reggie
 finds those files and reads them as tasks, in place. It never writes to them: you keep editing the

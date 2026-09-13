@@ -1,0 +1,10 @@
+/code-review medium task/mobile-ui — 8 finder angles, 1-vote verify, 8 findings reported, all fixed in the follow-up commit:
+1. node_modules symlink tracked (gitignore `node_modules/` matches directories only) — untracked; bare `node_modules` pattern added.
+2. Key prompt wiped by the first render, never re-shown; post() never showed it — prompt now deferred a tick and added when absent; post() shows it on 401.
+3. Evidence links opened /api/evidence without the key — wrapped in withKey().
+4. Workspace level's map column unreachable on a phone — <main data-map="payload|map"> now drives both the button and the CSS.
+5. Network writes attributed to the host's git identity (team rule) — keyed writes refused in team mode; solo documented.
+6. --key on a loopback bind printed a misleading phone block — key exists only for a non-loopback bind; hint depends on where the key came from.
+7. Dead loopback guard in handlePost and a stale checkPostOrigin docstring — deleted and rewritten.
+8. Keyed origin check compared Host and http: — a keyed request passes after the Sec-Fetch-Site check.
+Re-verified at 390px after the fixes: tasks data-map=payload with the button hidden; a file page opens the overlay when the reader opens (label "Close map", aria "Close the map") and closes it when the reader closes, story visible again.

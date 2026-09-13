@@ -331,3 +331,21 @@
 .task-story.is-skeleton { min-height: 240px; }
 .form--answer { margin-top: var(--s-2); }
 .form--answer .task-sub { margin-top: 0; }
+
+/* Phones: one column per swipe, and the launch menu spans the screen */
+@media (max-width: 760px) {
+  /* The column stack takes its height from its cards and the page scrolls; only the row of columns scrolls sideways. */
+  .board-wrap { position: static; height: auto; min-height: 0; }
+  .board-wrap .board { padding: var(--s-2); gap: var(--s-2); scroll-snap-type: x mandatory; height: auto; min-height: 0; overflow-y: visible; }
+  .board-wrap .board__col { max-height: none; overflow-y: visible; align-self: start; }
+  /* Matches the specificity of the .board-wrap rules above, which would otherwise keep 210px. */
+  .board-wrap .board__col, .board-wrap .board__col:has(.board__card.is-reading) { flex: 0 0 84vw; min-width: 0; max-width: 84vw; }
+  .board-head { flex-wrap: wrap; }
+  .board-head__toolwrap { margin-left: 0; }
+  .launch__menu { left: 8px !important; right: 8px; min-width: 0; max-width: calc(100vw - 16px); }
+  .launch__note { min-width: 0; }
+  .launch__tool { white-space: normal; }
+  .task-head__actions { gap: var(--s-2); }
+  .listen__row { gap: var(--s-1); }
+  .board__detail { max-width: none; }
+}

@@ -403,12 +403,102 @@ export function parentRoute(route) {
 
 const cache = new Map(); // url → { at, promise }
 
+// ---------------------------------------------------------------------------
+// The serve key (phones): `reggie serve --host 0.0.0.0` prints an address ending in ?key=. The
+// page keeps the key in localStorage, drops it from the address bar, and sends it as a header on
+// every API call. Audio elements and feed links cannot send headers, so they append it instead.
+// ---------------------------------------------------------------------------
+
+const KEY_STORAGE = "reggie:key";
+
+export function serveKey() {
+  try {
+    return localStorage.getItem(KEY_STORAGE) || "";
+  } catch {
+    return "";
+  }
+}
+
+function rememberKey(key) {
+  try {
+    localStorage.setItem(KEY_STORAGE, key);
+  } catch {
+    // A private window keeps it for this page load only.
+  }
+}
+
+function adoptKeyFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const key = params.get("key");
+  if (!key) return;
+  rememberKey(key);
+  params.delete("key");
+  const qs = params.toString();
+  history.replaceState(null, "", `${location.pathname}${qs ? `?${qs}` : ""}${location.hash}`);
+}
+
+/** The key as a query parameter, for URLs the browser fetches itself (audio, the feed link). */
+export function withKey(url) {
+  const key = serveKey();
+  if (!key) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}key=${encodeURIComponent(key)}`;
+}
+
+function keyHeaders(extra = {}) {
+  const key = serveKey();
+  return key ? { ...extra, "x-reggie-key": key } : extra;
+}
+
+/**
+ * The server wants a key this page does not have: ask for it in the story column. Deferred a tick,
+ * because the render that triggered the 401 is about to replace the column with its own error card;
+ * the prompt lands after that and is added only when no prompt is already on the page.
+ */
+function showKeyPrompt(message) {
+  setTimeout(() => {
+    if (document.querySelector(".key-prompt")) return;
+    mountKeyPrompt(message);
+  }, 0);
+}
+
+function mountKeyPrompt(message) {
+  const input = h("input", { class: "form__input", type: "text", autocomplete: "off", spellcheck: "false", placeholder: "Paste the key", "aria-label": "Serve key" });
+  const form = h(
+    "form",
+    {
+      class: "form form--key",
+      on: {
+        submit: (ev) => {
+          ev.preventDefault();
+          const key = input.value.trim();
+          if (!key) return;
+          rememberKey(key);
+          location.reload();
+        },
+      },
+    },
+    input,
+    h("div", { class: "form__actions" }, h("button", { class: "btn btn--primary", type: "submit" }, "Use this key")),
+  );
+  const card = h(
+    "div",
+    { class: "card card--empty empty key-prompt" },
+    h("p", { class: "empty__text" }, "This server is being reached over the network and needs its key."),
+    h("p", { class: "empty__hint" }, message || "It is printed by `reggie serve` on the Mac, after ?key= in the address to open, and kept in .reggie/.cache/serve-key."),
+    form,
+  );
+  const target = $("sections");
+  if (target) target.prepend(card);
+  else document.body.prepend(card);
+  input.focus();
+}
+
 /** GET JSON with a 10 s in-memory cache keyed by URL. Throws Error(message) on non-2xx or network failure. */
 export function api(url, opts = {}) {
   const now = Date.now();
   const hit = cache.get(url);
   if (!opts.fresh && hit && now - hit.at < CACHE_TTL_MS) return hit.promise;
-  const promise = fetch(url, { credentials: "same-origin" })
+  const promise = fetch(url, { credentials: "same-origin", headers: keyHeaders() })
     .then(async (res) => {
       let body = null;
       try {
@@ -420,6 +510,7 @@ export function api(url, opts = {}) {
         const err = new Error(body?.error ?? `${res.status} ${res.statusText}`);
         err.status = res.status;
         err.url = url;
+        if (res.status === 401) showKeyPrompt(body?.error);
         throw err;
       }
       return body;
@@ -588,7 +679,7 @@ export async function post(url, body) {
     method: "POST",
     mode: "same-origin",
     credentials: "same-origin",
-    headers: { "content-type": "application/json", accept: "application/json" },
+    headers: keyHeaders({ "content-type": "application/json", accept: "application/json" }),
     body: JSON.stringify(body ?? {}),
   });
   let data = null;
@@ -597,6 +688,7 @@ export async function post(url, body) {
   } catch {
     data = null;
   }
+  if (res.status === 401) showKeyPrompt(data?.error);
   if (!res.ok) {
     const err = new Error(data?.error ?? `${res.status} ${res.statusText}`);
     err.status = res.status;
@@ -780,11 +872,69 @@ export function setDense(dense, opts = {}) {
   emit("dense", state.dense);
 }
 
+/** Below this width the map sits behind a header button instead of beside the story (phones). */
+const PHONE_QUERY = "(max-width: 760px)";
+export function isPhone() {
+  return typeof matchMedia === "function" && matchMedia(PHONE_QUERY).matches;
+}
+
+/**
+ * On a phone the map column is hidden until asked for, then fills the viewport below the header.
+ * The tasks page keeps its board in that column as the page's payload, so the button steps out
+ * there. Opening a file in the reader drawer opens the overlay too, since the drawer lives in it.
+ */
+export function setMapOpen(open) {
+  const app = $("app");
+  const btn = $("map-toggle");
+  if (!app) return;
+  const on = Boolean(open);
+  app.classList.toggle("is-map-open", on);
+  if (btn) {
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.setAttribute("aria-label", on ? "Close the map" : "Show the map");
+    btn.title = on ? "Close the map" : "Show the map";
+    mount(btn, on ? "Close map" : "Map");
+  }
+  state.mapOpen = on;
+  if (on) {
+    const map = ensureMap();
+    requestAnimationFrame(() => map?.fit?.());
+  }
+}
+
+/** Levels whose map column *is* the page (the board, the workspace tiles) rather than a map beside it. */
+const MAP_IS_PAYLOAD = new Set(["tasks", "workspace"]);
+
+/**
+ * One attribute on <main> says whether the map column is payload or optional; the phone CSS and the
+ * Map button both key off it, so adding a level cannot leave the two disagreeing.
+ */
+function syncMapToggle(route) {
+  const level = route?.level ?? "";
+  const main = $("main");
+  if (main) main.dataset.map = MAP_IS_PAYLOAD.has(level) ? "payload" : "map";
+  const btn = $("map-toggle");
+  if (!btn) return;
+  btn.hidden = level === "" || level === "home" || MAP_IS_PAYLOAD.has(level);
+  // A new level starts story-first: the overlay never survives navigation.
+  setMapOpen(false);
+}
+
 function wireHeader() {
   for (const btn of document.querySelectorAll("#lens .seg__btn")) {
     btn.addEventListener("click", () => setLens(btn.dataset.lens));
   }
   $("dense")?.addEventListener("click", () => setDense(!state.dense));
+  $("map-toggle")?.addEventListener("click", () => setMapOpen(!state.mapOpen));
+  on("route", (route) => syncMapToggle(route));
+  const reader = $("reader");
+  if (reader && typeof MutationObserver === "function") {
+    new MutationObserver(() => {
+      if (!isPhone()) return;
+      if (!reader.hidden && !state.mapOpen) setMapOpen(true);
+      else if (reader.hidden && state.mapOpen) setMapOpen(false);
+    }).observe(reader, { attributes: true, attributeFilter: ["hidden"] });
+  }
   $("search-trigger")?.addEventListener("click", () => openPalette());
   $("repo-select")?.addEventListener("change", (ev) => {
     navigate({ level: "repo", repo: ev.target.value, query: {} });
@@ -2286,6 +2436,7 @@ let booted = false;
 export async function boot() {
   if (booted || !$("app")) return;
   booted = true;
+  adoptKeyFromUrl();
   checkRenderer();
   wireHeader();
   wirePalette();

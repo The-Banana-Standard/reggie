@@ -1,5 +1,6 @@
-# Dependencies
+# Dependencies (the bare pattern also ignores a node_modules symlink; the slashed one matches directories only)
 node_modules/
+node_modules
 
 # Build output
 dist/
