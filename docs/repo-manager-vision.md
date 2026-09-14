@@ -29,6 +29,13 @@ Three things follow:
 - Procedures are borrowed. Anthropic, OpenAI, and community skills run the planning, review, simplify, security, and init steps. Reggie keeps state, contracts, policy, and glue.
 - Plans and packets are discussable. Anyone, including agents, can comment, anchored to a section and attributed. Discussion is separate from decision. Solo mode is a policy preset with minimal ceremony over the same state machine.
 
+## Decisions made on 2026-09-13
+
+- **Reggie is not an agent system.** It never runs a planning agent, an execution pipeline, a judge or a reviewer of its own. Planning happens in Claude Code's or Codex's plan mode, opened by Reggie with a prompt that frames the conversation and a context file to read. Building happens in an ordinary session in the task's worktree, opened by Reggie with the plan. Review is a borrowed skill (`/code-review`, `/security-review`) named by the risk class. Reggie keeps the state (`.reggie/`), the contracts (brief, plan, packet and their linters), the policy (which review runs at which risk, who may decide), the web view and the MCP tools. This is the 6 September direction made concrete by the first task built through it (`mobile-ui`).
+- **The v2 agents and commands under `resources/` are legacy.** Nothing on this branch reads them. They are still what `~/.claude/*` symlinks point at from the main clone, so every project on this machine still has them until the branch lands; what happens to them then is an open fork below. The fixed-stage pipeline fork is closed: retired, not kept as a profile.
+- **The journal is derived, not remembered.** A session should not have to remember to write it. Reggie derives the narrative from what already exists: the session transcript on disk (both tools write one, and Reggie mints the Claude session id at launch, so the transcript is findable), the commits on the task branch, and the state transitions it already reads from git. The entry is written in listener register, attributed to the person and the tool, with the evidence linked. A person or a session may still add an entry by hand when the transcript does not say what mattered. Until the derivation is built, the generated instruction block keeps asking for one entry per step.
+- **A model is called, never resident.** When something genuinely needs a model reading code, such as an explainer on why a bug lives where it does, or an overnight shaping pass over the intake, Reggie makes a headless call (`claude -p`, `codex exec`) with a prompt and reads the result back into its state. That is a tool use with an input and an output, not a process that lives inside Reggie.
+
 ## Non-goals
 
 - Running or babysitting terminals, headless sessions, or DONE-marker scanning.
@@ -45,8 +52,9 @@ Three things follow:
   voice inbox ──┤    tasks · journal · notes    ├── podcast episodes (private feed per person)
   GitHub sync ──┘    inbox · people · graph     └── CLAUDE.md / AGENTS.md generated blocks
 
-  reggie daemon (TypeScript): serves the UI, exposes the MCP server, watches files, builds graphs,
-  composes episodes, drains the inbox, syncs metadata through git.
+  reggie serve (TypeScript): serves the UI, exposes the MCP server, builds graphs on request,
+  composes episodes, drains the inbox, syncs metadata through git. It watches nothing: the
+  page refreshes on demand (decided 2026-09-09).
 ```
 
 Both Claude Code and Codex reach the state through the same MCP server and the same generated instructions. That is the whole "seamless switching" mechanism.
@@ -213,7 +221,7 @@ Every packet records author, repo, slug, and who is asked to decide. Every decis
 
 - **Context** (`CONTEXT.md`, `DECISIONS.md`): verbatim stage outputs for the orchestrator. Exists today; becomes persistent.
 - **Structured notes** (`.reggie/notes/`): keyed to a file, symbol, store, route, or repo. Typed why, how, gotcha, verify, data-source, decision. Carry author, date, confidence, source refs. Stale when the entity changed after the note.
-- **Journal** (`.reggie/journal/<date>/<person>-<session>.md`): append-only plain English in listener register. No paths or slugs in the prose. Every entry links evidence. Written by Claude and Codex at each stage boundary.
+- **Journal** (`.reggie/journal/<date>/<person>-<session>.md`): append-only plain English in listener register. No paths or slugs in the prose. Every entry links evidence. Derived by Reggie from session transcripts, commits and state transitions (decided 2026-09-13); a person or a session may add an entry by hand. Until the derivation exists, sessions are asked to write one entry per step.
 - **Evidence** (`.reggie/tasks/<slug>/evidence/`): test output, verify-app results, screenshots, judge reports. Referenced by completion packets. Secrets redacted before commit.
 
 Journal is narrative. Git, STATE, and evidence are truth. An episode says "tests passed" only when the evidence file says so.
@@ -284,7 +292,8 @@ All derived from a normalized graph (repo, package, directory, file, symbol, rou
 - **Metadata commits**: on main, or on a `reggie-meta` branch.
 - **TTS provider**.
 - **Graph engine**: tree-sitter plus language servers is the proposal.
-- **Fixed-stage pipeline**: retire it, or keep it as an opt-in profile for high-risk work.
+- **The v2 agents and commands under `resources/`** when `repo-manager` lands on `main`: move them to a legacy folder or their own repository, or leave them installed as generic helpers unrelated to Reggie's loop. Nothing in v3 depends on them either way.
+- **How the derived journal is triggered**: a session-end hook Reggie installs, a pass `reggie serve` runs when it sees a new transcript, or an explicit `reggie journal derive <slug>`.
 - **Git-first substrate**: adopt GitHub as the store for discussion, decisions, and boards, or keep those in `.reggie/` with GitHub as a mirror.
 - **Auto-approval thresholds**: which risk classes may skip a human decision for plans and for completions.
 

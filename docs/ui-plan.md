@@ -10,7 +10,9 @@
 > - **M2 mostly collapsed into that.** The session id is known before the session starts and is written into the claim record and `.reggie/.cache/launches/<slug>.json`. What remains of M2 is the "open the chat" button and the in-flight card; note that `claude://code/continue?session=` accepts only `last` or a desktop-local id, so the button must use `claude://resume?session=<uuid>` or `claude --resume <uuid>`.
 > - **Not in the plan, built because it is the view you look at most:** the task story for a task without a plan (what was written, where it probably lives, what is known there, what it resembles, what is unclear, what happens next; or the brief as a story), a form that adds detail under the intake line, and narration: every story has a spoken script, a browser read-aloud, an audio episode made with macOS `say`, and a private RSS feed. `src/narrate.ts`, `src/episode.ts`, `ui/listen.js`.
 > - The `Task:` trailer is written on claim commits; the dead Tauri-era backlog was dropped from `TASKS.md`; `.reggie/config.yaml` pins `defaultBranch: repo-manager` while v3 is built on this branch.
-> - **Next, through Reggie itself:** branch diff in the reader (part of M4, needs no working-tree tier), then M5, then the rest of M6, then M-Lang's regex tier, then M3.
+> - **2026-09-13, later:** the first task went through the loop end to end (`mobile-ui`: phone layout, a serve key for the network, a playable feed). It confirmed the shape and surfaced four gaps, all captured: a task worktree has no dependencies, the stale-build warning misreads a missing build folder, two journals appended to the same day file collide on merge, and a superseded note keeps rendering beside its replacement.
+> - **Decided the same day:** Reggie is not an agent system, and the journal is to be derived from transcripts and commits rather than written by a session that remembers to. See the vision doc's "Decisions made on 2026-09-13".
+> - **Next, through Reggie itself:** the derived journal, then branch diff in the reader (part of M4, needs no working-tree tier), then M5, then the rest of M6, then M-Lang's regex tier, then M3.
 
 ## Context
 

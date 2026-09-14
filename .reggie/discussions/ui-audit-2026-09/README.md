@@ -76,6 +76,8 @@ Jacob's calls, in his words where it matters:
 
 **The dead backlog was dropped** from `TASKS.md` on 2026-09-13.
 
+**Reggie is not an agent system (2026-09-13, after the first task went through the loop).** Jacob: use Claude's and Codex's built-in plan mode for planning and ordinary chats to execute; the journal is the one place he wondered whether an agent was still needed. Decided: no agent anywhere. Plan mode plans, an ordinary session builds, borrowed skills review, Reggie keeps state and contracts. The journal is derived from session transcripts, commits and state transitions, with hand entries optional; anything that truly needs a model is a headless call with an input and an output. The v2 agents and commands under `resources/` are legacy and their fate at merge is an open fork in the vision doc.
+
 **Two audit claims corrected while building:** the M2 deep-link button as written would be rejected (see above), and "Codex has no plan mode" is out of date.
 
 ## Open forks — still unresolved

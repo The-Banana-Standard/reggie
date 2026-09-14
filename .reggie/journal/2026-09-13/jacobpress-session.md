@@ -19,3 +19,6 @@ Released the claim on this task.
 ### 18:04 · jacobpress · claude · mobile-ui · decide
 Built the phone path through Reggie's own loop: captured, shaped, planned, claimed into a worktree, built, reviewed, packeted, approved and merged. The loop held, and it surfaced three gaps in itself along the way: a fresh task worktree has no dependencies, the stale-build warning misreads a missing build folder, and two journals appended to the same day file collide on merge. All three are captured.
 
+### 22:30 · jacobpress · claude · - · decide
+Recorded the decision that Reggie is not an agent system: plan mode plans, an ordinary session builds, borrowed skills review, Reggie keeps state and contracts, and the journal will be derived from transcripts and commits rather than written from memory. The old agents and commands are marked legacy with their fate left open until the branch lands. Also cleared the duplicate repo note and captured the missing way to retire a note.
+
