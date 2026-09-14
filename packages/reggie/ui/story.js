@@ -47,7 +47,7 @@ import {
 const HEADINGS = {
   repo: [
     ["needs-you", "Needs you"],
-    ["what", "What this is"],
+    ["what", "About this repo"],
     ["made-of", "What it is made of"],
     ["starts", "Where it starts"],
     ["talks", "How the pieces talk"],

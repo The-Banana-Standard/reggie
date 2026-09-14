@@ -1,0 +1,12 @@
+# npm test + typecheck, task/about-this-repo, 2026-09-14T20:33:25Z
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/about-this-repo/packages/reggie
+
+
+ Test Files  28 passed (28)
+      Tests  518 passed | 1 skipped (519)
+   Start at  16:33:26
+   Duration  10.99s (transform 2.13s, setup 0ms, import 3.48s, tests 82.08s, environment 1ms)
+
+
+## tsc --noEmit
+typecheck: clean

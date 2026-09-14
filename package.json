@@ -1,7 +1,7 @@
 {
   "name": "reggie",
   "version": "3.0.0-alpha.1",
-  "description": "Reggie: a repo manager for Claude Code and Codex. Keeps tasks, plans, notes, and journals in the repo; derives state from git; serves a web view that explains the code and the work.",
+  "description": "Reggie: understand a repo that AI builds faster than you can read it. See how it fits together, review what changed, and plan and track the tasks that follow.",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -141,6 +141,13 @@ export function makeFixtureRepo(): FixtureRepo {
 
   // --- notes ----------------------------------------------------------------
   addNote(paths, "_repo", {
+    type: "why",
+    author: "Test Person",
+    confidence: "high",
+    text: "A fixture repo that exists so the tests have a small codebase with a long import chain, a tiny area, and a native crate to read.",
+    sources: ["package.json"],
+  });
+  addNote(paths, "_repo", {
     type: "how",
     author: "Test Person",
     confidence: "high",
