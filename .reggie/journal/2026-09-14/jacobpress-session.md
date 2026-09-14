@@ -18,3 +18,9 @@ Claimed the task and started a branch from repo-manager in a separate worktree.
 ### 16:37 · jacobpress · claude · about-this-repo · decide
 Decision: approved.
 
+### 16:38 · jacobpress · claude · about-this-repo · release
+Released the claim on this task.
+
+### 16:38 · jacobpress · claude · about-this-repo · done
+About this repo landed. The repo overview lost its manifest subtitle; the first section is now the repo note's why entry as prose with the branch as a chip, its how entry moved under How to run it, and the note and both package descriptions were rewritten around understanding a repo that AI builds fast and tracking the tasks that follow. Verified by unit tests and a headless Chrome render; the in-app browsers were unavailable this session.
+
