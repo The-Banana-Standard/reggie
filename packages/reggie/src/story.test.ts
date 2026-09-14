@@ -3,6 +3,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { makeFixtureRepo, type FixtureRepo } from "../test/fixtures.js";
 import { makeTempRepo, type TempRepo } from "../test/helpers.js";
+import { addNote } from "./notes.js";
 import { buildGraph, type RepoGraph } from "./graph.js";
 import { repoHistory } from "./history.js";
 import { briefFile, repoPaths } from "./paths.js";
@@ -317,11 +318,30 @@ describe("repoStory on the fixture repo", () => {
     expect(text).toMatch(/was written on .* but the folder changed on .*; it may be out of date/);
   });
 
-  it("uses the repo name and branch in the header", () => {
+  it("uses the repo name in the header and carries no subtitle", () => {
     const story = repoStory(ctx);
     expect(story.title).toBe(ctx.repo);
-    expect(story.subtitle).toContain("Branch");
+    expect(story.subtitle).toBeNull();
     expect(story.crumbs[0]?.route).toBe("#/ws");
+    expect(sectionOf(story, "what").heading).toBe("About this repo");
+  });
+
+  it("shows the repo note's why entries as prose under About this repo and its other entries under How to run it", () => {
+    const story = repoStory(ctx);
+    const what = sectionOf(story, "what").paragraphs;
+    expect(what.length).toBeGreaterThan(0);
+    for (const p of what) {
+      expect(p.kind).toBe("fact");
+      expect(p.source?.entity).toBe("_repo");
+      expect(p.source?.type).toBe("why");
+    }
+    expect(what[0]?.chips?.map((c) => c.label)).toEqual(["Branch"]);
+    expect(what[1]?.chips).toBeUndefined();
+    const run = sectionOf(story, "run").paragraphs.filter((p) => p.kind === "note");
+    expect(run.length).toBeGreaterThan(0);
+    expect(run.every((p) => p.source?.entity === "_repo" && p.source?.type !== "why")).toBe(true);
+    expect(run.some((p) => p.text.includes("npm test"))).toBe(true);
+    expect(sectionOf(story, "what").paragraphs.some((p) => p.text.includes("npm test"))).toBe(false);
   });
 });
 
@@ -607,6 +627,23 @@ describe("explain", () => {
 // ---------------------------------------------------------------------------
 // Empty inputs: every section states its absence in the spec's words
 // ---------------------------------------------------------------------------
+
+describe("a repo with a description but no why note", () => {
+  it("falls back to the package description as the empty text of About this repo", () => {
+    const repo = makeTempRepo("reggie-story-desc-");
+    cleanups.push(repo);
+    repo.write("package.json", JSON.stringify({ name: "described", description: "A described repo.", scripts: { test: "vitest" } }));
+    repo.write("src/a.ts", "export const a = 1;\n");
+    repo.commitAll("described");
+    addNote(repoPaths(repo.root), "_repo", { type: "how", text: "Run npm test.", author: "test", confidence: "high" });
+    const story = repoStory(contextFor(repo.root));
+    const what = sectionOf(story, "what");
+    expect(what.paragraphs).toEqual([]);
+    expect(what.empty?.text).toBe("A described repo.");
+    expect(what.empty?.action?.form).toBe("note");
+    expect(sectionOf(story, "run").paragraphs.some((p) => p.kind === "note" && p.text === "Run npm test.")).toBe(true);
+  });
+});
 
 describe("a repo with no notes, tasks, journal or commands", () => {
   let bare: StoryContext;

@@ -796,9 +796,8 @@ export function repoStory(ctx: StoryContext, opts: RepoStoryOptions = {}): Story
     repoGapsSection(ctx),
     runSection(ctx),
   ];
-  const description = ctx.facts.description.replace(/\s+/g, " ").trim();
-  const branch = ctx.branch ? `Branch \`${ctx.branch}\`.` : "";
-  const subtitle = [description, branch].filter(Boolean).join(" ") || null;
+  // No subtitle: the blurb is "About this repo", and the branch rides on its first paragraph as a chip.
+  const subtitle = null;
 
   const areas = [...ctx.views.container().areas].sort((a, b) => b.source - a.source || a.label.localeCompare(b.label));
   const next: Crumb[] = areas.slice(0, 2).map((a) => ({ label: a.label, route: routeFor(ctx.repo, a.id) }));
@@ -846,15 +845,23 @@ function needsYouSection(ctx: StoryContext): StorySection {
 }
 
 function whatSection(ctx: StoryContext): StorySection {
-  const paragraphs: Paragraph[] = [];
+  // The blurb is what a person wrote about the repo: the `why` entries of the `_repo` note, as prose.
+  // The manifest description is only a stand-in for a repo nobody has described yet, so it is the
+  // section's empty text rather than a paragraph, and every other kind of repo note (how, gotcha…)
+  // is a card under "How to run it" (see runSection).
   const description = ctx.facts.description.replace(/\s+/g, " ").trim();
-  if (description) {
-    paragraphs.push(para("what-1", "fact", description, [`repo:${ctx.repo}`, ROOT_DIR_ID]));
-  }
   const repoNote = ctx.noteOf("_repo");
-  if (repoNote) paragraphs.push(...noteParagraphs(ctx, "what-note", [repoNote], [`repo:${ctx.repo}`]));
-  return section("what", "What this is", paragraphs, {
-    text: EMPTY_TEXT.repoWhat,
+  const why = repoNote ? noteParagraphs(ctx, "what-note", [{ ...repoNote, entries: repoNote.entries.filter((e) => e.type === "why") }], [`repo:${ctx.repo}`]) : [];
+  const paragraphs: Paragraph[] = why.map((p, i) => {
+    const stale = (p.chips ?? []).filter((c) => c.label === "Possibly out of date");
+    const chips: Chip[] = i === 0 && ctx.branch ? [chip("Branch", ctx.branch, "muted", "The branch this page was read from."), ...stale] : stale;
+    const prose: Paragraph = { ...p, kind: "fact" };
+    if (chips.length) prose.chips = chips;
+    else delete prose.chips;
+    return prose;
+  });
+  return section("what", "About this repo", paragraphs, {
+    text: description || EMPTY_TEXT.repoWhat,
     action: { label: "Add a note", form: "note", command: 'reggie note add _repo --type why "…"' },
   });
 }
@@ -1156,6 +1163,9 @@ function runSection(ctx: StoryContext): StorySection {
     commands.length === 0
       ? []
       : [para("run-1", "list", commands.map((c) => c.command).join("\n"), [ROOT_DIR_ID], { chips: commands.slice(0, 6).map((c) => chip("Command", c.label, "muted", c.command)) })];
+  // Every repo note that is not the blurb (how, gotcha, verify…) is about running the thing.
+  const repoNote = ctx.noteOf("_repo");
+  if (repoNote) paragraphs.push(...noteParagraphs(ctx, "run-note", [{ ...repoNote, entries: repoNote.entries.filter((e) => e.type !== "why") }], [`repo:${ctx.repo}`]));
   return section("run", "How to run it", paragraphs, {
     text: EMPTY_TEXT.repoRun,
     action: { label: "Record what you ran", form: "journal", command: 'reggie journal "…"' },

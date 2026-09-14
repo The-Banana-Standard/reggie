@@ -138,7 +138,7 @@ Runs alongside M3–M6; touches `graph.ts`/`roles.ts`/`facts.ts` and nothing the
 - **Phase 1 (days): shallow tier.** Extend `CODE_EXT` and add a regex import/entry extractor for Swift, Kotlin, Go and Python. Immediately yields file nodes, areas, tests, notes, history, ownership and a real story on Color Lock, speech-therapy-app, color-lock-android and RetroFantasy. Ship the honest banner with it — `facts.ts:37-67 LANGUAGE_BY_EXT` already knows every skipped language and `facts.ts:188-196` already emits `swift build` / `go build ./...` / `pytest`.
 - **Phase 2: tree-sitter** for real symbols and imports in those four languages, replacing the regex tier per language as each lands.
 - Alongside: publish the graph's own coverage. `unresolved` and `SYMBOL_ENGINE` are computed and discarded today, so a partly-resolved map is indistinguishable from a complete one.
-- Also on this track: read `README`/`ARCHITECTURE`/`CLAUDE.md` into "What this is" (today it prints `package.json.description` alone), and fix `"(54 with tests)"` — it renders a total-file count as a tests claim, a false sentence in the most-read paragraph on the landing page.
+- Also on this track: "What this is" became "About this repo" on 2026-09-14 (task `about-this-repo`): the `_repo` note's `why` entries as prose, the manifest description only as the empty-state fallback, no subtitle; reading `README`/`ARCHITECTURE`/`CLAUDE.md` into it was rejected because the point is that a person wrote it. Still to fix: `"(54 with tests)"` — it renders a total-file count as a tests claim, a false sentence in the most-read paragraph on the landing page.
 
 ## Cuts, with reasons
 
