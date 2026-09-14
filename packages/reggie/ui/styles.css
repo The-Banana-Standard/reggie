@@ -711,7 +711,22 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
   .crumbs__last { font-size: var(--fs-label); }
 
   .main, .main[data-level="tasks"], .app.is-dense .main { grid-template-columns: 1fr; }
-  .story { --story-pad: var(--s-3); padding-top: var(--s-4); padding-bottom: calc(var(--s-7) + env(safe-area-inset-bottom, 0px)); }
+  /* The page nav the header drops at 1100px comes back as a bottom tab bar: four thumb-sized
+     targets with their labels, above the home indicator. Everything scrollable pads for it. */
+  :root { --tabbar-h: 56px; }
+  .nav {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    padding: 0 var(--s-2) env(safe-area-inset-bottom, 0px);
+    gap: 0; justify-content: space-around; align-items: stretch;
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  .nav:empty { display: none; }
+  .nav__item { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 3px; height: auto; padding: 6px 2px; border-radius: 8px; font-size: var(--fs-sub); }
+  .nav__item span { display: inline; }
+  .nav__item .i { width: 20px; height: 20px; }
+  .story { --story-pad: var(--s-3); padding-top: var(--s-4); padding-bottom: calc(var(--s-7) + var(--tabbar-h) + env(safe-area-inset-bottom, 0px)); }
+  .app.is-map-open .map-col { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px)); }
   .map-col { display: none; }
   .app.is-map-open .map-col {
     display: flex; order: 0;
@@ -726,7 +741,7 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
   .btn, .btn--small, .seg__btn { min-height: 34px; }
   .btn--small { height: auto; padding: 0 10px; font-size: var(--fs-label); }
   .form__input, .form__textarea, .form__select { font-size: 16px; } /* iOS zooms into anything smaller */
-  .toasts { left: var(--s-3); right: var(--s-3); bottom: calc(var(--s-3) + env(safe-area-inset-bottom, 0px)); max-width: none; }
+  .toasts { left: var(--s-3); right: var(--s-3); bottom: calc(var(--s-3) + var(--tabbar-h) + env(safe-area-inset-bottom, 0px)); max-width: none; }
   .palette__box { top: 6vh; width: calc(100vw - 20px); }
   .palette__hint { display: none; }
 }
