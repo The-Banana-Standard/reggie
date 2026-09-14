@@ -2032,7 +2032,7 @@ export function createMap(container, opts = {}) {
   }
 
   /**
-   * The container changed size — window resize, the 1100px stacked breakpoint, the Dense toggle, the
+   * The container changed size — window resize, the 1100px stacked breakpoint, a pane folding or opening, the
    * reader drawer opening or being dragged. `cy.resize()` first, always: a Cytoscape instance that
    * has not been told its canvas grew computes every fit against the old viewport, which is how a
    * grown window ended up still zoomed for the small one and a shrunk one ended up at minZoom with

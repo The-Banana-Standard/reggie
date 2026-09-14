@@ -258,20 +258,24 @@ button { cursor: pointer; }
   border: 1px solid var(--line-strong); border-radius: 4px; padding: 0 4px; line-height: 16px;
 }
 
+/* The page is a flex row of panes (§3.1). Open panes share the width; the story is floored at its
+   minimum and capped at its reading measure, so any spare width goes to the map or the code, and a
+   story alone sits centred. Which panes are open is written on <main> by app.js (see Panes below). */
 .main {
-  display: grid;
-  grid-template-columns: minmax(var(--story-min), var(--story-w)) 1fr;
+  display: flex; align-items: stretch;
   min-height: calc(100vh - var(--header-h));
 }
 
 /* Story column scrolls with the page; the map column is sticky */
 .story {
+  order: 1; flex: 1 1 0;
   padding: var(--s-5) var(--story-pad) var(--s-7);
-  min-width: 0; width: 100%;
+  min-width: var(--story-min); width: 100%;
   max-width: calc(var(--measure) + 2 * var(--story-pad));
   margin-inline: auto;
 }
 .map-col {
+  order: 3; flex: 1 1 0;
   position: sticky; top: var(--header-h);
   height: calc(100vh - var(--header-h));
   display: flex; flex-direction: column;
@@ -291,11 +295,14 @@ button { cursor: pointer; }
 }
 .map-col.is-disabled .btn--tool { opacity: 0.4; pointer-events: none; }
 
-/* Under 1100px: stack, map first at 45vh, sticky mini-breadcrumb (§3.1) */
+/* Under 1100px: stack, map first at 45vh, sticky mini-breadcrumb (§3.1). The pane control and its
+   rails are desktop only; app.js drops the pane attributes here, so every pane is in flow. */
 @media (max-width: 1100px) {
-  .main { grid-template-columns: 1fr; }
-  .main[data-level="tasks"] { grid-template-columns: 1fr; }
+  .main { flex-direction: column; }
+  #panes, .pane-rail { display: none !important; }
   .map-col { order: -1; position: sticky; top: var(--header-h); height: min(60vh, 520px); border-left: 0; border-bottom: 1px solid var(--line); }
+  /* The board is the page on /tasks: it takes most of the viewport rather than 60vh (F11). */
+  .main[data-level="tasks"] .map-col { position: static; height: auto; min-height: min(78vh, 760px); }
   .story { --story-pad: var(--s-4); }
   .map-col .crumbs--mini { display: flex; }
   .header { gap: var(--s-2); }
@@ -314,12 +321,49 @@ button { cursor: pointer; }
 .crumbs--mini .crumbs__last { font-size: var(--fs-label); font-weight: 600; color: var(--text); }
 .crumbs--mini a { color: var(--muted); }
 
-/* Dense mode (§3.1): story 25% with headings + first paragraph; map 75% */
-.app.is-dense .main { grid-template-columns: minmax(var(--story-min), 25%) 1fr; }
-.app.is-dense .section > .para:not(:first-of-type),
-.app.is-dense .section > .card:not(:first-of-type),
-.app.is-dense .section .section__more { display: none; }
-.app.is-dense .story { --story-pad: var(--s-4); }
+/* ---------- Panes (desktop, ≥1101px; §3.1) ----------
+   app.js writes data-panes (which of story, map, code this level has) and data-open (which are
+   expanded) on <main>, in the order story map code. A collapsed pane leaves a rail in its place;
+   the rails are static buttons shown by these rules alone. The reader stays inside the map column:
+   with the map open it is the drawer under the map; with the map collapsed it takes the column;
+   with the story collapsed the map and the code sit side by side. */
+:root { --rail-w: 28px; }
+.pane-rail {
+  display: none; flex: 0 0 var(--rail-w);
+  position: sticky; top: var(--header-h); height: calc(100vh - var(--header-h));
+  flex-direction: column; align-items: center; justify-content: flex-start; gap: var(--s-2);
+  padding: var(--s-3) 0; border: 0; border-inline: 1px solid var(--line);
+  background: var(--panel); color: var(--muted); cursor: pointer;
+  font: inherit; font-size: var(--fs-sub); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  writing-mode: vertical-lr;
+}
+.pane-rail .i { width: 14px; height: 14px; flex: 0 0 auto; transform: rotate(90deg); }
+.pane-rail:hover { color: var(--text); background: var(--panel-2); }
+.pane-rail:focus-visible { outline: 2px solid var(--info); outline-offset: -2px; }
+#rail-story { order: 1; }
+#rail-map { order: 2; }
+#rail-code { order: 4; }
+@media (min-width: 1101px) {
+  .main:not([data-open~="story"]) > .story { display: none; }
+  .main:not([data-open~="map"]) .map-stage { display: none; }
+  .main:not([data-open~="map"]):not([data-open~="code"]) > .map-col { display: none; }
+  .main[data-panes~="story"]:not([data-open~="story"]) > #rail-story,
+  .main[data-panes~="map"]:not([data-open~="map"]) > #rail-map,
+  .main[data-panes~="code"]:not([data-open~="code"]) > #rail-code { display: flex; }
+  /* code without the map: the reader takes the column at full height; the drawer's handle steps out */
+  .main[data-open~="code"]:not([data-open~="map"]) .reader { height: auto !important; min-height: 0; max-height: none; flex: 1 1 auto; border-top: 0; transition: none; }
+  .main[data-open~="code"]:not([data-open~="map"]) .reader__handle { display: none; }
+  /* map and code without the story: side by side, each full height */
+  .main[data-open="map code"] .map-col { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr); }
+  .main[data-open="map code"] .map-col > .crumbs--mini { display: none; }
+  .main[data-open="map code"] .reader { height: auto !important; min-height: 0; max-height: none; border-top: 0; border-left: 1px solid var(--line); transition: none; }
+  .main[data-open="map code"] .reader__handle { display: none; }
+}
+/* Header toggles: pressed reads like an active lens; labels drop where the nav's do. */
+.seg__btn[aria-pressed="true"] { background: var(--panel-2); color: var(--brand); }
+.seg__btn[aria-disabled="true"] { opacity: 0.55; cursor: default; }
+.panes .seg__btn { display: inline-flex; align-items: center; gap: 5px; }
+@media (max-width: 1240px) { .panes .seg__btn span { display: none; } }
 
 /* ---------- Tabs (map column) ---------- */
 .tabs {
@@ -367,6 +411,19 @@ button { cursor: pointer; }
 .muted { color: var(--muted); }
 .faint { color: var(--faint-text); }
 .section__more { margin-top: var(--s-2); }
+/* Every section folds from its heading (app.js section()); a collapsed one keeps only the heading. */
+.section__toggle {
+  display: flex; align-items: center; gap: var(--s-2); width: 100%;
+  padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.section__toggle .i { width: 14px; height: 14px; flex: 0 0 auto; color: var(--muted); transform: rotate(90deg); transition: transform var(--t-highlight) var(--ease); }
+.section__toggle:hover .i { color: var(--text); }
+.section__toggle:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; border-radius: 4px; }
+.section.is-collapsed .section__toggle .i { transform: none; }
+.section.is-collapsed > :not(.section__h) { display: none; }
+.section.is-collapsed .section__h { margin-bottom: 0; }
+.story__tools { display: flex; justify-content: flex-end; gap: var(--s-2); margin-bottom: var(--s-3); }
+.story:has(#sections.is-skeleton) .story__tools { visibility: hidden; }
 details.cmds { margin-top: var(--s-2); }
 details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs-label); }
 
@@ -641,17 +698,8 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 /* Six states, always left to right, the same order and direction the state-machine strip draws
    above them (F08). Narrow columns scroll sideways; they never wrap into a second row. */
 .board { display: flex; align-items: stretch; gap: var(--s-2); padding: var(--s-3); overflow: auto; height: 100%; }
-/* The board is the payload on /tasks: the Needs-you queue is short, so give the map column the room. */
-.main[data-level="tasks"] { grid-template-columns: minmax(var(--story-min), 32%) 1fr; }
-/* Columns crushed into a 305px pane are not a board. Below 1200px the board goes full-bleed above
-   the story, the way the map already does at 1100px (F11). It takes most of the viewport rather than
-   a fixed 460px: a card now carries chips, a meta line, badges and its actions, and in 460px minus
-   the head and the state strip every column showed one clipped card. */
-@media (max-width: 1200px) {
-  .main[data-level="tasks"] { grid-template-columns: 1fr; }
-  .main[data-level="tasks"] .map-col { order: -1; position: static; height: auto; min-height: min(78vh, 760px); border-left: 0; border-bottom: 1px solid var(--line); }
-  .main[data-level="tasks"] .story { --story-pad: var(--s-4); }
-}
+/* The board is the payload on /tasks: the story's measure cap already hands it the room, and the
+   Story toggle hands it everything. Below 1100px it stacks with the rest (see the 1100px block). */
 /* A 150px floor plus horizontal scrolling: columns keep a readable width instead of being squeezed,
    and a swipe lands on a column edge (F11). */
 .board { scroll-snap-type: x proximity; }
@@ -697,20 +745,20 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 /* ---------- Phones (below 760px) ----------
    One column, story first. The map column is hidden until the header's Map button opens it as an
    overlay under the header, fitted on open; the tasks page keeps its board in that column, as the
-   page's payload, with columns that snap sideways. The lens and Dense step out: both are about the
-   map, and the map is behind a button. Targets grow to a thumb's width. */
+   page's payload, with columns that snap sideways. The lens and the pane toggles step out: both
+   are about the map, and the map is behind a button. Targets grow to a thumb's width. */
 .map-toggle { display: none; }
 @media (max-width: 760px) {
   :root { --header-h: 48px; }
   .header { padding: 0 var(--s-3); gap: var(--s-2); }
   .header__tools { gap: var(--s-1); }
-  #lens, #dense { display: none; }
+  #lens, #panes { display: none; }
   #search-trigger .kbd { display: none; }
   .map-toggle { display: inline-flex; }
   .crumbs { gap: var(--s-1); }
   .crumbs__last { font-size: var(--fs-label); }
 
-  .main, .main[data-level="tasks"], .app.is-dense .main { grid-template-columns: 1fr; }
+  .main { flex-direction: column; }
   /* The page nav the header drops at 1100px comes back as a bottom tab bar: four thumb-sized
      targets with their labels, above the home indicator. Everything scrollable pads for it. */
   :root { --tabbar-h: 56px; }

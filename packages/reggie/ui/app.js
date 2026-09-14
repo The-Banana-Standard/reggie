@@ -1,6 +1,6 @@
 // Reggie Guidebook — app.js
 // Owns: boot and renderer check, hash router, fetch cache, h() DOM helper, entityLink and GLOSSARY,
-// breadcrumb, lens control, dense toggle, keyboard map, toasts, POST helpers, search palette shell.
+// breadcrumb, lens control, pane and section folding, keyboard map, toasts, POST helpers, search palette shell.
 // Other modules import the helpers exported at the bottom; see ui/DOM-CONTRACT.md.
 //
 // renderLevel() below wires story.js, map.js, reader.js and board.js together per level
@@ -24,9 +24,12 @@ export const RENDERER_FAILURE_TEXT =
   "The map library did not load. The story still works. Expected `/vendor/cytoscape.min.js` (from packages/reggie/node_modules) or cdnjs.";
 
 const STORAGE = {
-  dense: "reggie.dense",
   lens: "reggie.lens",
   recent: "reggie.recent",
+  /** The open panes of a level (story, map, code); `symbol` shares the file's. */
+  panes: (level) => `reggie.panes.${paneKey(level)}`,
+  /** The collapsed section ids of a level in a repo. */
+  sections: (repo, level) => `reggie.sections.${repo ?? "ws"}.${paneKey(level)}`,
   positions: (repo, level, root) => `reggie.pos.${repo}.${level}.${root}`,
 };
 
@@ -712,14 +715,17 @@ export const state = {
   facts: null,
   story: null,
   lens: "structure",
-  dense: false,
+  /** Which panes this level has and which are open; see the Panes section. */
+  panes: { applies: ["story", "map"], open: ["story", "map"], remembered: [] },
+  /** Section ids folded on this level, from storage. */
+  collapsed: new Set(),
   rendererOk: false,
   map: null, // set by the integrator: createMap(container)
   reader: null,
   renderToken: 0,
 };
 
-/** Simple event bus for cross-module wiring (e.g. "route", "lens", "dense"). */
+/** Simple event bus for cross-module wiring (e.g. "route", "lens", "panes"). */
 const listeners = new Map();
 export function on(event, fn) {
   if (!listeners.has(event)) listeners.set(event, new Set());
@@ -845,7 +851,7 @@ export function crumbsFor(route) {
 }
 
 // ---------------------------------------------------------------------------
-// Lens control and dense toggle
+// Lens control
 // ---------------------------------------------------------------------------
 
 export function setLens(lens, opts = {}) {
@@ -862,14 +868,201 @@ export function setLens(lens, opts = {}) {
   emit("lens", lens);
 }
 
-export function setDense(dense, opts = {}) {
-  state.dense = Boolean(dense);
-  storage.set(STORAGE.dense, state.dense);
-  $("app")?.classList.toggle("is-dense", state.dense);
-  $("dense")?.setAttribute("aria-pressed", state.dense ? "true" : "false");
-  if (!opts.silent) setQuery({ dense: state.dense ? "1" : null });
-  if (state.map && typeof state.map.fit === "function") setTimeout(() => state.map.fit(), 0);
-  emit("dense", state.dense);
+// ---------------------------------------------------------------------------
+// Panes: which of story, map and code a level has, and which are open (desktop)
+// ---------------------------------------------------------------------------
+
+const PANE_ORDER = ["story", "map", "code"];
+
+/**
+ * One table says what a level has. `map: "payload"` means the column *is* the page (the board, the
+ * workspace tiles) and gets its own label; every level not listed has a story and a map beside it.
+ */
+const PANES_BY_LEVEL = {
+  workspace: { map: "payload", mapLabel: "Repos" },
+  tasks: { map: "payload", mapLabel: "Board" },
+  file: { map: "graph", code: true },
+  symbol: { map: "graph", code: true },
+};
+
+function paneSpec(level) {
+  return PANES_BY_LEVEL[level] ?? { map: "graph" };
+}
+
+/** The panes a level has, in canonical order. */
+export function panesFor(level) {
+  const spec = paneSpec(level);
+  return ["story", ...(spec.map ? ["map"] : []), ...(spec.code ? ["code"] : [])];
+}
+
+/** A symbol page is the file page with a highlight, so it shares the file's choices. */
+function paneKey(level) {
+  return level === "symbol" ? "file" : level || "repo";
+}
+
+/** Above this width the panes are side by side and can be collapsed; below it everything stacks. */
+const DESKTOP_QUERY = "(min-width: 1101px)";
+function isDesktop() {
+  return typeof matchMedia === "function" && matchMedia(DESKTOP_QUERY).matches;
+}
+
+/** The open set a level remembers, restricted to what it has; a new level opens everything but code. */
+function rememberedPanes(level) {
+  const applies = panesFor(level);
+  const stored = storage.get(STORAGE.panes(level), null);
+  let open = Array.isArray(stored) ? stored.filter((p) => applies.includes(p)) : applies.filter((p) => p !== "code");
+  if (open.length === 0) open = ["story"];
+  return PANE_ORDER.filter((p) => open.includes(p));
+}
+
+function rememberPanes(level, open) {
+  storage.set(STORAGE.panes(level), open);
+}
+
+/** Paint state.panes onto <main> and the header toggles. Below the desktop width the attributes go. */
+function applyPanes() {
+  const main = $("main");
+  const group = $("panes");
+  if (!main) return;
+  const { applies, open } = state.panes;
+  if (!isDesktop()) {
+    delete main.dataset.panes;
+    delete main.dataset.open;
+    if (group) group.hidden = true;
+    return;
+  }
+  main.dataset.panes = applies.join(" ");
+  main.dataset.open = open.join(" ");
+  if (group) group.hidden = false;
+  const spec = paneSpec(state.route?.level);
+  const mapLabel = spec.mapLabel ?? "Map";
+  for (const pane of PANE_ORDER) {
+    const btn = $(`pane-${pane}`);
+    if (!btn) continue;
+    const applicable = applies.includes(pane);
+    const on = applicable && open.includes(pane);
+    btn.hidden = !applicable;
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.classList.toggle("is-active", on);
+    // The last open pane cannot be closed: a page with nothing on it is not a layout.
+    btn.setAttribute("aria-disabled", on && open.length === 1 ? "true" : "false");
+    if (pane === "map") {
+      const label = btn.querySelector("span");
+      if (label) label.textContent = mapLabel;
+      btn.title = `${mapLabel} (M)`;
+    }
+  }
+  const rail = $("rail-map");
+  const railLabel = rail?.querySelector(".pane-rail__label");
+  if (railLabel) railLabel.textContent = mapLabel;
+  if (rail) rail.setAttribute("aria-label", `Show the ${mapLabel.toLowerCase()}`);
+}
+
+/**
+ * Called on every level: what this level has, what it remembers open, and whether the reader is
+ * showing. Code is open exactly when the reader is not hidden; the remembered set only says whether
+ * to reopen it on arrival (renderGraphLevel does that).
+ */
+function syncPanes(route) {
+  const level = route?.level ?? "";
+  const applies = panesFor(level);
+  const remembered = rememberedPanes(level);
+  const open = remembered.filter((p) => p !== "code");
+  if (applies.includes("code") && $("reader") && !$("reader").hidden) open.push("code");
+  state.panes = { applies, open: PANE_ORDER.filter((p) => open.includes(p)), remembered };
+  applyPanes();
+}
+
+/**
+ * Open or collapse one pane. Story and map are attributes; code is the reader, so opening it opens
+ * the reader for the current file and closing it closes the reader, and `onReaderVisibility`
+ * brings the attribute in step when the reader's `hidden` flips. Returns whether anything changed.
+ */
+export function setPaneOpen(pane, open) {
+  if (!PANE_ORDER.includes(pane) || !isDesktop()) return false;
+  const { applies, open: current } = state.panes;
+  if (!applies.includes(pane)) return false;
+  const on = Boolean(open);
+  if (current.includes(pane) === on) return false;
+  if (!on && current.length === 1) return false;
+  if (pane === "code") {
+    if (on) openReader(state.route);
+    else state.reader?.close?.();
+    return true;
+  }
+  const next = PANE_ORDER.filter((p) => (p === pane ? on : current.includes(p)));
+  state.panes = { ...state.panes, open: next, remembered: next };
+  rememberPanes(state.route?.level, next);
+  applyPanes();
+  if (pane === "map" && on) {
+    // A stage that was display:none gave the map's resize observer a 0×0 box it ignored, so its
+    // last known size is stale; ask for a fit the way the phone's Map button does.
+    const map = ensureMap();
+    requestAnimationFrame(() => map?.fit?.());
+  }
+  emit("panes", next);
+  return true;
+}
+
+/** The reader's `hidden` flipped: mirror it into the open set, and never leave the page empty. */
+function onReaderVisibility() {
+  if (!isDesktop()) return;
+  const reader = $("reader");
+  if (!reader) return;
+  const { applies, open } = state.panes;
+  if (!applies.includes("code")) return;
+  const showing = !reader.hidden;
+  if (showing === open.includes("code")) return;
+  let next = showing ? PANE_ORDER.filter((p) => p === "code" || open.includes(p)) : open.filter((p) => p !== "code");
+  if (next.length === 0) next = ["story"];
+  state.panes = { ...state.panes, open: next, remembered: next };
+  rememberPanes(state.route?.level, next);
+  applyPanes();
+  emit("panes", next);
+}
+
+function togglePane(pane) {
+  return setPaneOpen(pane, !state.panes.open.includes(pane));
+}
+
+// ---------------------------------------------------------------------------
+// Sections: every one folds from its heading; the folded set is remembered per repo and level
+// ---------------------------------------------------------------------------
+
+export function setSectionCollapsed(el, collapsed) {
+  if (!el) return;
+  const on = Boolean(collapsed);
+  el.classList.toggle("is-collapsed", on);
+  el.querySelector(":scope > .section__h .section__toggle")?.setAttribute("aria-expanded", on ? "false" : "true");
+  const id = el.dataset.section;
+  if (!id) return;
+  if (on) state.collapsed.add(id);
+  else state.collapsed.delete(id);
+  storage.set(STORAGE.sections(state.route?.repo, state.route?.level), Array.from(state.collapsed));
+}
+
+export function setAllSections(collapsed) {
+  for (const el of document.querySelectorAll("#story .section[data-section]")) setSectionCollapsed(el, collapsed);
+}
+
+function loadCollapsed(route) {
+  const stored = storage.get(STORAGE.sections(route?.repo, route?.level), []);
+  state.collapsed = new Set(Array.isArray(stored) ? stored.filter((x) => typeof x === "string") : []);
+}
+
+function wireSections() {
+  const story = $("story");
+  if (!story) return;
+  story.addEventListener("click", (ev) => {
+    const toggle = ev.target.closest?.(".section__toggle");
+    if (toggle) {
+      const sec = toggle.closest(".section");
+      if (sec) setSectionCollapsed(sec, !sec.classList.contains("is-collapsed"));
+      return;
+    }
+    const all = ev.target.closest?.("[data-sections]");
+    if (all) setAllSections(all.dataset.sections === "collapse");
+  });
 }
 
 /** Below this width the map sits behind a header button instead of beside the story (phones). */
@@ -902,20 +1095,19 @@ export function setMapOpen(open) {
   }
 }
 
-/** Levels whose map column *is* the page (the board, the workspace tiles) rather than a map beside it. */
-const MAP_IS_PAYLOAD = new Set(["tasks", "workspace"]);
-
 /**
  * One attribute on <main> says whether the map column is payload or optional; the phone CSS and the
- * Map button both key off it, so adding a level cannot leave the two disagreeing.
+ * Map button both key off it, and it comes from the same table the desktop panes use, so adding a
+ * level cannot leave the two disagreeing.
  */
 function syncMapToggle(route) {
   const level = route?.level ?? "";
+  const payload = paneSpec(level).map === "payload";
   const main = $("main");
-  if (main) main.dataset.map = MAP_IS_PAYLOAD.has(level) ? "payload" : "map";
+  if (main) main.dataset.map = payload ? "payload" : "map";
   const btn = $("map-toggle");
   if (!btn) return;
-  btn.hidden = level === "" || level === "home" || MAP_IS_PAYLOAD.has(level);
+  btn.hidden = level === "" || level === "home" || payload;
   // A new level starts story-first: the overlay never survives navigation.
   setMapOpen(false);
 }
@@ -924,15 +1116,27 @@ function wireHeader() {
   for (const btn of document.querySelectorAll("#lens .seg__btn")) {
     btn.addEventListener("click", () => setLens(btn.dataset.lens));
   }
-  $("dense")?.addEventListener("click", () => setDense(!state.dense));
+  for (const btn of document.querySelectorAll("#panes .seg__btn")) {
+    btn.addEventListener("click", () => {
+      if (btn.getAttribute("aria-disabled") === "true") return;
+      togglePane(btn.dataset.pane);
+    });
+  }
+  for (const rail of document.querySelectorAll(".pane-rail")) {
+    rail.addEventListener("click", () => setPaneOpen(rail.dataset.pane, true));
+  }
+  if (typeof matchMedia === "function") matchMedia(DESKTOP_QUERY).addEventListener?.("change", () => syncPanes(state.route));
   $("map-toggle")?.addEventListener("click", () => setMapOpen(!state.mapOpen));
   on("route", (route) => syncMapToggle(route));
   const reader = $("reader");
   if (reader && typeof MutationObserver === "function") {
     new MutationObserver(() => {
-      if (!isPhone()) return;
-      if (!reader.hidden && !state.mapOpen) setMapOpen(true);
-      else if (reader.hidden && state.mapOpen) setMapOpen(false);
+      if (isPhone()) {
+        if (!reader.hidden && !state.mapOpen) setMapOpen(true);
+        else if (reader.hidden && state.mapOpen) setMapOpen(false);
+        return;
+      }
+      onReaderVisibility();
     }).observe(reader, { attributes: true, attributeFilter: ["hidden"] });
   }
   $("search-trigger")?.addEventListener("click", () => openPalette());
@@ -1122,25 +1326,34 @@ export function skeleton() {
   return h("div", { class: "skeleton", "aria-hidden": "true" }, h("div", { class: "skeleton__bar" }), h("div", { class: "skeleton__bar" }), h("div", { class: "skeleton__bar" }));
 }
 
-/** Section wrapper used by every level: <section class="section" id="sec-<id>"><h2 class="section__h">…</h2>…</section> */
+/**
+ * Section wrapper used by every level: <section class="section" id="sec-<id>"><h2 class="section__h">
+ * <button class="section__toggle">…</button></h2>…</section>. The heading folds the section; a
+ * section whose id is in state.collapsed is built folded, so a skeleton never flashes it open.
+ */
 export function section(id, heading, ...children) {
-  return h("section", { class: "section", id: `sec-${id}`, dataset: { section: id } }, h("h2", { class: "section__h" }, heading), ...children);
+  const collapsed = state.collapsed?.has?.(id) ?? false;
+  const toggle = h(
+    "button",
+    { class: "section__toggle", type: "button", "aria-expanded": collapsed ? "false" : "true", title: "Collapse or expand this section" },
+    icon("chevron"),
+    h("span", { class: "section__label" }, heading),
+  );
+  return h("section", { class: `section${collapsed ? " is-collapsed" : ""}`, id: `sec-${id}`, dataset: { section: id } }, h("h2", { class: "section__h" }, toggle), ...children);
 }
 
 /**
- * render(route): the router target. Applies query state (lens, dense), fetches facts once,
+ * render(route): the router target. Applies query state (lens), fetches facts once,
  * then hands off to renderLevel(). The integrator replaces renderLevel's body with the real wiring.
  */
 export async function render(route) {
   const token = (state.renderToken += 1);
   state.route = route;
 
-  // Query-driven state: lens and dense (query wins, then localStorage).
+  // Query-driven state: the lens (query wins, then localStorage).
   const lens = LENSES.includes(route.query?.lens) ? route.query.lens : storage.get(STORAGE.lens, "structure");
   if (lens !== state.lens) setLens(lens, { silent: true });
   else setLens(state.lens, { silent: true });
-  const dense = route.query?.dense === "1" ? true : route.query?.dense === "0" ? false : Boolean(storage.get(STORAGE.dense, false));
-  if (dense !== state.dense) setDense(dense, { silent: true });
 
   if (!state.facts) {
     try {
@@ -1214,6 +1427,7 @@ export function ensureReader() {
   state.reader = createReader(container, {
     fetchJson: (url) => api(url),
     onNoteRequest: (prefill) => {
+      setPaneOpen("story", true);
       if (!focusNoteForm(prefill)) toast("There is no note form on this page.", { tone: "warn" });
     },
     editorScheme: state.facts?.editorScheme ?? "vscode://file",
@@ -1315,6 +1529,7 @@ function spotlightDeps(route) {
       if (r.level === "services" && r.query?.service) setQuery({ service: null });
     },
     onAddNote: () => {
+      setPaneOpen("story", true);
       if (!focusNoteForm()) toast("Open a file or an area to add a note there.", { tone: "warn" });
     },
   };
@@ -1464,9 +1679,11 @@ async function renderLevel(route, token) {
   syncTestsButton(route);
   syncGraphChrome(route);
 
-  // The board is the payload on /tasks and wants the wider column (F08).
   const main = $("main");
   if (main) main.dataset.level = route.level ?? "";
+  // Folded sections and open panes are per level; both are read before anything is drawn.
+  loadCollapsed(route);
+  syncPanes(route);
   renderCrumbs(crumbsFor(route));
   if (scope) renderSkeleton(sections, sectionHeadingsFor(scope, state.lens));
   else if (route.level === "flows") renderSkeleton(sections, ["Cloudflare handlers", "HTTP routes", "Program entry points"]);
@@ -1587,6 +1804,7 @@ async function renderGraphLevel(route, token, scope) {
     pinSpotlight(fileOf(route)); // spec §2 Level 3: the Spotlight is pinned automatically
     const name = symbolOf(route);
     if (name) openReader(route, { highlight: name });
+    else if (isDesktop() && state.panes.remembered.includes("code")) openReader(route);
   }
   return undefined;
 }
@@ -2401,6 +2619,16 @@ function wireKeyboard() {
       $("tb-fit")?.dispatchEvent(new CustomEvent("reggie:fit"));
     } else if (ev.key === "t" || ev.key === "T") {
       $("tb-tests")?.click();
+    } else if (ev.key === "s" || ev.key === "S") {
+      togglePane("story");
+    } else if (ev.key === "m" || ev.key === "M") {
+      togglePane("map");
+    } else if (ev.key === "c" || ev.key === "C") {
+      togglePane("code");
+    } else if (ev.key === "[") {
+      setAllSections(true);
+    } else if (ev.key === "]") {
+      setAllSections(false);
     } else if (LENS_KEYS[ev.key]) {
       // A lens the current level has switched off (see `syncGraphChrome`) is off for the keyboard
       // too, or `4` would leave the Heat button lit over a map that does not draw heat.
@@ -2439,9 +2667,11 @@ export async function boot() {
   adoptKeyFromUrl();
   checkRenderer();
   wireHeader();
+  wireSections();
   wirePalette();
   wireKeyboard();
   wireStoryLinks();
+  storage.remove("reggie.dense"); // Dense mode retired 2026-09-14; the pane toggles replace it
   const tests = currentRoute().query?.tests === "1";
   $("tb-tests")?.setAttribute("aria-pressed", tests ? "true" : "false");
   window.addEventListener("hashchange", () => render(currentRoute()));

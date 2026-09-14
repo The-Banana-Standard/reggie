@@ -1,0 +1,63 @@
+Browser pane against a server started from this worktree (port 4318). State read with javascript_tool;
+screenshots viewed at each step. Note for whoever repeats this: the desktop app's browser pane is not
+rendered while it is hidden, so ResizeObserver callbacks (the map's re-fit) only run when a frame is
+forced, e.g. by a screenshot; with frames forced every map re-fit below was correct.
+
+Repo overview, 1600x900
+  on load:            data-panes="story map", data-open="story map", rails all display:none, #pane-code hidden,
+                      no #dense element, 8 section toggles in #sections
+  Map toggle:         data-open="story", .map-col display none, #rail-map display flex at x=1562,
+                      story centred (left 495, width 571), #pane-map aria-pressed=false,
+                      #pane-story aria-disabled=true, localStorage reggie.panes.repo = ["story"]
+  rail-map click:     data-open="story map", map re-laid out top-to-bottom: nodes at y 107 and 760 in a
+                      1027x852 canvas, both inside
+  key s:              data-open="map", story display none, #rail-story flex, map column 1562 wide,
+                      #pane-map aria-disabled=true, stored ["map"]; the map re-ran dagre left-to-right,
+                      nodes at x 73 and 1432
+  reload:             data-open="map" restored; rail-story click brings the story back at width 571
+
+File page (packages/reggie/src/narrate.ts), 1600x900
+  on load:            data-panes="story map code", data-open="story map", #pane-code visible, aria-pressed=false,
+                      reader hidden, #rail-code display flex
+  Read the source:    data-open="story map code", reader visible as the drawer (height 341 under a 511 stage),
+                      handle display flex, stored ["story","map","code"], Code toggle pressed
+  key s:              data-open="map code", .map-col display grid with columns 780.5px 780.5px,
+                      reader height 852 and width 780, stage width 780, handle display none, cy width 781
+  keys s then m:      data-open="story code", .map-stage display none, reader height 852 (= column),
+                      handle none, #rail-map flex, reader body scrolls
+  keys m then c:      data-open="story map", reader hidden, #rail-code flex, stored ["story","map"]
+  rail-code click:    reader reopens on packages/reggie/src/narrate.ts, data-open="story map code",
+                      stored ["story","map","code"]
+  reload:             reader reopened on arrival, data-open="story map code", Code toggle pressed
+
+Sections (file page)
+  heading click:      section read-first gets is-collapsed, toggle aria-expanded="false", every child but the
+                      heading display none, localStorage reggie.sections.reggie.file = ["read-first"]
+  Collapse all:       all 8 sections is-collapsed; key ]: all expanded; key [: all collapsed;
+                      stored ["read-first","exports","used-by","uses","tests","tasks","history","add-note"]
+
+Add a note with the story collapsed (file page, all sections collapsed, key s)
+  Spotlight "Add a note": data-open="story map code", story display block, add-note section expanded,
+                      document.activeElement is the note form's TEXTAREA
+
+Tasks, 1600x900
+  on load:            data-panes="story map", #pane-map label "Board", #pane-code hidden, story 571, column 1028,
+                      sections needs-you and board-how
+  Story toggle:       data-open="map", column and board 1561 wide, #rail-story flex, rail label "Board",
+                      no horizontal overflow
+
+1000x800 (stacked), file page
+  no data-panes/data-open, #panes hidden, rails none, main flex-direction column, 8 section toggles;
+  the remembered code pane does not reopen (desktop only); key s changes nothing and writes nothing
+  (stored value unchanged); Read the source still opens the drawer with its handle
+
+390x844 (phone), repo overview
+  no pane attributes, #panes none, Map button shown, map column none, bottom tab bar flex, section toggles
+  present, no horizontal overflow; Map button -> overlay (position fixed, label "Close map"); close works
+
+Header at the flow level (four-deep breadcrumb)
+  1101: header scrollWidth <= clientWidth, no page overflow, #panes visible, story 571
+  1280: same, pane labels shown
+
+Dense: no #dense element; grep of ui/*.js ui/*.css ui/index.html for is-dense / setDense finds nothing
+except the one-time localStorage removal at boot.
