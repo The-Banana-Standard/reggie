@@ -8,16 +8,18 @@ Every container below exists on first paint and is never replaced, only filled.
 
 | id | What | Owner |
 |---|---|---|
-| `app` | Root wrapper; gets `is-dense` in Dense mode | app.js |
+| `app` | Root wrapper; gets `is-map-open` on a phone when the map overlay is up | app.js |
 | `header` | 48px header | app.js |
 | `crumbs` | Breadcrumb `<nav>`; rendered from `story.crumbs` (`renderCrumbs`) | app.js |
 | `nav` | Header navigation `<nav>`: Overview / Services / Data flow / Tasks for the current repo (`renderNav`); empty on the workspace level, hidden by CSS at ≤1100px where the header row is already full | app.js |
 | `search-trigger` | "Search ⌘K" button | app.js |
 | `lens` | Lens segmented control (`role=radiogroup`) | app.js |
 | `lens-structure`, `lens-knowledge`, `lens-tests`, `lens-heat`, `lens-owners` | Lens buttons (`data-lens`) | app.js |
-| `dense` | Dense toggle (`aria-pressed`) | app.js |
+| `panes` | Pane toggles, a `role="group"` of `pane-story`, `pane-map`, `pane-code` (`aria-pressed`; the last open one is `aria-disabled`; `pane-code` hidden where code does not apply; the map label reads Board or Repos where the column is the page); hidden below 1101px | app.js |
+| `rail-story`, `rail-map`, `rail-code` | Rails standing in for a collapsed pane, children of `main`; shown by CSS from `data-panes`/`data-open`; click reopens the pane | app.js |
+| `story-tools` | Collapse all / Expand all (`data-sections="collapse|expand"`) at the top of `story`; hidden while `sections` is a skeleton | app.js |
 | `repo-switcher`, `repo-select` | Repo switcher slot (hidden in single-repo mode) and its `<select>` | app.js |
-| `main` | Two-column grid; carries `data-level="<route level>"` (the board level widens the map column) | app.js |
+| `main` | Flex row of panes; carries `data-level="<route level>"`, `data-map="payload|map"` (phone), and on desktop `data-panes` (the panes this level has) and `data-open` (the expanded ones), both space-separated in the order `story map code` | app.js |
 | `story` | Story column | story.js / board.js |
 | `spotlight` | Spotlight slot above the sections | story.js |
 | `sections` | Story sections container (or the Needs-you queue on the board) | story.js / board.js |
@@ -41,7 +43,7 @@ Icons: `repo area file symbol task person note journal entry test stale external
 ## 2. Class names (`styles.css`)
 
 ### Layout
-- `.app`, `.app.is-dense` — Dense mode (story 25%, only the first paragraph/card of each section visible; hide extras with `.section__more`).
+- `.main[data-panes~=…][data-open~=…]` — the pane layout (desktop ≥1101px): the story is a flex share floored at `--story-min` and capped at its measure; the map column a share; a pane not in `data-open` is `display:none` and its `.pane-rail` shows; `data-open="map code"` turns the map column into a two-column grid; code without the map gives `.reader` the column at full height (`height: auto !important` over the drawer's inline height, handle hidden).
 - `.header`, `.header__tools`, `.kbd`.
 - `.main`, `.story`, `.map-col`, `.map-stage`, `.map-canvas`, `.map-footer`.
 - `.tabs`, `.tabs__tab`, `.tabs__tab.is-active`.
@@ -53,7 +55,7 @@ Icons: `repo area file symbol task person note journal entry test stale external
   edge. With a 0 floor the breadcrumb shrinks and ellipsises instead.
 
 ### Story
-- `.sections` (62ch measure), `.section` (`id="sec-<sectionId>"`, `data-section`), `.section__h` (17px/600 + 1px rule), `.section__more` (hidden in Dense).
+- `.sections` (62ch measure), `.section` (`id="sec-<sectionId>"`, `data-section`; `.is-collapsed` hides every child but the heading), `.section__h` (17px/600 + 1px rule) wrapping `.section__toggle` (a button with `aria-expanded` and a chevron), `.section__more` (a marker for content after the first paragraph).
 - Paragraph kinds — every paragraph element carries `data-refs="<id> <id>"` (space-separated graph node ids) and `data-para="<paragraphId>"`:
   - `.para.para--fact` — plain text.
   - `.para.para--gap` — amber left border.
@@ -132,7 +134,7 @@ in the hash and is written with `replaceState`, never `setQuery` — switching v
 - Completed: `.completed` > `.completed__list` > `.done-row` (`.is-open`) > `.done-row__head` (`.done-row__title`, `.done-row__chips`, `.done-row__toggle`) + `.done-row__detail` > `.done-detail__body`, which draws the verdict chips, `.packet__criteria` with `.evidence-link` (or `.evidence-missing` when the packet cites proof nobody saved), `.done-files` > `.done-file` > `.done-file__stat` (`.done-file__add` / `.done-file__del`), and `.done-journal`. `.completed__empty` is its empty state.
 
 ### Reader (shared shell; reader.css owns the rest)
-`.reader` on `#reader` (40% height, `hidden` when closed).
+`.reader` on `#reader` (a 40% drawer under the map, `hidden` when closed; a full-height pane when the map is collapsed, by the pane rules in styles.css).
 
 ## 3. Link markup and refs
 
@@ -143,11 +145,11 @@ in the hash and is written with `replaceState`, never `setQuery` — switching v
 ## 4. Module interfaces (ES modules, `.js`, no bundler)
 
 ### `app.js` (owner of routing, cache, links, toasts, POSTs, keyboard)
-Exports: `droppedSentence, h, mount, icon, $, esc, storage, parseRoute, formatRoute, routeForNode, currentRoute, navigate, setQuery, parentRoute, encodeId, api, invalidate, withRepo, errorCard, entityLink, kindForRoute, linkify, chip, chipFrom, stateChip, STATE_LABELS, GLOSSARY, CHIP_LABELS, LENSES, LENS_KEYS, toast, post, postCapture, postNote, postDecide, postJournal, state, on, emit, renderCrumbs, crumbsFor, setLens, setDense, rendererAvailable, rendererFailureCard, RENDERER_FAILURE_TEXT, storyParams, skeleton, section, render, openPalette, closePalette, recentRoutes, unwind, boot, ensureMap, ensureReader, mapUrlFor`.
+Exports: `droppedSentence, h, mount, icon, $, esc, storage, parseRoute, formatRoute, routeForNode, currentRoute, navigate, setQuery, parentRoute, encodeId, api, invalidate, withRepo, errorCard, entityLink, kindForRoute, linkify, chip, chipFrom, stateChip, STATE_LABELS, GLOSSARY, CHIP_LABELS, LENSES, LENS_KEYS, toast, post, postCapture, postNote, postDecide, postJournal, state, on, emit, renderCrumbs, crumbsFor, setLens, panesFor, setPaneOpen, setSectionCollapsed, setAllSections, rendererAvailable, rendererFailureCard, RENDERER_FAILURE_TEXT, storyParams, skeleton, section, render, openPalette, closePalette, recentRoutes, unwind, boot, ensureMap, ensureReader, mapUrlFor`.
 - `api(url, {fresh})` → JSON with a 10 s URL-keyed cache; throws `Error` with `.status`.
 - `post(url, body)` → JSON; same-origin fetch; invalidates the `/api/` cache.
 - `state.map` / `state.reader` are set by the integrator once `createMap` / `createReader` run; keyboard `F`, `T`, `1–5`, `Escape`, `Backspace` act through them.
-- Events (`on(event, fn)`): `route` (parsed route), `lens` (lens id), `dense` (bool), `tests` (bool), `escape` (return `true` to stop the unwind chain).
+- Events (`on(event, fn)`): `route` (parsed route), `lens` (lens id), `panes` (the open pane ids), `tests` (bool), `escape` (return `true` to stop the unwind chain).
 - `ensureMap()` / `ensureReader()` create the single `createMap(#cy)` / `createReader(#reader)` instance on first use and store it on `state.map` / `state.reader`; `mapUrlFor(route)` is the map endpoint for a level (null when the level draws no graph).
 - Level wiring (`renderLevel`, private): breadcrumb + `renderSkeleton` first, then `/api/story` and the level's map payload in parallel; file and symbol levels also pin `/api/explain` and add the "Read the source" button; `tasks` and `task` hand both columns to board.js. A symbol link inside `#sections` scrolls the reader instead of navigating (Level 4 is stretch).
 

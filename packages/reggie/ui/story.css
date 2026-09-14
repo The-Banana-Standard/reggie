@@ -126,7 +126,6 @@
 .spot__actions .btn:hover .i { color: var(--info); }
 
 /* Dense mode: the Spotlight keeps its four sentences but hides the crumbs. */
-.app.is-dense .spot__crumbs { display: none; }
 
 /* ---------- Spotlight: the file pairs behind an aggregated edge (app.js pinEdgeSpotlight) ---------- */
 .spot__via { list-style: none; margin: 0; padding: 0 0 0 10px; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-meta); }
@@ -135,4 +134,3 @@
 
 /* ---------- "Read the source" row above the file story (app.js addReaderButton) ---------- */
 .story__actions { margin: 0 0 var(--s-4); }
-.app.is-dense .story__actions { margin-bottom: var(--s-3); }

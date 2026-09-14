@@ -36,6 +36,7 @@ import {
   on as appOn,
   section as appSection,
   skeleton as appSkeleton,
+  setSectionCollapsed as appSetSectionCollapsed,
 } from "./app.js";
 
 // ---------------------------------------------------------------------------
@@ -770,7 +771,9 @@ export function focusNoteForm(prefill) {
   if (!form) return false;
   const text = form.querySelector("textarea");
   if (prefill && text) text.value = text.value ? `${text.value}\n${prefill}` : prefill;
-  form.closest(".section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const sec = form.closest(".section");
+  if (sec?.classList.contains("is-collapsed")) appSetSectionCollapsed(sec, false);
+  sec?.scrollIntoView({ behavior: "smooth", block: "start" });
   text?.focus({ preventScroll: true });
   return true;
 }

@@ -78,6 +78,10 @@
     <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M15 9V5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15H9"/>
     </symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-pane-story" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 6h16M4 10h16M4 14h11M4 18h8"/></symbol>
+    <symbol id="i-pane-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="10" cy="18" r="2.5"/><path d="M8.3 7.2l7.4 0.6M7.2 8.2l2 7.4M16.3 10l-4.6 6.4"/></symbol>
+    <symbol id="i-pane-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5M13 5l-2 14"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 5.5v13a1 1 0 0 0 1.53.85l10.2-6.5a1 1 0 0 0 0-1.7L8.53 4.65A1 1 0 0 0 7 5.5z"/></symbol>
     <symbol id="i-stop" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
     <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></symbol>
@@ -113,7 +117,11 @@
         <button id="lens-heat" class="seg__btn" type="button" role="radio" aria-checked="false" data-lens="heat" title="Colour = commits in 30 days (4)">Heat</button>
         <button id="lens-owners" class="seg__btn" type="button" role="radio" aria-checked="false" data-lens="owners" title="Colour = dominant author (5)">Owners</button>
       </div>
-      <button id="dense" class="btn btn--ghost" type="button" aria-pressed="false" aria-label="Dense mode" title="Dense: headings and first paragraphs only; map takes 75%">Dense</button>
+      <div id="panes" class="seg panes" role="group" aria-label="Panes" hidden>
+        <button id="pane-story" class="seg__btn is-active" type="button" data-pane="story" aria-pressed="true" title="Story (S)"><svg class="i"><use href="#i-pane-story"/></svg><span>Story</span></button>
+        <button id="pane-map" class="seg__btn is-active" type="button" data-pane="map" aria-pressed="true" title="Map (M)"><svg class="i"><use href="#i-pane-map"/></svg><span>Map</span></button>
+        <button id="pane-code" class="seg__btn" type="button" data-pane="code" aria-pressed="false" title="Code (C)" hidden><svg class="i"><use href="#i-pane-code"/></svg><span>Code</span></button>
+      </div>
       <div id="repo-switcher" class="repo-switcher" hidden>
         <label class="sr-only" for="repo-select">Repository</label>
         <select id="repo-select" class="select" aria-label="Repository"></select>
@@ -123,9 +131,15 @@
 
   <main id="main" class="main">
     <section id="story" class="story" aria-label="Story">
+      <div id="story-tools" class="story__tools" role="group" aria-label="Sections">
+        <button class="btn btn--ghost btn--small" type="button" data-sections="collapse" title="Collapse every section ([)">Collapse all</button>
+        <button class="btn btn--ghost btn--small" type="button" data-sections="expand" title="Expand every section (])">Expand all</button>
+      </div>
       <div id="spotlight" class="spotlight-slot"></div>
       <div id="sections" class="sections"></div>
     </section>
+    <!-- Rails stand in for collapsed panes (desktop only; styles.css shows them from data-panes/data-open). -->
+    <button id="rail-story" class="pane-rail" type="button" data-pane="story" aria-label="Show the story" title="Story (S)"><svg class="i"><use href="#i-chevron"/></svg><span class="pane-rail__label">Story</span></button>
 
     <section id="map-col" class="map-col" aria-label="Map">
       <!-- Sticky mini-breadcrumb (§3.1): only visible under 1100px, where the map stacks on top. -->
@@ -146,6 +160,8 @@
       </div>
       <div id="reader" class="reader" hidden></div>
     </section>
+    <button id="rail-map" class="pane-rail" type="button" data-pane="map" aria-label="Show the map" title="Map (M)"><svg class="i"><use href="#i-chevron"/></svg><span class="pane-rail__label">Map</span></button>
+    <button id="rail-code" class="pane-rail" type="button" data-pane="code" aria-label="Show the code" title="Code (C)"><svg class="i"><use href="#i-chevron"/></svg><span class="pane-rail__label">Code</span></button>
   </main>
 </div>
 
