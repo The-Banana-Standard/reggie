@@ -1,0 +1,30 @@
+# Criterion 7: mutation probe. Putting the previous CLAUDE.md back must make the new CI step fail.
+# Landing commit: fc7b95ecce07178014cbedd0da6caaa5b583732e   HEAD~1: f41cc2f5cf67f64f53b578e7e12379babea7607a
+# Captured 2026-09-15T23:37:41Z
+
+# $ git status --porcelain   (clean before the probe)
+[nothing above means clean]
+
+# $ git show HEAD~1:CLAUDE.md > CLAUDE.md   (restore the pre-refresh block)
+exit=0
+# the restored counts line:
+25:- Languages: Markdown 96, TypeScript 73, JSON 18, JavaScript 8, CSS 5. Files: 217.
+
+# $ node dist/cli.js docs check   (from packages/reggie)
+stale: CLAUDE.md
+fresh: AGENTS.md
+reggie: generated blocks are stale or missing; run `reggie docs refresh`
+exit=1
+
+# $ git checkout -- CLAUDE.md   (restore the refreshed block)
+exit=0
+# the restored counts line:
+25:- Languages: Markdown 96, TypeScript 78, JSON 18, JavaScript 8, CSS 5. Files: 223.
+
+# $ node dist/cli.js docs check   (from packages/reggie)
+fresh: CLAUDE.md
+fresh: AGENTS.md
+exit=0
+
+# $ git status --porcelain   (clean again after the probe)
+[nothing above means clean]

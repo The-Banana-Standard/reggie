@@ -1,0 +1,40 @@
+# Criteria 4 and 8: what the landing commit touches.
+# Captured 2026-09-15T23:38:35Z
+
+# $ git show --stat HEAD
+commit fc7b95ecce07178014cbedd0da6caaa5b583732e
+Author: jacobpress <jacob.press3@gmail.com>
+Date:   Tue Sep 15 19:36:39 2026 -0400
+
+    ci: run the generated-block check, on a tree the refresh just made clean
+    
+ .github/workflows/ci.yml | 4 ++++
+ AGENTS.md                | 6 +++---
+ CLAUDE.md                | 6 +++---
+ 3 files changed, 10 insertions(+), 6 deletions(-)
+
+# $ git show --name-only --format= HEAD
+.github/workflows/ci.yml
+AGENTS.md
+CLAUDE.md
+# three files, and no path under docs/, no README.md, no onboard.ts.
+
+# Criterion 8 checked mechanically over the whole branch so far:
+# $ git diff --name-only repo-manager...HEAD
+.github/workflows/ci.yml
+.reggie/journal/2026-09-15/jacobpress-session.md
+.reggie/notes/.github/workflows/ci.yml.md
+.reggie/notes/AGENTS.md.md
+.reggie/notes/CLAUDE.md.md
+.reggie/tasks/docs-check-in-ci/claim.md
+.reggie/tasks/docs-check-in-ci/evidence/ci-diff.txt
+.reggie/tasks/docs-check-in-ci/evidence/ci-steps.txt
+AGENTS.md
+CLAUDE.md
+
+# $ git diff --name-only repo-manager...HEAD | grep -E '^(docs/|packages/reggie/README.md|packages/reggie/src/onboard.ts)'
+grep exit=1  (1 = no match, which is what this criterion wants)
+
+# Every other path the branch touches is under .reggie/ — the task's own claim record, journal,
+# notes, evidence and packet. The fact collector ignores that folder, so none of it can move the
+# counts the generated block reports. One further commit follows this one and adds only .reggie paths.
