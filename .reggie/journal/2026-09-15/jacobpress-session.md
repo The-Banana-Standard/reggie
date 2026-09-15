@@ -89,3 +89,6 @@ Decision: approved.
 ### 18:00 · jacobpress · claude · journal-files-conflict-on-merge-a-claim-in-the-m · release
 Released the claim on this task.
 
+### 18:17 · jacobpress · claude · task-attribution-by-merge · claim
+Claimed the task and started a branch from repo-manager in a separate worktree.
+
