@@ -82,9 +82,11 @@ function snapshot(s: Setup): Record<string, unknown> {
     const content = fileAtRef(root, ref, packetRelPath(SLUG));
     return content === null ? null : parsePacketVerdict(content);
   };
+  // The branch is gone in some cases, and a snapshot must still describe the state rather than throw.
+  const rev = (ref: string) => git(["rev-parse", ref], { cwd: root, allowFailure: true }).stdout.trim() || "gone";
   return {
     main: out(root, ["rev-parse", "main"]),
-    branch: out(root, ["rev-parse", BRANCH]),
+    branch: rev(BRANCH),
     status: out(root, ["status", "--porcelain"]),
     worktreeStatus: existsSync(s.worktree) ? out(s.worktree, ["status", "--porcelain"]) : "gone",
     verdictMain: verdictAt("main"),
@@ -171,6 +173,46 @@ describe("landTask", () => {
     expect(() => landTask(s.paths, s.config, SLUG, { person: s.person })).toThrow(/its worktree has uncommitted changes/);
     expect(snapshot(s)).toEqual(before);
     expect(existsSync(s.worktree)).toBe(true);
+  });
+
+  it("refuses when the base holds untracked files the merge would overwrite, naming them", () => {
+    const s = setup();
+    // The branch adds src/auth/login.ts; the same path sits untracked on the base, as today's journal
+    // file does when the serving checkout wrote an entry and the claim committed one on the branch.
+    mkdirSync(path.join(s.repo.root, "src/auth"), { recursive: true });
+    writeFileSync(path.join(s.repo.root, "src/auth/login.ts"), "export const retries = 9;\n", "utf8");
+    const before = snapshot(s);
+    expect(() => landTask(s.paths, s.config, SLUG, { person: s.person })).toThrow(/untracked files that the merge would overwrite \(src\/auth\/login\.ts\)/);
+    expect(snapshot(s)).toEqual(before);
+    expect(existsSync(path.join(s.repo.root, ".git", "MERGE_HEAD"))).toBe(false);
+  });
+
+  it("approves a task whose branch was merged and released before anyone decided", () => {
+    const s = setup();
+    const root = s.repo.root;
+    git(["merge", "-q", "--no-ff", "-m", `merge: ${BRANCH} — by hand`, "-m", `Task: ${SLUG}`, BRANCH], { cwd: root });
+    const handMerge = out(root, ["rev-parse", "HEAD"]);
+    git(["worktree", "remove", "--force", s.worktree], { cwd: root });
+    git(["branch", "-D", BRANCH], { cwd: root });
+    expect(parsePacketVerdict(fileAtRef(root, "main", packetRelPath(SLUG)) ?? "")).toBe("pending");
+
+    const r = landTask(s.paths, s.config, SLUG, { person: s.person });
+    expect(r.alreadyLanded).toBe(true);
+    expect(r.merge).toBeNull();
+    expect(r.existingMerge).toBe(handMerge);
+    expect(out(root, ["rev-parse", "HEAD^"])).toBe(handMerge);
+    expect(out(root, ["log", "-1", "--format=%B"])).toContain(`Task: ${SLUG}`);
+    expect(out(root, ["show", `HEAD:${packetRelPath(SLUG)}`])).toMatch(/^verdict: approved$/m);
+    expect(getTask(s.paths, s.config, SLUG).state).toBe("done");
+  });
+
+  it("refuses when there is neither a branch nor a merge that landed the task", () => {
+    const s = setup();
+    git(["worktree", "remove", "--force", s.worktree], { cwd: s.repo.root });
+    git(["branch", "-D", BRANCH], { cwd: s.repo.root });
+    const before = snapshot(s);
+    expect(() => landTask(s.paths, s.config, SLUG, { person: s.person })).toThrow(/no local branch by that name, and no merge on main that landed it/);
+    expect(snapshot(s)).toEqual(before);
   });
 
   it("records the verdict without a second merge when the branch has already landed, and says so", () => {

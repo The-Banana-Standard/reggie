@@ -55,24 +55,36 @@ export function landTask(paths: RepoPaths, config: ReggieConfig, slug: string, i
   if (on !== base) refuse(`this checkout is on ${on}, not ${base}. Run it from the checkout that has ${base} checked out.`);
   const dirty = porcelain(root, ["--untracked-files=no"]);
   if (dirty.length > 0) refuse(`${base} has uncommitted changes (${dirty.join(", ")}). Commit or stash them first; an aborted merge cannot promise to restore them.`);
-  if (!git(["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: root, allowFailure: true }).ok) refuse("there is no local branch by that name.");
-  const worktree = path.join(root, ".worktree", slug);
-  if (existsSync(worktree)) {
-    const wip = porcelain(worktree, []);
-    if (wip.length > 0) refuse(`its worktree has uncommitted changes (${wip.join(", ")}). Commit them on the branch or discard them first.`);
-  }
-  const packetOnBranch = fileAtRef(root, branch, packetRelPath(slug));
-  if (packetOnBranch === null) return refuse(`it has no packet. Write one with \`reggie packet ${slug}\` and commit it on the branch.`);
 
-  const title = parsePlan(fileAtRef(root, branch, planRelPath(slug)) ?? readText(planFile(paths, slug)) ?? "").meta.title || slug;
+  // A task can be approved after its branch is gone, as long as a merge on the base landed it.
+  const hasBranch = git(["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: root, allowFailure: true }).ok;
+  const landedBy = taskLanding(root, slug, { base }).merge?.sha ?? null;
+  if (!hasBranch && !landedBy) refuse(`there is no local branch by that name, and no merge on ${base} that landed it.`);
+  if (hasBranch) {
+    const overwritten = untrackedAlsoOnBranch(root, branch);
+    if (overwritten.length > 0) {
+      refuse(`${base} has untracked files that the merge would overwrite (${overwritten.join(", ")}). Commit or remove them first; git refuses such a merge outright.`);
+    }
+    const worktree = path.join(root, ".worktree", slug);
+    if (existsSync(worktree)) {
+      const wip = porcelain(worktree, []);
+      if (wip.length > 0) refuse(`its worktree has uncommitted changes (${wip.join(", ")}). Commit them on the branch or discard them first.`);
+    }
+  }
+  const at = (ref: string | null, file: string): string | null => (ref === null ? null : fileAtRef(root, ref, file));
+  const branchRef = hasBranch ? branch : null;
+  const packetSource = at(branchRef, packetRelPath(slug)) ?? at(base, packetRelPath(slug)) ?? readText(packetFile(paths, slug));
+  if (packetSource === null) return refuse(`it has no packet. Write one with \`reggie packet ${slug}\` and commit it on the branch.`);
+
+  const title = parsePlan(at(branchRef, planRelPath(slug)) ?? at(base, planRelPath(slug)) ?? readText(planFile(paths, slug)) ?? "").meta.title || slug;
   const comment = input.comment?.trim() ?? "";
-  const alreadyLanded = git(["merge-base", "--is-ancestor", branch, base], { cwd: root, allowFailure: true }).ok;
+  const alreadyLanded = !hasBranch || git(["merge-base", "--is-ancestor", branch, base], { cwd: root, allowFailure: true }).ok;
   let existingMerge: string | null = null;
   let packet: string;
 
   if (alreadyLanded) {
-    existingMerge = taskLanding(root, slug, { base }).merge?.sha ?? null;
-    if (!existsSync(packetFile(paths, slug))) materializePacket(paths, slug, packetOnBranch);
+    existingMerge = landedBy;
+    if (!existsSync(packetFile(paths, slug))) materializePacket(paths, slug, packetSource);
     packet = recordApproval(paths, slug, input, `decide: ${slug} approved`, `Decision: approved. The task branch had already landed on ${base}.`);
   } else {
     const started = git(["-c", "commit.gpgsign=false", "merge", "--no-ff", "--no-commit", branch], { cwd: root, allowFailure: true });
@@ -112,6 +124,19 @@ export function landTask(paths: RepoPaths, config: ReggieConfig, slug: string, i
     git(["-c", "commit.gpgsign=false", "commit", "-q", ...message], { cwd: root });
     return file;
   }
+}
+
+/**
+ * Untracked files in the base checkout that the branch also carries. git refuses a merge that would
+ * overwrite one, so they are reported as a refusal rather than as a merge that failed for its own reasons.
+ * The common pair is today's journal file, written in the serving checkout and committed on the branch.
+ */
+function untrackedAlsoOnBranch(root: string, branch: string): string[] {
+  const status = git(["status", "--porcelain", "-z", "--untracked-files=all"], { cwd: root, allowFailure: true });
+  const candidates = status.stdout.split("\0").filter((entry) => entry.startsWith("?? ")).map((entry) => entry.slice(3));
+  if (candidates.length === 0) return [];
+  const onBranch = git(["ls-tree", "-r", "--name-only", "-z", branch, "--", ...candidates], { cwd: root, allowFailure: true });
+  return onBranch.stdout.split("\0").filter(Boolean);
 }
 
 function porcelain(cwd: string, extra: string[]): string[] {

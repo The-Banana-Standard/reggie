@@ -4,78 +4,76 @@ $ npx vitest run --reporter=verbose
 
  ✓ src/workspace.test.ts > parseWorkspaceDoc > reads the title and every ### block inside ## Repos, ignoring fences and later sections 1ms
  ✓ src/workspace.test.ts > parseWorkspaceDoc > reports a document without a ## Repos section 0ms
- ✓ src/flows.test.ts > brace and literal scanners > matches nested delimiters and splits top-level arguments 3ms
- ✓ src/flows.test.ts > brace and literal scanners > reads string literals and refuses an interpolated template 1ms
+ ✓ src/flows.test.ts > brace and literal scanners > matches nested delimiters and splits top-level arguments 1ms
+ ✓ src/flows.test.ts > brace and literal scanners > reads string literals and refuses an interpolated template 0ms
  ✓ src/flows.test.ts > brace and literal scanners > reads object literal keys, including quoted ones, and flags a spread 0ms
  ✓ src/flows.test.ts > routes derived from file paths > maps Cloudflare Pages Functions paths 0ms
  ✓ src/flows.test.ts > routes derived from file paths > maps Next app and pages routes 0ms
  ✓ src/workspace.test.ts > workspace on disk > discoverWorkspace keeps existing git repos and reports the rest 58ms
  ✓ src/workspace.test.ts > workspace on disk > discoverWorkspace returns null without a CLAUDE.md or without a ## Repos section 2ms
- ✓ src/workspace.test.ts > workspace on disk > autoDetectWorkspace finds the parent workspace that names the repo, and nothing otherwise 358ms
- ✓ src/history.test.ts > history > attributes commits and lines per file to two authors and computes busFactor 314ms
- ✓ src/tasks.test.ts > task state from git > parses intake lines with detail 387ms
- ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > finds the entry with its route and method 387ms
- ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > reads every wrangler binding with the line that declares it 418ms
- ✓ src/graph.test.ts > repo graph > resolves TypeScript and Rust edges and overlays notes and tasks 391ms
- ✓ src/history.test.ts > history > attributes a rename to the new path and keeps the old path's earlier history 441ms
- ✓ src/workspace.test.ts > workspace on disk > RepoRegistry resolves repos by name and describes the workspace 49ms
- ✓ src/workspace.test.ts > workspace on disk > cached values are rebuilt when HEAD moves or the TTL expires 483ms
- ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > keeps a # inside a quoted value out of the comment stripper 385ms
- ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > walks the whole chain, in order, without truncating 399ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > builds repo and dir nodes for every directory on a code path, with parent links, manifests and labels 492ms
- ✓ src/workspace.test.ts > workspace on disk > codeInventory counts programming-language files only and flags tests 34ms
- ✓ src/workspace.test.ts > workspace on disk > knowledgeCoverage counts own, inherited and stale notes over source files 181ms
- ✓ src/history.test.ts > history > rolls up directories without double counting and gives the repo every commit 492ms
- ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > classifies KV, D1 and R2 operations from the method called 472ms
- ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > takes the request payload from the destructured body, marked exact 517ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > assigns areas: nearest manifest directory, else the top-level directory 513ms
- ✓ src/history.test.ts > history > lists the last eight commits per path with task slugs from trailers and subjects 344ms
- ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > attaches SQL operations to the table the statement names 329ms
- ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > takes an object literal at the call site as exact keys 334ms
- ✓ src/robustness.test.ts > integration branch detection > uses a lone non-main branch and never a task branch 1771ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > classifies roles and retypes imports from tests and fixtures as tests edges with testedBy 354ms
- ✓ src/history.test.ts > history > counts commits per day as a dense series 350ms
- ✓ src/workspace.test.ts > workspace on disk > workspaceSummary matches the /api/workspace contract 735ms
- ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > makes tables from migrations, and never from a SQL comment 295ms
- ✓ src/robustness.test.ts > integration branch detection > throws instead of guessing when only task branches remain 177ms
- ✓ src/robustness.test.ts > path safety > refuses note entities and slugs that escape the repo 78ms
- ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > falls back to parameter names, marked heuristic, when the call site is positional 289ms
- ✓ test/serve.test.ts > static files > serves ui/index.html at / 10ms
- ✓ test/serve.test.ts > static files > serves ui files and refuses traversal 6ms
+ ✓ src/workspace.test.ts > workspace on disk > autoDetectWorkspace finds the parent workspace that names the repo, and nothing otherwise 311ms
+ ✓ src/history.test.ts > history > attributes commits and lines per file to two authors and computes busFactor 389ms
+ ✓ src/tasks.test.ts > task state from git > parses intake lines with detail 411ms
+ ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > finds the entry with its route and method 415ms
+ ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > reads every wrangler binding with the line that declares it 403ms
+ ✓ src/graph.test.ts > repo graph > resolves TypeScript and Rust edges and overlays notes and tasks 425ms
+ ✓ src/history.test.ts > history > attributes a rename to the new path and keeps the old path's earlier history 402ms
+ ✓ src/workspace.test.ts > workspace on disk > RepoRegistry resolves repos by name and describes the workspace 37ms
+ ✓ src/workspace.test.ts > workspace on disk > cached values are rebuilt when HEAD moves or the TTL expires 489ms
+ ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > walks the whole chain, in order, without truncating 426ms
+ ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > keeps a # inside a quoted value out of the comment stripper 444ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > builds repo and dir nodes for every directory on a code path, with parent links, manifests and labels 578ms
+ ✓ src/workspace.test.ts > workspace on disk > codeInventory counts programming-language files only and flags tests 37ms
+ ✓ src/workspace.test.ts > workspace on disk > knowledgeCoverage counts own, inherited and stale notes over source files 184ms
+ ✓ src/history.test.ts > history > rolls up directories without double counting and gives the repo every commit 489ms
+ ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > takes the request payload from the destructured body, marked exact 449ms
+ ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > classifies KV, D1 and R2 operations from the method called 450ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > assigns areas: nearest manifest directory, else the top-level directory 422ms
+ ✓ src/history.test.ts > history > lists the last eight commits per path with task slugs from trailers and subjects 353ms
+ ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > attaches SQL operations to the table the statement names 356ms
+ ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > takes an object literal at the call site as exact keys 362ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > classifies roles and retypes imports from tests and fixtures as tests edges with testedBy 358ms
+ ✓ src/history.test.ts > history > counts commits per day as a dense series 324ms
+ ✓ src/workspace.test.ts > workspace on disk > workspaceSummary matches the /api/workspace contract 770ms
+ ✓ src/robustness.test.ts > integration branch detection > uses a lone non-main branch and never a task branch 1945ms
+ ✓ test/serve.test.ts > static files > serves ui/index.html at / 9ms
+ ✓ test/serve.test.ts > static files > serves ui files and refuses traversal 8ms
  ✓ test/serve.test.ts > static files > 404s an un-whitelisted vendor name 1ms
  ✓ test/serve.test.ts > static files > serves a whitelisted vendor file with an immutable cache header 4ms
- ✓ test/serve.test.ts > GET /api/facts and /api/status > returns facts with branch, headSha, root, workspace and editorScheme 38ms
- ✓ src/robustness.test.ts > path safety > keeps a file note where it was even if a folder of the same name appears later 103ms
- ✓ src/robustness.test.ts > parsers > accepts loose intake lines and ignores indented examples 1ms
- ✓ src/robustness.test.ts > parsers > splits front matter only on exact fences and survives CRLF 0ms
- ✓ src/robustness.test.ts > parsers > upserts front matter fields and creates the block when missing 0ms
- ✓ src/robustness.test.ts > parsers > escapes note and journal bodies that look like headers or trailers 121ms
- ✓ src/workspace.test.ts > workspace on disk > single-repo mode has one repo and no edges 183ms
+ ✓ test/serve.test.ts > GET /api/facts and /api/status > returns facts with branch, headSha, root, workspace and editorScheme 45ms
+ ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > falls back to parameter names, marked heuristic, when the call site is positional 293ms
+ ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > makes tables from migrations, and never from a SQL comment 286ms
+ ✓ src/robustness.test.ts > integration branch detection > throws instead of guessing when only task branches remain 254ms
+ ✓ src/workspace.test.ts > workspace on disk > single-repo mode has one repo and no edges 198ms
  ✓ src/workspace.test.ts > workspace on disk > an empty registry summarizes to nothing 0ms
  ✓ src/workspace.test.ts > manifests and remotes > parseCargoToml reads names, dependencies (with renames and tables) and workspace members 1ms
- ✓ src/workspace.test.ts > manifests and remotes > manifestInfo joins the root manifests with one level of workspace members 7ms
+ ✓ src/workspace.test.ts > manifests and remotes > manifestInfo joins the root manifests with one level of workspace members 5ms
  ✓ src/workspace.test.ts > manifests and remotes > parseRemoteUrl handles scp, ssh and https forms 0ms
  ✓ src/workspace.test.ts > taskAge > uses lastActivity, then the intake date, else null 0ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > carries named imports on edges and marks type-only edges 303ms
- ✓ src/robustness.test.ts > parsers > dedupes folder notes in the read chain 158ms
- ✓ src/history.test.ts > history > caps the dense day series so a caller cannot ask for an unbounded allocation 239ms
- ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > reports a used-but-undeclared secret as the headline, distinct from a declared var 230ms
- ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > yields a real null when the signature gives nothing 235ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > carries named imports on edges and marks type-only edges 302ms
+ ✓ src/robustness.test.ts > path safety > refuses note entities and slugs that escape the repo 147ms
+ ✓ src/history.test.ts > history > caps the dense day series so a caller cannot ask for an unbounded allocation 304ms
  ✓ src/views.test.ts > chooseAreas > promotes the manifest directory first and keeps the rest in path order 1ms
  ✓ src/views.test.ts > chooseAreas > keeps an oversized candidate whole when fewer than two grandchildren qualify 0ms
  ✓ src/views.test.ts > chooseAreas > folds a candidate under minFiles into the parent's loose set 0ms
- ✓ src/views.test.ts > chooseAreas > splits one level deeper and leaves a recomputed residual 407ms
- ✓ test/serve.test.ts > GET /api/facts and /api/status > answers the first poll before the work is done, then ticks each source off 753ms
+ ✓ src/views.test.ts > chooseAreas > splits one level deeper and leaves a recomputed residual 408ms
+ ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > yields a real null when the signature gives nothing 330ms
+ ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > reports a used-but-undeclared secret as the headline, distinct from a declared var 336ms
+ ✓ src/robustness.test.ts > path safety > keeps a file note where it was even if a folder of the same name appears later 158ms
+ ✓ src/robustness.test.ts > parsers > accepts loose intake lines and ignores indented examples 0ms
+ ✓ src/robustness.test.ts > parsers > splits front matter only on exact fences and survives CRLF 0ms
+ ✓ src/robustness.test.ts > parsers > upserts front matter fields and creates the block when missing 0ms
+ ✓ src/robustness.test.ts > parsers > escapes note and journal bodies that look like headers or trailers 124ms
+ ✓ test/serve.test.ts > GET /api/facts and /api/status > answers the first poll before the work is done, then ticks each source off 715ms
  ✓ test/serve.test.ts > GET /api/facts and /api/status > 404s an unknown ?repo 0ms
- ✓ test/serve.test.ts > GET /api/graph > keeps the flat compatibility payload with no parameters 3ms
+ ✓ test/serve.test.ts > GET /api/graph > keeps the flat compatibility payload with no parameters 2ms
  ✓ test/serve.test.ts > GET /api/graph > returns a container ViewGraph for level=container 2ms
  ✓ test/serve.test.ts > GET /api/graph > returns a dir ViewGraph with ghosts for level=dir 3ms
- ✓ test/serve.test.ts > GET /api/graph > draws tests when tests=1 4ms
+ ✓ test/serve.test.ts > GET /api/graph > draws tests when tests=1 2ms
  ✓ test/serve.test.ts > GET /api/graph > 404s an unknown dir and 400s an unknown level 1ms
  ✓ test/serve.test.ts > GET /api/graph > gives every drawable node the history the Heat lens colours by 1ms
  ✓ test/serve.test.ts > GET /api/graph > names the dominant file behind an aggregated edge under both `top` and `mostly` 1ms
- ✓ src/robustness.test.ts > parsers > targets the last generated block when prose quotes the markers 0ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > links invoke("x") to the file defining #[tauri::command] fn x and resolves the lib crate 369ms
+ ✓ src/robustness.test.ts > parsers > dedupes folder notes in the read chain 153ms
  ✓ src/story.test.ts > numbers, dates and ages > writes 0 as 'no', 1–9 as words and 10 and up as digits 1ms
  ✓ src/story.test.ts > numbers, dates and ages > agrees number and noun 0ms
  ✓ src/story.test.ts > numbers, dates and ages > counts repetitions as once / twice / N times 0ms
@@ -83,104 +81,104 @@ $ npx vitest run --reporter=verbose
  ✓ src/story.test.ts > numbers, dates and ages > writes ages in days 0ms
  ✓ src/story.test.ts > routeFor > maps every id kind to the route in spec §2 0ms
  ✓ src/story.test.ts > routeFor > appends the query string and escapes what would break the hash 0ms
- ✓ src/story.test.ts > repoStory on the fixture repo > emits every section id from the contract, in order 289ms
- ✓ src/history.test.ts > history > rolls history up over an arbitrary file set, counting each commit once 393ms
- ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > groups an outbound fetch by hostname 377ms
- ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > captures the response payload and the binding writes 357ms
- ✓ src/views.test.ts > chooseAreas > does not split when the split would yield one qualifying grandchild 335ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > marks entry points from facts and the boundary detectors 436ms
- ✓ src/history.test.ts > history > marks a node git has never seen with null counts, not zeros 343ms
- ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > lists a declared binding nothing touches under unused 361ms
- ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > accepts §1's own ServiceNode shape for the declared-service join 355ms
- ✓ src/story.test.ts > repoStory on the fixture repo > keeps every paragraph and every link well formed 6ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > emits every section id from the contract, in order 312ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > links invoke("x") to the file defining #[tauri::command] fn x and resolves the lib crate 446ms
+ ✓ src/history.test.ts > history > rolls history up over an arbitrary file set, counting each commit once 413ms
+ ✓ src/views.test.ts > chooseAreas > does not split when the split would yield one qualifying grandchild 393ms
+ ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > groups an outbound fetch by hostname 389ms
+ ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > captures the response payload and the binding writes 383ms
+ ✓ src/robustness.test.ts > parsers > targets the last generated block when prose quotes the markers 0ms
+ ✓ src/history.test.ts > history > marks a node git has never seen with null counts, not zeros 346ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > marks entry points from facts and the boundary detectors 419ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > keeps every paragraph and every link well formed 5ms
  ✓ src/story.test.ts > repoStory on the fixture repo > puts the awaiting-decision task in Needs you with a decision block 1ms
  ✓ src/story.test.ts > repoStory on the fixture repo > describes each area with counts, notes, heat and its island status 0ms
- ✓ src/story.test.ts > repoStory on the fixture repo > keeps the 'mostly for' count inside the total the sentence gives 577ms
- ✓ src/views.test.ts > chooseAreas > pins the areas from config for the repo root 482ms
- ✓ src/tasks.test.ts > task state from git > walks a task through every state 2678ms
- ✓ src/robustness.test.ts > packets, claims, and releases > does not overwrite a decided packet and records verdicts on malformed packets 763ms
- ✓ src/land.test.ts > landTask > merges an approved task with the verdict inside the merge commit, releases it, and pushes nothing 1658ms
- ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > gives every node and edge a source and a confidence 410ms
- ✓ src/history.test.ts > history > joins authors to people.yaml handles and falls back to handleFor 451ms
- ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > uses a declared service kind over the guess when §1 supplies one 438ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > joins notes: own, inherited, stale, byType, dates and confidence 451ms
- ✓ test/serve.test.ts > numeric query parameters are bounded > refuses an out-of-range or non-numeric days on every route that takes one 1389ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > keeps the 'mostly for' count inside the total the sentence gives 560ms
+ ✓ src/views.test.ts > chooseAreas > pins the areas from config for the repo root 408ms
+ ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > lists a declared binding nothing touches under unused 380ms
+ ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > accepts §1's own ServiceNode shape for the declared-service join 394ms
+ ✓ src/tasks.test.ts > task state from git > walks a task through every state 2712ms
+ ✓ src/history.test.ts > history > joins authors to people.yaml handles and falls back to handleFor 429ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > joins notes: own, inherited, stale, byType, dates and confidence 441ms
+ ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > uses a declared service kind over the guess when §1 supplies one 419ms
+ ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > gives every node and edge a source and a confidence 399ms
+ ✓ test/serve.test.ts > numeric query parameters are bounded > refuses an out-of-range or non-numeric days on every route that takes one 1550ms
  ✓ src/views.test.ts > chooseAreas > returns nothing for an unknown root 0ms
- ✓ src/views.test.ts > chooseAreas > rolls git history up onto residual and config-pinned areas 12ms
- ✓ src/views.test.ts > chooseAreas > gives every drawable node of the container and dir views a history the Heat lens can read 15ms
- ✓ src/views.test.ts > chooseAreas > hands out hues by size rank and labels the residual area 401ms
+ ✓ src/views.test.ts > chooseAreas > rolls git history up onto residual and config-pinned areas 13ms
+ ✓ src/views.test.ts > chooseAreas > gives every drawable node of the container and dir views a history the Heat lens can read 14ms
+ ✓ src/views.test.ts > chooseAreas > hands out hues by size rank and labels the residual area 506ms
+ ✓ src/land.test.ts > landTask > merges an approved task with the verdict inside the merge commit, releases it, and pushes nothing 1723ms
+ ✓ src/robustness.test.ts > packets, claims, and releases > does not overwrite a decided packet and records verdicts on malformed packets 820ms
  ✓ src/story.test.ts > repoStory on the fixture repo > lists the three fixture tasks grouped by state, in process first 0ms
  ✓ src/story.test.ts > repoStory on the fixture repo > quotes the journal verbatim with attribution chips 0ms
  ✓ src/story.test.ts > repoStory on the fixture repo > names the stale note and the undocumented area in Gaps 0ms
  ✓ src/story.test.ts > repoStory on the fixture repo > uses the repo name in the header and carries no subtitle 0ms
- ✓ src/story.test.ts > repoStory on the fixture repo > shows the repo note's why entries as prose under About this repo and its other entries under How to run it 0ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > shows the repo note's why entries as prose under About this repo and its other entries under How to run it 1ms
  ✓ src/story.test.ts > areaStory > emits every section id from the contract 2ms
- ✓ src/story.test.ts > areaStory > adds a gaps section under the knowledge lens 59ms
+ ✓ src/story.test.ts > areaStory > adds a gaps section under the knowledge lens 69ms
  ✓ src/story.test.ts > areaStory > reads the note chain first and flags the stale folder note 0ms
- ✓ src/story.test.ts > areaStory > names the most relied-on file and keeps the links parseable 2ms
+ ✓ src/story.test.ts > areaStory > names the most relied-on file and keeps the links parseable 3ms
  ✓ src/story.test.ts > areaStory > returns null for a path that is not a directory in the graph 0ms
- ✓ src/story.test.ts > fileStory > emits every section id from the contract 2ms
- ✓ src/story.test.ts > fileStory > lists the most-used exports first, so the cap cannot bury them 505ms
- ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > keeps test files as viaTest edges and out of the primary counts 353ms
- ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > every step carries a source file and line 355ms
- ✓ src/tasks.test.ts > task state from git > refuses to take over another person's branch 626ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > turns entity notes into nodes with annotates edges to the files and folders they cite 414ms
- ✓ src/history.test.ts > history > feeds staleness through the lastTouched map with no per-note git calls 436ms
- ✓ src/story.test.ts > fileStory > lists exports with their usage counts when a reader is available 0ms
+ ✓ src/story.test.ts > fileStory > emits every section id from the contract 3ms
+ ✓ src/story.test.ts > fileStory > lists the most-used exports first, so the cap cannot bury them 591ms
+ ✓ src/tasks.test.ts > task state from git > refuses to take over another person's branch 706ms
+ ✓ src/story.test.ts > fileStory > lists exports with their usage counts when a reader is available 1ms
  ✓ src/story.test.ts > fileStory > leaves exports empty, with its empty text, when no reader was passed in 67ms
  ✓ src/story.test.ts > fileStory > says exactly 'No test imports this file.' when nothing tests it 1ms
  ✓ src/story.test.ts > fileStory > names the test that imports a covered file 0ms
  ✓ src/story.test.ts > fileStory > groups importers by area and lists external packages 1ms
- ✓ src/story.test.ts > fileStory > always offers the note form, and adds gaps under the knowledge lens 59ms
- ✓ src/views.test.ts > chooseAreas > gives seven areas seven distinguishable hues 406ms
+ ✓ src/story.test.ts > fileStory > always offers the note form, and adds gaps under the knowledge lens 60ms
+ ✓ src/history.test.ts > history > feeds staleness through the lastTouched map with no per-note git calls 499ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > turns entity notes into nodes with annotates edges to the files and folders they cite 458ms
+ ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > keeps test files as viaTest edges and out of the primary counts 432ms
+ ✓ src/flows.test.ts > a Cloudflare handler traced to its sinks > every step carries a source file and line 410ms
+ ✓ src/views.test.ts > chooseAreas > gives seven areas seven distinguishable hues 424ms
  ✓ src/story.test.ts > fileStory > returns null for an unknown path 0ms
  ✓ src/story.test.ts > taskStory > emits every section id from the contract, in order 1ms
  ✓ src/story.test.ts > taskStory > states the state, its definition and the git reason 0ms
  ✓ src/story.test.ts > taskStory > links the planned files and calls out the collision with the other plan 0ms
- ✓ src/story.test.ts > taskStory > explains an ungroomed task from what was written, instead of ten empty plan sections 170ms
- ✓ test/serve.test.ts > numeric query parameters are bounded > bounds depth, limit and the journal window 38ms
- ✓ test/serve.test.ts > numeric query parameters are bounded > keeps the day series the size the query asked for 2ms
+ ✓ src/story.test.ts > taskStory > explains an ungroomed task from what was written, instead of ten empty plan sections 203ms
+ ✓ test/serve.test.ts > numeric query parameters are bounded > bounds depth, limit and the journal window 35ms
+ ✓ test/serve.test.ts > numeric query parameters are bounded > keeps the day series the size the query asked for 1ms
  ✓ test/serve.test.ts > GET /api/impact > returns hops and sides for a file id 1ms
  ✓ test/serve.test.ts > GET /api/impact > answers a file::symbol id with the file's impact 1ms
  ✓ test/serve.test.ts > GET /api/impact > 400s a traversal id and 404s an unknown file 1ms
- ✓ src/tasks.test.ts > state machine and task detail > describes every state and transition in TASK_STATES order 313ms
- ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > invents nothing from a comment, a fixture, or a look-alike variable 350ms
- ✓ src/flows.test.ts > a request body bound to a name > reads the fields off the property reads, still exact 341ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > builds task nodes with state, risk, owner and age, and touches edges that target dir nodes for folders 381ms
- ✓ src/context.test.ts > buildContext > puts the brief above the plan block and lists its open questions 737ms
- ✓ src/land.test.ts > landTask > aborts a conflicting merge and leaves both branches, the tree and the verdicts as they were 1949ms
- ✓ src/history.test.ts > history > caches on disk under .reggie/.cache keyed by HEAD sha and reuses it 488ms
+ ✓ src/tasks.test.ts > state machine and task detail > describes every state and transition in TASK_STATES order 366ms
+ ✓ src/context.test.ts > buildContext > puts the brief above the plan block and lists its open questions 725ms
+ ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > invents nothing from a comment, a fixture, or a look-alike variable 372ms
+ ✓ src/flows.test.ts > a request body bound to a name > reads the fields off the property reads, still exact 381ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > builds task nodes with state, risk, owner and age, and touches edges that target dir nodes for folders 423ms
  ✓ src/views.test.ts > containerView > draws the level-1 areas and the traffic between them 1ms
  ✓ src/views.test.ts > containerView > aggregates IPC on its own channel with the distinct command names 0ms
- ✓ src/views.test.ts > containerView > counts one aggregated edge per ordered pair and kind, with via behind it 359ms
- ✓ src/tasks.test.ts > state machine and task detail > computes ages from ISO dates and intake metadata 270ms
- ✓ src/flows.test.ts > TypeScript signatures > resolves a parameter type one level into an interface, and an annotated return type 310ms
- ✓ src/context.test.ts > buildContext > reads the brief's suspected paths into the files in scope 323ms
- ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > counts entity notes about a service 476ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > aggregates directories in one post-order pass 352ms
- ✓ test/serve.test.ts > GET /api/impact > returns a task blast radius with centres and collisions 491ms
- ✓ src/views.test.ts > containerView > reports cycles between areas and flags the edges in them 364ms
- ✓ src/context.test.ts > buildContext > says nothing about a brief when there is none 281ms
- ✓ src/history.test.ts > history > ignores a cache written before merges carried parents and rewrites it at version 2 473ms
- ✓ src/flows.test.ts > TypeScript signatures > prefers JSDoc over parameter names in plain JavaScript 400ms
- ✓ src/tasks.test.ts > state machine and task detail > parses plan file operations and packet checklists 409ms
- ✓ src/robustness.test.ts > packets, claims, and releases > records the claimant explicitly and refuses takeovers and unsafe releases 1510ms
- ✓ src/story.test.ts > taskStory > tells a groomed task's story from its brief 884ms
- ✓ src/services.test.ts > detectServices §1: wrangler.jsonc, firebase and the SDK catalogue > reads the same bindings out of wrangler.jsonc, comments and all 390ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > attaches git history to files and directory aggregates 477ms
+ ✓ src/views.test.ts > containerView > counts one aggregated edge per ordered pair and kind, with via behind it 320ms
+ ✓ src/history.test.ts > history > caches on disk under .reggie/.cache keyed by HEAD sha and reuses it 513ms
+ ✓ src/context.test.ts > buildContext > reads the brief's suspected paths into the files in scope 292ms
+ ✓ src/tasks.test.ts > state machine and task detail > computes ages from ISO dates and intake metadata 319ms
+ ✓ src/flows.test.ts > TypeScript signatures > resolves a parameter type one level into an interface, and an annotated return type 325ms
+ ✓ src/land.test.ts > landTask > aborts a conflicting merge and leaves both branches, the tree and the verdicts as they were 2261ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > aggregates directories in one post-order pass 402ms
+ ✓ src/views.test.ts > containerView > reports cycles between areas and flags the edges in them 401ms
+ ✓ src/services.test.ts > detectServices §1: a Cloudflare worker repo > counts entity notes about a service 465ms
+ ✓ test/serve.test.ts > GET /api/impact > returns a task blast radius with centres and collisions 542ms
+ ✓ src/context.test.ts > buildContext > says nothing about a brief when there is none 323ms
+ ✓ src/history.test.ts > history > ignores a cache written before merges carried parents and rewrites it at version 2 413ms
+ ✓ src/tasks.test.ts > state machine and task detail > parses plan file operations and packet checklists 356ms
+ ✓ src/story.test.ts > taskStory > tells a groomed task's story from its brief 903ms
+ ✓ src/flows.test.ts > TypeScript signatures > prefers JSDoc over parameter names in plain JavaScript 387ms
+ ✓ src/services.test.ts > detectServices §1: wrangler.jsonc, firebase and the SDK catalogue > reads the same bindings out of wrangler.jsonc, comments and all 394ms
  ✓ src/views.test.ts > containerView > never emits a test edge 0ms
- ✓ src/views.test.ts > containerView > counts a test file's cross-area import into the import weight instead of dropping it 347ms
+ ✓ src/views.test.ts > containerView > counts a test file's cross-area import into the import weight instead of dropping it 380ms
  ✓ src/legacy.test.ts > extractTags > takes the tags it knows and leaves the prose alone 1ms
  ✓ src/legacy.test.ts > extractTags > leaves a Markdown link and an unknown bracket group in the text 0ms
  ✓ src/legacy.test.ts > extractTags > does not eat a bracket group whose label happens to be a tag word, when it is a link 0ms
  ✓ src/legacy.test.ts > extractTags > leaves a tag word alone inside a code span, where it is the subject, not the metadata 0ms
  ✓ src/legacy.test.ts > extractTags > handles several code spans and a doubled backtick fence 0ms
- ✓ src/legacy.test.ts > extractTags > survives an unclosed bracket 1ms
+ ✓ src/legacy.test.ts > extractTags > survives an unclosed bracket 0ms
  ✓ src/legacy.test.ts > extractTags > reads dependency and conflict lists, dropping anything that is not a slug 0ms
  ✓ src/legacy.test.ts > parseFileList > reads paths and operations, including the counted and uncertain spellings 0ms
- ✓ src/legacy.test.ts > parseFileList > maps the older operation words and keeps READ as no operation 1ms
- ✓ src/legacy.test.ts > parseLegacyBacklog > finds every checkbox line 1ms
- ✓ src/legacy.test.ts > parseLegacyBacklog > records the heading trail and the section note 1ms
+ ✓ src/legacy.test.ts > parseFileList > maps the older operation words and keeps READ as no operation 0ms
+ ✓ src/legacy.test.ts > parseLegacyBacklog > finds every checkbox line 0ms
+ ✓ src/legacy.test.ts > parseLegacyBacklog > records the heading trail and the section note 0ms
  ✓ src/legacy.test.ts > parseLegacyBacklog > marks an item under an Ungroomed heading, however deep 0ms
  ✓ src/legacy.test.ts > parseLegacyBacklog > attaches the files line to the item above it 0ms
  ✓ src/legacy.test.ts > parseLegacyBacklog > reads the completion date out of a DONE marker 0ms
@@ -188,43 +186,46 @@ $ npx vitest run --reporter=verbose
  ✓ src/legacy.test.ts > parseLegacyBacklog > reads a history file's colon-less lines, and its trailing date 0ms
  ✓ src/legacy.test.ts > parseLegacyBacklog > does not read an ordinary sentence's first word as a slug 0ms
  ✓ src/legacy.test.ts > parseLegacyBacklog > ignores a heading, a quote and a bare bullet with no checkbox 0ms
- ✓ src/legacy.test.ts > readLegacy > reads TASKS.md and HISTORY.md together and keeps one entry per slug 128ms
- ✓ src/flows.test.ts > other entry kinds > finds Express and Hono routes, a Worker default export, a CLI command and an MCP tool 368ms
- ✓ src/story.test.ts > taskStory > keeps every paragraph and link well formed for an in-process task 277ms
- ✓ src/history.test.ts > history > re-derives the day windows when the reference instant moves without re-reading git 415ms
- ✓ src/tasks.test.ts > state machine and task detail > returns null for an unknown slug and throws on an unsafe one 489ms
- ✓ src/legacy.test.ts > readLegacy > picks up per-slug plans from an old pipeline folder 122ms
- ✓ src/story.test.ts > taskStory > returns null for an unknown slug 103ms
- ✓ src/services.test.ts > detectServices §1: wrangler.jsonc, firebase and the SDK catalogue > declares a service from a catalogued dependency and ties it to the file that constructs it 363ms
- ✓ src/land.test.ts > landTask > refuses from a checkout that is not on the base branch 1007ms
- ✓ src/legacy.test.ts > readLegacy > is switched off by config, per source and as a whole 119ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > reports file-level cycles and flags the edges in them 385ms
+ ✓ src/legacy.test.ts > readLegacy > reads TASKS.md and HISTORY.md together and keeps one entry per slug 113ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > attaches git history to files and directory aggregates 419ms
+ ✓ src/legacy.test.ts > readLegacy > picks up per-slug plans from an old pipeline folder 123ms
+ ✓ src/story.test.ts > taskStory > keeps every paragraph and link well formed for an in-process task 287ms
+ ✓ src/history.test.ts > history > re-derives the day windows when the reference instant moves without re-reading git 481ms
+ ✓ src/robustness.test.ts > packets, claims, and releases > records the claimant explicitly and refuses takeovers and unsafe releases 1702ms
+ ✓ src/flows.test.ts > other entry kinds > finds Express and Hono routes, a Worker default export, a CLI command and an MCP tool 409ms
+ ✓ src/legacy.test.ts > readLegacy > is switched off by config, per source and as a whole 113ms
+ ✓ src/tasks.test.ts > state machine and task detail > returns null for an unknown slug and throws on an unsafe one 505ms
+ ✓ src/services.test.ts > detectServices §1: wrangler.jsonc, firebase and the SDK catalogue > declares a service from a catalogued dependency and ties it to the file that constructs it 346ms
  ✓ src/views.test.ts > dirView > returns null for a directory the graph does not know 0ms
  ✓ src/views.test.ts > dirView > folds everything past the drawable cap into one fold node 8ms
  ✓ src/views.test.ts > dirView > draws every child when all=1 0ms
  ✓ src/views.test.ts > dirView > hides tests until the toggle is on 1ms
- ✓ src/views.test.ts > dirView > keeps a hidden test file's crossing import in the ghost edge weight 339ms
- ✓ src/flows.test.ts > other entry kinds > does not invent a Next route from a plain React app's pages directory 319ms
- ✓ src/legacy.test.ts > readLegacy > returns nothing when the repo keeps no backlog file 134ms
- ✓ src/history.test.ts > history > does not write a cache file into a repo that has not been onboarded 357ms
- ✓ src/robustness.test.ts > packets, claims, and releases > refuses to drop unmerged commits without --force 831ms
- ✓ src/services.test.ts > detectServices §1: wrangler.jsonc, firebase and the SDK catalogue > reads firebase.json and .firebaserc 337ms
- ✓ src/legacy.test.ts > legacy tasks in the derived board > puts every backlog line on the board, in the state the file implies 206ms
+ ✓ src/views.test.ts > dirView > keeps a hidden test file's crossing import in the ghost edge weight 332ms
+ ✓ src/legacy.test.ts > readLegacy > returns nothing when the repo keeps no backlog file 118ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > reports file-level cycles and flags the edges in them 456ms
+ ✓ src/history.test.ts > history > does not write a cache file into a repo that has not been onboarded 352ms
+ ✓ src/land.test.ts > landTask > refuses from a checkout that is not on the base branch 1016ms
+ ✓ src/flows.test.ts > other entry kinds > does not invent a Next route from a plain React app's pages directory 310ms
+ ✓ src/legacy.test.ts > legacy tasks in the derived board > puts every backlog line on the board, in the state the file implies 229ms
+ ✓ src/services.test.ts > detectServices §1: wrangler.jsonc, firebase and the SDK catalogue > reads firebase.json and .firebaserc 343ms
  ✓ src/views.test.ts > dirView > puts a ghost below when the outside area is imported 0ms
  ✓ src/views.test.ts > dirView > puts a ghost above when the outside area imports, resolving it against the parent 0ms
- ✓ src/views.test.ts > dirView > splits a two-way neighbour into an up ghost and a down ghost 330ms
+ ✓ src/views.test.ts > dirView > splits a two-way neighbour into an up ghost and a down ghost 363ms
+ ✓ src/story.test.ts > taskStory > returns null for an unknown slug 92ms
  ✓ src/story.test.ts > explain > returns exactly four sentences for a directory 1ms
  ✓ src/story.test.ts > explain > returns exactly four sentences for a file 0ms
  ✓ src/story.test.ts > explain > returns exactly four sentences for a task 0ms
- ✓ src/story.test.ts > explain > gives every sentence refs and links that parse 2ms
+ ✓ src/story.test.ts > explain > gives every sentence refs and links that parse 1ms
  ✓ src/story.test.ts > explain > returns null for an id that is not in the graph 0ms
- ✓ src/story.test.ts > a repo with a description but no why note > falls back to the package description as the empty text of About this repo 496ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > keeps the flat compatibility payload 402ms
- ✓ src/flows.test.ts > other entry kinds > never treats a test fixture string as an entry point 342ms
- ✓ src/legacy.test.ts > legacy tasks in the derived board > carries the priority, size and area through to the card, without claiming a brief exists 209ms
- ✓ src/robustness.test.ts > packets, claims, and releases > keeps captured slugs unique against existing task directories 402ms
- ✓ src/services.test.ts > detectServices §1: wrangler.jsonc, firebase and the SDK catalogue > treats .env.example as documentation, not as a declaration 350ms
- ✓ src/services.test.ts > detectServices §1: wrangler.jsonc, firebase and the SDK catalogue > ignores ambient environment names 346ms
+ ✓ src/story.test.ts > a repo with a description but no why note > falls back to the package description as the empty text of About this repo 521ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > keeps the flat compatibility payload 385ms
+ ✓ src/legacy.test.ts > legacy tasks in the derived board > carries the priority, size and area through to the card, without claiming a brief exists 210ms
+ ✓ src/flows.test.ts > other entry kinds > never treats a test fixture string as an entry point 373ms
+ ✓ src/robustness.test.ts > packets, claims, and releases > refuses to drop unmerged commits without --force 805ms
+ ✓ src/legacy.test.ts > legacy tasks in the derived board > cites the file and line it read the task from 204ms
+ ✓ src/views.test.ts > dirView > keeps intra-directory cycles 357ms
+ ✓ src/services.test.ts > detectServices §1: wrangler.jsonc, firebase and the SDK catalogue > treats .env.example as documentation, not as a declaration 368ms
+ ✓ src/services.test.ts > detectServices §1: wrangler.jsonc, firebase and the SDK catalogue > ignores ambient environment names 371ms
  ✓ src/services.test.ts > services parsers > parses tables, array tables and quoted values, ignoring long comment blocks 0ms
  ✓ src/services.test.ts > services parsers > handles environment overrides and multi-line arrays 0ms
  ✓ src/services.test.ts > services parsers > masks comments without moving any other character 0ms
@@ -232,138 +233,138 @@ $ npx vitest run --reporter=verbose
  ✓ src/services.test.ts > services parsers > reads the leading verb and the table out of a SQL string 0ms
  ✓ src/services.test.ts > services parsers > strips jsonc comments and trailing commas 0ms
  ✓ src/services.test.ts > services parsers > tells a credential from a quantity that merely mentions one 0ms
- ✓ src/history.test.ts > history > returns an empty index for a repo without commits and skips the disk cache when asked 506ms
- ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > reuses a shared history index, notes index and task list when given 588ms
- ✓ src/graph.test.ts > tarjan > finds strongly connected components, singletons included 0ms
- ✓ src/graph.test.ts > tarjan > does not overflow on a long chain 21ms
+ ✓ src/history.test.ts > history > returns an empty index for a repo without commits and skips the disk cache when asked 555ms
+ ✓ src/graph.test.ts > graph §6.1: hierarchy, roles, boundaries, knowledge, tasks, cycles > reuses a shared history index, notes index and task list when given 629ms
+ ✓ src/graph.test.ts > tarjan > finds strongly connected components, singletons included 1ms
+ ✓ src/graph.test.ts > tarjan > does not overflow on a long chain 23ms
  ✓ src/graph.test.ts > import parsing > reads named, default, namespace, type-only, dynamic and require imports 0ms
  ✓ src/graph.test.ts > import parsing > expands Rust use trees 0ms
- ✓ src/views.test.ts > dirView > keeps intra-directory cycles 311ms
- ✓ src/legacy.test.ts > legacy tasks in the derived board > cites the file and line it read the task from 189ms
- ✓ src/flows.test.ts > caps > walks a cycle once and terminates 334ms
- ✓ src/history.test.ts > history > adds .reggie/.cache/ to .gitignore, also for repos onboarded before the cache existed 327ms
- ✓ test/serve.test.ts > GET /api/impact > keeps planned and actual on the slug the node reports as its task 2376ms
- ✓ src/land.test.ts > landTask > refuses while tracked files on the base branch are modified 1031ms
+ ✓ src/history.test.ts > history > adds .reggie/.cache/ to .gitignore, also for repos onboarded before the cache existed 379ms
+ ✓ src/flows.test.ts > caps > walks a cycle once and terminates 352ms
+ ✓ src/robustness.test.ts > packets, claims, and releases > keeps captured slugs unique against existing task directories 390ms
+ ✓ src/legacy.test.ts > legacy tasks in the derived board > only calls a legacy task planned when the plan document is really there 310ms
+ ✓ test/serve.test.ts > GET /api/impact > keeps planned and actual on the slug the node reports as its task 2365ms
  ✓ src/views.test.ts > dirView > draws sub-areas and loose files together, and keeps folded files' edges 2ms
  ✓ src/views.test.ts > impactView > walks both sides to depth and counts each hop 2ms
  ✓ src/views.test.ts > impactView > honours direction 0ms
  ✓ src/views.test.ts > impactView > takes a file::symbol id as the file 0ms
- ✓ src/views.test.ts > impactView > groups the overflow of a hop into fold nodes by area 390ms
- ✓ src/legacy.test.ts > legacy tasks in the derived board > only calls a legacy task planned when the plan document is really there 342ms
- ✓ src/robustness.test.ts > journal entries and task-branch merges > a worktree claim leaves the serving checkout clean 516ms
- ✓ src/flows.test.ts > caps > sets truncated when the hop cap bites, rather than cutting silently 349ms
- ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > uses the spec's empty text for every empty repo section 1ms
- ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > says how far back it looked when nothing falls inside the journal window 346ms
+ ✓ src/views.test.ts > impactView > groups the overflow of a hop into fold nodes by area 324ms
+ ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > uses the spec's empty text for every empty repo section 0ms
+ ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > says how far back it looked when nothing falls inside the journal window 348ms
+ ✓ src/land.test.ts > landTask > refuses while tracked files on the base branch are modified 1039ms
+ ✓ src/flows.test.ts > caps > sets truncated when the hop cap bites, rather than cutting silently 353ms
  ✓ src/views.test.ts > impactView > marks a node reached from more than one centre 1ms
  ✓ src/views.test.ts > impactView > leaves tests out until the toggle is on 0ms
  ✓ src/views.test.ts > impactView > returns an empty view for an id that is not a file 0ms
- ✓ src/history.test.ts > attribution by merge commit > reads a merge's files against its first parent and keeps them out of churn 619ms
- ✓ test/serve.test.ts > GET /api/impact > 400s an unsafe slug and 404s an unknown one 106ms
- ✓ src/flows.test.ts > caps > still reaches the deepest hop when the entry is very wide, and says what it dropped 387ms
- ✓ test/serve.test.ts > GET /api/story and /api/explain > returns the contract's section ids for every scope 434ms
- ✓ test/serve.test.ts > GET /api/story and /api/explain > adds the gaps section under the knowledge lens 39ms
- ✓ test/serve.test.ts > GET /api/story and /api/explain > validates scope and id 3ms
+ ✓ test/serve.test.ts > GET /api/impact > 400s an unsafe slug and 404s an unknown one 126ms
+ ✓ src/history.test.ts > attribution by merge commit > reads a merge's files against its first parent and keeps them out of churn 658ms
+ ✓ src/robustness.test.ts > journal entries and task-branch merges > a worktree claim leaves the serving checkout clean 602ms
+ ✓ test/serve.test.ts > GET /api/story and /api/explain > returns the contract's section ids for every scope 465ms
+ ✓ test/serve.test.ts > GET /api/story and /api/explain > adds the gaps section under the knowledge lens 50ms
+ ✓ src/flows.test.ts > caps > still reaches the deepest hop when the entry is very wide, and says what it dropped 473ms
+ ✓ src/docs.test.ts > generated blocks > appends when no markers exist and replaces when they do 179ms
+ ✓ test/serve.test.ts > GET /api/story and /api/explain > validates scope and id 1ms
  ✓ test/serve.test.ts > GET /api/story and /api/explain > explains a node in exactly four sentences 1ms
  ✓ test/serve.test.ts > GET /api/file and /api/symbols > returns the extended file shape 1ms
  ✓ test/serve.test.ts > GET /api/file and /api/symbols > lists external packages among the imports 1ms
  ✓ test/serve.test.ts > GET /api/file and /api/symbols > 400s a traversal path and 404s a missing file 1ms
  ✓ test/serve.test.ts > GET /api/file and /api/symbols > returns symbols with the engine name 1ms
  ✓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > lists tasks with the extended fields 0ms
- ✓ src/robustness.test.ts > journal entries and task-branch merges > the claim commit carries the journal entry 813ms
- ✓ src/docs.test.ts > generated blocks > appends when no markers exist and replaces when they do 170ms
- ✓ src/flows.test.ts > caps > rejects an unknown entry id with a message naming the fix 382ms
- ✓ src/flows.test.ts > a capped flow never claims a service it does not reach > moves a service hidden by the hop budget into servicesBeyondCap 312ms
+ ✓ src/legacy.test.ts > legacy tasks in the derived board > lets git win: a task branch beats a ticked box in the file 933ms
  ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > hides Needs you and never leaves 'What it is made of' empty 0ms
  ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > emits a gap sentence naming the undocumented area 0ms
  ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > uses the spec's note text for an empty note chain at every level 1ms
  ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > still produces well-formed links everywhere 1ms
  ✓ src/story.test.ts > workspaceStory > emits the workspace section ids from the contract 0ms
  ✓ src/story.test.ts > workspaceStory > writes one paragraph per repo with counts, coverage and the last journal line 0ms
- ✓ src/story.test.ts > workspaceStory > names the cross-repo edge and the awaiting-decision task 0ms
+ ✓ src/story.test.ts > workspaceStory > names the cross-repo edge and the awaiting-decision task 1ms
  ✓ src/story.test.ts > workspaceStory > uses the spec's empty text when no manifest links the repos 0ms
- ✓ src/legacy.test.ts > legacy tasks in the derived board > lets git win: a task branch beats a ticked box in the file 870ms
- ✓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > returns the task detail with plan, packet, journal and impact 255ms
- ✓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > 400s an unsafe slug and 404s an unknown one 85ms
+ ✓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > returns the task detail with plan, packet, journal and impact 258ms
+ ✓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > 400s an unsafe slug and 404s an unknown one 95ms
  ✓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > returns the state machine with counts 1ms
+ ✓ src/flows.test.ts > caps > rejects an unknown entry id with a message naming the fix 350ms
+ ✓ src/flows.test.ts > a capped flow never claims a service it does not reach > moves a service hidden by the hop budget into servicesBeyondCap 310ms
  ✓ src/story.test.ts > servicesStory and flowStory > puts the undeclared secret first, then the unused binding, then the shared writer 1ms
- ✓ src/story.test.ts > servicesStory and flowStory > describes each service: what it is, where it is declared, who reads and who writes 0ms
+ ✓ src/story.test.ts > servicesStory and flowStory > describes each service: what it is, where it is declared, who reads and who writes 1ms
  ✓ src/story.test.ts > servicesStory and flowStory > says where a secret comes from without calling it declared 0ms
  ✓ src/story.test.ts > servicesStory and flowStory > carries refs, links and the paragraph contract on every services paragraph 1ms
  ✓ src/story.test.ts > servicesStory and flowStory > numbers every step and points each paragraph at its own step 1ms
  ✓ src/story.test.ts > servicesStory and flowStory > names the service a step lands on and does not overstate a heuristic payload 0ms
  ✓ src/story.test.ts > servicesStory and flowStory > ends with what could not be derived, and why 0ms
- ✓ src/story.test.ts > servicesStory and flowStory > says what a cap dropped, at which hop, when one bites 144ms
- ✓ src/history.test.ts > attribution by merge commit > finds a landed task's commits by slug after the branch is gone 642ms
- ✓ src/docs.test.ts > generated blocks > collects facts and renders both blocks 179ms
- ✓ test/mcp.test.ts > mcp server > exposes the tools and captures through them 988ms
- ✓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > streams evidence and refuses traversal 40ms
- ✓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > serves evidence sandboxed, so agent-written HTML cannot reach this origin's write routes 16ms
- ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns history for a path and for the repo 1ms
- ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns notes with stale keys and citedBy 1ms
- ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns a note chain for a path 3ms
- ✓ src/story.test.ts > servicesStory and flowStory > links both pages from the repo story only when they have something on them 0ms
+ ✓ src/story.test.ts > servicesStory and flowStory > says what a cap dropped, at which hop, when one bites 155ms
+ ✓ src/docs.test.ts > generated blocks > collects facts and renders both blocks 178ms
+ ✓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > streams evidence and refuses traversal 37ms
+ ✓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > serves evidence sandboxed, so agent-written HTML cannot reach this origin's write routes 21ms
+ ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns history for a path and for the repo 3ms
+ ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns notes with stale keys and citedBy 0ms
+ ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns a note chain for a path 1ms
+ ✓ src/story.test.ts > servicesStory and flowStory > links both pages from the repo story only when they have something on them 1ms
  ✓ src/story.test.ts > servicesStory and flowStory > routes a service id to the services page and a flow step's symbol to its file 0ms
- ✓ src/notes.test.ts > notes > resolves entity targets 216ms
- ✓ test/mcp.test.ts > mcp server on a stale build > refuses every tool call with an error naming the build, and writes nothing 295ms
- ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns journal entries with taskExists, nodeIds and the path filter 111ms
- ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns people with areas, claims and the current handle 33ms
+ ✓ src/history.test.ts > attribution by merge commit > finds a landed task's commits by slug after the branch is gone 627ms
+ ✓ test/mcp.test.ts > mcp server > exposes the tools and captures through them 1026ms
+ ✓ src/robustness.test.ts > journal entries and task-branch merges > the claim commit carries the journal entry 775ms
+ ✓ src/capture.test.ts > capture > derives unique slugs and keeps detail lines 247ms
+ ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns journal entries with taskExists, nodeIds and the path filter 124ms
+ ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns people with areas, claims and the current handle 29ms
  ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > ranks search results by the contract's table 2ms
- ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns the single-repo workspace summary 0ms
- ✓ src/facts.test.ts > collectFacts entry points > finds an entry point inside a monorepo package, not just at the repo root 216ms
- ✓ src/docs.test.ts > generated blocks > onboard creates files; check reports fresh, then stale after code changes 424ms
- ✓ src/notes.test.ts > notes > adds entries and reads them back 217ms
- ✓ test/fixtures.test.ts > fixture repo > reports tasks in the three states 637ms
- ✓ src/history.test.ts > attribution by merge commit > finds the landing outside the index window and never takes a merge into the branch for it 717ms
+ ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns the single-repo workspace summary 1ms
+ ✓ src/land.test.ts > landTask > refuses while the task worktree holds uncommitted work 1232ms
+ ✓ src/notes.test.ts > notes > resolves entity targets 176ms
+ ✓ test/mcp.test.ts > mcp server on a stale build > refuses every tool call with an error naming the build, and writes nothing 352ms
+ ✓ src/docs.test.ts > generated blocks > onboard creates files; check reports fresh, then stale after code changes 496ms
+ ✓ src/facts.test.ts > collectFacts entry points > finds an entry point inside a monorepo package, not just at the repo root 193ms
+ ✓ src/capture.test.ts > capture > removes an item and its detail once planned 222ms
+ ✓ test/fixtures.test.ts > fixture repo > reports tasks in the three states 628ms
+ ✓ src/notes.test.ts > notes > adds entries and reads them back 198ms
+ ✓ src/history.test.ts > attribution by merge commit > finds the landing outside the index window and never takes a merge into the branch for it 732ms
  ✓ src/history.test.ts > history parsing > parses the numstat log with pipes in subjects, merges, binaries, and both rename forms 0ms
  ✓ src/history.test.ts > history parsing > reads Task from anywhere in the body and prefers it to the subject 0ms
  ✓ src/history.test.ts > history parsing > derives per-path and per-directory numbers from parsed commits 0ms
  ✓ src/history.test.ts > history parsing > keeps only eight recent commits per path 0ms
  ✓ src/history.test.ts > history parsing > helpers: keys, ancestors, task slugs, since, quoting 0ms
- ✓ src/capture.test.ts > capture > derives unique slugs and keeps detail lines 253ms
- ✓ test/mcp.test.ts > mcp server on a stale build > tells the session to restart when dist was rebuilt after the server loaded it 323ms
- ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns a context pack 556ms
- ✓ src/facts.test.ts > collectFacts entry points > still finds a root entry point when there is no nested package 227ms
- ✓ src/robustness.test.ts > journal entries and task-branch merges > an in-place claim, resume and release still switches back to main 764ms
- ✓ test/fixtures.test.ts > fixture repo > leaves the working tree on main with the code and notes in place 16ms
- ✓ test/fixtures.test.ts > fixture repo > has a stale folder note on src/big/ 30ms
- ✓ src/notes.test.ts > notes > builds the read-before-edit chain 179ms
- ✓ src/notes.test.ts > notes > finds by substring and marks stale entries 212ms
+ ✓ test/fixtures.test.ts > fixture repo > leaves the working tree on main with the code and notes in place 15ms
+ ✓ test/fixtures.test.ts > fixture repo > has a stale folder note on src/big/ 42ms
+ ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns a context pack 591ms
+ ✓ src/facts.test.ts > collectFacts entry points > still finds a root entry point when there is no nested package 212ms
+ ✓ test/mcp.test.ts > mcp server on a stale build > tells the session to restart when dist was rebuilt after the server loaded it 342ms
+ ✓ src/docs.test.ts > generated blocks > mirrors CLAUDE.md's curated sections into AGENTS.md, because Codex never reads CLAUDE.md 298ms
+ ✓ src/episode.test.ts > episodes > keys an episode by scope and id in one safe file name 1ms
+ ✓ src/episode.test.ts > episodes > has no episode until one is made, and lists nothing 0ms
  ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > 404s the withdrawn stretch routes rather than promising them with a 501 2ms
  ✓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > 404s an unknown api route and 405s a non-GET method 1ms
- ✓ test/serve.test.ts > POST guards > refuses a cross-site POST with 403 and writes nothing 3ms
- ✓ test/serve.test.ts > POST guards > refuses a foreign Origin with 403 and writes nothing 1ms
- ✓ test/serve.test.ts > POST guards > accepts a same-origin POST header set 46ms
+ ✓ test/serve.test.ts > POST guards > refuses a cross-site POST with 403 and writes nothing 8ms
+ ✓ test/serve.test.ts > POST guards > refuses a foreign Origin with 403 and writes nothing 2ms
+ ✓ test/serve.test.ts > POST guards > accepts a same-origin POST header set 47ms
  ✓ test/serve.test.ts > POST guards > refuses a DNS-rebound POST whose Origin matches its forged Host 3ms
- ✓ test/serve.test.ts > POST guards > refuses a DNS-rebound GET, so a rebound page cannot read source either 1ms
- ✓ test/serve.test.ts > POST guards > still serves loopback Host headers by name, literal and brackets 15ms
- ✓ test/serve.test.ts > POST guards > 413s a body over 64 KB 2ms
- ✓ src/docs.test.ts > generated blocks > mirrors CLAUDE.md's curated sections into AGENTS.md, because Codex never reads CLAUDE.md 319ms
- ✓ src/episode.test.ts > episodes > keys an episode by scope and id in one safe file name 1ms
- ✓ src/episode.test.ts > episodes > has no episode until one is made, and lists nothing 1ms
- ✓ test/mcp.test.ts > mcp server on a stale build > runs tools normally when the escape hatch is set 407ms
- ✓ src/capture.test.ts > capture > removes an item and its detail once planned 244ms
- ✓ src/facts.test.ts > collectFacts entry points > does not treat a path as an entry point just because a parent directory is named like one 194ms
- ✓ src/facts.test.ts > collectFacts entry points > reads the repo name and description from the root manifest 203ms
- ✓ src/land.test.ts > landTask > refuses while the task worktree holds uncommitted work 1089ms
- ✓ src/docs.test.ts > generated blocks > curatedSections takes everything from the first heading to the block, and nothing after 205ms
+ ✓ test/serve.test.ts > POST guards > refuses a DNS-rebound GET, so a rebound page cannot read source either 0ms
+ ✓ test/serve.test.ts > POST guards > still serves loopback Host headers by name, literal and brackets 28ms
+ ✓ test/serve.test.ts > POST guards > 413s a body over 64 KB 3ms
+ ✓ src/capture.test.ts > capture > adds detail under an existing intake item, after the detail already there 261ms
+ ✓ src/notes.test.ts > notes > builds the read-before-edit chain 198ms
+ ✓ src/notes.test.ts > notes > finds by substring and marks stale entries 244ms
+ ✓ src/capture.test.ts > capture > writes an intake line to hold detail for a slug that has none, and refuses empty detail 195ms
+ ✓ test/mcp.test.ts > mcp server on a stale build > runs tools normally when the escape hatch is set 455ms
+ ✓ src/facts.test.ts > collectFacts entry points > does not treat a path as an entry point just because a parent directory is named like one 240ms
+ ✓ src/facts.test.ts > collectFacts entry points > reads the repo name and description from the root manifest 225ms
+ ✓ src/docs.test.ts > generated blocks > curatedSections takes everything from the first heading to the block, and nothing after 238ms
  ✓ src/build-state.test.ts > buildState > is not stale when the build is newer than the source 2ms
- ✓ src/build-state.test.ts > buildState > is stale when a source file is newer than every built file 2ms
- ✓ src/build-state.test.ts > buildState > finds the newest source at any depth, and ignores what is not TypeScript 2ms
+ ✓ src/build-state.test.ts > buildState > is stale when a source file is newer than every built file 1ms
+ ✓ src/build-state.test.ts > buildState > finds the newest source at any depth, and ignores what is not TypeScript 1ms
  ✓ src/build-state.test.ts > buildState > stays quiet in an installed package, which has no src/ to compare 1ms
  ✓ src/build-state.test.ts > buildState > forgives a build that finished in the same second as the edit 1ms
  ✓ src/build-state.test.ts > buildState > says an empty dist was never built, instead of inventing an age against the epoch 1ms
- ✓ src/build-state.test.ts > buildState > ignores test files, whose edits change nothing a command does 2ms
- ✓ src/build-state.test.ts > buildState > does not walk into node_modules, which is full of newer .ts files 4ms
- ✓ src/build-state.test.ts > buildState > compares against the build a process loaded, and notices a rebuild since 3ms
- ✓ src/build-state.test.ts > checkBuild > says not built yet, with no age, when dist holds nothing 2ms
- ✓ src/build-state.test.ts > checkBuild > is current for code run from src/, however far behind the build is 4ms
- ✓ src/build-state.test.ts > checkBuild > refuses a stale dist and names the file, the fix, and the escape hatch 4ms
- ✓ src/build-state.test.ts > checkBuild > allows a stale dist only when REGGIE_ALLOW_STALE is exactly 1 4ms
+ ✓ src/build-state.test.ts > buildState > ignores test files, whose edits change nothing a command does 1ms
+ ✓ src/build-state.test.ts > buildState > does not walk into node_modules, which is full of newer .ts files 1ms
+ ✓ src/build-state.test.ts > buildState > compares against the build a process loaded, and notices a rebuild since 1ms
+ ✓ src/build-state.test.ts > checkBuild > says not built yet, with no age, when dist holds nothing 1ms
+ ✓ src/build-state.test.ts > checkBuild > is current for code run from src/, however far behind the build is 1ms
+ ✓ src/build-state.test.ts > checkBuild > refuses a stale dist and names the file, the fix, and the escape hatch 1ms
+ ✓ src/build-state.test.ts > checkBuild > allows a stale dist only when REGGIE_ALLOW_STALE is exactly 1 1ms
  ✓ src/build-state.test.ts > checkBuild > is current for a dist build newer than its source 1ms
- ✓ src/build-state.test.ts > checkBuild > tells a process running an older build than dist holds to restart 3ms
+ ✓ src/build-state.test.ts > checkBuild > tells a process running an older build than dist holds to restart 1ms
  ✓ src/build-state.test.ts > checkBuild > resolves the package root from a module inside dist/ or src/ 0ms
  ✓ src/launch.test.ts > resolveGoal > derives the goal from the task's state, so a button cannot pick the wrong prompt 1ms
- ✓ src/launch.test.ts > resolveGoal > shapes several ungroomed tasks in one conversation and nothing else takes several 0ms
+ ✓ src/launch.test.ts > resolveGoal > shapes several ungroomed tasks in one conversation and nothing else takes several 1ms
  ✓ src/launch.test.ts > resolveGoal > refuses to build what has no plan, and says what to do instead 0ms
  ✓ src/launch.test.ts > launchCommand > claude / discuss runs the right binary on the slug, on one line 0ms
  ✓ src/launch.test.ts > launchCommand > claude / build runs the right binary on the slug, on one line 0ms
@@ -377,25 +378,15 @@ $ npx vitest run --reporter=verbose
  ✓ src/launch.test.ts > launchCommand > shaping says it is shaping, planning says plan mode and the contract, discussing forbids edits 0ms
  ✓ src/launch.test.ts > launchCommand > a build knows it is already claimed, runs the review policy, and commits with a Task line in the body 0ms
  ✓ src/launch.test.ts > launchCommand > lists several ungroomed slugs in one shaping prompt 0ms
- ✓ src/launch.test.ts > launchCommand > rejects a slug that is not a slug, before it reaches a command string 0ms
+ ✓ src/launch.test.ts > launchCommand > rejects a slug that is not a slug, before it reaches a command string 1ms
  ✓ src/launch.test.ts > launchCommand > rejects an unknown tool, an unknown mode, no task, and no repo 0ms
- ✓ src/launch.test.ts > context files and launch records > writes the pack under .reggie/.cache and returns the relative path the prompt uses 1ms
+ ✓ src/launch.test.ts > context files and launch records > writes the pack under .reggie/.cache and returns the relative path the prompt uses 2ms
  ✓ src/launch.test.ts > context files and launch records > records what a launch left behind, so the chat can be found again 3ms
- ✓ src/launch.test.ts > shellQuote > round-trips every nasty string through a real shell unchanged 105ms
- ✓ src/capture.test.ts > capture > adds detail under an existing intake item, after the detail already there 233ms
- ✓ src/launch.test.ts > shellQuote > leaves plain words bare so commands stay readable 0ms
- ✓ src/launch.test.ts > shellQuote > quotes anything else, including the empty string 0ms
- ✓ src/launch.test.ts > appleScriptLiteral > escapes backslashes and double quotes, and only those 0ms
- ✓ src/launch.test.ts > appleScriptLiteral > round-trips the shell line through osascript on macOS 47ms
- ✓ src/launch.test.ts > launchSession > refuses a directory that does not exist 0ms
- ✓ src/launch.test.ts > launchSession > hands the command back unlaunched off macOS, with the goal and the session alongside 0ms
- ✓ src/launch.test.ts > launchSession > bounds the wait on Terminal 0ms
- ✓ test/serve.test.ts > POST guards > 400s malformed JSON and missing fields 115ms
- ✓ test/serve.test.ts > POST guards > 404s a POST to an unknown route and 405s a POST to a read-only one 2ms
- ✓ src/layout.test.ts > .gitattributes for journal files > creates .gitattributes with the journal union line 179ms
- ✓ src/tasks.test.ts > state machine and task detail > assembles plan, packet, claim, journal, and impact as a task moves 3292ms
- ✓ src/capture.test.ts > capture > writes an intake line to hold detail for a slug that has none, and refuses empty detail 196ms
- ✓ src/symbols.test.ts > TypeScript declarations > extracts every kind with line, endLine and exported 4ms
+ ✓ src/launch.test.ts > shellQuote > round-trips every nasty string through a real shell unchanged 104ms
+ ✓ src/layout.test.ts > .gitattributes for journal files > creates .gitattributes with the journal union line 188ms
+ ✓ src/robustness.test.ts > journal entries and task-branch merges > an in-place claim, resume and release still switches back to main 866ms
+ ✓ src/tasks.test.ts > state machine and task detail > assembles plan, packet, claim, journal, and impact as a task moves 3342ms
+ ✓ src/symbols.test.ts > TypeScript declarations > extracts every kind with line, endLine and exported 3ms
  ✓ src/symbols.test.ts > TypeScript declarations > includes non-exported top-level functions and classes only 0ms
  ✓ src/symbols.test.ts > TypeScript declarations > orders symbols by line and starts every usedBy empty 0ms
  ✓ src/symbols.test.ts > TypeScript declarations > handles JavaScript, JSX and CommonJS exports 1ms
@@ -403,7 +394,7 @@ $ npx vitest run --reporter=verbose
  ✓ src/symbols.test.ts > default exports > `export default <local>` exports the local declaration as the default, once 0ms
  ✓ src/symbols.test.ts > default exports > reports `export default <identifier>` as kind default when nothing local declares it 0ms
  ✓ src/symbols.test.ts > default exports > names anonymous defaults `default` 1ms
- ✓ src/symbols.test.ts > re-exports > lists `export { a, b as c } from` with the outward names 1ms
+ ✓ src/symbols.test.ts > re-exports > lists `export { a, b as c } from` with the outward names 0ms
  ✓ src/symbols.test.ts > re-exports > handles star re-exports and multi-line lists 0ms
  ✓ src/symbols.test.ts > re-exports > marks locals exported by a trailing `export { … }` instead of duplicating them 0ms
  ✓ src/symbols.test.ts > endLine > ignores braces inside strings, comments, template literals and regex literals 0ms
@@ -412,16 +403,16 @@ $ npx vitest run --reporter=verbose
  ✓ src/symbols.test.ts > endLine > falls back to the line before the next declaration, trailing blank lines trimmed 0ms
  ✓ src/symbols.test.ts > endLine > never puts endLine before line 0ms
  ✓ src/symbols.test.ts > endLine > copes with CRLF line endings 0ms
- ✓ src/symbols.test.ts > Rust declarations > extracts pub and private items with the right kinds 3ms
- ✓ src/symbols.test.ts > Rust declarations > flags #[tauri::command] functions, including multi-line and stacked attributes 2ms
- ✓ src/symbols.test.ts > Rust declarations > skips impl methods, trait items and test-module functions 1ms
+ ✓ src/symbols.test.ts > Rust declarations > extracts pub and private items with the right kinds 1ms
+ ✓ src/symbols.test.ts > Rust declarations > flags #[tauri::command] functions, including multi-line and stacked attributes 0ms
+ ✓ src/symbols.test.ts > Rust declarations > skips impl methods, trait items and test-module functions 0ms
  ✓ src/symbols.test.ts > Rust declarations > does not report a tauri command when other code sits between attribute and fn 0ms
- ✓ src/symbols.test.ts > maskCode > keeps length and newlines while blanking strings and comments 1ms
+ ✓ src/symbols.test.ts > maskCode > keeps length and newlines while blanking strings and comments 0ms
  ✓ src/symbols.test.ts > maskCode > keeps code inside template expressions 0ms
- ✓ src/symbols.test.ts > maskCode > tells regex literals from division 0ms
- ✓ src/symbols.test.ts > maskCode > leaves Rust lifetimes alone and blanks char and raw-string literals 1ms
- ✓ src/symbols.test.ts > parseNamedImports > returns local names for named, default and namespace imports 1ms
- ✓ src/symbols.test.ts > parseNamedImports > detects type-only imports 0ms
+ ✓ src/symbols.test.ts > maskCode > tells regex literals from division 1ms
+ ✓ src/symbols.test.ts > maskCode > leaves Rust lifetimes alone and blanks char and raw-string literals 0ms
+ ✓ src/symbols.test.ts > parseNamedImports > returns local names for named, default and namespace imports 2ms
+ ✓ src/symbols.test.ts > parseNamedImports > detects type-only imports 1ms
  ✓ src/symbols.test.ts > parseNamedImports > tolerates whole statements, side-effect imports and empty clauses 0ms
  ✓ src/symbols.test.ts > parseNamedImports > reads Rust brace groups (nested) and CommonJS destructuring 0ms
  ✓ src/symbols.test.ts > parseNamedImports > dedupes names 0ms
@@ -438,9 +429,37 @@ $ npx vitest run --reporter=verbose
  ✓ src/symbols.test.ts > misc > detects the language from the extension 0ms
  ✓ src/symbols.test.ts > misc > reports the regex engine and a stub for calls() 0ms
  ✓ src/symbols.test.ts > misc > returns nothing for empty content 0ms
- ✓ src/journal.test.ts > journal > appends and reads entries newest first, filtered by slug 173ms
- ✓ src/journal.test.ts > journal > detects the tool from the environment 146ms
- ✓ src/brief.test.ts > brief contract > template fails lint until placeholders are replaced 2ms
+ ✓ test/serve.test.ts > POST guards > 400s malformed JSON and missing fields 119ms
+ ✓ test/serve.test.ts > POST guards > 404s a POST to an unknown route and 405s a POST to a read-only one 2ms
+ ✓ src/launch.test.ts > shellQuote > leaves plain words bare so commands stay readable 0ms
+ ✓ src/launch.test.ts > shellQuote > quotes anything else, including the empty string 0ms
+ ✓ src/launch.test.ts > appleScriptLiteral > escapes backslashes and double quotes, and only those 0ms
+ ✓ src/launch.test.ts > appleScriptLiteral > round-trips the shell line through osascript on macOS 59ms
+ ✓ src/launch.test.ts > launchSession > refuses a directory that does not exist 0ms
+ ✓ src/launch.test.ts > launchSession > hands the command back unlaunched off macOS, with the goal and the session alongside 0ms
+ ✓ src/launch.test.ts > launchSession > bounds the wait on Terminal 0ms
+ ✓ src/roles.test.ts > roleOf > classifies source paths 1ms
+ ✓ src/roles.test.ts > roleOf > classifies test paths 0ms
+ ✓ src/roles.test.ts > roleOf > classifies fixture paths 0ms
+ ✓ src/roles.test.ts > roleOf > classifies config paths 0ms
+ ✓ src/roles.test.ts > roleOf > classifies generated paths 0ms
+ ✓ src/roles.test.ts > roleOf > covers every role in the table 0ms
+ ✓ src/roles.test.ts > roleOf > first-line generated markers > recognises @generated and DO NOT EDIT 0ms
+ ✓ src/roles.test.ts > roleOf > first-line generated markers > treats an ordinary or missing first line as source 0ms
+ ✓ src/roles.test.ts > roleOf > first-line generated markers > only reads the first line of whatever it is handed 0ms
+ ✓ src/roles.test.ts > roleOf > first-line generated markers > beats every path rule 0ms
+ ✓ src/roles.test.ts > roleOf > precedence > fixture beats test 1ms
+ ✓ src/roles.test.ts > roleOf > precedence > test beats config 0ms
+ ✓ src/roles.test.ts > roleOf > precedence > generated beats everything 0ms
+ ✓ src/roles.test.ts > roleOf > tolerates a leading ./ and backslashes 0ms
+ ✓ src/roles.test.ts > roleOf > returns only contract roles 1ms
+ ✓ src/roles.test.ts > TEST_HINTS > is exported for facts.ts and matches the classic shapes 0ms
+ ✓ src/roles.test.ts > TEST_HINTS > carries no global flags, so repeated test() calls stay stateless 0ms
+ ✓ src/roles.test.ts > isTestLike > is true for test and fixture only 0ms
+ ✓ src/docs.test.ts > generated blocks > curatedSections returns nothing when CLAUDE.md has no curated headings yet 201ms
+ ✓ src/journal.test.ts > journal > appends and reads entries newest first, filtered by slug 152ms
+ ✓ src/journal.test.ts > journal > detects the tool from the environment 127ms
+ ✓ src/brief.test.ts > brief contract > template fails lint until placeholders are replaced 20ms
  ✓ src/brief.test.ts > brief contract > a template prefilled by triage still needs its sections written 2ms
  ✓ src/brief.test.ts > brief contract > a complete brief passes 0ms
  ✓ src/brief.test.ts > brief contract > parses front matter, sections, and the derived lists 0ms
@@ -455,37 +474,15 @@ $ npx vitest run --reporter=verbose
  ✓ src/brief.test.ts > brief contract > flags an unresolved TBD or TODO 0ms
  ✓ src/brief.test.ts > brief contract > advises without blocking on unset risk, an empty area, and a thin problem 0ms
  ✓ src/brief.test.ts > brief contract > advises when Suspected area names nothing 0ms
- ✓ src/docs.test.ts > generated blocks > curatedSections returns nothing when CLAUDE.md has no curated headings yet 226ms
- ✓ src/roles.test.ts > roleOf > classifies source paths 1ms
- ✓ src/roles.test.ts > roleOf > classifies test paths 0ms
- ✓ src/roles.test.ts > roleOf > classifies fixture paths 0ms
- ✓ src/roles.test.ts > roleOf > classifies config paths 0ms
- ✓ src/roles.test.ts > roleOf > classifies generated paths 0ms
- ✓ src/roles.test.ts > roleOf > covers every role in the table 0ms
- ✓ src/roles.test.ts > roleOf > first-line generated markers > recognises @generated and DO NOT EDIT 0ms
- ✓ src/roles.test.ts > roleOf > first-line generated markers > treats an ordinary or missing first line as source 0ms
- ✓ src/roles.test.ts > roleOf > first-line generated markers > only reads the first line of whatever it is handed 0ms
- ✓ src/roles.test.ts > roleOf > first-line generated markers > beats every path rule 1ms
- ✓ src/roles.test.ts > roleOf > precedence > fixture beats test 0ms
- ✓ src/roles.test.ts > roleOf > precedence > test beats config 0ms
- ✓ src/roles.test.ts > roleOf > precedence > generated beats everything 0ms
- ✓ src/roles.test.ts > roleOf > tolerates a leading ./ and backslashes 0ms
- ✓ src/roles.test.ts > roleOf > returns only contract roles 1ms
- ✓ src/roles.test.ts > TEST_HINTS > is exported for facts.ts and matches the classic shapes 0ms
- ✓ src/roles.test.ts > TEST_HINTS > carries no global flags, so repeated test() calls stay stateless 0ms
- ✓ src/roles.test.ts > isTestLike > is true for test and fixture only 0ms
- ✓ src/layout.test.ts > .gitattributes for journal files > appends to an existing .gitattributes without a trailing newline 183ms
- ✓ src/layout.test.ts > .gitattributes for journal files > is idempotent 154ms
- ✓ src/narrate.test.ts > narrate > flattens links, backticks and paths into something a voice can say 1ms
- ✓ src/narrate.test.ts > narrate > speaks every section with its heading, reads lists as a sequence, and says why an empty section is empty 1ms
- ✓ src/narrate.test.ts > narrate > can leave the headings out 0ms
+ ✓ src/layout.test.ts > .gitattributes for journal files > appends to an existing .gitattributes without a trailing newline 169ms
+ ✓ src/layout.test.ts > .gitattributes for journal files > is idempotent 151ms
+ ✓ src/docs.test.ts > generated blocks > docs check sees AGENTS.md drift even when its generated block is current 290ms
  ✓ src/plan.test.ts > plan contract > template fails lint until placeholders are replaced 2ms
  ✓ src/plan.test.ts > plan contract > a complete plan passes 1ms
  ✓ src/plan.test.ts > plan contract > parses criteria, files, and front matter 1ms
- ✓ src/plan.test.ts > plan contract > flags missing sections and TBD 0ms
+ ✓ src/plan.test.ts > plan contract > flags missing sections and TBD 1ms
  ✓ src/plan.test.ts > plan contract > warns when verification has fewer bullets than criteria 0ms
  ✓ src/plan.test.ts > plan contract > computes risk from file paths and rewrites the front matter 0ms
- ✓ src/docs.test.ts > generated blocks > docs check sees AGENTS.md drift even when its generated block is current 309ms
  ✓ src/serve-key.test.ts > the serve key > is minted once under the cache and read back unchanged 1ms
  ✓ src/serve-key.test.ts > the serve key > knows which bind addresses keep the server on this machine 1ms
  ✓ src/serve-key.test.ts > the serve key > reads the key from the header first, then the query string 0ms
@@ -494,67 +491,73 @@ $ npx vitest run --reporter=verbose
  ✓ src/serve-key.test.ts > the serve key > lets a network socket through with the right key in the header or the query 0ms
  ✓ src/serve-key.test.ts > checkPostOrigin over the network > still accepts a loopback origin and still refuses a cross-site request, keyed or not 0ms
  ✓ src/serve-key.test.ts > checkPostOrigin over the network > lets a keyed request keep whatever origin its address or a proxy gave it, and an unkeyed one not 0ms
- ✓ test/serve.test.ts > POST writes > captures an idea that shows up as an ungroomed task 542ms
- ✓ src/episode.test.ts > episodes > speaks a script into an m4a with a sidecar, and the feed lists it 694ms
+ ✓ src/narrate.test.ts > narrate > flattens links, backticks and paths into something a voice can say 1ms
+ ✓ src/narrate.test.ts > narrate > speaks every section with its heading, reads lists as a sequence, and says why an empty section is empty 1ms
+ ✓ src/narrate.test.ts > narrate > can leave the headings out 0ms
+ ✓ src/episode.test.ts > episodes > speaks a script into an m4a with a sidecar, and the feed lists it 654ms
  ↓ src/episode.test.ts > episodes > says what it needs off macOS
- ✓ src/robustness.test.ts > journal entries and task-branch merges > a task branch with journal entries merges into a main that also journaled (day file already on main) 868ms
- ✓ test/serve.test.ts > POST writes > adds a note attributed to the web 27ms
- ✓ test/serve.test.ts > POST writes > refuses a note that escapes the repo 15ms
- ✓ test/serve.test.ts > POST writes > 409s a decision when no packet exists anywhere 52ms
- ✓ src/robustness.test.ts > journal entries and task-branch merges > a task branch with journal entries merges into a main that also journaled (both sides start the day file) 429ms
- ✓ src/land.test.ts > landTask > records the verdict without a second merge when the branch has already landed, and says so 1978ms
- ✓ src/land.test.ts > landTask > leaves needs-work as a verdict written into the packet, with no commit 923ms
- ✓ src/tasks.test.ts > state machine and task detail > reads a plan that only exists on the task branch and reports files that exist there 1001ms
- ✓ src/robustness.test.ts > journal entries and task-branch merges > resuming a claim adds no commit, so release still needs no force 447ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > a brief alone makes an ungroomed item groomed 314ms
- ✓ test/serve.test.ts > POST writes > approves a packet that only exists on the task branch and moves the card to done 856ms
+ ✓ test/serve.test.ts > POST writes > captures an idea that shows up as an ungroomed task 498ms
+ ✓ test/serve.test.ts > POST writes > adds a note attributed to the web 28ms
+ ✓ test/serve.test.ts > POST writes > refuses a note that escapes the repo 16ms
+ ✓ src/land.test.ts > landTask > refuses when the base holds untracked files the merge would overwrite, naming them 1156ms
+ ✓ src/robustness.test.ts > journal entries and task-branch merges > a task branch with journal entries merges into a main that also journaled (day file already on main) 733ms
+ ✓ test/serve.test.ts > POST writes > 409s a decision when no packet exists anywhere 58ms
+ ✓ src/tasks.test.ts > state machine and task detail > reads a plan that only exists on the task branch and reports files that exist there 1037ms
+ ✓ src/robustness.test.ts > journal entries and task-branch merges > a task branch with journal entries merges into a main that also journaled (both sides start the day file) 405ms
+ ✓ src/land.test.ts > landTask > approves a task whose branch was merged and released before anyone decided 1174ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > a brief alone makes an ungroomed item groomed 309ms
+ ✓ src/robustness.test.ts > journal entries and task-branch merges > resuming a claim adds no commit, so release still needs no force 425ms
+ ✓ test/serve.test.ts > POST writes > approves a packet that only exists on the task branch and moves the card to done 915ms
  ✓ test/serve.test.ts > GET /api/launch > describes the session without starting anything, and derives the goal from the task's state 1ms
  ✓ test/serve.test.ts > GET /api/launch > opens a discussion in plan mode, read-only, for both tools 1ms
- ✓ test/serve.test.ts > GET /api/launch > carries the user's note into the prompt 0ms
+ ✓ test/serve.test.ts > GET /api/launch > carries the user's note into the prompt 1ms
  ✓ test/serve.test.ts > GET /api/launch > shapes several ungroomed slugs at once and refuses several of anything else 1ms
  ✓ test/serve.test.ts > GET /api/launch > 400s an unknown tool, an unknown mode, a bad slug, and no slug at all; 404s an unknown task 1ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > a brief committed to the default branch counts even when it is gone from disk 271ms
- ✓ test/serve.test.ts > POST /api/triage > scaffolds a brief and moves the card from ungroomed to groomed 211ms
- ✓ test/serve.test.ts > POST /api/triage > never overwrites a brief that is already there 18ms
- ✓ test/serve.test.ts > POST /api/triage > shapes a whole selection in one call and skips what it does not know 18ms
- ✓ test/serve.test.ts > POST /api/triage > 400s an empty request and a bad slug 55ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > a brief committed to the default branch counts even when it is gone from disk 296ms
+ ✓ test/serve.test.ts > POST /api/triage > scaffolds a brief and moves the card from ungroomed to groomed 240ms
+ ✓ test/serve.test.ts > POST /api/triage > never overwrites a brief that is already there 16ms
+ ✓ test/serve.test.ts > POST /api/triage > shapes a whole selection in one call and skips what it does not know 14ms
+ ✓ test/serve.test.ts > POST /api/triage > 400s an empty request and a bad slug 53ms
  ✓ test/serve.test.ts > POST /api/launch > refuses a cross-site launch with 403 and starts nothing 1ms
  ✓ test/serve.test.ts > POST /api/launch > refuses a foreign Origin with 403 0ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan draft that fails the contract leaves a briefed task groomed, naming the draft 232ms
- ✓ test/serve.test.ts > POST /api/launch > 400s bad input and 404s a task this repo has never heard of 209ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan/<slug> branch reads as groomed with a plan in progress 309ms
- ✓ test/serve.test.ts > POST /api/launch > writes the context pack, mints a session, and returns the command unlaunched where it cannot open a terminal 139ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan that passes the contract makes it planned 333ms
- ✓ test/serve.test.ts > POST /api/launch > claims the task and starts a build in its worktree, on its branch 321ms
- ✓ test/serve.test.ts > the completed view > says what was actually done for a finished task 280ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan with no brief is still planned; a brief is not required retroactively 332ms
- ✓ test/serve.test.ts > the completed view > leaves the completion block null for everything still open 218ms
- ✓ test/serve.test.ts > the completed view > still reports the six states on the state machine 0ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan draft that fails the contract leaves a briefed task groomed, naming the draft 250ms
+ ✓ test/serve.test.ts > POST /api/launch > 400s bad input and 404s a task this repo has never heard of 226ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan/<slug> branch reads as groomed with a plan in progress 340ms
+ ✓ src/land.test.ts > landTask > refuses when there is neither a branch nor a merge that landed the task 610ms
+ ✓ test/serve.test.ts > POST /api/launch > writes the context pack, mints a session, and returns the command unlaunched where it cannot open a terminal 150ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan that passes the contract makes it planned 341ms
+ ✓ test/serve.test.ts > POST /api/launch > claims the task and starts a build in its worktree, on its branch 322ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan with no brief is still planned; a brief is not required retroactively 320ms
+ ✓ test/serve.test.ts > the completed view > says what was actually done for a finished task 268ms
+ ✓ test/serve.test.ts > the completed view > leaves the completion block null for everything still open 233ms
+ ✓ src/land.test.ts > landTask > records the verdict without a second merge when the branch has already landed, and says so 1007ms
+ ✓ src/land.test.ts > landTask > leaves needs-work as a verdict written into the packet, with no commit 713ms
+ ✓ test/serve.test.ts > the completed view > still reports the six states on the state machine 1ms
  ✓ test/serve.test.ts > the serve key and the feed's address > is loopback only by default: no key, no addresses, and a network-style request is refused 0ms
- ✓ test/serve.test.ts > the serve key and the feed's address > names its episodes at the address it was asked on, with the key the request carried 1ms
- ✓ test/serve.test.ts > the serve key and the feed's address > mints a key when bound to every interface, and a loopback request still needs none 27ms
+ ✓ test/serve.test.ts > the serve key and the feed's address > names its episodes at the address it was asked on, with the key the request carried 0ms
+ ✓ test/serve.test.ts > the serve key and the feed's address > mints a key when bound to every interface, and a loopback request still needs none 28ms
  ✓ test/serve.test.ts > a repo with nothing to talk to > answers the services routes with empty lists rather than an error 5ms
- ✓ test/serve.test.ts > a repo with nothing to talk to > says why each services section is empty instead of dropping it 26ms
+ ✓ test/serve.test.ts > a repo with nothing to talk to > says why each services section is empty instead of dropping it 25ms
  ✓ test/serve.test.ts > a repo with nothing to talk to > lists no flow and 404s any flow id 1ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > getTaskDetail parses the brief beside the plan 276ms
- ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > lists every declared binding with the line that declares it, plus the files that touch it 83ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > getTaskDetail parses the brief beside the plan 299ms
+ ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > lists every declared binding with the line that declares it, plus the files that touch it 84ms
  ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > puts the undeclared secret and the fetch host in undeclared, and the untouched binding in unused 1ms
  ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > labels every edge read, write or touch, and cites a line that really holds the call 1ms
- ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > answers /api/service with the call sites, tasks, children and the flows that reach it 2ms
+ ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > answers /api/service with the call sites, tasks, children and the flows that reach it 3ms
  ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > refuses a missing id and 404s an unknown one 1ms
  ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > lists the Cloudflare handler as a flow, with its route and the services it reaches 0ms
  ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > traces one flow with its payloads, and reaches D1 through a binding passed as a parameter 1ms
- ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > validates depth, clamps it to the tracer's hops, and 404s an unknown flow 2ms
- ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > narrates the services page, undeclared secret first 21ms
- ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > narrates one flow step by step, with each paragraph pointing at its own step 2ms
- ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > refuses a flow story without an id and 404s an unknown one 0ms
+ ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > validates depth, clamps it to the tracer's hops, and 404s an unknown flow 3ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > sorts the board with the most advanced work first and done last 270ms
+ ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > narrates the services page, undeclared secret first 26ms
+ ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > narrates one flow step by step, with each paragraph pointing at its own step 1ms
+ ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > refuses a flow story without an id and 404s an unknown one 1ms
  ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > links both pages from the repo story once they have something on them 0ms
  ✓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > refuses POST on all four routes 1ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > sorts the board with the most advanced work first and done last 290ms
 
  Test Files  30 passed (30)
-      Tests  548 passed | 1 skipped (549)
-   Start at  18:28:46
-   Duration  12.20s (transform 2.32s, setup 0ms, import 3.75s, tests 103.62s, environment 1ms)
+      Tests  551 passed | 1 skipped (552)
+   Start at  18:40:34
+   Duration  12.56s (transform 2.22s, setup 0ms, import 3.59s, tests 109.35s, environment 1ms)
 
 exit 0
