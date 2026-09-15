@@ -1,0 +1,31 @@
+$ npx vitest run src/build-state.test.ts test/mcp.test.ts --reporter=verbose
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/stale-dev-bin/packages/reggie
+
+ ✓ src/build-state.test.ts > buildState > is not stale when the build is newer than the source 2ms
+ ✓ src/build-state.test.ts > buildState > is stale when a source file is newer than every built file 1ms
+ ✓ src/build-state.test.ts > buildState > finds the newest source at any depth, and ignores what is not TypeScript 2ms
+ ✓ src/build-state.test.ts > buildState > stays quiet in an installed package, which has no src/ to compare 1ms
+ ✓ src/build-state.test.ts > buildState > forgives a build that finished in the same second as the edit 1ms
+ ✓ src/build-state.test.ts > buildState > says an empty dist was never built, instead of inventing an age against the epoch 1ms
+ ✓ src/build-state.test.ts > buildState > ignores test files, whose edits change nothing a command does 1ms
+ ✓ src/build-state.test.ts > buildState > does not walk into node_modules, which is full of newer .ts files 1ms
+ ✓ src/build-state.test.ts > buildState > compares against the build a process loaded, and notices a rebuild since 1ms
+ ✓ src/build-state.test.ts > checkBuild > says not built yet, with no age, when dist holds nothing 1ms
+ ✓ src/build-state.test.ts > checkBuild > is current for code run from src/, however far behind the build is 2ms
+ ✓ src/build-state.test.ts > checkBuild > refuses a stale dist and names the file, the fix, and the escape hatch 1ms
+ ✓ src/build-state.test.ts > checkBuild > allows a stale dist only when REGGIE_ALLOW_STALE is exactly 1 1ms
+ ✓ src/build-state.test.ts > checkBuild > is current for a dist build newer than its source 0ms
+ ✓ src/build-state.test.ts > checkBuild > tells a process running an older build than dist holds to restart 1ms
+ ✓ src/build-state.test.ts > checkBuild > resolves the package root from a module inside dist/ or src/ 0ms
+ ✓ test/mcp.test.ts > mcp server > exposes the tools and captures through them 653ms
+ ✓ test/mcp.test.ts > mcp server on a stale build > refuses every tool call with an error naming the build, and writes nothing 154ms
+ ✓ test/mcp.test.ts > mcp server on a stale build > tells the session to restart when dist was rebuilt after the server loaded it 151ms
+ ✓ test/mcp.test.ts > mcp server on a stale build > runs tools normally when the escape hatch is set 186ms
+
+ Test Files  2 passed (2)
+      Tests  20 passed (20)
+   Start at  17:07:12
+   Duration  1.48s (transform 124ms, setup 0ms, import 297ms, tests 1.17s, environment 0ms)
+
+--- exit 0
