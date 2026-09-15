@@ -1,0 +1,7 @@
+$ grep -n "REGGIE_ALLOW_STALE\|refuses to run after a source edit" docs/getting-started.md packages/reggie/README.md
+packages/reggie/README.md:120:A linked checkout refuses to run after a source edit until it is rebuilt: when `dist/` is behind `src/`, every CLI command exits 1 with the file that changed and the fix, and every MCP tool call returns the same message as an error result (or tells the session to restart the server when `dist/` was rebuilt after it started). Set `REGGIE_ALLOW_STALE=1` to run the previous build anyway. Code run from `src/` through tsx, and an installed package, are never refused.
+docs/getting-started.md:34:The command runs the compiled build in `dist/`, not the source. So a linked checkout refuses to run after a source edit until it is rebuilt: every command stops with the file that changed and the one line that fixes it, `npm run build` in `packages/reggie`. The MCP server still starts, but each tool call returns that same message as an error, so the agent in the session tells you. To run the previous build knowingly, set `REGGIE_ALLOW_STALE=1` in the environment.
+--- exit 0
+
+$ grep -rn warnIfStale packages/reggie/src
+--- exit 1 (1 = no matches)

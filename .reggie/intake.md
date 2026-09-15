@@ -86,3 +86,5 @@ merged, the intake line is removed.
   > Split out of the worktree-dependencies brief on 2026-09-15: the install config key keeps the flag for now; this item removes the need for it.
 - file-page-for-unread-file: A file the graph did not read (a Go or Swift file, or one outside CODE_EXT) answers 404 on its file page instead of saying why it has no node (jacobpress, cli, 2026-09-15)
   > Found while shaping graph-coverage-published on 2026-09-15. fileStory returns null and the route answers 404; the page should say the language is not read yet and link the coverage sentence.
+- reggie-packet-pairs-evidence-files-with-acceptan: reggie packet pairs evidence files with acceptance criteria round-robin (jacobpress, cli, 2026-09-15)
+  > Seen 2026-09-15 on stale-dev-bin: with four evidence files and eleven criteria, the scaffold assigned the files to the first four criteria in order and left the rest as placeholders, so criterion 1 (a unit test) pointed at the docs grep. A reader trusting the scaffold would approve against the wrong proof. It should leave every evidence line as a placeholder, or match on the plan's Verification strategy lines.

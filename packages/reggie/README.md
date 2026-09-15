@@ -117,6 +117,8 @@ Tools: `reggie_tasks`, `reggie_task`, `reggie_context`, `reggie_find_notes`, `re
 
 Writes made through the server are attributed as `Claude via <handle>` or `Codex via <handle>`, detected from the environment; set `REGGIE_TOOL` to override.
 
+A linked checkout refuses to run after a source edit until it is rebuilt: when `dist/` is behind `src/`, every CLI command exits 1 with the file that changed and the fix, and every MCP tool call returns the same message as an error result (or tells the session to restart the server when `dist/` was rebuilt after it started). Set `REGGIE_ALLOW_STALE=1` to run the previous build anyway. Code run from `src/` through tsx, and an installed package, are never refused.
+
 ## The plan contract
 
 Front matter: `slug`, `title`, `risk` (low, medium, high), `deciders`, `author`, `created`. Sections in order: Problem, Approach, Files to touch, Acceptance criteria, Verification strategy, Assumptions, Out of scope, Bail conditions. Criteria are `- [ ]` lines a reviewer can check without asking. Placeholders in parentheses and any `TBD`/`TODO` fail the lint.

@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
 import { lintBrief, parseBrief, PRIORITIES, SIZES, type Priority, type Size } from "./brief.js";
-import { staleBuildWarning } from "./build-state.js";
+import { buildState, checkBuild, packageRoot } from "./build-state.js";
 import { capture, removeFromIntake } from "./capture.js";
 import { claimTask, releaseTask } from "./claim.js";
 import { buildContext } from "./context.js";
@@ -66,22 +66,27 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-/**
- * Say so when `dist/` is behind `src/`. A linked development checkout otherwise runs the previous
- * build in silence, and the symptom — an endpoint that 404s, a page that renders nothing — reads
- * as a broken feature rather than as an unbuilt one.
- */
-function warnIfStale(): void {
-  const warning = staleBuildWarning(import.meta.url);
-  if (warning) process.stderr.write(`${warning}\n\n`);
-}
-
 const program = new Command();
 program
   .name("reggie")
   .description("Reggie: a repo manager for Claude Code and Codex. Tasks, plans, notes, and journals live in the repo; state is read from git.")
   .version(VERSION)
   .option("-C, --root <dir>", "run as if started in <dir>");
+
+/*
+ * Refuse to run when `dist/` is behind `src/`. A linked development checkout otherwise runs the
+ * previous build in silence, and the symptom — a verb that records less, an endpoint that 404s —
+ * reads as a broken feature rather than as an unbuilt one. Every command is gated, reads included,
+ * because a stale read is untrustworthy evidence too. `--help` and `--version` exit before this.
+ * The MCP server is the exception: it starts and refuses per tool call, where an agent will see it.
+ */
+program.hook("preAction", (_program, action) => {
+  if (action.name() === "mcp" && action.parent === program) return;
+  const check = checkBuild(import.meta.url, process.env);
+  if (check.verdict === "current") return;
+  process.stderr.write(`${check.message}\n\n`);
+  if (check.verdict === "stale") process.exit(1);
+});
 
 program
   .command("onboard [dir]")
@@ -594,7 +599,9 @@ program
   .description("Start the MCP server on stdio (used by Claude Code and Codex)")
   .action(async () => {
     const c = ctx(program.opts<{ root?: string }>().root);
-    await startMcpServer(c.root);
+    // The build this process loaded, so an edit or a rebuild during a long session is still caught.
+    const builtAt = buildState(packageRoot(import.meta.url)).builtAt;
+    await startMcpServer(c.root, { buildCheck: () => checkBuild(import.meta.url, process.env, { builtAt }) });
   });
 
 program
@@ -606,7 +613,6 @@ program
   .option("--workspace <dir>", "serve every repo listed in the CLAUDE.md of this workspace directory")
   .option("--no-workspace", "serve only this repo, even when a workspace CLAUDE.md names it")
   .action(async (opts: { port: number; host: string; key?: string; workspace?: string | boolean }) => {
-    warnIfStale();
     const c = ctx(program.opts<{ root?: string }>().root);
     let workspace: Workspace | null = null;
     if (typeof opts.workspace === "string") {
