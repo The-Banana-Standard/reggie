@@ -1,0 +1,17 @@
+# Criterion 3: .github/workflows/ci.yml parses as YAML and the reggie job's run steps, in order.
+# Parsed with the package's own yaml dependency, from packages/reggie.
+# Captured 2026-09-15T23:34:16Z
+# $ node -e '<parse ci.yml, print jobs.reggie.steps[].run>'
+
+jobs.reggie.steps[].run (in order):
+1. "npm ci --legacy-peer-deps"   [no name]   [no working-directory]   [no if]
+2. "npm run typecheck"   [no name]   [no working-directory]   [no if]
+3. "npm test"   [no name]   [no working-directory]   [no if]
+4. "npm run build"   [no name]   [no working-directory]   [no if]
+5. "node dist/cli.js docs check"   [name: docs check (CLAUDE.md and AGENTS.md)]   [no working-directory]   [no if]
+
+run steps: 5
+last step in the job is the docs check: true
+defaults.run.working-directory: packages/reggie
+strategy.matrix.os: ["ubuntu-latest","macos-latest"]
+exit=0

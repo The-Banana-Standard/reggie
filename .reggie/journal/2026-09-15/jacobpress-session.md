@@ -128,3 +128,7 @@ Planned the CI gate for the generated block, unattended, with the owner asleep. 
 ### 19:31 · jacobpress · claude · docs-check-in-ci · claim
 Claimed the task and started a branch from repo-manager in a separate worktree.
 
+### 19:34 · jacobpress · claude · docs-check-in-ci · execute
+Added the generated-block check to the one workflow as a named last step in the job that already installs, typechecks, tests and builds, so a drift failure reads as drift in the log rather than as a build failure. It is invoked from the freshly built output rather than through the installed command name, because nothing installs that name in this job, and it has to follow the build for two reasons and not one: the compiled entry point does not exist before it, and the tool refuses to run at all when its build is behind its source. It runs on both operating systems, with no condition of its own and no working directory of its own, because the result cannot differ between them and a conditional step would be the only exception in an otherwise uniform job. Ran the check before touching anything to see where the repo really stands, and it fails today exactly as the plan said, because tonight's merges moved the counts the block reports. The branch was cut from the integration branch's current tip, so there was nothing to bring in before starting. What is left is the refresh, deliberately held until last because the block counts the whole tree.
+evidence: .reggie/tasks/docs-check-in-ci/evidence/ci-diff.txt, .reggie/tasks/docs-check-in-ci/evidence/ci-steps.txt
+

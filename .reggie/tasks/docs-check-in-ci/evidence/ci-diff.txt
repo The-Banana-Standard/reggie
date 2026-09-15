@@ -1,0 +1,27 @@
+# Criteria 1 and 2: the diff of .github/workflows/ci.yml
+# Captured 2026-09-15T23:34:07Z in worktree .worktree/docs-check-in-ci on branch task/docs-check-in-ci
+# $ git diff -- .github/workflows/ci.yml
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 1ce2302..4ce3aaf 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -36,3 +36,7 @@ jobs:
+       - run: npm run typecheck
+       - run: npm test
+       - run: npm run build
++      # The bin is not installed in this job, so the check runs from the output `npm run build`
++      # just wrote. It stays last: the CLI refuses every command when `dist/` is behind `src/`.
++      - name: docs check (CLAUDE.md and AGENTS.md)
++        run: node dist/cli.js docs check
+
+# Read for criterion 2: the new step declares no working-directory and no if:.
+# The job's matrix and defaults are unchanged; quoted here from the file as it now stands:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    defaults:
+      run:
+        working-directory: packages/reggie
+    steps:
