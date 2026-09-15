@@ -83,3 +83,6 @@ evidence: .reggie/tasks/journal-files-conflict-on-merge-a-claim-in-the-m/evidenc
 Wrote the completion packet with every criterion ticked against named tests and saved runs. It records the one deviation, that in-place claims keep their entry uncommitted, and the captured follow-up about decide. Checking the open risks in a scratch repository confirmed a real catch: the union line only helps once it is on the branch being merged into, so merging this branch will still conflict on today's journal unless the attributes file reaches the default branch first or this one merge keeps both sides by hand. Nothing is merged and no pull request is open; that is the owner's call.
 evidence: .reggie/tasks/journal-files-conflict-on-merge-a-claim-in-the-m/evidence/tests-named.txt
 
+### 18:00 · jacobpress · claude · journal-files-conflict-on-merge-a-claim-in-the-m · decide
+Decision: approved.
+
