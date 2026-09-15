@@ -15,3 +15,7 @@ sources: packages/reggie/src/claim.ts:84
 releaseTask takes journal: false from landTask. The decide entry is already inside the merge commit, and a release entry written after it would leave the base checkout dirty, which makes the next landing refuse.
 sources: task-attribution-by-merge
 
+## gotcha · 2026-09-15 · Claude via jacobpress · high
+A worktree claim prepares dependencies through prepareDeps every time, on a fresh claim and on a resume, and returns one outcome per configured directory in result.deps. A resume is not a no-op: a link made before the branch changed its lockfile is removed and replaced by an install. releaseTask unlinks before git worktree remove --force, because a worktree holding a link into the serving checkout is the one way this could delete the dependencies it shares. Never rm -r through that link; unlink it.
+sources: packages/reggie/src/claim.ts, a-task-worktree-has-no-node-modules-so-nothing-r
+

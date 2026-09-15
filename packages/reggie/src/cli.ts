@@ -6,6 +6,7 @@ import { lintBrief, parseBrief, PRIORITIES, SIZES, type Priority, type Size } fr
 import { buildState, checkBuild, packageRoot } from "./build-state.js";
 import { capture, removeFromIntake } from "./capture.js";
 import { claimTask, releaseTask } from "./claim.js";
+import { pendingSetup, type DepsOutcome } from "./deps.js";
 import { buildContext } from "./context.js";
 import { checkComposedFile, checkGeneratedBlock, composeAgentsMd, curatedSections, renderGeneratedBlock } from "./docs.js";
 import { collectFacts } from "./facts.js";
@@ -414,9 +415,13 @@ program
     let cwd = c.root;
     if (goal === "build") {
       const slug = tasks[0]!.slug;
-      const claimed = claimTask(c.paths, c.config, slug, { person: currentPerson(c.root), worktree: true, tool: opts.tool, ...(session ? { session } : {}) });
+      // Defer, never install here: a cold `npm ci` is minutes, and the session is meant to open now.
+      // The commands it still owes come back in the prompt as its first step.
+      const claimed = claimTask(c.paths, c.config, slug, { person: currentPerson(c.root), worktree: true, tool: opts.tool, deps: "defer", ...(session ? { session } : {}) });
       cwd = claimed.worktree ?? c.root;
       base.branch = claimed.branch;
+      const setup = pendingSetup(claimed.deps);
+      if (setup.length > 0) base.setup = setup;
     }
     base.repo = cwd;
     base.contextFiles = tasks.map((t) => writeContextFile(cwd, t.slug, buildContext(c.paths, c.config, { slug: t.slug })));
@@ -428,6 +433,26 @@ program
     out(`Started in a new Terminal window, in ${cwd}${r.resume ? `. Reopen it later with: ${r.resume}` : ""}`);
   });
 
+/**
+ * What claim says about one dependency directory. Anything the session still owes ends with the
+ * command and the directory to run it in, so a failed claim still leaves a known first step.
+ */
+function depsLine(o: DepsOutcome): string {
+  const run = `run \`${o.command}\` in ${o.dir}`;
+  switch (o.status) {
+    case "linked":
+      return `linked ${o.dir}/node_modules to this checkout`;
+    case "installed":
+      return `installed dependencies in ${o.dir}`;
+    case "present":
+      return o.pending ? `${o.reason ?? `${o.dir}/node_modules is out of date`}; left it alone: ${run}` : `${o.dir}/node_modules was already there; left it alone`;
+    case "deferred":
+      return `dependencies not ready: ${run}`;
+    case "failed":
+      return o.pending ? `could not install${o.reason ? ` (${o.reason})` : ""}: ${run}` : `cannot install in ${o.dir}${o.reason ? `: ${o.reason}` : ""}`;
+  }
+}
+
 program
   .command("claim <slug>")
   .description("Start work: create or switch to the task/<slug> branch")
@@ -436,6 +461,7 @@ program
     const c = ctx(program.opts<{ root?: string }>().root);
     const r = claimTask(c.paths, c.config, requireSlug(slug), { person: c.person, ...(opts.worktree ? { worktree: true } : {}) });
     out(`${r.alreadyExisted ? "Resumed" : "Claimed"} ${slug} on ${r.branch}${r.worktree ? ` in ${r.worktree}` : ""}`);
+    for (const o of r.deps) out(depsLine(o));
   });
 
 program

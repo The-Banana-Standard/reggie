@@ -5,6 +5,13 @@ mode: solo
 # defaultBranch: the branch tasks branch from and plans merge to. Set to repo-manager while v3 is built
 # on this branch in a worktree; drop it once the branch lands on main.
 defaultBranch: repo-manager
+# install: the directories that hold installed dependencies, and the command that installs them
+# there. A claimed worktree links each directory's node_modules from the serving checkout when the
+# lockfiles are byte-identical, and otherwise runs the command in the worktree. The peer-dependency
+# flag is this repo's own workaround, tracked as npm-ci-without-legacy-peer-deps.
+install:
+  - dir: packages/reggie
+    command: npm ci --legacy-peer-deps
 mcpServerName: reggie
 risk:
   high:

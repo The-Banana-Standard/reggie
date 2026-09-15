@@ -11,3 +11,7 @@ sources: packages/reggie/src/serve.ts:590
 POST /api/decide approved in solo mode goes through landTask and answers 409 on a refusal or a conflict; needs-work and team mode only write the verdict. The completed view reads commits from taskLanding: the diff comes from the merge alone, the commits from the branch, and the merge is reported separately.
 sources: task-attribution-by-merge
 
+## gotcha · 2026-09-15 · Claude via jacobpress · high
+POST /api/launch claims a build with deps: defer. Linking is instant and still happens, but an install is never run inside the request: this server answers one request at a time, so a cold npm ci would hold every other request for minutes. The deferred commands travel to the session in the build prompt.
+sources: packages/reggie/src/serve.ts:2260
+

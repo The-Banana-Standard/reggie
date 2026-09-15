@@ -1,0 +1,34 @@
+Run after the implementation commit, so git status shows the branch at rest.
+
+$ git ls-files packages/reggie/.claude/stats.json        (no output = no longer tracked)
+[end]
+
+$ ls -l packages/reggie/.claude/stats.json               (still on disk)
+-rw-r--r--@ 1 jacobpress  staff  211 Sep 15 18:46 packages/reggie/.claude/stats.json
+
+$ git check-ignore -v packages/reggie/.claude/stats.json (the unanchored rule names it)
+.gitignore:60:**/.claude/*	packages/reggie/.claude/stats.json
+
+$ git ls-files .claude/commands                          (the four commands are still tracked)
+.claude/commands/reggie-capture.md
+.claude/commands/reggie-execute.md
+.claude/commands/reggie-onboard.md
+.claude/commands/reggie-plan.md
+
+$ git ls-files -ci --exclude-standard                    (no output = no tracked file is ignored)
+[end]
+
+$ grep -c stats-json-changes-under-test .reggie/intake.md
+0
+
+$ sed -n '58,62p' .gitignore                             (the rules as they now read)
+# Reggie local configs. Unanchored: a slashed pattern binds to the repo root, so `.claude/*`
+# never matched the copies nested under packages/.
+**/.claude/*
+!**/.claude/commands/
+capability-manifest.yaml
+
+$ git status --porcelain   (bail condition 2: nothing outside .claude changed state)
+ M .reggie/tasks/a-task-worktree-has-no-node-modules-so-nothing-r/evidence/gitignore.txt
+?? .reggie/tasks/a-task-worktree-has-no-node-modules-so-nothing-r/evidence/e2e.txt
+[end]

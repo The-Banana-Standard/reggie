@@ -15,6 +15,7 @@ import { buildGraph, flatGraph, jsImports, type GraphEdge, type GraphNode, type 
 import { commitsPerDayFor, historyFor, historyLogArgs, parseNumstatLog, recentFor, repoHistory, taskLanding, type CommitInfo, type HistoryIndex, type LogCommit, type TaskLanding } from "./history.js";
 import { appendJournal, readJournal, type JournalEntry } from "./journal.js";
 import { claimTask } from "./claim.js";
+import { pendingSetup } from "./deps.js";
 import { LandError, landTask } from "./land.js";
 import { isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, MAX_NOTE_CHARS, mintSession, recordLaunch, resolveGoal, writeContextFile, type LaunchMode, type LaunchTask, type LaunchTool } from "./launch.js";
 import { narrate } from "./narrate.js";
@@ -2248,19 +2249,24 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       // has to find its way there and can never edit the checkout the server is reading.
       let cwd = c.root;
       let branch: string | undefined;
+      let setup: ReturnType<typeof pendingSetup> = [];
       const session = mintSession(tool);
       if (goal === "build") {
         const slug = found.tasks[0]!.slug;
         try {
-          const claimed = claimTask(c.paths, c.config, slug, { person, worktree: true, tool, ...(session ? { session } : {}) });
+          // `defer`: the claim links dependencies when that is safe, but never runs an install here.
+          // This server handles one request at a time, so a cold install would hold every other one
+          // for minutes. What is left goes into the session's prompt as its first command.
+          const claimed = claimTask(c.paths, c.config, slug, { person, worktree: true, tool, deps: "defer", ...(session ? { session } : {}) });
           cwd = claimed.worktree ?? c.root;
           branch = claimed.branch;
+          setup = pendingSetup(claimed.deps);
         } catch (err) {
           return json(res, 409, { error: err instanceof Error ? err.message : "could not claim the task" });
         }
       }
       const contextFiles = found.tasks.map((t) => writeContextFile(cwd, t.slug, buildContext(c.paths, c.config, { slug: t.slug })));
-      const input = { repo: cwd, tool, mode, tasks: found.tasks, contextFiles, ...(note ? { note } : {}), ...(session ? { session } : {}), ...(branch ? { branch } : {}) };
+      const input = { repo: cwd, tool, mode, tasks: found.tasks, contextFiles, ...(note ? { note } : {}), ...(session ? { session } : {}), ...(branch ? { branch } : {}), ...(setup.length > 0 ? { setup } : {}) };
       const result = launchSession(input);
       for (const t of found.tasks) recordLaunch(c.root, { slug: t.slug, tool, goal, session: result.session, resume: result.resume, cwd: result.cwd });
       c.invalidate();

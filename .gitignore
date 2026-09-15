@@ -55,9 +55,10 @@ temp/
 *.rej
 *~
 
-# Reggie local configs
-.claude/*
-!.claude/commands/
+# Reggie local configs. Unanchored: a slashed pattern binds to the repo root, so `.claude/*`
+# never matched the copies nested under packages/.
+**/.claude/*
+!**/.claude/commands/
 capability-manifest.yaml
 mcp-registry.local.yaml
 skills-registry.local.yaml

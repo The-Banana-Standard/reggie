@@ -1,0 +1,67 @@
+# End to end, criterion 11. A local clone of this branch, checked out under the name
+# repo-manager (the integration branch .reggie/config.yaml points at, so the claim below
+# branches from this code), with packages/reggie/node_modules copied in and built there.
+# Self-contained: the clone's node_modules is a real directory, not a link outward.
+# clone root: /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/2200782e-10b7-4548-82c8-2c352ee52ecb/scratchpad/e2e-clone
+
+$ git log --oneline -1
+7691c65 feat(deps): make a claimed worktree runnable, and stop the stats file riding into commits
+
+$ grep -A3 '^install:' .reggie/config.yaml
+install:
+  - dir: packages/reggie
+    command: npm ci --legacy-peer-deps
+mcpServerName: reggie
+
+$ ls -ld packages/reggie/node_modules   (a real directory in the clone)
+drwxr-xr-x@ 146 jacobpress  wheel  4672 Sep 15 19:16 packages/reggie/node_modules
+$ ls packages/reggie/node_modules/.e2e-marker
+packages/reggie/node_modules/.e2e-marker
+
+======== 1. claim into a worktree ========
+$ node packages/reggie/dist/cli.js claim e2e-deps --worktree
+Claimed e2e-deps on task/e2e-deps in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/2200782e-10b7-4548-82c8-2c352ee52ecb/scratchpad/e2e-clone/.worktree/e2e-deps
+linked packages/reggie/node_modules to this checkout
+  exit status: 0
+
+$ ls -l .worktree/e2e-deps/packages/reggie/node_modules
+lrwxr-xr-x@ 1 jacobpress  wheel  162 Sep 15 19:16 .worktree/e2e-deps/packages/reggie/node_modules -> /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/2200782e-10b7-4548-82c8-2c352ee52ecb/scratchpad/e2e-clone/packages/reggie/node_modules
+
+$ git -C .worktree/e2e-deps status --porcelain   (empty: the link is invisible to git)
+[end]
+
+======== 2. the worktree runs its own tests, through the link, with no install ========
+$ cd .worktree/e2e-deps/packages/reggie && npm test
+
+> reggie@3.0.0-alpha.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/2200782e-10b7-4548-82c8-2c352ee52ecb/scratchpad/e2e-clone/.worktree/e2e-deps/packages/reggie
+
+
+ Test Files  31 passed (31)
+      Tests  578 passed | 1 skipped (579)
+   Start at  19:16:59
+   Duration  13.17s (transform 2.44s, setup 0ms, import 3.79s, tests 122.32s, environment 1ms)
+
+  exit status: 0
+
+======== 3. release --force, the case that could have destroyed the shared tree ========
+$ node packages/reggie/dist/cli.js release e2e-deps --force
+unlinked /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/2200782e-10b7-4548-82c8-2c352ee52ecb/scratchpad/e2e-clone/.worktree/e2e-deps/packages/reggie/node_modules
+removed worktree /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/2200782e-10b7-4548-82c8-2c352ee52ecb/scratchpad/e2e-clone/.worktree/e2e-deps
+deleted local task/e2e-deps
+  exit status: 0
+
+$ ls -d .worktree/e2e-deps   (the worktree is gone)
+ls: .worktree/e2e-deps: No such file or directory
+
+$ ls -ld packages/reggie/node_modules   (the clone's dependencies are still a real directory)
+drwxr-xr-x@ 146 jacobpress  wheel  4672 Sep 15 19:16 packages/reggie/node_modules
+$ ls packages/reggie/node_modules | wc -l
+     139
+$ cat packages/reggie/node_modules/.e2e-marker   (the marker placed before the claim)
+e2e-marker
+$ ls packages/reggie/node_modules/vitest/package.json
+packages/reggie/node_modules/vitest/package.json

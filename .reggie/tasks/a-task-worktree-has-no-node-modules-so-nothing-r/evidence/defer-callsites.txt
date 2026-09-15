@@ -1,0 +1,15 @@
+$ grep -n 'deps: "defer"' packages/reggie/src/serve.ts packages/reggie/src/cli.ts
+packages/reggie/src/serve.ts:2260:          const claimed = claimTask(c.paths, c.config, slug, { person, worktree: true, tool, deps: "defer", ...(session ? { session } : {}) });
+packages/reggie/src/cli.ts:420:      const claimed = claimTask(c.paths, c.config, slug, { person: currentPerson(c.root), worktree: true, tool: opts.tool, deps: "defer", ...(session ? { session } : {}) });
+
+$ grep -n 'claimTask(' packages/reggie/src/serve.ts packages/reggie/src/cli.ts   (every launcher call site)
+packages/reggie/src/serve.ts:2260:          const claimed = claimTask(c.paths, c.config, slug, { person, worktree: true, tool, deps: "defer", ...(session ? { session } : {}) });
+packages/reggie/src/cli.ts:420:      const claimed = claimTask(c.paths, c.config, slug, { person: currentPerson(c.root), worktree: true, tool: opts.tool, deps: "defer", ...(session ? { session } : {}) });
+packages/reggie/src/cli.ts:458:    const r = claimTask(c.paths, c.config, requireSlug(slug), { person: c.person, ...(opts.worktree ? { worktree: true } : {}) });
+
+$ grep -n 'pendingSetup' packages/reggie/src/serve.ts packages/reggie/src/cli.ts
+packages/reggie/src/cli.ts:9:import { pendingSetup, type DepsOutcome } from "./deps.js";
+packages/reggie/src/cli.ts:423:      const setup = pendingSetup(claimed.deps);
+packages/reggie/src/serve.ts:18:import { pendingSetup } from "./deps.js";
+packages/reggie/src/serve.ts:2252:      let setup: ReturnType<typeof pendingSetup> = [];
+packages/reggie/src/serve.ts:2263:          setup = pendingSetup(claimed.deps);

@@ -1,3 +1,4 @@
+import path from "node:path";
 import YAML from "yaml";
 import { gitUser } from "./git.js";
 import type { RepoPaths } from "./paths.js";
@@ -34,12 +35,25 @@ export interface LegacyConfig {
   enabled?: boolean;
 }
 
+/**
+ * One directory whose dependencies a claimed worktree needs, and the command that installs them
+ * there. A list because a monorepo gets one entry, and one link, per installed package.
+ */
+export interface InstallEntry {
+  /** Relative to the repo root; `.` for a single-package repo. Never absolute, never above the root. */
+  dir: string;
+  /** Run as an argument vector, split on whitespace. Never through a shell. */
+  command: string;
+}
+
 export interface ReggieConfig {
   mode: Mode;
   defaultBranch?: string;
   mcpServerName: string;
   risk: RiskRules;
   legacy?: LegacyConfig;
+  /** Absent when the repo has not said how it installs; claim then leaves a worktree exactly as git made it. */
+  install?: InstallEntry[];
 }
 
 export const DEFAULT_RISK: RiskRules = {
@@ -105,6 +119,25 @@ export function inferMode(people: PeopleFile): Mode {
   return people.people.length > 1 ? "team" : "solo";
 }
 
+/**
+ * Read the `install` list, dropping anything that could not be run safely: an entry with no
+ * command, and any dir that is absolute or climbs out of the repo, because that dir becomes a
+ * path Reggie writes a symlink into and runs a command in.
+ */
+function parseInstall(items: readonly unknown[]): InstallEntry[] {
+  const entries: InstallEntry[] = [];
+  for (const item of items) {
+    if (!item || typeof item !== "object") continue;
+    const e = item as Record<string, unknown>;
+    const command = typeof e.command === "string" ? e.command.trim() : "";
+    if (!command) continue;
+    const dir = (typeof e.dir === "string" ? e.dir.trim() : "") || ".";
+    if (path.isAbsolute(dir) || dir.split(/[\\/]/).includes("..")) continue;
+    entries.push({ dir, command });
+  }
+  return entries;
+}
+
 export function loadConfig(paths: RepoPaths): ReggieConfig {
   const raw = readText(paths.config);
   const base: ReggieConfig = { mode: "solo", mcpServerName: "reggie", risk: { ...DEFAULT_RISK } };
@@ -120,6 +153,7 @@ export function loadConfig(paths: RepoPaths): ReggieConfig {
     if (Array.isArray(r.high)) base.risk.high = r.high.filter((x): x is string => typeof x === "string");
     if (Array.isArray(r.medium)) base.risk.medium = r.medium.filter((x): x is string => typeof x === "string");
   }
+  if (Array.isArray(c.install)) base.install = parseInstall(c.install);
   if (c.legacy === false) base.legacy = { enabled: false };
   else if (c.legacy && typeof c.legacy === "object") {
     const l = c.legacy as Record<string, unknown>;
@@ -143,6 +177,7 @@ export function saveConfig(paths: RepoPaths, config: ReggieConfig): void {
   ].join("\n");
   const body: Record<string, unknown> = { mode: config.mode, mcpServerName: config.mcpServerName, risk: config.risk };
   if (config.defaultBranch) body.defaultBranch = config.defaultBranch;
+  if (config.install && config.install.length > 0) body.install = config.install;
   writeText(paths.config, header + YAML.stringify(body));
 }
 

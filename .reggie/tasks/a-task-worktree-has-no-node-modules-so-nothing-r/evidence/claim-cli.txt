@@ -1,0 +1,26 @@
+# One claim against a fixture repo whose config carries two install entries:
+#   pkg   - the serving checkout has node_modules and the lockfiles match -> link, no command
+#   broke - nothing to link, and the command exits 3                      -> failed, named
+
+$ node packages/reggie/dist/cli.js claim two-entries --worktree
+Claimed two-entries on task/two-entries in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/2200782e-10b7-4548-82c8-2c352ee52ecb/scratchpad/claim-cli-fixture/.worktree/two-entries
+linked pkg/node_modules to this checkout
+could not install (exit 3: ERR! 403 Forbidden - GET https://registry.example/x): run `node fail.js` in broke
+  exit status: 0
+
+$ ls -l .worktree/two-entries/pkg/node_modules
+lrwxr-xr-x@ 1 jacobpress  wheel  158 Sep 15 19:15 .worktree/two-entries/pkg/node_modules -> /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/2200782e-10b7-4548-82c8-2c352ee52ecb/scratchpad/claim-cli-fixture/pkg/node_modules
+$ ls .worktree/two-entries/broke   (no node_modules: the failed install left nothing)
+fail.js
+package-lock.json
+
+$ git log --format='%h %s' task/two-entries -1   (the claim commit survived the failed install)
+8486df3 meta: claim two-entries
+
+$ node packages/reggie/dist/cli.js release two-entries --force
+unlinked /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/2200782e-10b7-4548-82c8-2c352ee52ecb/scratchpad/claim-cli-fixture/.worktree/two-entries/pkg/node_modules
+removed worktree /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/2200782e-10b7-4548-82c8-2c352ee52ecb/scratchpad/claim-cli-fixture/.worktree/two-entries
+deleted local task/two-entries
+
+$ ls pkg/node_modules   (the serving checkout kept its dependencies)
+marker

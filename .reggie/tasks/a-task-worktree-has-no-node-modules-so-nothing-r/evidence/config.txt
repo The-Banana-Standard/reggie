@@ -1,0 +1,9 @@
+$ grep -A3 '^install:' .reggie/config.yaml
+install:
+  - dir: packages/reggie
+    command: npm ci --legacy-peer-deps
+mcpServerName: reggie
+
+$ grep -n 'api/launch' packages/reggie/docs/ui-api-contract.md
+174:## GET /api/launch?slug=&tool=&mode=&note=
+328:- `POST /api/launch` `{ slugs: string[]; tool: LaunchTool; mode: 'discuss'|'build'; note?: string }` (`slug` accepted as a singular alias) → `{ launched: boolean; command: string; cwd: string; goal: LaunchGoal; session: string|null; resume: string|null; reason?: string }`. The only route that starts a process. Validated exactly as `GET /api/launch`. Before spawning it writes the context pack for each task to `<cwd>/.reggie/.cache/context/<slug>.md` (the prompt says to read it first, so a read-only sandbox and a missing `reggie` binary do not matter), mints a session id for Claude Code (`--session-id`, echoed as `session`, with `resume` the command that reopens the chat), and for a build **claims the task first** (`claimTask` with a worktree, as `currentPerson`) so the session opens in `.worktree/<slug>` on `task/<slug>` with the claim already committed; 409 when someone else holds the branch. The claim also makes that worktree runnable: for each `install` entry in `.reggie/config.yaml` it links the serving checkout's `node_modules` when the lockfiles there are byte-identical, and **defers** any install rather than running it (this server answers one request at a time, and a cold install is minutes), naming the deferred command and directory in the session's prompt as its first step. A launch record lands at `.reggie/.cache/launches/<slug>.json`. The command is built as an argument vector by `src/launch.ts` and is never interpolated into a shell. `launched:false` is a normal answer, not an error — outside macOS nothing can be spawned, so `reason` says why and the page falls back to showing `command` to copy.
