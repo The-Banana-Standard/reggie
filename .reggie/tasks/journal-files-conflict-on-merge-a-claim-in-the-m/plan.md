@@ -20,8 +20,9 @@ Journal day files (`.reggie/journal/<date>/<person>-session.md`) conflict on eve
   - In `layout.ts`, add `ensureGitattributes(root)` and a `GITATTRIBUTES_LINES` constant, modelled on `ensureGitignore`. It appends only the missing lines under a comment header and copes with a file that has no trailing newline.
   - `ensureLayout` returns a new `gitattributesUpdated` flag, and `reggie onboard` in cli.ts prints a line when that flag is set.
   - `onboard.ts` already calls `ensureLayout`, so it needs no change.
-- In `claimTask`, write the journal entry through `repoPaths(workdir)`, not the serving checkout's paths, so it rides the task branch.
-  - On a new claim, write the entry before the claim commit and include its day file in the same commit, next to the claim record. This covers both the worktree claim and the in-place claim.
+- In `claimTask`, when the claim builds a worktree, write the journal entry through `repoPaths(workdir)`, not the serving checkout's paths, so it rides the task branch.
+  - On a new worktree claim, write the entry before the claim commit and include its day file in the same commit, next to the claim record.
+  - An in-place claim writes its entry uncommitted in the checkout it runs in, as before this task. Amended during the build on 2026-09-15, chosen by jacobpress: committing it in place tracked a dirty day file on the branch, so an in-place claim, resume and release without `--force` failed at `git switch`, where it had released cleanly before.
   - On a resume, where the claim record already exists, write the entry into `workdir` without committing. A commit there would count as unmerged work in `releaseTask`'s ahead-count check.
 - `release`, `decide`, `journal add`, the web view's journal route and the MCP journal tool stay as they are. They run from the serving checkout and have no branch to ride, and `release` deletes the worktree before it writes.
 - Rejected alternative: keep the entry in the serving checkout and have each verb commit it on the default branch. That produces a commit nobody asked for, and the answer on file puts the entry in the worktree.
@@ -44,11 +45,12 @@ Journal day files (`.reggie/journal/<date>/<person>-session.md`) conflict on eve
 - [ ] A second `ensureLayout` on the same repo returns `gitattributesUpdated: false` and leaves `.gitattributes` byte-for-byte unchanged.
 - [ ] `reggie onboard` prints a line naming `.gitattributes` when it wrote the union line, and prints nothing about `.gitattributes` otherwise.
 - [ ] After `claimTask` with `worktree: true`, `git status --porcelain --untracked-files=no` in the serving checkout prints nothing.
-- [ ] After a new claim, worktree or in place, the claim commit on `task/<slug>` contains both `claim.md` and the day's journal file, and that file holds an entry with stage `claim`.
+- [ ] After a new worktree claim, the claim commit on `task/<slug>` contains both `claim.md` and the day's journal file, and that file holds an entry with stage `claim`. After a new in-place claim, the claim commit contains only `claim.md`.
 - [ ] Start from a temp repo onboarded and committed on main. Claim a task in a worktree, commit a journal entry on the task branch, then commit a journal entry the same day on main. `git merge --no-ff task/<slug>` run from the serving checkout exits 0, the day file has no conflict markers, and `readJournal` returns every entry from both sides.
 - [ ] Resuming an already-claimed task creates no new commit on `task/<slug>`, and `releaseTask` without `--force` still succeeds on a branch holding only the claim commit.
 - [ ] `npm test`, `npm run typecheck` and `npm run build` in packages/reggie all exit 0.
-- [ ] The "Journals union-merge" decision in docs/repo-manager-vision.md states that onboard writes the line and that the claim entry is committed on the task branch. The claim.ts and layout.ts notes describe the new behaviour.
+- [ ] The "Journals union-merge" decision in docs/repo-manager-vision.md states that onboard writes the line and that a worktree claim's entry is committed on the task branch. The claim.ts and layout.ts notes describe the new behaviour.
+- [ ] With the day's journal file already committed on main, an in-place claim, then a resume, then `releaseTask` without `--force` returns actions that include `switched to main` and `deleted local task/<slug>`.
 
 ## Verification strategy
 - Criterion 1: the output of `git check-attr merge -- .reggie/journal/2026-09-15/jacobpress-session.md`, saved to evidence/check-attr.txt.
@@ -58,15 +60,16 @@ Journal day files (`.reggie/journal/<date>/<person>-session.md`) conflict on eve
 - Criterion 5: `reggie onboard` run twice against a fresh temp repo, with both outputs saved to evidence/onboard.txt.
 - Criterion 6: the robustness.test.ts test "a worktree claim leaves the serving checkout clean"; output in evidence/tests.txt.
 - Criterion 7: the robustness.test.ts test "the claim commit carries the journal entry", which reads `git show --name-only task/<slug>` for a worktree claim and an in-place claim; output in evidence/tests.txt.
-- Criterion 8: the robustness.test.ts test "a task branch with journal entries merges into a main that also journaled"; output in evidence/tests.txt.
+- Criterion 8: the robustness.test.ts test "a task branch with journal entries merges into a main that also journaled", run once with the day file already on main and once with both sides starting it; output in evidence/tests.txt.
 - Criterion 9: the robustness.test.ts test "resuming a claim adds no commit", which asserts an ahead count of 1 and that `releaseTask` returns without throwing, with the existing release tests still passing; output in evidence/tests.txt.
 - Criterion 10: the output of the three commands, saved to evidence/tests.txt, evidence/typecheck.txt and evidence/build.txt.
 - Criterion 11: the `git diff` of docs/repo-manager-vision.md and the two note files, saved to evidence/docs-diff.txt and cited in the packet.
+- Criterion 12: the robustness.test.ts test "an in-place claim, resume and release still switches back to main"; output in evidence/tests.txt. Also a probe of claim, resume and release run against the code before and after this task, saved to evidence/mutation.txt.
 
 ## Assumptions
 - Onboard writes the union line into every repo, appending when a `.gitattributes` already exists. Answered by jacobpress on 2026-09-15.
 - When the claim builds a worktree, the claim entry goes into the worktree and is committed with the claim. Answered by jacobpress on 2026-09-15.
-- The claim entry is committed rather than left for the build session to carry. This follows from the answer above. An in-place claim takes the same path, because its `workdir` is the root and committing the entry leaves that tree clean too.
+- The worktree claim's entry is committed rather than left for the build session to carry; this follows from the answer above. An in-place claim writes its entry uncommitted, as before this task. Answered by jacobpress on 2026-09-15 during the build, after committing it in place was shown to make an in-place release fail at `git switch`.
 - On a resume the entry is written into `workdir` and left uncommitted. The alternative was a separate journal commit, but `releaseTask` would count it as unmerged work beyond the claim commit.
 - `release`, `decide`, `journal add`, the web view and the MCP tool keep writing into the serving checkout. They have no task branch to ride, and `release` removes the worktree before it writes. The attribution task, which is next, makes `decide approved` perform the merge on a clean tree, so it has to commit its own entry or write it after merging. That note goes into intake when this task is built.
 - A union merge can leave entries out of time order inside the raw day file, and that is acceptable. `readJournal` sorts by date and time, so only someone opening the raw file sees the order.

@@ -1,0 +1,14 @@
+
+> reggie@3.0.0-alpha.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/journal-files-conflict-on-merge-a-claim-in-the-m/packages/reggie
+
+
+ Test Files  29 passed (29)
+      Tests  536 passed | 1 skipped (537)
+   Start at  17:45:52
+   Duration  11.86s (transform 2.26s, setup 0ms, import 3.95s, tests 92.49s, environment 1ms)
+
+exit=0

@@ -1,0 +1,5 @@
+
+> reggie@3.0.0-alpha.1 build
+> tsc -p tsconfig.json
+
+exit=0

@@ -1,0 +1,27 @@
+$ npx vitest run --reporter=verbose src/layout.test.ts src/robustness.test.ts
+ ✓ src/layout.test.ts > .gitattributes for journal files > creates .gitattributes with the journal union line
+ ✓ src/layout.test.ts > .gitattributes for journal files > appends to an existing .gitattributes without a trailing newline
+ ✓ src/layout.test.ts > .gitattributes for journal files > is idempotent
+ ✓ src/robustness.test.ts > integration branch detection > uses a lone non-main branch and never a task branch
+ ✓ src/robustness.test.ts > integration branch detection > throws instead of guessing when only task branches remain
+ ✓ src/robustness.test.ts > path safety > refuses note entities and slugs that escape the repo
+ ✓ src/robustness.test.ts > path safety > keeps a file note where it was even if a folder of the same name appears later
+ ✓ src/robustness.test.ts > parsers > accepts loose intake lines and ignores indented examples
+ ✓ src/robustness.test.ts > parsers > splits front matter only on exact fences and survives CRLF
+ ✓ src/robustness.test.ts > parsers > upserts front matter fields and creates the block when missing
+ ✓ src/robustness.test.ts > parsers > escapes note and journal bodies that look like headers or trailers
+ ✓ src/robustness.test.ts > parsers > dedupes folder notes in the read chain
+ ✓ src/robustness.test.ts > parsers > targets the last generated block when prose quotes the markers
+ ✓ src/robustness.test.ts > packets, claims, and releases > does not overwrite a decided packet and records verdicts on malformed packets
+ ✓ src/robustness.test.ts > packets, claims, and releases > records the claimant explicitly and refuses takeovers and unsafe releases
+ ✓ src/robustness.test.ts > packets, claims, and releases > refuses to drop unmerged commits without --force
+ ✓ src/robustness.test.ts > packets, claims, and releases > keeps captured slugs unique against existing task directories
+ ✓ src/robustness.test.ts > journal entries and task-branch merges > a worktree claim leaves the serving checkout clean
+ ✓ src/robustness.test.ts > journal entries and task-branch merges > the claim commit carries the journal entry
+ ✓ src/robustness.test.ts > journal entries and task-branch merges > an in-place claim, resume and release still switches back to main
+ ✓ src/robustness.test.ts > journal entries and task-branch merges > a task branch with journal entries merges into a main that also journaled (day file already on main)
+ ✓ src/robustness.test.ts > journal entries and task-branch merges > a task branch with journal entries merges into a main that also journaled (both sides start the day file)
+ ✓ src/robustness.test.ts > journal entries and task-branch merges > resuming a claim adds no commit, so release still needs no force
+ Test Files  2 passed (2)
+      Tests  23 passed (23)
+exit=0
