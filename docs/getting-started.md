@@ -31,6 +31,8 @@ reggie --version
 
 `npm link` puts a `reggie` command on your PATH that points at this checkout. Pull and rebuild to upgrade.
 
+The command runs the compiled build in `dist/`, not the source. So a linked checkout refuses to run after a source edit until it is rebuilt: every command stops with the file that changed and the one line that fixes it, `npm run build` in `packages/reggie`. The MCP server still starts, but each tool call returns that same message as an error, so the agent in the session tells you. To run the previous build knowingly, set `REGGIE_ALLOW_STALE=1` in the environment.
+
 ## 2. Onboard a repository
 
 Go to the repo you want to manage and run:

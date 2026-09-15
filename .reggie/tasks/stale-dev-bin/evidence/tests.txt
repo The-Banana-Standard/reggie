@@ -1,0 +1,29 @@
+$ npm run typecheck
+
+> reggie@3.0.0-alpha.1 typecheck
+> tsc -p tsconfig.json --noEmit
+
+exit 0
+
+$ npm test
+
+> reggie@3.0.0-alpha.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/stale-dev-bin/packages/reggie
+
+
+ Test Files  28 passed (28)
+      Tests  527 passed | 1 skipped (528)
+   Start at  16:50:53
+   Duration  11.64s (transform 2.50s, setup 0ms, import 4.05s, tests 87.35s, environment 1ms)
+
+exit 0
+
+$ npm run build
+
+> reggie@3.0.0-alpha.1 build
+> tsc -p tsconfig.json
+
+exit 0

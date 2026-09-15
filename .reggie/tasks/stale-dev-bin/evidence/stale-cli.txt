@@ -1,0 +1,77 @@
+# Build, wait past the one-second grace, then touch a source file so dist/ is behind src/
+$ npm run build
+--- exit 0
+$ touch src/util.ts
+
+$ node dist/cli.js tasks
+--- stdout (0 lines):
+--- stderr:
+Refusing to run a stale build of Reggie.
+src/util.ts changed under a minute after dist/ was last compiled, so this would run the code from before that edit.
+Fix it:  (cd /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/stale-dev-bin/packages/reggie && npm run build)
+To run the old build anyway, set REGGIE_ALLOW_STALE=1.
+
+--- exit 1
+
+$ node dist/cli.js journal show
+--- stdout (0 lines):
+--- stderr:
+Refusing to run a stale build of Reggie.
+src/util.ts changed under a minute after dist/ was last compiled, so this would run the code from before that edit.
+Fix it:  (cd /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/stale-dev-bin/packages/reggie && npm run build)
+To run the old build anyway, set REGGIE_ALLOW_STALE=1.
+
+--- exit 1
+
+$ node dist/cli.js serve --port 0
+--- stdout (0 lines):
+--- stderr:
+Refusing to run a stale build of Reggie.
+src/util.ts changed under a minute after dist/ was last compiled, so this would run the code from before that edit.
+Fix it:  (cd /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/stale-dev-bin/packages/reggie && npm run build)
+To run the old build anyway, set REGGIE_ALLOW_STALE=1.
+
+--- exit 1
+
+$ node dist/cli.js plan lint stale-dev-bin
+--- stdout (0 lines):
+--- stderr:
+Refusing to run a stale build of Reggie.
+src/util.ts changed under a minute after dist/ was last compiled, so this would run the code from before that edit.
+Fix it:  (cd /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/stale-dev-bin/packages/reggie && npm run build)
+To run the old build anyway, set REGGIE_ALLOW_STALE=1.
+
+--- exit 1
+
+$ REGGIE_ALLOW_STALE=1 node dist/cli.js tasks
+--- stdout (27 lines):
+In process (1) — Someone holds a task/<slug> branch and is committing work on it.
+  stale-dev-bin [P1 · small · low risk · packages/reggie] · jacobpress · 2026-09-15
+    Stop the reggie on the PATH from silently running a stale build (task/stale-dev-bin has 1 commit ahead of repo-manager)
+
+--- stderr:
+Running the stale build because REGGIE_ALLOW_STALE=1.
+src/util.ts changed under a minute after dist/ was last compiled, so this would run the code from before that edit.
+Fix it:  (cd /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/stale-dev-bin/packages/reggie && npm run build)
+
+--- exit 0
+
+$ node dist/cli.js --version
+--- stdout (1 lines):
+3.0.0-alpha.1
+--- stderr:
+--- exit 0
+
+# Rebuild, then run again
+$ npm run build
+--- exit 0
+
+$ node dist/cli.js tasks
+--- stdout (27 lines):
+In process (1) — Someone holds a task/<slug> branch and is committing work on it.
+  stale-dev-bin [P1 · small · low risk · packages/reggie] · jacobpress · 2026-09-15
+    Stop the reggie on the PATH from silently running a stale build (task/stale-dev-bin has 1 commit ahead of repo-manager)
+
+--- stderr:
+--- exit 0
+

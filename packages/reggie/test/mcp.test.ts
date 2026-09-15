@@ -1,7 +1,13 @@
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { checkBuild } from "../src/build-state.js";
+import { createMcpServer, type McpServerOptions } from "../src/mcp.js";
 import { onboard } from "../src/onboard.js";
 import { makeTempRepo, type TempRepo } from "./helpers.js";
 
@@ -45,5 +51,81 @@ describe("mcp server", () => {
 
     const resources = await client.listResources();
     expect(resources.resources.map((r) => r.uri)).toContain("reggie://readme");
+  });
+});
+
+describe("mcp server on a stale build", () => {
+  let repo: TempRepo;
+  let pkg: string;
+  let client: Client;
+
+  /** A fake package root with one source and one built file, stamped in seconds from the epoch. */
+  function fakePackage(srcAt: number, distAt: number): string {
+    const root = mkdtempSync(path.join(os.tmpdir(), "reggie-pkg-"));
+    for (const [rel, at] of [["src/cli.ts", srcAt], ["dist/cli.js", distAt]] as const) {
+      const file = path.join(root, rel);
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, "x\n", "utf8");
+      utimesSync(file, at, at);
+    }
+    return root;
+  }
+
+  function journalFiles(): string[] {
+    const dir = path.join(repo.root, ".reggie", "journal");
+    return existsSync(dir) ? readdirSync(dir, { recursive: true }).map(String) : [];
+  }
+
+  async function connect(buildCheck: McpServerOptions["buildCheck"]): Promise<void> {
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    await createMcpServer(repo.root, { buildCheck }).connect(serverSide);
+    client = new Client({ name: "reggie-test", version: "0.0.0" });
+    await client.connect(clientSide);
+  }
+
+  beforeEach(() => {
+    repo = makeTempRepo();
+    onboard(repo.root);
+    repo.commitAll("onboard");
+  });
+  afterEach(async () => {
+    await client.close();
+    repo.cleanup();
+    rmSync(pkg, { recursive: true, force: true });
+  });
+
+  it("refuses every tool call with an error naming the build, and writes nothing", async () => {
+    pkg = fakePackage(1_000_600, 1_000_000);
+    const url = pathToFileURL(path.join(pkg, "dist", "cli.js")).href;
+    await connect(() => checkBuild(url, {}));
+    const before = journalFiles();
+
+    const tasks = await client.callTool({ name: "reggie_tasks", arguments: {} });
+    expect(tasks.isError).toBe(true);
+    expect(JSON.stringify(tasks.content)).toContain("npm run build");
+
+    const journal = await client.callTool({ name: "reggie_journal", arguments: { text: "This entry must not be written." } });
+    expect(journal.isError).toBe(true);
+    expect(JSON.stringify(journal.content)).toContain("npm run build");
+    expect(journalFiles()).toEqual(before);
+  });
+
+  it("tells the session to restart when dist was rebuilt after the server loaded it", async () => {
+    pkg = fakePackage(1_000_300, 1_000_600);
+    const url = pathToFileURL(path.join(pkg, "dist", "cli.js")).href;
+    await connect(() => checkBuild(url, {}, { builtAt: 1_000_000_000 }));
+
+    const tasks = await client.callTool({ name: "reggie_tasks", arguments: {} });
+    expect(tasks.isError).toBe(true);
+    expect(JSON.stringify(tasks.content)).toMatch(/restart the MCP server/);
+  });
+
+  it("runs tools normally when the escape hatch is set", async () => {
+    pkg = fakePackage(1_000_600, 1_000_000);
+    const url = pathToFileURL(path.join(pkg, "dist", "cli.js")).href;
+    await connect(() => checkBuild(url, { REGGIE_ALLOW_STALE: "1" }));
+
+    const tasks = await client.callTool({ name: "reggie_tasks", arguments: {} });
+    expect(tasks.isError).toBeFalsy();
   });
 });

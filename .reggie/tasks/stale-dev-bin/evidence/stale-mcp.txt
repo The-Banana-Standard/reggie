@@ -1,0 +1,16 @@
+# MCP client against node dist/cli.js mcp, with src/util.ts newer than dist/
+server started; tools listed: 10
+reggie_tasks isError: true
+reggie_tasks text:
+Refusing to run a stale build of Reggie.
+src/util.ts changed under a minute after dist/ was last compiled, so this would run the code from before that edit.
+Fix it:  (cd /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/stale-dev-bin/packages/reggie && npm run build)
+To run the old build anyway, set REGGIE_ALLOW_STALE=1.
+server stderr:
+reggie mcp server 3.0.0-alpha.1 ready for /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/stale-dev-bin
+Refusing to run a stale build of Reggie.
+src/util.ts changed under a minute after dist/ was last compiled, so this would run the code from before that edit.
+Fix it:  (cd /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/stale-dev-bin/packages/reggie && npm run build)
+To run the old build anyway, set REGGIE_ALLOW_STALE=1.
+
+--- exit 0

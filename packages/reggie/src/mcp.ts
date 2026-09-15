@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import type { BuildCheck } from "./build-state.js";
 import { capture } from "./capture.js";
 import { buildContext } from "./context.js";
 import { appendJournal, detectTool } from "./journal.js";
@@ -36,12 +37,33 @@ function text(value: string) {
 /** Slugs become path segments; the schema refuses anything else before a handler runs. */
 const slugSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/, "lowercase letters, digits, and hyphens only");
 
-/** Start the Reggie MCP server on stdio. Never write to stdout here except through the transport. */
-export async function startMcpServer(root: string): Promise<void> {
+export interface McpServerOptions {
+  /** Whether the running code is the code in the checkout; consulted before every tool call. */
+  buildCheck?: () => BuildCheck;
+}
+
+const CURRENT: BuildCheck = { verdict: "current", message: null };
+
+/**
+ * Build the Reggie MCP server without connecting it. Every tool refuses with an error result while
+ * the build check says stale: the server speaks stdio to a session, so stderr may never reach a
+ * person, but a tool error reaches the agent, which tells them.
+ */
+export function createMcpServer(root: string, opts: McpServerOptions = {}): McpServer {
   const server = new McpServer({ name: "reggie", version: VERSION });
   const c = ctx(root);
+  const check = opts.buildCheck ?? (() => CURRENT);
 
-  server.registerTool(
+  const tool: McpServer["registerTool"] = (name, config, cb) => {
+    const guarded = (async (...args: unknown[]) => {
+      const state = check();
+      if (state.verdict === "stale") return { content: [{ type: "text" as const, text: state.message ?? "Reggie is running a stale build." }], isError: true };
+      return (cb as (...a: unknown[]) => unknown)(...args);
+    }) as typeof cb;
+    return server.registerTool(name, config, guarded);
+  };
+
+  tool(
     "reggie_tasks",
     {
       title: "List tasks",
@@ -55,7 +77,7 @@ export async function startMcpServer(root: string): Promise<void> {
     },
   );
 
-  server.registerTool(
+  tool(
     "reggie_task",
     {
       title: "Show one task",
@@ -72,7 +94,7 @@ export async function startMcpServer(root: string): Promise<void> {
     },
   );
 
-  server.registerTool(
+  tool(
     "reggie_context",
     {
       title: "Context pack",
@@ -92,7 +114,7 @@ export async function startMcpServer(root: string): Promise<void> {
     },
   );
 
-  server.registerTool(
+  tool(
     "reggie_find_notes",
     {
       title: "Find notes",
@@ -107,7 +129,7 @@ export async function startMcpServer(root: string): Promise<void> {
     },
   );
 
-  server.registerTool(
+  tool(
     "reggie_add_note",
     {
       title: "Add a note",
@@ -129,7 +151,7 @@ export async function startMcpServer(root: string): Promise<void> {
     },
   );
 
-  server.registerTool(
+  tool(
     "reggie_journal",
     {
       title: "Write a journal entry",
@@ -155,7 +177,7 @@ export async function startMcpServer(root: string): Promise<void> {
     },
   );
 
-  server.registerTool(
+  tool(
     "reggie_capture",
     {
       title: "Capture to intake",
@@ -170,7 +192,7 @@ export async function startMcpServer(root: string): Promise<void> {
     },
   );
 
-  server.registerTool(
+  tool(
     "reggie_plan_new",
     {
       title: "Scaffold a plan",
@@ -194,7 +216,7 @@ export async function startMcpServer(root: string): Promise<void> {
     },
   );
 
-  server.registerTool(
+  tool(
     "reggie_lint_plan",
     {
       title: "Lint a plan against the contract",
@@ -212,7 +234,7 @@ export async function startMcpServer(root: string): Promise<void> {
     },
   );
 
-  server.registerTool(
+  tool(
     "reggie_people",
     {
       title: "People and mode",
@@ -248,7 +270,14 @@ export async function startMcpServer(root: string): Promise<void> {
     async (uri) => ({ contents: [{ uri: uri.href, text: readText(c.paths.onboarding) ?? "No brief. Run `reggie onboard`.", mimeType: "text/markdown" }] }),
   );
 
+  return server;
+}
+
+/** Start the Reggie MCP server on stdio. Never write to stdout here except through the transport. */
+export async function startMcpServer(root: string, opts: McpServerOptions = {}): Promise<void> {
+  const server = createMcpServer(root, opts);
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  process.stderr.write(`reggie mcp server ${VERSION} ready for ${root}\n`);
+  const state = opts.buildCheck?.() ?? CURRENT;
+  process.stderr.write(`reggie mcp server ${VERSION} ready for ${root}\n${state.message ? `${state.message}\n` : ""}`);
 }
