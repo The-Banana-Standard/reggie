@@ -1,0 +1,37 @@
+$ git ls-files packages/reggie/.claude/stats.json        (no output = no longer tracked)
+[end]
+
+$ ls -l packages/reggie/.claude/stats.json               (still on disk)
+-rw-r--r--@ 1 jacobpress  staff  211 Sep 15 18:46 packages/reggie/.claude/stats.json
+
+$ git check-ignore -v packages/reggie/.claude/stats.json
+.gitignore:60:**/.claude/*	packages/reggie/.claude/stats.json
+
+$ git ls-files .claude/commands                          (the four commands are still tracked)
+.claude/commands/reggie-capture.md
+.claude/commands/reggie-execute.md
+.claude/commands/reggie-onboard.md
+.claude/commands/reggie-plan.md
+
+$ git ls-files -ci --exclude-standard                    (no output = no tracked file is ignored)
+[end]
+
+$ grep -c stats-json-changes-under-test .reggie/intake.md
+0
+
+$ git status --porcelain                                 (bail condition 2: nothing outside .claude changed state)
+ M .gitignore
+ M .reggie/config.yaml
+ M .reggie/intake.md
+ M .reggie/journal/2026-09-15/jacobpress-session.md
+D  packages/reggie/.claude/stats.json
+ M packages/reggie/docs/ui-api-contract.md
+ M packages/reggie/src/claim.ts
+ M packages/reggie/src/cli.ts
+ M packages/reggie/src/launch.test.ts
+ M packages/reggie/src/launch.ts
+ M packages/reggie/src/people.ts
+ M packages/reggie/src/serve.ts
+?? .reggie/tasks/a-task-worktree-has-no-node-modules-so-nothing-r/evidence/
+?? packages/reggie/src/deps.test.ts
+?? packages/reggie/src/deps.ts

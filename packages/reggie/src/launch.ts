@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { run } from "./git.js";
+import type { InstallEntry } from "./people.js";
 import type { TaskState } from "./tasks.js";
 import { isSafeSlug, nowIso } from "./util.js";
 
@@ -52,6 +53,11 @@ export interface LaunchInput {
   contextFiles?: string[];
   /** The task branch a build session is on, when the caller has claimed it. */
   branch?: string;
+  /**
+   * Dependency directories the claim did not make ready, because the caller deferred the install
+   * or it failed. The build prompt names each one as the session's first command.
+   */
+  setup?: InstallEntry[];
 }
 
 export interface LaunchPlan {
@@ -207,12 +213,34 @@ const REVIEW: Record<LaunchTool, { code: string; security: string; simplify: str
   codex: { code: "`codex review` (or a fresh read of the diff against the plan)", security: "a security review pass over the diff", simplify: "a simplification pass" },
 };
 
+/**
+ * The install a claim deferred or could not finish, as the session's first command. Worth its own
+ * sentence because the alternative is the session's first act being a command that fails through
+ * no fault of its own.
+ */
+function setupClause(setup: readonly InstallEntry[] | undefined): string[] {
+  const list = setup ?? [];
+  if (list.length === 0) return [];
+  const each = list.map((s) => `\`${s.command}\` in \`${s.dir}\``).join(", then ");
+  return [`This worktree's dependencies are not installed yet, so nothing here runs until they are: your first command is ${each}.`];
+}
+
+/**
+ * The one thing a session can do that reaches outside its own worktree. `node_modules` may be a
+ * link into the checkout Reggie serves from, so installing through it would change every other
+ * worktree, and deleting through it would empty them.
+ */
+const UNLINK_CLAUSE =
+  "Before you add or change any dependency, check whether `node_modules` here is a symlink: if it is, it points into the checkout Reggie serves from, so remove the link with `unlink` and run the install command first, because installing through it would change every other worktree and `rm -r` through it would delete their dependencies.";
+
 /** Implement one planned task from its worktree, already claimed, through to a completion packet. */
-function buildPrompt(tool: LaunchTool, slug: string, file: string | undefined, branch: string | undefined, note: string | undefined): string {
+function buildPrompt(tool: LaunchTool, slug: string, file: string | undefined, branch: string | undefined, note: string | undefined, setup: readonly InstallEntry[] | undefined): string {
   const r = REVIEW[tool];
   return [
     `Implement \`${slug}\`.`,
     branch ? `You are in the task's worktree on branch \`${branch}\`, which Reggie has already claimed for you; work here and commit here.` : `Run \`reggie claim ${slug} --worktree\` first and work in the worktree it creates.`,
+    ...setupClause(setup),
+    UNLINK_CLAUSE,
     contextClause(slug, file),
     "Execute the plan. You may deviate, but record every deviation and its reason for the packet.",
     `Produce the evidence named under Verification strategy and save it under \`.reggie/tasks/${slug}/evidence/\`; never claim a test passed without its output saved.`,
@@ -234,7 +262,7 @@ function promptFor(tool: LaunchTool, goal: LaunchGoal, tasks: readonly LaunchTas
     case "discuss":
       return discussPrompt(first, files[0], input.note);
     case "build":
-      return buildPrompt(tool, first, files[0], input.branch, input.note);
+      return buildPrompt(tool, first, files[0], input.branch, input.note, input.setup);
   }
 }
 

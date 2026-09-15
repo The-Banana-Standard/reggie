@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { prepareDeps, unlinkDeps, type DepsOutcome } from "./deps.js";
 import { aheadCount, currentBranch, defaultBranch, fileAtRef, git, listBranches, type BranchInfo } from "./git.js";
 import { appendJournal, detectTool, sessionName, type ToolName } from "./journal.js";
 import { claimRelPath, repoPaths, type RepoPaths } from "./paths.js";
@@ -15,6 +16,13 @@ export interface ClaimOptions {
   tool?: ToolName;
   /** The session id the launcher minted, so the claim record points back at the chat. */
   session?: string;
+  /**
+   * What to do about the worktree's dependencies: `run` installs when a link is unsafe, `defer`
+   * runs nothing and hands those entries back for the session's prompt. Default `run`.
+   */
+  deps?: "run" | "defer";
+  /** Overrides the install timeout; tests use it to bound a deliberately slow command. */
+  depsTimeoutMs?: number;
 }
 
 export interface ClaimResult {
@@ -22,6 +30,8 @@ export interface ClaimResult {
   worktree: string | null;
   alreadyExisted: boolean;
   owner: string | null;
+  /** One outcome per configured install entry, empty for an in-place claim or an unconfigured repo. */
+  deps: DepsOutcome[];
 }
 
 function refFor(branch: BranchInfo): string {
@@ -66,6 +76,7 @@ export function claimTask(paths: RepoPaths, config: ReggieConfig, slug: string, 
 
   let workdir = root;
   let worktree: string | null = null;
+  let deps: DepsOutcome[] = [];
   if (opts.worktree) {
     worktree = path.join(root, ".worktree", slug);
     workdir = worktree;
@@ -74,6 +85,12 @@ export function claimTask(paths: RepoPaths, config: ReggieConfig, slug: string, 
       git(args, { cwd: root });
       if (existing?.remote) git(["switch", "-c", branch, `origin/${branch}`], { cwd: worktree, allowFailure: true });
     }
+    // Git checks out tracked files and nothing else, so the worktree cannot run its own tests yet.
+    // On a resume too: the branch may have changed a dependency since the last link was made.
+    deps = prepareDeps(root, worktree, config.install, {
+      ...(opts.deps ? { mode: opts.deps } : {}),
+      ...(opts.depsTimeoutMs !== undefined ? { timeoutMs: opts.depsTimeoutMs } : {}),
+    });
   } else if (!existing) {
     git(["switch", "-c", branch, base], { cwd: root });
   } else if (currentBranch(root) !== branch) {
@@ -107,7 +124,7 @@ export function claimTask(paths: RepoPaths, config: ReggieConfig, slug: string, 
   // and dirty, which git refuses.
   if (!commitsEntry) appendJournal(journalPaths, entry);
 
-  return { branch, worktree, alreadyExisted: Boolean(existing), owner: existing ? branchOwner(root, existing, slug).person : opts.person.name };
+  return { branch, worktree, alreadyExisted: Boolean(existing), owner: existing ? branchOwner(root, existing, slug).person : opts.person.name, deps };
 }
 
 function renderClaim(person: Person, opts: { tool?: ToolName; session?: string } = {}): string {
@@ -159,6 +176,9 @@ export function releaseTask(paths: RepoPaths, config: ReggieConfig, slug: string
   const actions: string[] = [];
   const worktree = path.join(root, ".worktree", slug);
   if (existsSync(worktree)) {
+    // Unlink first. A node_modules link points into the serving checkout, and deleting a worktree
+    // that still holds one is the single way this could destroy the dependencies it shares.
+    for (const link of unlinkDeps(worktree, config.install)) actions.push(`unlinked ${link}`);
     git(["worktree", "remove", "--force", worktree], { cwd: root, allowFailure: true });
     actions.push(`removed worktree ${worktree}`);
   }

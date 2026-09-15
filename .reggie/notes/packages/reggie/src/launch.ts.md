@@ -19,3 +19,7 @@ sources: packages/reggie/src/launch.ts:1
 The build prompt asks for a Task: <slug> line in the commit message body, not a trailer; history reads the line anywhere in the body, so keep the wording and the parser agreeing.
 sources: task-attribution-by-merge
 
+## how · 2026-09-15 · Claude via jacobpress · high
+A build prompt carries the dependency setup the claim did not finish. LaunchInput.setup is a list of directories and commands, from pendingSetup over the claim's outcomes, and the prompt names each one before it says to execute the plan. Every build prompt, setup or not, tells the session to unlink a node_modules symlink before adding or changing a dependency. Both launchers claim with deps: defer rather than installing themselves.
+sources: packages/reggie/src/launch.ts, a-task-worktree-has-no-node-modules-so-nothing-r
+

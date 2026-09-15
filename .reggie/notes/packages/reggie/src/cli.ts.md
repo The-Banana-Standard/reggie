@@ -14,3 +14,7 @@ A preAction hook on the root program runs checkBuild before every command's acti
 decide approved in solo mode lands the task branch through landTask and prints the merge sha, or 'had already landed' with the existing merge, then what was released; a refusal or conflict exits 1 with the reason. needs-work only writes the verdict into the packet on disk.
 sources: task-attribution-by-merge
 
+## how · 2026-09-15 · Claude via jacobpress · medium
+reggie claim prints one line per configured dependency directory after the claim line, and anything the session still owes ends with the command and the directory to run it in. launch --run claims with deps: defer instead, so a cold install never delays opening the session; what is left goes into the prompt.
+sources: packages/reggie/src/cli.ts:437
+

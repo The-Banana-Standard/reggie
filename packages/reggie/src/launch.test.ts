@@ -174,6 +174,31 @@ describe("launchCommand", () => {
     expect(unclaimed).toContain(`reggie claim ${SLUG} --worktree`);
   });
 
+  it("every build prompt says to unlink the dependency link before changing a dependency", () => {
+    for (const tool of LAUNCH_TOOLS) {
+      const text = prompt(launchCommand({ repo: REPO, tool, mode: "build", tasks: [planned], branch: `task/${SLUG}` }));
+      expect(text).toContain("unlink");
+      expect(text).toMatch(/before you add or change any dependency/i);
+      expect(text).toMatch(/`rm -r` through it would delete/i);
+      // With nothing pending there is no first-command sentence to distract from the plan.
+      expect(text).not.toMatch(/dependencies are not installed yet/i);
+    }
+  });
+
+  it("names every pending install command and its directory before the instruction to execute the plan", () => {
+    const setup = [
+      { dir: "packages/reggie", command: "npm ci --legacy-peer-deps" },
+      { dir: "tools/cli", command: "pnpm install" },
+    ];
+    const text = prompt(launchCommand({ repo: REPO, tool: "claude", mode: "build", tasks: [planned], branch: `task/${SLUG}`, setup }));
+    for (const s of setup) {
+      expect(text).toContain(s.command);
+      expect(text).toContain(s.dir);
+      expect(text.indexOf(s.command)).toBeLessThan(text.indexOf("Execute the plan"));
+    }
+    expect(text).toMatch(/dependencies are not installed yet/i);
+  });
+
   it("lists several ungroomed slugs in one shaping prompt", () => {
     const tasks: LaunchTask[] = [ungroomed, { slug: "flaky-upload", state: "ungroomed" }, { slug: "rename-the-store", state: "ungroomed" }];
     const plan = launchCommand({ repo: REPO, tool: "claude", mode: "discuss", tasks });
