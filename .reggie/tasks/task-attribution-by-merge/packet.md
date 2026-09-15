@@ -44,20 +44,24 @@ Read this top to bottom to decide whether the work is done. Every claim should p
 - [x] The build prompt from `launchCommand` contains `Task: <slug>` described as a line in the commit message body and no longer contains the word `trailer`.
   evidence: .reggie/tasks/task-attribution-by-merge/evidence/tests.txt ("launchCommand > a build knows it is already claimed, runs the review policy, and commits with a Task line in the body")
 - [x] Run in this worktree, `readGitLog` attributes merge commits 56334b1, c41a73e and 8cf4e92 to `about-this-repo`, `layout-modes` and `mobile-ui`, and `npm test` and `npm run typecheck` pass in packages/reggie.
-  evidence: .reggie/tasks/task-attribution-by-merge/evidence/real-merges.txt (all three, plus the journal-collision merge c0502ae, with their branch commits); .reggie/tasks/task-attribution-by-merge/evidence/tests.txt (30 files, 548 passed, 1 skipped, exit 0); .reggie/tasks/task-attribution-by-merge/evidence/typecheck.txt (exit 0)
+  evidence: .reggie/tasks/task-attribution-by-merge/evidence/real-merges.txt (all three, plus the journal-collision merge c0502ae, with their branch commits); .reggie/tasks/task-attribution-by-merge/evidence/tests.txt (30 files, 551 passed, 1 skipped, exit 0); .reggie/tasks/task-attribution-by-merge/evidence/typecheck.txt (exit 0)
 
 ## Evidence
-- .reggie/tasks/task-attribution-by-merge/evidence/tests.txt — full verbose `vitest run`, 548 passed, 1 skipped, exit 0
+- .reggie/tasks/task-attribution-by-merge/evidence/tests.txt — full verbose `vitest run`, 551 passed, 1 skipped, exit 0
 - .reggie/tasks/task-attribution-by-merge/evidence/typecheck.txt — `npm run typecheck`, exit 0
 - .reggie/tasks/task-attribution-by-merge/evidence/decide-merge.txt — a throwaway solo repo, claim in a worktree, `reggie decide approved` from this branch's CLI source
 - .reggie/tasks/task-attribution-by-merge/evidence/decide-conflict.txt — the same with a conflicting commit on main
 - .reggie/tasks/task-attribution-by-merge/evidence/real-merges.txt — `readGitLog` and `taskLanding` from this branch run against the repo-manager checkout
 
 ## Changes
-The implementation is one commit, 3e0a05f, against repo-manager: `history.ts` (record-separated log, parents, Task from the body, merge files out of churn, `taskLanding`), a new `land.ts` (the solo landing), `cli.ts` and `serve.ts` (both decide paths use it, the completed view reads from the landing), `claim.ts` (release can skip its journal entry), `launch.ts` (prompt wording), tests beside each, notes for every changed file, and the shipped line in the vision doc. `npm run build` also succeeds.
+Two commits against repo-manager: 3e0a05f is the implementation, 206741e fixes the two review findings with a test each. The implementation covers: `history.ts` (record-separated log, parents, Task from the body, merge files out of churn, `taskLanding`), a new `land.ts` (the solo landing), `cli.ts` and `serve.ts` (both decide paths use it, the completed view reads from the landing), `claim.ts` (release can skip its journal entry), `launch.ts` (prompt wording), tests beside each, notes for every changed file, and the shipped line in the vision doc. `npm run build` also succeeds.
 
 ## Reviews
-- The plan's computed risk is low, so the policy is the repo's own checks: `vitest run` (548 passed, 1 skipped), `npm run typecheck` (exit 0), and `npm run build` (exit 0, no output from tsc). No `/code-review` or `/security-review` was run; the brief had guessed medium, which would have added `/code-review`, so the decider may want one before approving.
+- The repo's own checks: `vitest run` (551 passed, 1 skipped), `npm run typecheck` (exit 0), and `npm run build` (exit 0).
+- `/code-review` ran over the branch at the decider's request, though the computed risk is low. It reported two findings, both real and both fixed in 206741e, each with a test:
+  - Landing checked only tracked files, so an untracked file on the base that the branch also carries made git refuse the merge, reported only as a generic failure. The everyday case is today's journal file: a worktree claim commits it on the branch while the serving checkout holds an untracked copy, and the `repo-manager` checkout was in exactly that state at the start of this session. A second case is a packet left untracked on the base by a needs-work decision from the web page. Landing now refuses up front and names the files ("refuses when the base holds untracked files the merge would overwrite, naming them").
+  - Approval required a local task branch, so a task merged by hand and released before anyone decided could no longer be approved at all, a regression against the previous verdict-only behaviour. Approval now proceeds when a merge on the base landed the task, taking the already-landed path, and only refuses when there is neither a branch nor a landing merge (two tests: "approves a task whose branch was merged and released before anyone decided" and "refuses when there is neither a branch nor a merge that landed the task").
+- No `/security-review` was run; the change adds no network, auth or input-parsing surface beyond git output it already read.
 - Behaviour was also checked end to end outside the test suite with the two throwaway-repo transcripts above.
 
 ## Deviations from plan
@@ -66,13 +70,14 @@ The implementation is one commit, 3e0a05f, against repo-manager: `history.ts` (r
 - `claim.ts` was touched though it was not in Files to touch: `releaseTask` gained `journal: false`, because a release entry written after the merge commit left the base checkout dirty and made the next landing refuse.
 - `tasks.test.ts` was not changed; the done-after-landing check lives in `land.test.ts`, which exercises `getTask` directly.
 - The already-landed and needs-work criteria are tested through the real CLI (spawned with tsx) rather than by calling functions, so the printed text is what is asserted.
+- After the review, approval no longer requires a local task branch: a task landed by a merge on the base can be approved after its branch is released, which keeps the behaviour that existed before this task. The plan assumed a branch was always there.
 
 ## Discovered issues
 - The packet scaffold pairs criteria with evidence files by position, which pointed this packet's criteria at unrelated files. Captured as `the-packet-scaffold-pairs-each-acceptance-criter`.
 - The web page's own note, journal, triage and capture writes leave the serving checkout dirty, so a solo Approve on the page refuses until they are committed by hand. Captured as `the-web-page-s-own-writes-notes-journal-entries`.
 
 ## Open risks
-- A solo Approve from the web view will refuse in everyday use until the dirty-checkout issue above is fixed; the refusal names the files, so it is visible rather than silent.
+- A solo Approve from the web view still refuses while the page's own writes leave tracked files modified in the serving checkout, until the captured issue above is fixed. The refusal names the files, so it is visible rather than silent, and untracked leftovers are now named too instead of failing inside git.
 - `reggie decide <slug> needs-work` run from the base checkout still fails when the packet exists only on the task branch, as it did before; the web route copies the packet in, the CLI does not. Unchanged by this task.
 - A commit body containing the ASCII record or unit separator characters would split a record in the parser. None exist in this repo; it would show as a commit with a truncated body or a missing Task.
 - If one slug has landed more than once, `taskLanding` returns the newest merge only.
