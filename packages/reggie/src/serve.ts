@@ -12,9 +12,10 @@ import { listEpisodes, makeEpisode, readEpisode, renderFeed } from "./episode.js
 import { detectFlows, MAX_FLOW_HOPS, traceFlow, type Flow, type FlowIndex } from "./flows.js";
 import { currentBranch, defaultBranch, fileAtRef, git } from "./git.js";
 import { buildGraph, flatGraph, jsImports, type GraphEdge, type GraphNode, type RepoGraph } from "./graph.js";
-import { commitsPerDayFor, historyFor, HISTORY_LOG_FORMAT, parseNumstatLog, recentFor, repoHistory, type CommitInfo, type HistoryIndex, type LogCommit } from "./history.js";
+import { commitsPerDayFor, historyFor, historyLogArgs, parseNumstatLog, recentFor, repoHistory, taskLanding, type CommitInfo, type HistoryIndex, type LogCommit, type TaskLanding } from "./history.js";
 import { appendJournal, readJournal, type JournalEntry } from "./journal.js";
 import { claimTask } from "./claim.js";
+import { LandError, landTask } from "./land.js";
 import { isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, MAX_NOTE_CHARS, mintSession, recordLaunch, resolveGoal, writeContextFile, type LaunchMode, type LaunchTask, type LaunchTool } from "./launch.js";
 import { narrate } from "./narrate.js";
 import { addNote, allNoteFiles, NOTE_TYPES, notesForPath, notesIndex, readNoteFile, staleEntriesFor, type Confidence as NoteConfidence, type NoteEntry, type NoteFile, type NoteType, type StaleEntry } from "./notes.js";
@@ -1404,24 +1405,29 @@ interface Completion {
   decidedAt: string | null;
   criteria: CompletionCriterion[];
   diff: CompletionDiff;
+  /** The merge that landed the task, when one did. */
+  merge: CommitInfo | null;
+  /** The branch commits the merge brought in; without a merge, the commits attributed to the task. */
   commits: CommitInfo[];
   journal: JournalEntry[];
 }
 
 /**
- * The commits behind a finished task. Merged work is in the history index already (matched by
- * the `Task:` trailer); work still sitting on `task/<slug>` is not, because the index is read
- * from HEAD, so the branch is read directly in that case with the same format and parser.
+ * The commits behind a finished task: from the merge that landed it, which needs no branch; else the
+ * commits the index attributes to the slug; else, while `task/<slug>` still exists unmerged, the branch
+ * itself, read with the same arguments and parser (the index is read from HEAD and cannot see it).
  */
-function completionCommits(c: RepoCtx, task: TaskInfo): LogCommit[] {
-  const merged = historyOf(c).log.filter((k) => k.task === task.slug);
-  if (merged.length > 0 || !task.branch) return merged;
-  const base = defaultBranch(c.root, c.config.defaultBranch);
-  const r = git(["-c", "core.quotePath=false", "log", "--numstat", "-M", `--format=${HISTORY_LOG_FORMAT}`, `${base}..${task.branch}`], {
-    cwd: c.root,
-    allowFailure: true,
-  });
-  return r.ok ? parseNumstatLog(r.stdout) : [];
+function completionLanding(c: RepoCtx, task: TaskInfo): TaskLanding {
+  let base = "HEAD";
+  try {
+    base = defaultBranch(c.root, c.config.defaultBranch);
+  } catch {
+    // No integration branch to name; HEAD is what the index was read from anyway.
+  }
+  const landing = taskLanding(c.root, task.slug, { base, index: historyOf(c) });
+  if (landing.merge || landing.commits.length > 0 || !task.branch) return landing;
+  const r = git(historyLogArgs([`${base}..${task.branch}`]), { cwd: c.root, allowFailure: true });
+  return { merge: null, commits: r.ok ? parseNumstatLog(r.stdout) : [] };
 }
 
 /** Email → handle from people.yaml, falling back to the same derivation history.ts uses. */
@@ -1431,11 +1437,16 @@ function handleResolver(c: RepoCtx): (name: string, email: string) => string {
   return (name, email) => byEmail.get(email.toLowerCase()) ?? handleFor(name, email);
 }
 
-/** Lines added and removed per file, summed across the task's commits. Reggie's own records are left out. */
-function completionDiff(commits: readonly LogCommit[]): CompletionDiff {
+/**
+ * Lines added and removed per file. With a merge, its first-parent files are exactly what landed and
+ * are used alone; adding the branch commits beside them would count every line twice. Without one, the
+ * commits are summed. Reggie's own records are left out.
+ */
+function completionDiff(landing: TaskLanding): CompletionDiff {
   const byFile = new Map<string, { path: string; added: number; deleted: number }>();
   let added = 0;
   let deleted = 0;
+  const commits = landing.merge ? [landing.merge] : landing.commits;
   for (const commit of commits) {
     for (const f of commit.files) {
       if (f.path.startsWith(".reggie/")) continue;
@@ -1448,7 +1459,7 @@ function completionDiff(commits: readonly LogCommit[]): CompletionDiff {
     }
   }
   const files = Array.from(byFile.values()).sort((a, b) => b.added + b.deleted - (a.added + a.deleted) || a.path.localeCompare(b.path));
-  return { files, filesChanged: files.length, added, deleted, commits: commits.length };
+  return { files, filesChanged: files.length, added, deleted, commits: landing.commits.length };
 }
 
 const REGGIE_TASKS_PREFIX = ".reggie/tasks/";
@@ -1484,15 +1495,17 @@ function completionOf(c: RepoCtx, detail: TaskDetail): Completion | null {
   if (detail.task.state !== "done") return null;
   const packet = detail.packet;
   const present = packet?.evidence ?? [];
-  const commits = completionCommits(c, detail.task);
+  const landing = completionLanding(c, detail.task);
   const handles = handleResolver(c);
+  const info = (k: LogCommit): CommitInfo => ({ sha: k.sha, author: k.author, handle: handles(k.author, k.email), date: k.date, subject: k.subject, task: k.task });
   return {
     verdict: packet?.verdict ?? null,
     decidedBy: packet?.decidedBy ?? null,
     decidedAt: packet?.decidedAt ?? null,
     criteria: completionCriteria(detail.task.slug, packet?.criteria ?? [], present),
-    diff: completionDiff(commits),
-    commits: commits.map((k) => ({ sha: k.sha, author: k.author, handle: handles(k.author, k.email), date: k.date, subject: k.subject, task: k.task })),
+    diff: completionDiff(landing),
+    merge: landing.merge ? info(landing.merge) : null,
+    commits: landing.commits.map(info),
     journal: detail.journal,
   };
 }
@@ -2140,8 +2153,30 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       // integration branch, so the decision reads past the working tree and copies it in first.
       const located = locatePacket(c.paths, c.config, slug);
       if (!located) return json(res, 409, { error: `no packet for ${slug} in the working tree, on task/${slug}, or on the integration branch` });
-      if (located.ref) materializePacket(c.paths, slug, located.content);
       const comment = str(body.value, "comment");
+      // Solo approval lands the branch, the same path as `reggie decide`: a done task always has its merge.
+      if (verdict === "approved" && c.config.mode !== "team") {
+        try {
+          const r = landTask(c.paths, c.config, slug, { person, tool: "human", ...(comment ? { comment } : {}) });
+          c.invalidate();
+          return json(res, 200, {
+            slug,
+            verdict,
+            file: r.packet,
+            merge: r.merge,
+            commit: r.commit,
+            alreadyLanded: r.alreadyLanded,
+            existingMerge: r.existingMerge,
+            released: r.released,
+            releaseError: r.releaseError,
+          });
+        } catch (err) {
+          c.invalidate();
+          if (err instanceof LandError) return json(res, 409, { error: err.message });
+          throw err;
+        }
+      }
+      if (located.ref) materializePacket(c.paths, slug, located.content);
       const file = decidePacket(c.paths, slug, verdict, person.handle, comment ?? undefined);
       c.invalidate();
       const payload: { slug: string; verdict: string; file: string; materializedFrom?: string } = { slug, verdict, file };

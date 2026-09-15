@@ -828,10 +828,15 @@ describe("POST writes", () => {
     expect(before.packet.verdict).toBe("pending");
     expect(existsSync(packetFile(fx.paths, slug))).toBe(false);
 
+    // A solo approval merges, and git will not merge over the page's own uncommitted writes above.
+    fx.repo.commitAll("the page's writes so far");
     const { status, body } = await post("/api/decide", { slug, verdict: "approved", comment: "criteria met" });
     expect(status, JSON.stringify(body)).toBe(200);
     expect(body.verdict).toBe("approved");
-    expect(body.materializedFrom).toBe(`task/${slug}`);
+    expect(body.merge).toMatch(/^[0-9a-f]{40}$/);
+    expect(body.alreadyLanded).toBe(false);
+    expect(git(["rev-parse", "HEAD"], { cwd: fx.repo.root }).stdout.trim()).toBe(body.merge);
+    expect(git(["branch", "--list", `task/${slug}`], { cwd: fx.repo.root }).stdout.trim()).toBe("");
     expect(readFileSync(packetFile(fx.paths, slug), "utf8")).toContain("verdict: approved");
 
     const after = await ok(`/api/task/${slug}`);
@@ -1056,6 +1061,12 @@ describe("the completed view", () => {
     expect(fetched.status).toBe(200);
     expect(await fetched.text()).toContain("passed");
 
+    // The branch was released when it landed, so all of this comes from the merge commit.
+    expect(git(["branch", "--list", `task/${slug}`], { cwd: fx.repo.root }).stdout.trim()).toBe("");
+    expect(done.merge.sha).toMatch(/^[0-9a-f]{40}$/);
+    expect(done.merge.subject).toContain(`task/${slug}`);
+    expect(done.merge.task).toBe(slug);
+    expect(done.diff.filesChanged).toBeGreaterThan(0);
     expect(done.diff.files.map((f: any) => f.path)).toContain("src/types/shape.ts");
     expect(done.diff.files.every((f: any) => !f.path.startsWith(".reggie/"))).toBe(true);
     expect(done.diff.filesChanged).toBe(done.diff.files.length);

@@ -1,0 +1,10 @@
+$ tsx real-merges.ts <repo-manager checkout>   (readGitLog and taskLanding from this branch's src, run against the real repo)
+repo: /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager
+56334b1  parents=2  task=about-this-repo  files=16  merge: task/about-this-repo — About this repo is the blurb
+c41a73e  parents=2  task=layout-modes  files=16  merge: task/layout-modes — fold panes and sections
+8cf4e92  parents=2  task=mobile-ui  files=29  merge: task/mobile-ui — use Reggie from a phone
+taskLanding(about-this-repo): merge=56334b1 mergeFiles=16 branchCommits=4 [decide: about-this-repo approved | packet: about-this-repo | feat: About this repo is the blurb, written by a person | meta: claim about-this-repo]
+taskLanding(layout-modes): merge=c41a73e mergeFiles=16 branchCommits=3 [packet: layout-modes approved | feat(layout-modes): fold panes and sections, and let the open ones fill the page | meta: claim layout-modes]
+taskLanding(mobile-ui): merge=8cf4e92 mergeFiles=29 branchCommits=4 [decide: mobile-ui approved | fix(mobile-ui): resolve the review findings and write the completion packet | feat(mobile-ui): a phone layout, a serve key for the network, and a feed a phone can play | meta: claim mobile-ui]
+taskLanding(journal-files-conflict-on-merge-a-claim-in-the-m): merge=c0502ae mergeFiles=21 branchCommits=3 [packet: journal-files-conflict-on-merge-a-claim-in-the-m | feat(journal): union-merge journal files and commit a worktree claim's entry on its branch | meta: claim journal-files-conflict-on-merge-a-claim-in-the-m]
+(exit 0)

@@ -11,3 +11,7 @@ sources: packages/reggie/src/claim.ts
 A worktree claim writes its journal entry in the worktree and commits it in the claim commit beside claim.md, so the serving checkout that performs the merge is never left holding it uncommitted. An in-place claim and every resume write the entry uncommitted in the checkout they run in. Committing it in place would track a dirty day file that release then cannot switch away from, and a resume commit would count as unmerged work beyond the claim.
 sources: packages/reggie/src/claim.ts:84
 
+## gotcha · 2026-09-15 · Claude via jacobpress · high
+releaseTask takes journal: false from landTask. The decide entry is already inside the merge commit, and a release entry written after it would leave the base checkout dirty, which makes the next landing refuse.
+sources: task-attribution-by-merge
+

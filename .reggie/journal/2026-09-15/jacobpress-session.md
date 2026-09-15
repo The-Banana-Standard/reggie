@@ -89,3 +89,18 @@ Decision: approved.
 ### 18:00 · jacobpress · claude · journal-files-conflict-on-merge-a-claim-in-the-m · release
 Released the claim on this task.
 
+### 18:17 · jacobpress · claude · task-attribution-by-merge · claim
+Claimed the task and started a branch from repo-manager in a separate worktree.
+
+### 18:30 · jacobpress · claude · task-attribution-by-merge · execute
+Built the attribution work as planned, after checking that the journal-collision task had landed first. The history log now reads each commit's parents and full message, so a Task line counts wherever it is written, and a merge commit reports the files it landed. Those files are kept out of churn and ownership so nothing is counted twice. A new lookup finds a finished task's merge and its branch commits by slug alone. Run against this repo, it attributes all four merges made so far, which the old reader missed. In solo mode an approval from the command line or the web page now performs the merge, with the verdict and the decide entry inside the merge commit. A real run on a throwaway repo merged, released the branch and worktree, and pushed nothing. A conflicting run aborted and left both branches and the tree exactly as they were. Three deviations from the plan: the lookup always scans the base's merges once instead of walking the index; the completed view reports the merge beside the branch commits rather than inside the list; and release gained a switch to skip its own journal line, because that line would leave the checkout dirty for the next merge. All tests, the typecheck and the build pass.
+
+### 18:31 · jacobpress · claude · task-attribution-by-merge · packet
+Wrote the completion packet. Every one of the fifteen criteria is ticked and points at the saved test output, the typecheck, or one of the three transcripts from real runs. The plan's computed risk was low, so only the repo's own checks ran and no borrowed code review did; the brief had guessed medium, so a review before approval is worth considering. The packet records five deviations from the plan. Two unrelated problems were captured rather than fixed: the packet scaffold pointed criteria at the wrong evidence, and the web page's own writes leave the checkout dirty, so a solo Approve there will refuse until they are committed. The task is waiting on a decision.
+
+### 18:41 · jacobpress · claude · task-attribution-by-merge · review
+Ran the borrowed code review over the branch at the owner's request, even though the computed risk was low. It found two real bugs in the new landing path and both are fixed with a test each. The first: landing only looked at tracked files, so an untracked file sitting in the serving checkout that the branch also carries made git refuse the merge, and the refusal read as a generic failure. The everyday case is the day's journal file, which a worktree claim commits on the branch while the serving checkout holds its own uncommitted copy. Landing now refuses early and names those files. The second was a regression: approval insisted on a live task branch, so a task merged by hand and released before anyone decided could not be approved at all. Approval now works whenever a merge on the base landed the task, and only refuses when there is neither a branch nor a landing merge. One of the new tests failed first because the test helper asked git for the sha of a branch it had just deleted; that was the test's own bug, not the product's. Everything passes again, and the packet records the review and the fixes.
+
+### 18:43 · jacobpress · claude · task-attribution-by-merge · decide
+Decision: approved. Merged the task branch into repo-manager. Criteria met with evidence; code review ran and both findings are fixed with tests.
+
