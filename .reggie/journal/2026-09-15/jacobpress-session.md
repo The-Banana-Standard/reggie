@@ -10,3 +10,6 @@ evidence: .reggie/tasks/stale-dev-bin/evidence/tests.txt, .reggie/tasks/stale-de
 Wrote the completion packet. The scaffold had paired the evidence files with the criteria in order, so most pointers were wrong; each criterion now points at the file and test that actually prove it, and a verbose test run was added so the unit criteria cite names instead of a count. No review ran, since the plan is low risk. The packet records the small deviations, the invalid first live run, and the open risks: the gate only protects the command on the path once this merges and that checkout is built, and servers already running keep their old code. The pairing bug went to intake rather than being fixed here.
 evidence: .reggie/tasks/stale-dev-bin/evidence/tests-named.txt
 
+### 17:18 · jacobpress · claude · stale-dev-bin · decide
+Decision: approved.
+

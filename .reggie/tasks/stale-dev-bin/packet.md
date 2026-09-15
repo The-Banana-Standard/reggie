@@ -6,9 +6,9 @@ author: jacobpress
 date: 2026-09-15
 branch: task/stale-dev-bin
 base: repo-manager
-verdict: pending
-decided_by:
-decided_at:
+verdict: approved
+decided_by: jacobpress
+decided_at: 2026-09-15T21:18:15.505Z
 ---
 # Completion: Stop the reggie on the PATH from silently running a stale build
 
