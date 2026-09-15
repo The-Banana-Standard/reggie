@@ -86,3 +86,6 @@ evidence: .reggie/tasks/journal-files-conflict-on-merge-a-claim-in-the-m/evidenc
 ### 18:00 · jacobpress · claude · journal-files-conflict-on-merge-a-claim-in-the-m · decide
 Decision: approved.
 
+### 18:00 · jacobpress · claude · journal-files-conflict-on-merge-a-claim-in-the-m · release
+Released the claim on this task.
+
