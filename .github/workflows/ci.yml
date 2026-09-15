@@ -36,3 +36,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # The bin is not installed in this job, so the check runs from the output `npm run build`
+      # just wrote. It stays last: the CLI refuses every command when `dist/` is behind `src/`.
+      - name: docs check (CLAUDE.md and AGENTS.md)
+        run: node dist/cli.js docs check

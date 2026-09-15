@@ -1,0 +1,50 @@
+# Criterion 5: the CI job rehearsed locally at the landing commit, on a clean tree.
+# Worktree: .worktree/repo-manager/.worktree/docs-check-in-ci   branch: task/docs-check-in-ci
+# Landing commit: fc7b95ecce07178014cbedd0da6caaa5b583732e  ci: run the generated-block check, on a tree the refresh just made clean
+# Host: Darwin 24.6.0 arm64   node v22.22.2   npm 10.9.7
+# Captured 2026-09-15T23:37:06Z
+
+# $ git status --porcelain   (from the repo root; must print nothing)
+exit=0  [nothing printed above this line means the tree is clean]
+
+# npm ci --legacy-peer-deps is deliberately NOT re-run here. The plan's Assumptions say the
+# rehearsal reuses the dependencies already present because the install only affects
+# node_modules, which is gitignored and ignored by the fact collector. In this worktree that
+# folder is a symlink into the serving checkout, and npm ci would delete and rebuild it.
+# $ ls -ld packages/reggie/node_modules
+lrwxr-xr-x@ 1 jacobpress  staff  110 Sep 15 19:31 packages/reggie/node_modules -> /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/packages/reggie/node_modules
+
+# $ npm run typecheck   (from packages/reggie)
+
+> reggie@3.0.0-alpha.1 typecheck
+> tsc -p tsconfig.json --noEmit
+
+exit=0
+
+# $ npm test   (from packages/reggie)
+
+> reggie@3.0.0-alpha.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/docs-check-in-ci/packages/reggie
+
+
+ Test Files  31 passed (31)
+      Tests  578 passed | 1 skipped (579)
+   Start at  19:37:07
+   Duration  13.21s (transform 2.25s, setup 0ms, import 3.78s, tests 122.55s, environment 1ms)
+
+exit=0
+
+# $ npm run build   (from packages/reggie)
+
+> reggie@3.0.0-alpha.1 build
+> tsc -p tsconfig.json
+
+exit=0
+
+# $ node dist/cli.js docs check   (from packages/reggie — the new CI step, verbatim)
+fresh: CLAUDE.md
+fresh: AGENTS.md
+exit=0
