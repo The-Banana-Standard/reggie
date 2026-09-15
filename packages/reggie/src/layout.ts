@@ -92,6 +92,7 @@ Add an entry with \`reggie note add <path> --type gotcha "text"\` or ask your ag
 export interface LayoutResult {
   created: string[];
   gitignoreUpdated: boolean;
+  gitattributesUpdated: boolean;
 }
 
 /** Create the .reggie/ tree and its explanatory files if missing. Idempotent. */
@@ -116,7 +117,31 @@ export function ensureLayout(paths: RepoPaths): LayoutResult {
     writeIfMissing(path.join(dir, ".gitkeep"), "");
   }
   const gitignoreUpdated = ensureGitignore(paths.root);
-  return { created, gitignoreUpdated };
+  const gitattributesUpdated = ensureGitattributes(paths.root);
+  return { created, gitignoreUpdated, gitattributesUpdated };
+}
+
+/** Journal day files are append-only, so a merge keeps both sides. Stays until the derived journal replaces hand-written entries. */
+export const GITATTRIBUTES_LINES = [".reggie/journal/**/*.md merge=union"] as const;
+
+const GITATTRIBUTES_HEADER = "# Reggie: journals are append-only, so a merge keeps both sides.";
+
+/**
+ * Ask git to union-merge journal files, so a task branch and the default branch that both journaled
+ * on the same day merge without a conflict. Appends to an existing .gitattributes and never rewrites
+ * a line already there. GitHub ignores merge attributes; in solo mode Reggie merges locally.
+ */
+export function ensureGitattributes(root: string): boolean {
+  const file = path.join(root, ".gitattributes");
+  const existing = readText(file) ?? "";
+  const present = new Set(existing.split(/\r?\n/).map((l) => l.trim()));
+  const missing = GITATTRIBUTES_LINES.filter((l) => !present.has(l));
+  if (missing.length === 0) return false;
+  const header = present.has(GITATTRIBUTES_HEADER) ? [] : [GITATTRIBUTES_HEADER];
+  const newline = existing === "" || existing.endsWith("\n") ? "" : "\n";
+  const gap = existing === "" || header.length === 0 ? "" : "\n";
+  appendText(file, `${newline}${gap}${[...header, ...missing, ""].join("\n")}`);
+  return true;
 }
 
 /** The derived-cache paths onboard ignores. `.reggie/.cache/` holds history.ts's `history-<sha>.json`. */

@@ -103,6 +103,7 @@ program
     if (r.commandsInstalled.length > 0) out(`Installed commands: ${r.commandsInstalled.join(", ")}`);
     if (r.mcpConfigured) out("Configured the reggie MCP server in .mcp.json (Claude Code). For Codex: codex mcp add reggie -- reggie mcp");
     if (r.layout.gitignoreUpdated) out("Updated .gitignore (derived caches only).");
+    if (r.layout.gitattributesUpdated) out("Updated .gitattributes (journal files union-merge).");
     out("");
     out(`Next: read ${path.relative(root, r.briefFile)} or run /reggie-onboard in Claude Code to write the first real notes.`);
   });

@@ -1,0 +1,28 @@
+# A fresh repo whose .gitattributes holds '*.png binary' with no trailing newline
+$ reggie onboard   (first run, this worktree's build)
+Onboarded onboard-demo (solo mode) as demo.
+Created: .reggie/, .reggie/tasks/, .reggie/notes/, .reggie/journal/, .reggie/discussions/, .reggie/notes/_entities/, .reggie/README.md, .reggie/intake.md, .reggie/notes/README.md
+created: CLAUDE.md
+created: AGENTS.md
+Installed commands: .claude/commands/reggie-onboard.md, .claude/commands/reggie-triage.md, .claude/commands/reggie-plan.md, .claude/commands/reggie-execute.md, .claude/commands/reggie-capture.md, .claude/commands/reggie-chat.md
+Configured the reggie MCP server in .mcp.json (Claude Code). For Codex: codex mcp add reggie -- reggie mcp
+Updated .gitignore (derived caches only).
+Updated .gitattributes (journal files union-merge).
+
+Next: read .reggie/ONBOARDING.md or run /reggie-onboard in Claude Code to write the first real notes.
+$ cat .gitattributes
+*.png binary
+
+# Reggie: journals are append-only, so a merge keeps both sides.
+.reggie/journal/**/*.md merge=union
+$ reggie onboard   (second run)
+Onboarded onboard-demo (solo mode) as demo.
+unchanged: CLAUDE.md
+unchanged: AGENTS.md
+
+Next: read .reggie/ONBOARDING.md or run /reggie-onboard in Claude Code to write the first real notes.
+$ cat .gitattributes
+*.png binary
+
+# Reggie: journals are append-only, so a merge keeps both sides.
+.reggie/journal/**/*.md merge=union

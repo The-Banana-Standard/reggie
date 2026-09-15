@@ -1,0 +1,30 @@
+# Probe: claim, resume, release without --force, worktree and in place
+## against the code before this task (repo-manager)
+worktree=false: released: switched to main; deleted local task/p || root status after: []
+worktree=true: released: removed worktree /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-test-GDb9DS/.worktree/p; deleted local task/p || root status after: []
+## against this task's code
+worktree=false: released: switched to main; deleted local task/p || root status after: []
+worktree=true: released: removed worktree /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-test-xcAnEA/.worktree/p; deleted local task/p || root status after: []
+
+# Revert 1: claim entry back through the serving checkout, never committed
+1
+     × a worktree claim leaves the serving checkout clean 274ms
+     × the claim commit carries the journal entry 309ms
+     × resuming a claim adds no commit, so release still needs no force 333ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 17 passed (20)
+
+# Revert 2: commit the entry for in-place claims too (the first build)
+1
+     × the claim commit carries the journal entry 388ms
+     × an in-place claim, resume and release still switches back to main 390ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 18 passed (20)
+
+# Revert 3: onboard writes no union line
+     × creates .gitattributes with the journal union line 77ms
+     × is idempotent 62ms
+     × a task branch with journal entries merges into a main that also journaled (day file already on main) 222ms
+     × a task branch with journal entries merges into a main that also journaled (both sides start the day file) 190ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  4 failed | 19 passed (23)

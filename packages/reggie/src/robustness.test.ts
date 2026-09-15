@@ -247,3 +247,111 @@ describe("packets, claims, and releases", () => {
     expect(r.slug).toBe("perf-1-2");
   });
 });
+
+describe("journal entries and task-branch merges", () => {
+  let repo: TempRepo;
+  let person: Person;
+  beforeEach(() => {
+    repo = makeTempRepo();
+    onboard(repo.root);
+    repo.commitAll("onboard");
+    person = currentPerson(repo.root);
+  });
+  afterEach(() => repo.cleanup());
+
+  // Staged by path: `git add -A` in the serving checkout would pick up the untracked .worktree/ folder.
+  const commitJournal = (cwd: string, message: string) => {
+    git(["add", "--", ".reggie/journal"], { cwd });
+    git(["commit", "-q", "-m", message], { cwd });
+  };
+  const trackedChanges = () => git(["status", "--porcelain", "--untracked-files=no"], { cwd: repo.root }).stdout.trim();
+  const committedFiles = (ref: string) =>
+    git(["show", "--name-only", "--format=", ref], { cwd: repo.root })
+      .stdout.split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+  const aheadOfMain = (branch: string) => Number(git(["rev-list", "--count", `main..${branch}`], { cwd: repo.root }).stdout.trim());
+
+  function plan(slug: string) {
+    const paths = repoPaths(repo.root);
+    writeText(planFile(paths, slug), fullPlan(slug));
+    repo.commitAll(`plan ${slug}`);
+    return { paths, config: loadConfig(paths) };
+  }
+
+  it("a worktree claim leaves the serving checkout clean", () => {
+    const { paths, config } = plan("tidy");
+    const claim = claimTask(paths, config, "tidy", { person, worktree: true });
+    expect(claim.worktree).not.toBeNull();
+    expect(trackedChanges()).toBe("");
+    expect(readJournal(paths, { slug: "tidy" })).toHaveLength(0);
+  });
+
+  it("the claim commit carries the journal entry", () => {
+    const { paths, config } = plan("apart");
+    writeText(planFile(paths, "inplace"), fullPlan("inplace"));
+    git(["add", "--", ".reggie/tasks/inplace"], { cwd: repo.root });
+    git(["commit", "-q", "-m", "plan inplace"], { cwd: repo.root });
+
+    const apart = claimTask(paths, config, "apart", { person, worktree: true });
+    const apartFiles = committedFiles("task/apart");
+    expect(apartFiles).toContain(".reggie/tasks/apart/claim.md");
+    expect(apartFiles.some((f) => f.startsWith(".reggie/journal/"))).toBe(true);
+    expect(readJournal(repoPaths(apart.worktree!), { slug: "apart" }).map((e) => e.stage)).toEqual(["claim"]);
+
+    // An in-place claim keeps its entry out of the commit, as before, so a later release can switch away.
+    claimTask(paths, config, "inplace", { person });
+    expect(committedFiles("task/inplace")).toEqual([".reggie/tasks/inplace/claim.md"]);
+    expect(readJournal(paths, { slug: "inplace" }).map((e) => e.stage)).toEqual(["claim"]);
+  });
+
+  it("an in-place claim, resume and release still switches back to main", () => {
+    const { paths, config } = plan("here");
+    appendJournal(paths, { person: person.handle, tool: "human", text: "Journaled on main before claiming." });
+    commitJournal(repo.root, "journal before the claim");
+    claimTask(paths, config, "here", { person });
+    claimTask(paths, config, "here", { person });
+    const actions = releaseTask(paths, config, "here", person);
+    expect(actions).toContain("switched to main");
+    expect(actions).toContain("deleted local task/here");
+  });
+
+  for (const mainJournaledFirst of [true, false]) {
+    it(`a task branch with journal entries merges into a main that also journaled (${mainJournaledFirst ? "day file already on main" : "both sides start the day file"})`, () => {
+      const { paths, config } = plan("merge-me");
+      if (mainJournaledFirst) {
+        appendJournal(paths, { person: person.handle, tool: "human", text: "Planned the day before claiming." });
+        commitJournal(repo.root, "journal before the claim");
+      }
+      expect(git(["check-attr", "merge", "--", ".reggie/journal/2026-09-15/p-session.md"], { cwd: repo.root }).stdout).toContain("merge: union");
+
+      const claim = claimTask(paths, config, "merge-me", { person, worktree: true });
+      const worktree = claim.worktree!;
+      appendJournal(repoPaths(worktree), { person: person.handle, tool: "claude", slug: "merge-me", stage: "execute", text: "Built the change on the branch." });
+      commitJournal(worktree, "work on the branch");
+      const onMain = appendJournal(paths, { person: person.handle, tool: "human", slug: "merge-me", stage: "review", text: "Wrote from the serving checkout." });
+      commitJournal(repo.root, "journal on main");
+
+      const merge = git(["merge", "--no-ff", "-q", "-m", "merge: task/merge-me", "task/merge-me"], { cwd: repo.root, allowFailure: true });
+      expect(merge.ok).toBe(true);
+      expect(readText(onMain.file) ?? "").not.toContain("<<<<<<<");
+      const texts = readJournal(paths, { slug: "merge-me" }).map((e) => e.text);
+      expect(texts).toEqual(expect.arrayContaining(["Built the change on the branch.", "Wrote from the serving checkout."]));
+      expect(texts.some((t) => t.startsWith("Claimed the task"))).toBe(true);
+      expect(texts).toHaveLength(3);
+    });
+  }
+
+  it("resuming a claim adds no commit, so release still needs no force", () => {
+    const { paths, config } = plan("again");
+    const first = claimTask(paths, config, "again", { person, worktree: true });
+    expect(aheadOfMain("task/again")).toBe(1);
+    const second = claimTask(paths, config, "again", { person, worktree: true });
+    expect(second.alreadyExisted).toBe(true);
+    expect(aheadOfMain("task/again")).toBe(1);
+    expect(readJournal(repoPaths(first.worktree!), { slug: "again" }).map((e) => e.text)).toContain("Resumed work on the task branch.");
+    expect(trackedChanges()).toBe("");
+    const actions = releaseTask(paths, config, "again", person);
+    expect(actions.some((a) => a.includes("deleted local task/again"))).toBe(true);
+  });
+});

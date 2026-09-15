@@ -1,0 +1,4 @@
+$ git check-attr merge -- .reggie/journal/2026-09-15/jacobpress-session.md
+.reggie/journal/2026-09-15/jacobpress-session.md: merge: union
+$ grep -n merge=union .gitattributes
+2:.reggie/journal/**/*.md merge=union

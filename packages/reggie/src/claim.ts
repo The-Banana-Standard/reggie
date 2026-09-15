@@ -3,10 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import { aheadCount, currentBranch, defaultBranch, fileAtRef, git, listBranches, type BranchInfo } from "./git.js";
 import { appendJournal, detectTool, sessionName, type ToolName } from "./journal.js";
-import { claimRelPath, type RepoPaths } from "./paths.js";
+import { claimRelPath, repoPaths, type RepoPaths } from "./paths.js";
 import type { Person, ReggieConfig } from "./people.js";
 import { parseClaim, type ClaimInfo } from "./tasks.js";
-import { nowIso, writeText } from "./util.js";
+import { nowIso, relPosix, writeText } from "./util.js";
 
 export interface ClaimOptions {
   worktree?: boolean;
@@ -81,22 +81,31 @@ export function claimTask(paths: RepoPaths, config: ReggieConfig, slug: string, 
     if (!local.ok) git(["switch", "-c", branch, `origin/${branch}`], { cwd: root });
   }
 
-  const hasClaim = existing ? fileAtRef(root, refFor(existing), claimRelPath(slug)) !== null : false;
-  if (!hasClaim) {
-    const rel = claimRelPath(slug);
-    writeText(path.join(workdir, rel), renderClaim(opts.person, opts));
-    git(["add", "--", rel], { cwd: workdir });
-    // The Task trailer is how history attributes commits to a task once the branch is gone.
-    git(["-c", "commit.gpgsign=false", "commit", "-q", "-m", `meta: claim ${slug}`, "-m", `Task: ${slug}`, "--", rel], { cwd: workdir });
-  }
-
-  appendJournal(paths, {
+  // A worktree claim writes its entry in the worktree, never through the serving checkout's paths: an entry
+  // left uncommitted there makes git refuse to merge this branch back into it.
+  const journalPaths = worktree ? repoPaths(workdir) : paths;
+  const entry = {
     person: opts.person.handle,
     tool: opts.tool ?? detectTool(),
     slug,
     stage: "claim",
     text: existing ? "Resumed work on the task branch." : `Claimed the task and started a branch from ${base}${worktree ? " in a separate worktree" : ""}.`,
-  });
+  };
+
+  const hasClaim = existing ? fileAtRef(root, refFor(existing), claimRelPath(slug)) !== null : false;
+  const commitsEntry = worktree !== null && !hasClaim;
+  if (!hasClaim) {
+    const rel = claimRelPath(slug);
+    writeText(path.join(workdir, rel), renderClaim(opts.person, opts));
+    const files = commitsEntry ? [rel, relPosix(workdir, appendJournal(journalPaths, entry).file)] : [rel];
+    git(["add", "--", ...files], { cwd: workdir });
+    // The Task trailer is how history attributes commits to a task once the branch is gone.
+    git(["-c", "commit.gpgsign=false", "commit", "-q", "-m", `meta: claim ${slug}`, "-m", `Task: ${slug}`, "--", ...files], { cwd: workdir });
+  }
+  // Resumes and in-place claims commit nothing. releaseTask counts every commit beyond the claim as unmerged
+  // work, and an in-place release must switch away from a branch whose day file would otherwise be tracked
+  // and dirty, which git refuses.
+  if (!commitsEntry) appendJournal(journalPaths, entry);
 
   return { branch, worktree, alreadyExisted: Boolean(existing), owner: existing ? branchOwner(root, existing, slug).person : opts.person.name };
 }

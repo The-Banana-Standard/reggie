@@ -75,3 +75,7 @@ Released the claim on this task.
 ### 17:20 · jacobpress · claude · journal-files-conflict-on-merge-a-claim-in-the-m · claim
 Claimed the task and started a branch from repo-manager in a separate worktree.
 
+### 17:46 · jacobpress · claude · journal-files-conflict-on-merge-a-claim-in-the-m · execute
+Built the journal collision fix on the task branch. Onboarding now appends the union-merge line for journal files to a repo's attributes file, and this repo has that line. A claim that builds a worktree writes its journal entry there and commits it with the claim, so the checkout that performs the merge is never left holding it. The first build also committed the entry for claims made in place, and a probe showed that then broke releasing an in-place claim after a resume. Jacob chose to keep in-place claims as they were, and the plan records that amendment. The new tests fail when either half of the fix is reverted. The follow-up about decide writing its own entry just before the merge it will perform is captured in intake.
+evidence: .reggie/tasks/journal-files-conflict-on-merge-a-claim-in-the-m/evidence/tests.txt, .reggie/tasks/journal-files-conflict-on-merge-a-claim-in-the-m/evidence/mutation.txt
+

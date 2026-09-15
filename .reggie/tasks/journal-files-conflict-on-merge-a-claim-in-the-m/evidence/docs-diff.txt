@@ -1,0 +1,37 @@
+$ git diff -- docs/repo-manager-vision.md .reggie/notes/packages/reggie/src/claim.ts.md
+diff --git a/.reggie/notes/packages/reggie/src/claim.ts.md b/.reggie/notes/packages/reggie/src/claim.ts.md
+index e4cd5fb..2c60c51 100644
+--- a/.reggie/notes/packages/reggie/src/claim.ts.md
++++ b/.reggie/notes/packages/reggie/src/claim.ts.md
+@@ -7,3 +7,7 @@ kind: file
+ Ownership comes from the claim record committed on the task branch, not from the tip author. Releasing refuses another person's branch and refuses unmerged commits unless forced; the claim commit itself does not count as unmerged work.
+ sources: packages/reggie/src/claim.ts
+ 
++## gotcha · 2026-09-15 · Claude via jacobpress · high
++A worktree claim writes its journal entry in the worktree and commits it in the claim commit beside claim.md, so the serving checkout that performs the merge is never left holding it uncommitted. An in-place claim and every resume write the entry uncommitted in the checkout they run in. Committing it in place would track a dirty day file that release then cannot switch away from, and a resume commit would count as unmerged work beyond the claim.
++sources: packages/reggie/src/claim.ts:84
++
+diff --git a/docs/repo-manager-vision.md b/docs/repo-manager-vision.md
+index 6f1ab99..dc39441 100644
+--- a/docs/repo-manager-vision.md
++++ b/docs/repo-manager-vision.md
+@@ -45,7 +45,7 @@ Made against the goal statement of 2026-09-14: Reggie helps a repo owner keep un
+ - **Worktree dependencies, hybrid.** Claim links the serving checkout's installed packages into the task worktree when the lockfiles are byte-identical, otherwise runs the repo's install command from a config key. The launch prompt says that adding a dependency means unlinking first. Why: instant for the common case, correct for the rare one.
+ - **Capture has three doors: the CLI verb, the MCP tool, the web form.** The six project slash commands `reggie onboard` installs are retired; nothing has emitted them since the launch redesign and the MCP tool covers sessions.
+ - **Planning happens only in Claude Code or Codex sessions.** No in-page brief editing beyond answering a brief's open questions in place. Every page gets an idea action that captures a line and opens a discuss session in plan mode with the page's entity as context, so an idea can be shaped the moment it strikes. Why: all three briefs so far were written inside the planning session, and a second author of the same file needs conflict handling nobody has asked for.
+-- **Journals union-merge.** A `.gitattributes` line for `.reggie/journal/**/*.md` until the derived journal replaces hand-written entries. Why: one line stops a conflict that has hit every merge; GitHub ignores it, which does not matter in solo mode.
++- **Journals union-merge.** A `.gitattributes` line for `.reggie/journal/**/*.md` until the derived journal replaces hand-written entries. Why: one line stops a conflict that has hit every merge; GitHub ignores it, which does not matter in solo mode. Shipped 2026-09-15: `reggie onboard` appends the line to every repo's `.gitattributes`, and a worktree claim's journal entry is committed with the claim on the task branch, so the checkout that performs the merge is never left holding it uncommitted. An in-place claim, a resume, release, decide, the web view and the MCP tool still write into the checkout they run in, uncommitted.
+ - **The derived journal is an explicit verb.** `reggie journal derive <slug>` works for a task in flight and for a completed one. A pass inside `reggie serve` may call it once it is trusted. Why: a verb can be tested against a fixture transcript and attributed; a hook is per machine and Codex has none.
+ - **Languages deferred.** Reggie is built against this repo and `personal_website` first, both already parsed. More languages once it is in good shape.
+ - **The repo owns decisions; GitHub mirrors them.** Why: the loop stays inside the repo and works offline.
+
+$ cat .reggie/notes/packages/reggie/src/layout.ts.md   (new file)
+---
+entity: packages/reggie/src/layout.ts
+kind: file
+---
+
+## how · 2026-09-15 · Claude via jacobpress · high
+ensureLayout also calls ensureGitattributes, which appends the journal union-merge line (.reggie/journal/**/*.md merge=union) under a Reggie comment to .gitattributes. It creates the file when missing, copes with a missing trailing newline, never rewrites existing lines, and does nothing on a second run. GitHub ignores merge attributes; in solo mode Reggie merges locally, so that does not matter yet.
+sources: packages/reggie/src/layout.ts:120
+
