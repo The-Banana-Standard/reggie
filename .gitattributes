@@ -1,0 +1,2 @@
+# Reggie: journals are append-only, so a merge keeps both sides.
+.reggie/journal/**/*.md merge=union
