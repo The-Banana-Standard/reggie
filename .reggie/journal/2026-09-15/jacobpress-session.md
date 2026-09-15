@@ -69,3 +69,6 @@ evidence: .reggie/tasks/stale-dev-bin/evidence/tests-named.txt
 ### 17:18 · jacobpress · claude · stale-dev-bin · decide
 Decision: approved.
 
+### 17:19 · jacobpress · claude · stale-dev-bin · release
+Released the claim on this task.
+
