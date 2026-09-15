@@ -1,6 +1,6 @@
 # Reggie as a Repo Manager (v3 direction)
 
-Status: draft from the 2026-09-06 brainstorm. Not yet ratified. See the `ratify-repo-manager-vision-and-v3-scope` task.
+Status: ratified in stages. Each dated block below records what was decided and why; the forks still open are listed at the end. The 6 September backlog that proposed a ratification task lived only in the main clone's uncommitted `TASKS.md`; its live rows were captured into `.reggie/intake.md` on 2026-09-15.
 
 ## Summary
 
@@ -35,6 +35,29 @@ Three things follow:
 - **The v2 agents and commands under `resources/` are legacy.** Nothing on this branch reads them. They are still what `~/.claude/*` symlinks point at from the main clone, so every project on this machine still has them until the branch lands; what happens to them then is an open fork below. The fixed-stage pipeline fork is closed: retired, not kept as a profile.
 - **The journal is derived, not remembered.** A session should not have to remember to write it. Reggie derives the narrative from what already exists: the session transcript on disk (both tools write one, and Reggie mints the Claude session id at launch, so the transcript is findable), the commits on the task branch, and the state transitions it already reads from git. The entry is written in listener register, attributed to the person and the tool, with the evidence linked. A person or a session may still add an entry by hand when the transcript does not say what mattered. Until the derivation is built, the generated instruction block keeps asking for one entry per step.
 - **A model is called, never resident.** When something genuinely needs a model reading code, such as an explainer on why a bug lives where it does, or an overnight shaping pass over the intake, Reggie makes a headless call (`claude -p`, `codex exec`) with a prompt and reads the result back into its state. That is a tool use with an input and an output, not a process that lives inside Reggie.
+
+## Decisions made on 2026-09-15
+
+Made against the goal statement of 2026-09-14: Reggie helps a repo owner keep understanding a codebase that AI builds faster than anyone can read it, draws the picture from git and in-repo notes, serves it as a web view, and tracks each captured task from idea to plan to branch to decision, with the loop staying inside the repo.
+
+- **Loop plumbing lands before any feature.** The first three tasks built through the loop showed the installed bin running a stale build, the `Task:` line never parsing, claimed worktrees with no dependencies, journal files conflicting on every merge, and a stats file riding into commits. Every later item is built through the loop, so the loop is fixed first. Order: stale bin, journal merges (one union line, so the first merge Reggie performs does not hit the known collision), attribution, worktree dependencies and the stats file, then the small items, branch diff, derived journal, the queue.
+- **Attribution by merge commit.** Reggie joins commits to tasks by reading the `Task:` line anywhere in a commit body (sessions write it above `Co-Authored-By`, outside git's trailer block) and by taking a merge commit's files against its first parent. In solo mode `reggie decide approved` performs the no-ff merge itself so the merge commit always exists; team mode requires merge commits on GitHub, never squash or rebase. A completed task's commits are listed from its merge commit, so a journal can be derived after the branch is gone. Why: the join is what "what landed" and "what changed and why" rest on, and it must not depend on a session's habit or a per-machine hook.
+- **Worktree dependencies, hybrid.** Claim links the serving checkout's installed packages into the task worktree when the lockfiles are byte-identical, otherwise runs the repo's install command from a config key. The launch prompt says that adding a dependency means unlinking first. Why: instant for the common case, correct for the rare one.
+- **Capture has three doors: the CLI verb, the MCP tool, the web form.** The six project slash commands `reggie onboard` installs are retired; nothing has emitted them since the launch redesign and the MCP tool covers sessions.
+- **Planning happens only in Claude Code or Codex sessions.** No in-page brief editing beyond answering a brief's open questions in place. Every page gets an idea action that captures a line and opens a discuss session in plan mode with the page's entity as context, so an idea can be shaped the moment it strikes. Why: all three briefs so far were written inside the planning session, and a second author of the same file needs conflict handling nobody has asked for.
+- **Journals union-merge.** A `.gitattributes` line for `.reggie/journal/**/*.md` until the derived journal replaces hand-written entries. Why: one line stops a conflict that has hit every merge; GitHub ignores it, which does not matter in solo mode.
+- **The derived journal is an explicit verb.** `reggie journal derive <slug>` works for a task in flight and for a completed one. A pass inside `reggie serve` may call it once it is trusted. Why: a verb can be tested against a fixture transcript and attributed; a hook is per machine and Codex has none.
+- **Languages deferred.** Reggie is built against this repo and `personal_website` first, both already parsed. More languages once it is in good shape.
+- **The repo owns decisions; GitHub mirrors them.** Why: the loop stays inside the repo and works offline.
+- **Plans of every risk class and low-risk completions pass by policy.** Amended later on 2026-09-15: in solo mode every plan passes, low, medium and high, and whether high should be removed is judged as the loop runs; completions pass at low only. Solo mode approves them automatically, on the assumption that anything a human would not have approved surfaces later as a discovered issue and becomes the next task. Preconditions, built as one task: a packet citing evidence that does not exist never passes; checks are recorded as data rather than a ticked box; Reggie owns the merge; the packet's discovered issues are captured into intake automatically. The risk class stays the path-rule proxy until it derives from the graph.
+- **The intake line leaves at triage.** The brief replaces it. A scaffolded brief that was never filled in is reported as such rather than counted as groomed.
+- **MCP and the CLI wrap the same functions.** `packet` and `pr` become MCP tools so a build session does not depend on a shell PATH; `decide` is never a session tool, it is a human act or the policy above. The CLI stays for people, scripts and CI.
+- **Team mode is deferred.** Nothing team-mode is built or decided until the loop works for one person; every brief that raised a team-mode question records that answer. The state machine stays mode-neutral so the switch needs no migration.
+- **One repo at a time.** Cross-repo discovery from remotes and manifests waits until the diff and the queue land.
+- **Metadata commits on main.** One history; the story of the work sits beside the work.
+- **The v2 system under `resources/` retires when the branch lands.** Before the merge: move the folder to an archive, its own repository or a legacy folder, repoint the `~/.claude/{agents,commands,hooks}` symlinks, then delete it from the branch. Deleting it with the merge would remove the v2 agents from every project on the machine at once. The `track-stats` hook registration was removed from `~/.claude/settings.json` on 2026-09-15; it was the writer of the stray stats file.
+- **`HISTORY.md` deleted, `TASKS.md` kept as a pointer** until the branch lands. The legacy reader counted its 73 Tauri-era lines as done work. A generated `TASKS.md` view returns as a question when a GitHub-only reader exists.
+- **The 2026-09-06 backlog is not committed as a backlog.** Two thirds of its rows were already half true. Its live rows with no other home were captured into intake on 2026-09-15; the rest are carried by the milestones in `docs/ui-plan.md`.
 
 ## Non-goals
 
@@ -256,7 +279,7 @@ Explainers are documentation you can hear. A request comes from a voice note mid
 
 ### Modes
 
-- **Solo**: self-approval implicit, low-risk plans auto-approved, no PR by default, notifications off, claims still recorded for multi-machine use, comments still available as notes to self and from agents.
+- **Solo**: self-approval implicit, low-risk plans and completions approved by policy (decided 2026-09-15), no PR by default, Reggie performs the merge, notifications off, claims still recorded for multi-machine use, comments still available as notes to self and from agents.
 - **Team**: deciders by risk class, PR by default, notifications on, discussion threads expected before high-risk approval.
 - One state machine underneath. Mode is inferred from `people.yaml` and can be overridden per repo. Moving from solo to team needs no migration.
 
@@ -288,14 +311,12 @@ All derived from a normalized graph (repo, package, directory, file, symbol, rou
 
 - **Off-laptop reach**: git as the sync bus, or a hosted coordination service. Podcast feed hosting: Cloudflare R2 plus Worker, a local server over Tailscale, or a synced folder.
 - **Episode granularity**: one edited episode per person per day (recommended), or one story per session.
-- **TASKS.md fate**: generated view, or intake-only surface.
-- **Metadata commits**: on main, or on a `reggie-meta` branch.
 - **TTS provider**.
-- **Graph engine**: tree-sitter plus language servers is the proposal.
-- **The v2 agents and commands under `resources/`** when `repo-manager` lands on `main`: move them to a legacy folder or their own repository, or leave them installed as generic helpers unrelated to Reggie's loop. Nothing in v3 depends on them either way.
-- **How the derived journal is triggered**: a session-end hook Reggie installs, a pass `reggie serve` runs when it sees a new transcript, or an explicit `reggie journal derive <slug>`.
-- **Git-first substrate**: adopt GitHub as the store for discussion, decisions, and boards, or keep those in `.reggie/` with GitHub as a mirror.
-- **Auto-approval thresholds**: which risk classes may skip a human decision for plans and for completions.
+- **Graph engine for more languages**: tree-sitter plus language servers is the proposal; deferred on 2026-09-15 until Reggie is in good shape on the repos it already parses.
+- **A generated `TASKS.md` view** for readers who only use GitHub; returns when such a reader exists.
+- **Risk class from the graph** instead of path rules, which decides how much the auto-approval policy can be trusted.
+
+Closed on 2026-09-15: metadata commits, the derived journal trigger, the git-first substrate, auto-approval thresholds, the fate of `resources/`, and the fate of `TASKS.md` and `HISTORY.md`. See that block.
 
 ## Glossary
 

@@ -1,5 +1,7 @@
 # Making the Reggie UI effective for building software with Claude Code and Codex
 
+> **Status (2026-09-15): the order in the note below was re-ranked against the goal statement of 2026-09-14. Loop plumbing lands first, branch diff before the derived journal, the M6 composer is dropped, M-Lang is deferred. The decisions and their reasons: `docs/repo-manager-vision.md`, "Decisions made on 2026-09-15". The work itself is captured in `.reggie/intake.md`.**
+>
 > **Status (2026-09-13, later): M0 is built. The loop-path fixes and the intake story landed the same day, by hand, ahead of the milestone order below.**
 > The audit this plan rests on, the decisions behind it, and the still-open questions are in
 > `.reggie/discussions/ui-audit-2026-09/`. Read that first if you are new to this work.
