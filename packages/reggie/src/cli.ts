@@ -20,6 +20,7 @@ import { startServer } from "./serve.js";
 import { detectServices, type ServiceNode } from "./services.js";
 import { addNote, findNotes, NOTE_TYPES, notesForPath, renderNoteFile, staleEntries, type Confidence, type NoteType } from "./notes.js";
 import { onboard, refreshDocs } from "./onboard.js";
+import { landTask, type LandResult } from "./land.js";
 import { decidePacket, scaffoldPacket } from "./packet.js";
 import { briefFile, findRepoRoot, packetFile, planFile, repoPaths, type RepoPaths } from "./paths.js";
 import { currentPerson, loadConfig, loadPeople, type Person, type ReggieConfig } from "./people.js";
@@ -555,12 +556,29 @@ program
 
 program
   .command("decide <slug> <verdict>")
-  .description("Record approved or needs-work on a packet (solo mode, or when not using PR review)")
+  .description("Record approved or needs-work on a packet; in solo mode an approval merges task/<slug> (--no-ff) and releases it, never pushing")
   .option("--comment <text>")
   .action((slug: string, verdict: string, opts: { comment?: string }) => {
     const c = ctx(program.opts<{ root?: string }>().root);
     if (verdict !== "approved" && verdict !== "needs-work") fail("verdict must be approved or needs-work");
-    const file = decidePacket(c.paths, requireSlug(slug), verdict, c.person.handle, opts.comment);
+    const s = requireSlug(slug);
+    if (verdict === "approved" && c.config.mode !== "team") {
+      let r: LandResult;
+      try {
+        r = landTask(c.paths, c.config, s, { person: c.person, ...(opts.comment ? { comment: opts.comment } : {}) });
+      } catch (err) {
+        fail(err instanceof Error ? err.message : String(err));
+      }
+      out(
+        r.merge
+          ? `Approved ${s}: merged task/${s} into ${r.base} as ${r.merge.slice(0, 7)}.`
+          : `Approved ${s}: task/${s} had already landed${r.existingMerge ? ` in ${r.existingMerge.slice(0, 7)}` : ""}; recorded the verdict as ${r.commit.slice(0, 7)}.`,
+      );
+      for (const action of r.released) out(`  ${action}`);
+      if (r.releaseError) out(`  not released: ${r.releaseError}`);
+      return;
+    }
+    const file = decidePacket(c.paths, s, verdict, c.person.handle, opts.comment);
     appendJournal(c.paths, { person: c.person.handle, tool: detectTool(), slug, stage: "decide", text: `Decision: ${verdict}.${opts.comment ? ` ${opts.comment}` : ""}` });
     out(`Recorded ${verdict} in ${path.relative(c.root, file)}. Commit it${verdict === "approved" ? " and merge the task branch" : " and send the task back to execute"}.`);
   });

@@ -1,0 +1,51 @@
+Claimed cap-retries on task/cap-retries in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/29f18f9e-08ed-4366-8d6b-f1bc3a2087b4/scratchpad/demo-merge.FkFD/.worktree/cap-retries
+== before
+$ git log --graph --all --format=%h %s
+* 0ebfa17 packet: cap-retries
+* 5b7ac15 feat: cap retries
+* d902538 meta: claim cap-retries
+* be7da35 plan: cap-retries
+* e82d199 init
+(exit 0)
+main=be7da355975b68c01a1f1203141561d2d7747155 task=0ebfa17401cc00134e63f7b8e3647b231a80af45
+status: []
+
+== decide
+$ reggie decide cap-retries approved --comment criteria met
+Approved cap-retries: merged task/cap-retries into main as 94e6d5e.
+  removed worktree /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/29f18f9e-08ed-4366-8d6b-f1bc3a2087b4/scratchpad/demo-merge.FkFD/.worktree/cap-retries
+  deleted local task/cap-retries
+(exit 0)
+
+== after
+$ git log --graph --all --format=%h %p %s
+*   94e6d5e be7da35 0ebfa17 merge: task/cap-retries — Cap login retries
+|\  
+| * 0ebfa17 5b7ac15 packet: cap-retries
+| * 5b7ac15 d902538 feat: cap retries
+| * d902538 be7da35 meta: claim cap-retries
+|/  
+* be7da35 e82d199 plan: cap-retries
+* e82d199  init
+(exit 0)
+main=94e6d5e8ad210658022cbce5a7036d1e8acd4088 task=task/cap-retries
+gone
+status: []
+merge in progress: no
+$ git log -1 --format=%B
+merge: task/cap-retries — Cap login retries
+
+criteria met
+
+Task: cap-retries
+Decided-by: demo
+
+(exit 0)
+$ git show HEAD:.reggie/tasks/cap-retries/packet.md
+verdict: approved
+decided_by: demo
+(exit 0)
+$ git branch --list
+* main
+(exit 0)
+worktree dir: removed

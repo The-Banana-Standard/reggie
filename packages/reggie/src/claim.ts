@@ -99,7 +99,7 @@ export function claimTask(paths: RepoPaths, config: ReggieConfig, slug: string, 
     writeText(path.join(workdir, rel), renderClaim(opts.person, opts));
     const files = commitsEntry ? [rel, relPosix(workdir, appendJournal(journalPaths, entry).file)] : [rel];
     git(["add", "--", ...files], { cwd: workdir });
-    // The Task trailer is how history attributes commits to a task once the branch is gone.
+    // The Task line is how history attributes commits to a task once the branch is gone.
     git(["-c", "commit.gpgsign=false", "commit", "-q", "-m", `meta: claim ${slug}`, "-m", `Task: ${slug}`, "--", ...files], { cwd: workdir });
   }
   // Resumes and in-place claims commit nothing. releaseTask counts every commit beyond the claim as unmerged
@@ -128,6 +128,11 @@ function renderClaim(person: Person, opts: { tool?: ToolName; session?: string }
 
 export interface ReleaseOptions {
   force?: boolean;
+  /**
+   * Write the release entry; default true. Landing passes false: its decide entry is already inside the
+   * merge commit, and a second entry would leave the checkout dirty for the next merge.
+   */
+  journal?: boolean;
 }
 
 /**
@@ -163,6 +168,6 @@ export function releaseTask(paths: RepoPaths, config: ReggieConfig, slug: string
   }
   const del = git(["branch", "-D", branch], { cwd: root, allowFailure: true });
   if (del.ok) actions.push(`deleted local ${branch}`);
-  appendJournal(paths, { person: person.handle, tool: detectTool(), slug, stage: "release", text: "Released the claim on this task." });
+  if (opts.journal !== false) appendJournal(paths, { person: person.handle, tool: detectTool(), slug, stage: "release", text: "Released the claim on this task." });
   return actions;
 }

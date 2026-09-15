@@ -1,0 +1,43 @@
+Claimed cap-retries on task/cap-retries in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/29f18f9e-08ed-4366-8d6b-f1bc3a2087b4/scratchpad/demo-conflict.WBxS/.worktree/cap-retries
+== before
+$ git log --graph --all --format=%h %s
+* 7176d31 main caps retries differently
+| * f469a07 packet: cap-retries
+| * e9e2b47 feat: cap retries
+| * a1f7a28 meta: claim cap-retries
+|/  
+* b52f7f6 plan: cap-retries
+* c517bbc init
+(exit 0)
+main=7176d312238604ea33105e8362e29164d2f6a782 task=f469a079dbded64b2c3410b8389bd0da5c59c0b0
+status: []
+
+== decide
+$ reggie decide cap-retries approved --comment criteria met
+reggie: merging task/cap-retries into main conflicts in src/auth/login.ts. The merge was aborted and nothing was recorded; merge main into the branch, resolve it there, then decide again.
+(exit 1)
+
+== after
+$ git log --graph --all --format=%h %p %s
+* 7176d31 b52f7f6 main caps retries differently
+| * f469a07 e9e2b47 packet: cap-retries
+| * e9e2b47 a1f7a28 feat: cap retries
+| * a1f7a28 b52f7f6 meta: claim cap-retries
+|/  
+* b52f7f6 c517bbc plan: cap-retries
+* c517bbc  init
+(exit 0)
+main=7176d312238604ea33105e8362e29164d2f6a782 task=f469a079dbded64b2c3410b8389bd0da5c59c0b0
+status: []
+merge in progress: no
+$ git log -1 --format=%B
+main caps retries differently
+
+(exit 0)
+$ git show HEAD:.reggie/tasks/cap-retries/packet.md
+(exit 128)
+$ git branch --list
+* main
++ task/cap-retries
+(exit 0)
+worktree dir: present

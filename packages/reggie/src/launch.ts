@@ -218,7 +218,7 @@ function buildPrompt(tool: LaunchTool, slug: string, file: string | undefined, b
     `Produce the evidence named under Verification strategy and save it under \`.reggie/tasks/${slug}/evidence/\`; never claim a test passed without its output saved.`,
     `Reviews by risk class, from the plan's front matter: low, run the repo's own checks; medium, also run ${r.code}; high, also run ${r.security} and have a second pass execute the tests. Run ${r.simplify} when the diff is large. Resolve findings before continuing.`,
     "After each file change, add or correct the note for that file. After each step, write one journal entry with `--stage execute`. Capture unrelated problems with `reggie capture` instead of fixing them.",
-    `Finish with \`reggie packet ${slug}\`, fill every section honestly, and commit with the trailer \`Task: ${slug}\` in the message. Then ask me to decide (\`reggie decide ${slug}\`) or open a PR whose body is the packet (\`reggie pr ${slug}\`).`,
+    `Finish with \`reggie packet ${slug}\`, fill every section honestly, and commit with a line \`Task: ${slug}\` in the commit message body. Then ask me to decide (\`reggie decide ${slug}\`) or open a PR whose body is the packet (\`reggie pr ${slug}\`).`,
     ...noteClause(note),
   ].join(" ");
 }

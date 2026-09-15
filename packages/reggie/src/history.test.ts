@@ -12,16 +12,19 @@ import {
   historyFor,
   historyForFiles,
   historyKey,
+  isMerge,
   lastTouchedFor,
   MAX_DAY_SPAN,
   noHistory,
   parseNumstatLog,
   parseNumstatPath,
+  readGitLog,
   recentFor,
   repoHistory,
   sinceToMs,
+  taskFromBody,
   taskFromSubject,
-  taskFromTrailers,
+  taskLanding,
   unquotePath,
 } from "./history.js";
 import { ensureGitignore, ensureLayout } from "./layout.js";
@@ -46,6 +49,12 @@ function gitDated(root: string, date: string, args: string[]): void {
     if (previous === undefined) delete process.env.GIT_COMMITTER_DATE;
     else process.env.GIT_COMMITTER_DATE = previous;
   }
+}
+
+/** One record in HISTORY_LOG_FORMAT's shape: a record separator, seven fields ending with the body, then numstat. */
+function rec(sha: string, author: string, date: string, subject: string, body = "", stats: string[] = [], parents = "p"): string {
+  const email = `${author.toLowerCase()}@x.io`;
+  return `\x1e${[sha, parents, author, email, date, subject, body].join("\x1f")}\x1f\n\n${stats.join("\n")}\n`;
 }
 
 /** Commit the working tree as a specific author on a specific date, with optional extra message paragraphs. */
@@ -247,6 +256,20 @@ describe("history", () => {
     expect(JSON.parse(readFileSync(historyCacheFile(repo.root, third.sha), "utf8")).sha).toBe(third.sha);
   });
 
+  it("ignores a cache written before merges carried parents and rewrites it at version 2", () => {
+    ensureLayout(repoPaths(repo.root));
+    const first = repoHistory(repo.root, { now: NOW });
+    const file = historyCacheFile(repo.root, first.sha);
+    const data = JSON.parse(readFileSync(file, "utf8")) as { version: number; commits: { subject: string }[] };
+    expect(data.version).toBe(2);
+    data.version = 1;
+    data.commits[0]!.subject = "from a version 1 cache";
+    writeFileSync(file, JSON.stringify(data), "utf8");
+    clearHistoryCache(repo.root);
+    expect(repoHistory(repo.root, { now: NOW }).commits[0]?.subject).toBe("Merge branch 'task/rename-b'");
+    expect(JSON.parse(readFileSync(file, "utf8")).version).toBe(2);
+  });
+
   it("re-derives the day windows when the reference instant moves without re-reading git", () => {
     const now = repoHistory(repo.root, { now: NOW });
     expect(historyFor(now, "src/a.ts")?.commits30).toBe(1);
@@ -295,27 +318,123 @@ describe("history", () => {
   });
 });
 
+describe("attribution by merge commit", () => {
+  let repo: TempRepo;
+  beforeEach(() => {
+    clearHistoryCache();
+    repo = makeTempRepo();
+  });
+  afterEach(() => {
+    clearHistoryCache();
+    repo.cleanup();
+  });
+
+  const head = () => git(["rev-parse", "HEAD"], { cwd: repo.root }).stdout.trim();
+
+  /**
+   * main gets src/a.ts; task/login-cap extends it and adds src/c.ts as Alice while main moves on; the
+   * branch lands with a --no-ff merge and is deleted. With `sync`, main is first merged into the branch.
+   * Returns the landing merge and the branch commits, newest first.
+   */
+  function landBranch(sync = false): { merge: string; branch: string[] } {
+    const branch: string[] = [];
+    repo.write("src/a.ts", "export const a = 1;\n");
+    commitAs(repo.root, "Test Person <test@example.com>", "2026-08-01T10:00:00Z", "add a");
+    git(["switch", "-q", "-c", "task/login-cap"], { cwd: repo.root });
+    repo.write("src/a.ts", "export const a = 1;\nexport const b = 2;\n");
+    commitAs(repo.root, "Alice Adams <alice@example.com>", "2026-08-02T10:00:00Z", "extend a", "Task: login-cap", "Co-Authored-By: Claude <noreply@anthropic.com>");
+    branch.unshift(head());
+    git(["switch", "-q", "main"], { cwd: repo.root });
+    repo.write("README.md", "# fixture\n\nmore\n");
+    commitAs(repo.root, "Test Person <test@example.com>", "2026-08-03T10:00:00Z", "readme");
+    git(["switch", "-q", "task/login-cap"], { cwd: repo.root });
+    if (sync) {
+      gitDated(repo.root, "2026-08-04T10:00:00Z", ["merge", "-q", "--no-ff", "-m", "Merge branch 'main' into task/login-cap", "main"]);
+      branch.unshift(head());
+    }
+    repo.write("src/c.ts", "export const c = 3;\n");
+    commitAs(repo.root, "Alice Adams <alice@example.com>", "2026-08-05T10:00:00Z", "add c", "Task: login-cap");
+    branch.unshift(head());
+    git(["switch", "-q", "main"], { cwd: repo.root });
+    gitDated(repo.root, "2026-08-06T10:00:00Z", ["merge", "-q", "--no-ff", "-m", "merge: task/login-cap — cap retries", "-m", "Task: login-cap", "task/login-cap"]);
+    const merge = head();
+    git(["branch", "-D", "task/login-cap"], { cwd: repo.root });
+    return { merge, branch };
+  }
+
+  it("reads a merge's files against its first parent and keeps them out of churn", () => {
+    const { merge } = landBranch();
+    const log = readGitLog(repo.root);
+    const landed = log.find((c) => c.sha === merge);
+    expect(landed?.parents).toHaveLength(2);
+    expect(landed?.task).toBe("login-cap");
+    const expected = git(["diff", "--numstat", `${merge}^1`, merge], { cwd: repo.root })
+      .stdout.split("\n")
+      .filter(Boolean)
+      .map((l) => {
+        const [added = "", deleted = "", file = ""] = l.split("\t");
+        return { path: file, added: Number(added), deleted: Number(deleted) };
+      });
+    expect(expected.length).toBeGreaterThan(0);
+    expect(landed?.files).toEqual(expected);
+
+    const opts = { sha: "x", since: "365.days", now: NOW, people: { people: [] }, generatedAt: "" };
+    const withMerge = deriveHistory(log, opts);
+    const without = deriveHistory(log.filter((c) => !isMerge(c)), opts);
+    for (const p of ["src/a.ts", "src/c.ts", "src/"]) {
+      expect(historyFor(withMerge, p)?.linesChanged).toBe(historyFor(without, p)?.linesChanged);
+      expect(historyFor(withMerge, p)?.commits365).toBe(historyFor(without, p)?.commits365);
+    }
+    expect(historyFor(withMerge, "src/a.ts")?.linesChanged).toBe(2);
+    expect(historyForFiles(withMerge, ["src/a.ts", "src/c.ts"])?.linesChanged).toBe(historyForFiles(without, ["src/a.ts", "src/c.ts"])?.linesChanged);
+  });
+
+  it("finds a landed task's commits by slug after the branch is gone", () => {
+    const { merge, branch } = landBranch();
+    const landing = taskLanding(repo.root, "login-cap");
+    expect(landing.merge?.sha).toBe(merge);
+    expect(landing.merge?.files.map((f) => f.path).sort()).toEqual(["src/a.ts", "src/c.ts"]);
+    expect(landing.commits.map((c) => c.sha)).toEqual(branch);
+    expect(landing.commits.map((c) => c.subject)).toEqual(["add c", "extend a"]);
+    expect(landing.commits.map((c) => c.author)).toEqual(["Alice Adams", "Alice Adams"]);
+    expect(landing.commits[0]?.files).toEqual([{ path: "src/c.ts", added: 1, deleted: 0 }]);
+    expect(taskLanding(repo.root, "never-landed")).toEqual({ merge: null, commits: [] });
+  });
+
+  it("finds the landing outside the index window and never takes a merge into the branch for it", () => {
+    const { merge, branch } = landBranch(true);
+    const index = repoHistory(repo.root, { since: "2030-01-01", diskCache: false });
+    expect(index.log).toHaveLength(0);
+    const landing = taskLanding(repo.root, "login-cap", { index });
+    expect(landing.merge?.sha).toBe(merge);
+    expect(landing.merge?.files.length).toBeGreaterThan(0);
+    expect(landing.commits.map((c) => c.sha)).toEqual(branch);
+    expect(landing.commits.some((c) => c.subject === "Merge branch 'main' into task/login-cap")).toBe(true);
+  });
+});
+
 describe("history parsing", () => {
   it("parses the numstat log with pipes in subjects, merges, binaries, and both rename forms", () => {
     const text = [
-      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|Ann|ann@x.io|2026-09-06T10:00:00+00:00|Merge branch 'task/feat-x'|",
-      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb|Ann|ann@x.io|2026-09-05T10:00:00+00:00|subject | with pipe|feat-y;other",
-      "",
-      "3\t1\tsrc/lib/{one.ts => two.ts}",
-      "0\t0\tsrc/lib/{ => deep}/three.ts",
-      "-\t-\tassets/logo.png",
-      "2\t0\told.ts => new.ts",
-      "1\t0\t\"src/caf\\303\\251.ts\"",
-      "cccccccccccccccccccccccccccccccccccccccc|Bo|bo@x.io|2026-09-04T10:00:00+00:00|plain|",
-      "",
-      "5\t5\tREADME.md",
-      "",
-    ].join("\n");
+      rec("a".repeat(40), "Ann", "2026-09-06T10:00:00+00:00", "Merge branch 'task/feat-x'", "", [], "p q"),
+      rec(
+        "b".repeat(40),
+        "Ann",
+        "2026-09-05T10:00:00+00:00",
+        "subject | with pipe",
+        "A body line that looks like numstat:\n9\t9\tfake.ts\n\nTask: Feat-Y\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n",
+        ["3\t1\tsrc/lib/{one.ts => two.ts}", "0\t0\tsrc/lib/{ => deep}/three.ts", "-\t-\tassets/logo.png", "2\t0\told.ts => new.ts", "1\t0\t\"src/caf\\303\\251.ts\""],
+      ),
+      rec("c".repeat(40), "Bo", "2026-09-04T10:00:00+00:00", "plain", "", ["5\t5\tREADME.md"]),
+    ].join("");
     const commits = parseNumstatLog(text);
     expect(commits).toHaveLength(3);
     expect(commits[0]?.files).toEqual([]);
+    expect(commits[0]?.parents).toEqual(["p", "q"]);
+    expect(isMerge(commits[0]!)).toBe(true);
     expect(commits[0]?.task).toBe("feat-x");
     expect(commits[1]?.subject).toBe("subject | with pipe");
+    expect(commits[1]?.parents).toEqual(["p"]);
     expect(commits[1]?.task).toBe("feat-y");
     expect(commits[1]?.files).toEqual([
       { path: "src/lib/two.ts", added: 3, deleted: 1, from: "src/lib/one.ts" },
@@ -327,20 +446,24 @@ describe("history parsing", () => {
     expect(commits[2]?.files).toEqual([{ path: "README.md", added: 5, deleted: 5 }]);
   });
 
+  it("reads Task from anywhere in the body and prefers it to the subject", () => {
+    const commits = parseNumstatLog(
+      [
+        rec("d".repeat(40), "Ann", "2026-09-06T10:00:00+00:00", "merge: task/about-this-repo — the blurb", "Task: about-this-repo\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n", [], "p q"),
+        rec("e".repeat(40), "Ann", "2026-09-05T10:00:00+00:00", "task/feat-a: x", "Why it changed.\n\nTask: feat-b\n", ["1\t0\tsrc/a.ts"]),
+        rec("f".repeat(40), "Ann", "2026-09-04T10:00:00+00:00", "nothing names a task", "the Task: word mid-sentence\nTask: not a slug\n"),
+      ].join(""),
+    );
+    expect(commits.map((c) => c.task)).toEqual(["about-this-repo", "feat-b", null]);
+  });
+
   it("derives per-path and per-directory numbers from parsed commits", () => {
     const commits = parseNumstatLog(
       [
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|Ann|ann@x.io|2026-09-06T10:00:00+00:00|two files|",
-        "",
-        "10\t0\tsrc/a.ts",
-        "10\t0\tsrc/b.ts",
-        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb|Bo|bo@x.io|2026-06-01T10:00:00+00:00|one file|",
-        "",
-        "4\t0\tsrc/a.ts",
-        "cccccccccccccccccccccccccccccccccccccccc|Cy|cy@x.io|2025-01-01T10:00:00+00:00|too old|",
-        "",
-        "100\t0\tsrc/a.ts",
-      ].join("\n"),
+        rec("a".repeat(40), "Ann", "2026-09-06T10:00:00+00:00", "two files", "", ["10\t0\tsrc/a.ts", "10\t0\tsrc/b.ts"]),
+        rec("b".repeat(40), "Bo", "2026-06-01T10:00:00+00:00", "one file", "", ["4\t0\tsrc/a.ts"]),
+        rec("c".repeat(40), "Cy", "2025-01-01T10:00:00+00:00", "too old", "", ["100\t0\tsrc/a.ts"]),
+      ].join(""),
     );
     const index = deriveHistory(commits, { sha: "x", since: "365.days", now: NOW, people: { people: [] }, generatedAt: NOW.toISOString() });
     expect(index.totalCommits).toBe(2); // the 2025 commit is outside the since window
@@ -362,9 +485,9 @@ describe("history parsing", () => {
     const lines: string[] = [];
     for (let i = 0; i < 12; i += 1) {
       const sha = String(i).padStart(40, "0");
-      lines.push(`${sha}|Ann|ann@x.io|2026-09-0${(i % 6) + 1}T10:00:00+00:00|c${i}|`, "", "1\t0\tsrc/a.ts");
+      lines.push(rec(sha, "Ann", `2026-09-0${(i % 6) + 1}T10:00:00+00:00`, `c${i}`, "", ["1\t0\tsrc/a.ts"]));
     }
-    const index = deriveHistory(parseNumstatLog(lines.join("\n")), { sha: "x", since: "365.days", now: NOW, people: { people: [] }, generatedAt: "" });
+    const index = deriveHistory(parseNumstatLog(lines.join("")),{ sha: "x", since: "365.days", now: NOW, people: { people: [] }, generatedAt: "" });
     expect(recentFor(index, "src/a.ts")).toHaveLength(8);
     expect(recentFor(index, "src/a.ts")[0]?.subject).toBe("c0");
     expect(historyFor(index, "src/a.ts")?.commits365).toBe(12);
@@ -377,8 +500,8 @@ describe("history parsing", () => {
     expect(historyKey("src\\lib\\")).toBe("src/lib/");
     expect(ancestorKeys("src/lib/a.ts")).toEqual(["src/lib/", "src/", "./"]);
     expect(ancestorKeys("a.ts")).toEqual(["./"]);
-    expect(taskFromTrailers(" ; Login-Cap ;x")).toBe("login-cap");
-    expect(taskFromTrailers("")).toBeNull();
+    expect(taskFromBody("Why.\n\nTask: Login-Cap\n\nCo-Authored-By: X <x@y.io>")).toBe("login-cap");
+    expect(taskFromBody("")).toBeNull();
     expect(taskFromSubject("Merge pull request #5 from org/task/fix-it")).toBe("fix-it");
     expect(taskFromSubject("task/fix-it: tidy")).toBe("fix-it");
     expect(taskFromSubject("multitask/no")).toBeNull();

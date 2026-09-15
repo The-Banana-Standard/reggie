@@ -158,13 +158,14 @@ describe("launchCommand", () => {
     expect(launchCommand({ repo: REPO, tool: "claude", mode: "discuss", tasks: [planned] }).description).toMatch(/read-only/i);
   });
 
-  it("a build knows it is already claimed, runs the review policy, and commits with the Task trailer", () => {
+  it("a build knows it is already claimed, runs the review policy, and commits with a Task line in the body", () => {
     const claude = prompt(launchCommand({ repo: REPO, tool: "claude", mode: "build", tasks: [planned], branch: `task/${SLUG}` }));
     expect(claude).toContain(`worktree on branch \`task/${SLUG}\``);
     expect(claude).not.toContain("reggie claim");
     expect(claude).toContain("/code-review");
     expect(claude).toContain("/security-review");
-    expect(claude).toContain(`Task: ${SLUG}`);
+    expect(claude).toContain(`a line \`Task: ${SLUG}\` in the commit message body`);
+    expect(claude).not.toContain("trailer");
     expect(claude).toContain(`reggie packet ${SLUG}`);
     const codex = prompt(launchCommand({ repo: REPO, tool: "codex", mode: "build", tasks: [planned], branch: `task/${SLUG}` }));
     expect(codex).toContain("codex review");

@@ -15,3 +15,7 @@ sources: packages/reggie/src/launch.ts:1
 launchCommand is pure and mints nothing. Session ids, context files, launch records and the claim for a build are the caller's job (serve.ts POST /api/launch and cli.ts launch --run both do it); keep them there so GET /api/launch can describe a command without side effects.
 sources: packages/reggie/src/launch.ts:1
 
+## how · 2026-09-15 · Claude via jacobpress · medium
+The build prompt asks for a Task: <slug> line in the commit message body, not a trailer; history reads the line anywhere in the body, so keep the wording and the parser agreeing.
+sources: task-attribution-by-merge
+

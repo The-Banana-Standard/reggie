@@ -10,3 +10,7 @@ sources: packages/reggie/src/cli.ts:604
 ## how · 2026-09-15 · Claude via jacobpress · medium
 A preAction hook on the root program runs checkBuild before every command's action, nested subcommands included: when the running dist/ is behind src/ it prints the refusal to stderr and exits 1, and with REGGIE_ALLOW_STALE=1 it prints the warning and carries on. The mcp command is exempt from the hook; it records the build it loaded and passes a per-call check to the server instead. --help and --version exit before the hook runs.
 
+## how · 2026-09-15 · Claude via jacobpress · high
+decide approved in solo mode lands the task branch through landTask and prints the merge sha, or 'had already landed' with the existing merge, then what was released; a refusal or conflict exits 1 with the reason. needs-work only writes the verdict into the packet on disk.
+sources: task-attribution-by-merge
+

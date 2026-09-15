@@ -53,7 +53,7 @@ export interface CommitInfo {
   handle: string;
   date: string;
   subject: string;
-  /** Task slug from the `Task:` trailer, else from a `task/<slug>` branch name in the subject. */
+  /** Task slug from a `Task:` line anywhere in the body, else from a `task/<slug>` branch name in the subject. */
   task: string | null;
 }
 
@@ -69,6 +69,8 @@ export interface LogFile {
 /** One parsed commit; the unit the disk cache stores. Newest first in every list. */
 export interface LogCommit {
   sha: string;
+  /** Parent shas. Two or more is a merge, whose `files` are its diff against the first parent. */
+  parents: string[];
   author: string;
   email: string;
   date: string;
@@ -118,11 +120,16 @@ export interface HistoryOptions {
   diskCache?: boolean;
 }
 
-export const HISTORY_LOG_FORMAT = "%H|%an|%ae|%aI|%s|%(trailers:key=Task,valueonly,separator=;)";
+/**
+ * One record per commit: a record separator, unit-separated fields ending with the whole body, then
+ * the numstat lines. The body is read for its `Task:` line and is not stored.
+ */
+export const HISTORY_LOG_FORMAT = "%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%s%x1f%b%x1f";
 export const HISTORY_DEFAULT_SINCE = "365.days";
 export const HISTORY_RECENT_LIMIT = 8;
 export const HISTORY_CACHE_DIR = path.join(".reggie", ".cache");
-const CACHE_VERSION = 1;
+/** 2: parents, a merge's first-parent files, and `Task:` read from the whole body. */
+const CACHE_VERSION = 2;
 const DAY_MS = 86_400_000;
 
 interface CacheFile {
@@ -210,59 +217,67 @@ export function repoHistory(root: string, opts: HistoryOptions = {}): HistoryInd
 
 /** Run the one git log and parse it. Empty when git fails (no commits, not a repo). */
 export function readGitLog(root: string, since: string = HISTORY_DEFAULT_SINCE): LogCommit[] {
-  const r = git(
-    ["-c", "core.quotePath=false", "log", "--numstat", "-M", `--format=${HISTORY_LOG_FORMAT}`, `--since=${since}`, "HEAD"],
-    { cwd: root, allowFailure: true },
-  );
+  const r = git(historyLogArgs(["HEAD"], [`--since=${since}`]), { cwd: root, allowFailure: true });
   if (!r.ok) return [];
   return parseNumstatLog(r.stdout);
 }
 
-/** Parse the output of `git log --numstat --format=HISTORY_LOG_FORMAT`. Pure. */
+/**
+ * `git log` arguments in the index's shape over `revs`. A merge reports its files against its first
+ * parent, which is exactly what it landed; `deriveHistory` keeps those files out of churn.
+ */
+export function historyLogArgs(revs: string[], extra: string[] = []): string[] {
+  return ["-c", "core.quotePath=false", "log", "--numstat", "-M", "--diff-merges=first-parent", `--format=${HISTORY_LOG_FORMAT}`, ...extra, ...revs, "--"];
+}
+
+const RECORD = "\x1e";
+const FIELD = "\x1f";
+/** Fields before the numstat block: sha, parents, author, email, date, subject, body. */
+const HEADER_FIELDS = 7;
+
+/** Parse the output of `git log [--numstat] --format=HISTORY_LOG_FORMAT`. Pure. */
 export function parseNumstatLog(text: string): LogCommit[] {
   const out: LogCommit[] = [];
-  let current: LogCommit | null = null;
-  for (const rawLine of text.split("\n")) {
-    const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
-    if (line === "") continue;
-    const header = parseHeaderLine(line);
-    if (header) {
-      current = header;
-      out.push(current);
-      continue;
+  for (const record of text.split(RECORD)) {
+    const fields = record.split(FIELD);
+    if (fields.length <= HEADER_FIELDS) continue;
+    const [sha = "", parents = "", author = "", email = "", date = "", subject = "", body = ""] = fields;
+    if (!/^[0-9a-f]{40}$/.test(sha)) continue;
+    const commit: LogCommit = {
+      sha,
+      parents: parents.split(" ").filter(Boolean),
+      author,
+      email,
+      date,
+      subject,
+      task: taskFromBody(body) ?? taskFromSubject(subject),
+      files: [],
+    };
+    // Everything after the body's closing separator is numstat; a body line can never be mistaken for one.
+    for (const rawLine of fields.slice(HEADER_FIELDS).join(FIELD).split("\n")) {
+      const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+      const stat = /^(\d+|-)\t(\d+|-)\t(.+)$/.exec(line);
+      if (!stat) continue;
+      const added = stat[1] === "-" ? 0 : Number.parseInt(stat[1] ?? "0", 10);
+      const deleted = stat[2] === "-" ? 0 : Number.parseInt(stat[2] ?? "0", 10);
+      const { path: filePath, from } = parseNumstatPath(stat[3] ?? "");
+      if (!filePath) continue;
+      const file: LogFile = { path: filePath, added, deleted };
+      if (from !== undefined && from !== filePath) file.from = from;
+      commit.files.push(file);
     }
-    if (!current) continue;
-    const stat = /^(\d+|-)\t(\d+|-)\t(.+)$/.exec(line);
-    if (!stat) continue;
-    const added = stat[1] === "-" ? 0 : Number.parseInt(stat[1] ?? "0", 10);
-    const deleted = stat[2] === "-" ? 0 : Number.parseInt(stat[2] ?? "0", 10);
-    const { path: filePath, from } = parseNumstatPath(stat[3] ?? "");
-    if (!filePath) continue;
-    const file: LogFile = { path: filePath, added, deleted };
-    if (from !== undefined && from !== filePath) file.from = from;
-    current.files.push(file);
+    out.push(commit);
   }
   return out;
 }
 
-function parseHeaderLine(line: string): LogCommit | null {
-  if (!/^[0-9a-f]{40}\|/.test(line)) return null;
-  const parts = line.split("|");
-  if (parts.length < 6) return null;
-  const sha = parts[0] ?? "";
-  const author = parts[1] ?? "";
-  const email = parts[2] ?? "";
-  const date = parts[3] ?? "";
-  // The subject may itself contain "|"; the trailer field is always last.
-  const trailers = parts[parts.length - 1] ?? "";
-  const subject = parts.slice(4, -1).join("|");
-  return { sha, author, email, date, subject, task: taskFromTrailers(trailers) ?? taskFromSubject(subject), files: [] };
-}
-
-/** First valid slug among `Task:` trailer values (git joins several with `;`). */
-export function taskFromTrailers(value: string): string | null {
-  for (const piece of value.split(";")) {
-    const slug = piece.trim().toLowerCase();
+/**
+ * First valid slug on a `Task: <slug>` line anywhere in a commit body. Sessions write the line above
+ * `Co-Authored-By` in its own paragraph, where git's trailer parser never looks.
+ */
+export function taskFromBody(body: string): string | null {
+  for (const line of body.split("\n")) {
+    const slug = /^\s*task:\s*(\S+)\s*$/i.exec(line)?.[1]?.toLowerCase() ?? "";
     if (slug && isSafeSlug(slug)) return slug;
   }
   return null;
@@ -375,7 +390,8 @@ export function deriveHistory(commits: LogCommit[], opts: DeriveOptions): Histor
     log.push(c);
 
     const touched = new Map<string, number>();
-    for (const f of c.files) {
+    // A merge's files repeat what its branch commits already carry; they serve the landing lookup, not churn.
+    for (const f of isMerge(c) ? [] : c.files) {
       const lines = f.added + f.deleted;
       bump(touched, f.path, lines);
       for (const dir of ancestorKeys(f.path)) bump(touched, dir, lines);
@@ -405,6 +421,11 @@ export function deriveHistory(commits: LogCommit[], opts: DeriveOptions): Histor
     if (acc.lastIso) index.lastTouched.set(key, acc.lastIso);
   }
   return index;
+}
+
+/** Two or more parents. */
+export function isMerge(c: LogCommit): boolean {
+  return c.parents.length > 1;
 }
 
 function bump(map: Map<string, number>, key: string, lines: number): void {
@@ -577,7 +598,7 @@ export function historyForFiles(index: HistoryIndex, paths: Iterable<string>): H
 
   for (let i = 0; i < index.log.length; i += 1) {
     const c = index.log[i];
-    if (!c) continue;
+    if (!c || isMerge(c)) continue;
     let lines = 0;
     let hit = false;
     for (const f of c.files) {
@@ -599,6 +620,46 @@ export function historyForFiles(index: HistoryIndex, paths: Iterable<string>): H
 /** ISO author date of the newest commit for a path, if any. */
 export function lastTouchedFor(index: HistoryIndex, rawPath = ""): string | null {
   return lookupKey(index.lastTouched, rawPath) ?? null;
+}
+
+export interface TaskLanding {
+  /** The merge on the base's first-parent line that landed the task, with the files it landed; null when none did. */
+  merge: LogCommit | null;
+  /** With a merge, the branch commits it brought in; without one, the indexed commits naming the task. Newest first. */
+  commits: LogCommit[];
+}
+
+export interface TaskLandingOptions {
+  /** The branch the task landed on; default HEAD. */
+  base?: string;
+  /** An index already read, so the merge's files and the no-merge fallback are not read again. */
+  index?: HistoryIndex;
+}
+
+/**
+ * A task's commits by slug alone, from the merge that landed it. The merge is looked for on the base's
+ * first-parent line with no `--since`, so a merge older than the index window is still found and a
+ * merge of the base into the task branch is never taken for the landing. The branch commits are
+ * `merge^1..merge^2`, which needs no branch. Without a merge (squashed, fast-forwarded, or not landed)
+ * the answer is whatever the index attributed to the slug.
+ */
+export function taskLanding(root: string, slug: string, opts: TaskLandingOptions = {}): TaskLanding {
+  const base = opts.base ?? "HEAD";
+  const merges = git(["log", "--first-parent", "--merges", `--format=${HISTORY_LOG_FORMAT}`, base, "--"], { cwd: root, allowFailure: true });
+  const found = merges.ok ? parseNumstatLog(merges.stdout).find((c) => c.task === slug) : undefined;
+  if (!found) {
+    const index = opts.index ?? repoHistory(root);
+    return { merge: null, commits: index.log.filter((c) => c.task === slug) };
+  }
+  const merge = opts.index?.log.find((c) => c.sha === found.sha) ?? readCommits(root, [found.sha], ["-1"])[0] ?? found;
+  const [first, second] = found.parents;
+  const commits = first && second ? readCommits(root, [`${first}..${second}`]) : [];
+  return { merge, commits };
+}
+
+function readCommits(root: string, revs: string[], extra: string[] = []): LogCommit[] {
+  const r = git(historyLogArgs(revs, extra), { cwd: root, allowFailure: true });
+  return r.ok ? parseNumstatLog(r.stdout) : [];
 }
 
 /** Full HEAD sha, or "" when there is no commit yet (git prints the literal "HEAD" and fails there). */
@@ -624,6 +685,7 @@ function readDiskCache(root: string, sha: string, since: string): { commits: Log
       if (!c || typeof c !== "object" || typeof c.sha !== "string" || !Array.isArray(c.files)) return null;
       commits.push({
         sha: c.sha,
+        parents: Array.isArray(c.parents) ? c.parents.filter((p): p is string => typeof p === "string") : [],
         author: typeof c.author === "string" ? c.author : "",
         email: typeof c.email === "string" ? c.email : "",
         date: typeof c.date === "string" ? c.date : "",
