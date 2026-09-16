@@ -1,0 +1,63 @@
+Criteria 17 and 18 — the client diff is two heading rows and one sentence; the rendering is untouched.
+
+==============================================================================
+$ git diff dd613ed -- packages/reggie/ui/story.js packages/reggie/ui/app.js
+==============================================================================
+diff --git a/packages/reggie/ui/app.js b/packages/reggie/ui/app.js
+index cc102b2..a433847 100644
+--- a/packages/reggie/ui/app.js
++++ b/packages/reggie/ui/app.js
+@@ -1530,7 +1530,7 @@ function spotlightDeps(route) {
+     },
+     onAddNote: () => {
+       setPaneOpen("story", true);
+-      if (!focusNoteForm()) toast("Open a file or an area to add a note there.", { tone: "warn" });
++      if (!focusNoteForm()) toast("Open a repo, an area or a file to add a note there.", { tone: "warn" });
+     },
+   };
+ }
+diff --git a/packages/reggie/ui/story.js b/packages/reggie/ui/story.js
+index ea7c7d3..c1802d9 100644
+--- a/packages/reggie/ui/story.js
++++ b/packages/reggie/ui/story.js
+@@ -55,6 +55,7 @@ const HEADINGS = {
+     ["recent", "What happened recently"],
+     ["gaps", "What nobody has written down"],
+     ["run", "How to run it"],
++    ["add-note", "Add a note"],
+   ],
+   area: [
+     ["read-first", "Read these first"],
+@@ -65,6 +66,7 @@ const HEADINGS = {
+     ["people", "Who works here"],
+     ["tasks", "Tasks that will touch this area"],
+     ["recent", "Recently"],
++    ["add-note", "Add a note"],
+   ],
+   file: [
+     ["read-first", "Read these first"],
+
+==============================================================================
+Criterion 17 — no reader-facing string in ui/ still says a note can be added only
+from a file or an area.
+==============================================================================
+$ grep -rn "Open a file or an area" packages/reggie/ui
+(no matches)
+
+$ grep -rn "add a note there" packages/reggie/ui
+packages/reggie/ui/app.js:1533:      if (!focusNoteForm()) toast("Open a repo, an area or a file to add a note there.", { tone: "warn" });
+
+==============================================================================
+Criterion 18 — emptyBlock, noteForm, noteEntityFor and focusNoteForm are byte-identical
+to the landing commit of graph-coverage-published (dd613ed).
+==============================================================================
+Function bodies extracted by paren- then brace-matching from each file at dd613ed and in the
+working tree, and compared byte for byte:
+
+  emptyBlock     packages/reggie/ui/story.js  UNCHANGED        dd613ed:   19 lines /  1591 chars | working:   19 lines /  1591 chars
+  noteForm       packages/reggie/ui/story.js  UNCHANGED        dd613ed:   41 lines /  2273 chars | working:   41 lines /  2273 chars
+  noteEntityFor  packages/reggie/ui/story.js  UNCHANGED        dd613ed:   14 lines /   307 chars | working:   14 lines /   307 chars
+  focusNoteForm  packages/reggie/ui/story.js  UNCHANGED        dd613ed:   11 lines /   499 chars | working:   11 lines /   499 chars
+
+(focusNoteForm is exported from ui/story.js — ui/app.js imports and calls it; both the call
+ sites and the function itself are unchanged, only the toast beside one call site moved.)

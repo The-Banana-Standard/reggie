@@ -1,0 +1,17 @@
+Criterion 1 — exactly one function builds the add-note section, and the three stories are its only callers.
+
+$ grep -n "addNoteSection" packages/reggie/src/story.ts
+818:    addNoteSection("repo", "_repo"),
+1288:    addNoteSection("area", areaNoteEntity(dirPath)),
+1487:    addNoteSection("file", node.id),
+1677:function addNoteSection(scope: AddNoteScope, entity: string): StorySection {
+
+One definition (function addNoteSection), three call sites, one per scope. No other file
+in the package references it, and the old name is gone:
+
+$ grep -rn "addNoteSection\|fileAddNote" packages/reggie/src packages/reggie/test packages/reggie/ui packages/reggie/docs
+packages/reggie/src/story.test.ts:500: * A mutation-tested pin, not a smoke test. Delete the `addNoteSection` call from `repoStory` or from
+packages/reggie/src/story.ts:818:    addNoteSection("repo", "_repo"),
+packages/reggie/src/story.ts:1288:    addNoteSection("area", areaNoteEntity(dirPath)),
+packages/reggie/src/story.ts:1487:    addNoteSection("file", node.id),
+packages/reggie/src/story.ts:1677:function addNoteSection(scope: AddNoteScope, entity: string): StorySection {

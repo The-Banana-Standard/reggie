@@ -74,6 +74,12 @@
       "heading": "How to run it",
       "paragraphs": [],
       "empty": { "text": "No build or test command was recognised.", "action": { "label": "Record what you ran", "form": "journal", "command": "reggie journal \"…\"" } }
+    },
+    {
+      "id": "add-note",
+      "heading": "Add a note",
+      "paragraphs": [],
+      "empty": { "text": "Write what the next person should know about this repo.", "action": { "label": "Add note", "form": "note", "command": "reggie note add _repo --type why \"…\"" } }
     }
   ],
   "next": []

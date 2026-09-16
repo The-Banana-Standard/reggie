@@ -1,0 +1,96 @@
+Build evidence for note-form-on-repo-and-area (acceptance criterion 23).
+All commands run from packages/reggie on branch task/note-form-on-repo-and-area.
+
+==============================================================================
+$ TZ=UTC npm test
+==============================================================================
+
+> reggie@3.0.0-alpha.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/note-form-on-repo-and-area/packages/reggie
+
+
+ Test Files  31 passed (31)
+      Tests  665 passed | 1 skipped (666)
+   Start at  02:09:06
+   Duration  13.27s (transform 2.62s, setup 0ms, import 4.26s, tests 125.71s, environment 1ms)
+
+EXIT CODE: 0
+
+==============================================================================
+$ npm test        (plain, local timezone — run because the plan says report BOTH)
+==============================================================================
+Local timezone at run time: EDT-0400
+
+> reggie@3.0.0-alpha.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/note-form-on-repo-and-area/packages/reggie
+
+ ❯ src/tasks.test.ts (17 tests | 1 failed) 11936ms
+     × assembles plan, packet, claim, journal, and impact as a task moves 487ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tasks.test.ts > state machine and task detail > assembles plan, packet, claim, journal, and impact as a task moves
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ src/tasks.test.ts:262:29
+    260|     expect(detail.task.reason).toContain("no brief");
+    261|     expect(detail.task.stateDefinition).toBe(stateDefinition("ungroome…
+    262|     expect(detail.task.age).toBe(0);
+       |                             ^
+    263|     expect(detail.task.planFiles).toEqual([]);
+    264|     expect(detail.task.changedFiles).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 30 passed (31)
+      Tests  1 failed | 664 passed | 1 skipped (666)
+   Start at  22:09:27
+   Duration  13.53s (transform 2.30s, setup 0ms, import 3.97s, tests 127.77s, environment 1ms)
+
+EXIT CODE: 1
+
+==============================================================================
+$ npm run typecheck
+==============================================================================
+
+> reggie@3.0.0-alpha.1 typecheck
+> tsc -p tsconfig.json --noEmit
+
+EXIT CODE: 0
+
+==============================================================================
+$ npm run build
+==============================================================================
+
+> reggie@3.0.0-alpha.1 build
+> tsc -p tsconfig.json
+
+EXIT CODE: 0
+
+READING
+  TZ=UTC npm test  : 31 files, 665 passed, 1 skipped, exit 0.
+                     Baseline at dd613ed was 653 passed; this task adds 12 tests.
+  npm test (local) : 1 failed, 664 passed, 1 skipped, exit 1.
+                     The single failure is src/tasks.test.ts > state machine and task detail >
+                     'assembles plan, packet, claim, journal, and impact as a task moves'.
+                     Pre-existing and unrelated: ageInDays parses a bare YYYY-MM-DD as midnight
+                     UTC against a locally written date, so it fails in a negative-offset
+                     timezone (EDT-0400 here) and passes under TZ=UTC. src/tasks.test.ts is not
+                     touched by this task. It is captured as its own intake item, not chased.
+                     664 passed + 1 failed = 665, the same number that passes under TZ=UTC, so
+                     nothing else differs between the two runs.
+  npm run typecheck: exit 0.
+  npm run build    : exit 0.

@@ -175,7 +175,10 @@ export const EMPTY_TEXT = {
   fileUses: "It imports nothing else in this repo.",
   fileTasks: "No plan names this file.",
   fileHistory: "Git has no commits for this file in the last year.",
-  fileAddNote: "Write what the next person should know about this file.",
+  // The always-present "Add a note" section: one sentence per scope, differing by one noun.
+  addNoteRepo: "Write what the next person should know about this repo.",
+  addNoteArea: "Write what the next person should know about this area.",
+  addNoteFile: "Write what the next person should know about this file.",
   fileGaps: "This file has a note and none of the notes that apply is stale.",
   taskNoPlan: "No plan yet. Plan it in plan mode against the contract.",
   taskOwner: "Nobody has claimed this task.",
@@ -812,6 +815,7 @@ export function repoStory(ctx: StoryContext, opts: RepoStoryOptions = {}): Story
     recentSection(ctx),
     repoGapsSection(ctx),
     runSection(ctx),
+    addNoteSection("repo", "_repo"),
   ];
   // No subtitle: the blurb is "About this repo", and the branch rides on its first paragraph as a chip.
   const subtitle = null;
@@ -1281,6 +1285,7 @@ export function areaStory(ctx: StoryContext, id: string): Story | null {
     areaPeople(ctx, rootId),
     areaTasks(ctx, rootId),
     areaRecent(ctx, rootId, dirPath),
+    addNoteSection("area", areaNoteEntity(dirPath)),
   ];
   if (ctx.lens === "knowledge") sections.push(areaGaps(ctx, rootId, dirPath));
 
@@ -1306,10 +1311,19 @@ export function areaStory(ctx: StoryContext, id: string): Story | null {
   };
 }
 
+/**
+ * The note entity for a folder: the repo note at the root, the trailing-slash directory entity below
+ * it. The root branch is live, not defensive — `areaStory(ctx, ".")` is a real page, and its hint has
+ * to read `_repo` because that is what `reggie note add` accepts for the repo itself.
+ */
+function areaNoteEntity(dirPath: string): string {
+  return dirPath === "." ? "_repo" : `${dirPath}/`;
+}
+
 function areaReadFirst(ctx: StoryContext, rootId: string, dirPath: string): StorySection {
   const chain = noteChain(ctx, dirPath === "." ? "" : dirPath, true);
   const paragraphs = noteParagraphs(ctx, "rf", chain, [rootId]);
-  const own = ctx.noteOf(dirPath === "." ? "_repo" : `${dirPath}/`);
+  const own = ctx.noteOf(areaNoteEntity(dirPath));
   if (paragraphs.length > 0 && !own) {
     paragraphs.push(
       para(`rf-${paragraphs.length + 1}`, "gap", `No note is written on ${link(ctx.repo, rootId, dirPath)} itself; everything above is inherited from the repo and the folders around it.`, [rootId]),
@@ -1317,7 +1331,7 @@ function areaReadFirst(ctx: StoryContext, rootId: string, dirPath: string): Stor
   }
   return section("read-first", "Read these first", paragraphs, {
     text: EMPTY_TEXT.notes,
-    action: { label: "Add a note", form: "note", command: `reggie note add ${dirPath === "." ? "_repo" : `${dirPath}/`} --type why "…"` },
+    action: { label: "Add a note", form: "note", command: `reggie note add ${areaNoteEntity(dirPath)} --type why "…"` },
   });
 }
 
@@ -1470,7 +1484,7 @@ export function fileStory(ctx: StoryContext, id: string): Story | null {
     fileTests(ctx, node),
     fileTasks(ctx, node),
     fileHistory(ctx, node),
-    fileAddNote(node),
+    addNoteSection("file", node.id),
   ];
   if (ctx.lens === "knowledge") sections.push(fileGaps(ctx, node));
 
@@ -1641,10 +1655,29 @@ function fileHistory(ctx: StoryContext, node: GraphNode): StorySection {
   return section("history", "History", paragraphs, { text: EMPTY_TEXT.fileHistory });
 }
 
-function fileAddNote(node: GraphNode): StorySection {
+type AddNoteScope = Extract<StoryScope, "repo" | "area" | "file">;
+
+/** EMPTY_TEXT is the only source of these three sentences; nothing below inlines any part of one. */
+const ADD_NOTE_TEXT: Record<AddNoteScope, string> = {
+  repo: EMPTY_TEXT.addNoteRepo,
+  area: EMPTY_TEXT.addNoteArea,
+  file: EMPTY_TEXT.addNoteFile,
+};
+
+/**
+ * The repo, area and file pages all end with this section. It has no paragraphs at any scope, so the
+ * client renders it as an inline note form every time; that is what makes it the always-open door,
+ * unlike the empty states above it, which close as soon as someone writes the first note.
+ *
+ * The hint says `--type why` at all three scopes because `noteForm` defaults its select to `why`
+ * whatever the action says, so any other type here would be a command that disagrees with the button
+ * beside it. One builder rather than one per scope: three hand-built copies are how `testedClause`
+ * drifted.
+ */
+function addNoteSection(scope: AddNoteScope, entity: string): StorySection {
   return section("add-note", "Add a note", [], {
-    text: EMPTY_TEXT.fileAddNote,
-    action: { label: "Add note", form: "note", command: `reggie note add ${node.id} --type how "…"` },
+    text: ADD_NOTE_TEXT[scope],
+    action: { label: "Add note", form: "note", command: `reggie note add ${entity} --type why "…"` },
   });
 }
 

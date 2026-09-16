@@ -1,0 +1,96 @@
+Criteria 11-15 — the six degenerate states, each measured rather than reasoned about.
+
+Two independent measurements of each: a throwaway probe over purpose-built git repos (the full
+transcript is in evidence/section-ids.txt) and a named test in src/story.test.ts, whose output is
+below. Both agree.
+
+Summary table. "note forms" is the list of sections on that page whose empty state is an inline
+note form, in page order.
+
+  repo state                                   | repo page          | area page (src/big)
+  ---------------------------------------------+--------------------+---------------------
+  1. no notes at all                           | what, add-note     | read-first, add-note
+  2. one _repo note, why entry  (onboard)      | add-note           | add-note
+  3. _repo note + the folder's own note        | add-note           | add-note
+  4. only the folder's own note, no _repo      | what, add-note     | add-note
+  5. _repo note of how entries, no why         | what, add-note     | add-note
+  6. no code files (README only)               | what, add-note     | (no area page below the root)
+
+Before this change, the add-note column did not exist: rows 2 and 3 had NO note form on either page,
+and rows 4, 5 and 6 had none on the area page. Row 2 is the state `reggie onboard` leaves every repo
+in, so it is the common case, not the exotic one.
+
+Row-by-row, as it actually rendered:
+
+ROW 1 — a repo with no notes at all.
+  Repo page shows two forms, `what` (empty state) and `add-note`. Area page shows two, `read-first`
+  and `add-note`. Both forms on a page resolve to the same entity: the repo's to `_repo`, the area's
+  to `src/big/`, and the area's two hints are byte-identical strings. Held by
+  "offers two note forms on each page, both writing to the same entity", and seen in a real browser
+  for the repo case (evidence/two-forms.txt).
+
+ROW 2 — one _repo note with a why entry: what `reggie onboard` writes.
+  The repo's `what` section fills (1 paragraph) and its empty-state form goes; `add-note` remains, so
+  the repo page keeps exactly one form. The area's `read-first` fills with TWO paragraphs, because
+  noteChain starts at _repo and walks every ancestor, and areaReadFirst then appends its gap sentence:
+    [note] This repo exists to probe the add-note section.
+    [gap]  No note is written on [[…|src/big]] itself; everything above is inherited from the repo
+           and the folders around it.
+  So the page said, in so many words, that nothing was written about this folder, and — before this
+  change — offered no way to write it. Now `add-note` sits below with the folder's own entity:
+    hint: reggie note add src/big/ --type why "…"
+  Held by "leaves add-note as the only note form on the repo page and on every area page" and
+  "says no note is written on the folder and offers a form for that folder in the same payload".
+
+ROW 3 — _repo note plus the folder's own note.
+  Both sections filled, both pages down to one form, `add-note`. This is the state this repo itself
+  is in, which is why no area page here had ever shown a form.
+
+ROW 4 — only the folder's own note, no _repo note.
+  The repo's `what` is empty and keeps its form (two forms on the repo page); the area's read-first
+  is filled by its own note (one form, add-note).
+
+ROW 5 — a _repo note of how entries and no why. The reverse mismatch, and it is live.
+  whatSection counts only `why` entries, so the repo page's `what` is EMPTY and carries a form, while
+  the same note fills every area page's read-first, which carries none. Repo: what + add-note. Area:
+  add-note only. Held by "shows the repo two note forms and the area one, because only `why` fills
+  About this repo".
+
+ROW 6 — a repo with no code files, so no area pages.
+  The repo story still emits add-note with its empty text and its form.
+
+  MEASURED CORRECTION TO THE PLAN. The plan's verification strategy for criterion 15 says to assert
+  "that areaStory returns null for every path". That is false, and the probe caught it: the root dir
+  node exists in the graph even with no code files, so
+
+      areaStory(ctx, ".")       -> a story          <-- NOT null
+      areaStory(ctx, "src")     -> null
+      areaStory(ctx, "src/big") -> null
+      areaStory(ctx, "doc")     -> null
+
+  The criterion itself ("the repo story still emits add-note with its empty text and its note form")
+  holds unchanged; only the strategy's extra claim was wrong. The test asserts what is true: null for
+  every path BELOW the root, and the root still reachable with its hint reading `_repo`. Writing the
+  assertion the strategy asked for would have been writing a failing test, or a passing one that
+  lied. Recorded as a deviation in the packet.
+
+==============================================================================
+Test output for the degenerate cases.
+==============================================================================
+
+ ✓ src/story.test.ts > a repo with a description but no why note > shows the repo two note forms and the area one, because only `why` fills About this repo 209ms
+ ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > offers two note forms on each page, both writing to the same entity 0ms
+ ✓ src/story.test.ts > the state `reggie onboard` leaves: one `_repo` note with a `why` entry > leaves add-note as the only note form on the repo page and on every area page 0ms
+ ✓ src/story.test.ts > the state `reggie onboard` leaves: one `_repo` note with a `why` entry > says no note is written on the folder and offers a form for that folder in the same payload 0ms
+ ✓ src/story.test.ts > a repo with no code files > still offers the repo page a note form, and has no area page below the root 199ms
+ ✓ src/story.test.ts > coverageSentence > no code files at all 0ms
+ ✓ src/story.test.ts > coverageSentence > no code files, nothing skipped, a broken path 0ms
+
+$ npx vitest run src/story.test.ts test/serve.test.ts   [whole run]
+
+
+ Test Files  2 passed (2)
+      Tests  194 passed (194)
+   Start at  22:16:59
+   Duration  7.04s (transform 430ms, setup 0ms, import 557ms, tests 11.49s, environment 0ms)
+

@@ -1,0 +1,28 @@
+Criterion 16 — the loading skeleton draws the same headings, in the same order, as the payload.
+
+The skeleton comes from sectionHeadingsFor(scope, lens) in packages/reggie/ui/story.js, which
+reads the hand-kept HEADINGS table. The payload comes from the story functions in src/story.ts.
+If the two disagree, the page visibly reflows by the difference as the story lands.
+
+$ UI_STORY=packages/reggie/ui/story.js PAYLOAD=<story headings> node <scratchpad>/skeleton.mjs
+
+repo / default lens: MATCH
+  skeleton (sectionHeadingsFor): ["Needs you","About this repo","What it is made of","Where it starts","How the pieces talk","What is in flight","What happened recently","What nobody has written down","How to run it","Add a note"]
+  payload  (story headings)    : ["Needs you","About this repo","What it is made of","Where it starts","How the pieces talk","What is in flight","What happened recently","What nobody has written down","How to run it","Add a note"]
+repo / knowledge: MATCH
+  skeleton (sectionHeadingsFor): ["Needs you","About this repo","What it is made of","Where it starts","How the pieces talk","What is in flight","What happened recently","What nobody has written down","How to run it","Add a note"]
+  payload  (story headings)    : ["Needs you","About this repo","What it is made of","Where it starts","How the pieces talk","What is in flight","What happened recently","What nobody has written down","How to run it","Add a note"]
+area / default lens: MATCH
+  skeleton (sectionHeadingsFor): ["Read these first","What is in here","What it depends on","What depends on it","Tests","Who works here","Tasks that will touch this area","Recently","Add a note"]
+  payload  (story headings)    : ["Read these first","What is in here","What it depends on","What depends on it","Tests","Who works here","Tasks that will touch this area","Recently","Add a note"]
+area / knowledge: MATCH
+  skeleton (sectionHeadingsFor): ["Read these first","What is in here","What it depends on","What depends on it","Tests","Who works here","Tasks that will touch this area","Recently","Add a note","What nobody has written down"]
+  payload  (story headings)    : ["Read these first","What is in here","What it depends on","What depends on it","Tests","Who works here","Tasks that will touch this area","Recently","Add a note","What nobody has written down"]
+file / default lens: MATCH
+  skeleton (sectionHeadingsFor): ["Read these first","What it exports","Who uses it","What it uses","Tests","Tasks","History","Add a note"]
+  payload  (story headings)    : ["Read these first","What it exports","Who uses it","What it uses","Tests","Tasks","History","Add a note"]
+file / knowledge: MATCH
+  skeleton (sectionHeadingsFor): ["Read these first","What it exports","Who uses it","What it uses","Tests","Tasks","History","Add a note","What nobody has written down"]
+  payload  (story headings)    : ["Read these first","What it exports","Who uses it","What it uses","Tests","Tasks","History","Add a note","What nobody has written down"]
+
+RESULT: every scope and lens matches.

@@ -1,0 +1,58 @@
+Criterion 21, second half — loading sample-story-empty.json in ui/dev/story-harness.html renders two
+note forms on the one page.
+
+Measured in a real browser against a server running THIS worktree. Port 4422 was already held by a
+different checkout (its sample-story-empty.json still had nine sections and no add-note), so it was
+left alone and this run used port 4519:
+
+  $ npx tsx src/cli.ts serve --port 4519          # from packages/reggie, this worktree
+  $ curl -s http://127.0.0.1:4519/ui/dev/sample-story-empty.json
+    ids        : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+    note forms : what, add-note
+
+Then in the page, after selecting "repo, every empty state (forms)" and pressing Render:
+
+  document.querySelectorAll('#sections .form--note').length          -> 2
+  [...].map(f => f.dataset.entity)                                   -> ["_repo", "_repo"]
+
+The two rendered forms, read out of the DOM:
+
+  form 1  section  : sec-what          (heading "What this is")
+          empty    : "Nobody has written what this repo is for. The first useful note says why it
+                      exists and how to run it."
+          entity   : _repo             (data-entity on the form)
+          shows    : on `_repo`        (the form__entity span above the textarea)
+          type     : why  (selected)   confidence: medium
+          hint     : reggie note add _repo --type why "…"
+
+  form 2  section  : sec-add-note      (heading "Add a note")
+          empty    : "Write what the next person should know about this repo."
+          entity   : _repo             (data-entity on the form)
+          shows    : on `_repo`
+          type     : why  (selected)   confidence: medium
+          hint     : reggie note add _repo --type why "…"
+
+This is the measurement the plan's "two forms on a page is accepted" assumption rests on, made in the
+DOM rather than argued: both forms carry the same entity, print the same entity to the reader above
+the textarea, default to the same note type, and print the same terminal command. So they are the
+same form twice, and focusNoteForm picking the first `.form--note` in the document cannot pick a
+wrong target. `needs-you` is absent from the rendered list because renderSection hides an empty
+section that carries no empty block, which is the spec's behaviour for that section and unrelated.
+
+The other two samples in the same harness, for completeness:
+
+  sample-story.json       (repo)  sections end ... gaps, run, add-note   1 note form, entity _repo
+                                  hint: reggie note add _repo --type why "…"
+  sample-story-file.json  (file)  sections end ... tasks, history, add-note   1 note form
+                                  entity: packages/reggie/src/paths.ts
+                                  hint: reggie note add packages/reggie/src/paths.ts --type why "…"
+
+DEVIATION — evidence/two-forms.png was not produced.
+The plan asks for a screenshot. The session has no headless browser (no puppeteer or playwright in
+packages/reggie/node_modules) and the only other way to write a PNG here is macOS `screencapture`,
+which grabs the whole desktop of a machine whose owner is asleep, into a repo that is public on
+GitHub. That is not a safe thing to commit, so it was not done. A screenshot was taken and read in
+the session, and it showed exactly the two forms transcribed above. What is committed in its place
+is stronger than a picture for this claim: the DOM values themselves, above, and a standalone
+rendering of the two sections saved beside this file as two-forms.html, which a reviewer can open in
+a browser to see the same thing.

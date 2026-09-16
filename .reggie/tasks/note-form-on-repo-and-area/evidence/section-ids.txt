@@ -1,0 +1,307 @@
+Criteria 2, 3, 4, 9, 10, 11, 12, 13, 14, 15 — measured from a throwaway probe over the BUILT dist
+of this worktree, not reasoned about. The probe builds six purpose-built git repos, renders
+repoStory / areaStory / fileStory over each in the default lens and under lens=knowledge, and
+prints the section ids, the add-note section, its empty text, its terminal hint, and which
+sections carry a note form.
+
+The probe script is kept out of the repo (vitest.config.ts includes only src/** and test/**);
+it lived in the session scratchpad and was run as:
+  $ DIST="file://$PWD/dist" node <scratchpad>/probe.mjs
+
+
+==============================================================================
+CASE 1 — a repo with no notes at all
+==============================================================================
+repo [default lens]
+  section ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this repo."
+  hint        : "reggie note add _repo --type why \"…\""
+  note forms  : [what, add-note]  (sections whose empty action is a note form)
+area src/big [default lens]
+  section ids : read-first, inside, uses, used-by, tests, people, tasks, recent, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this area."
+  hint        : "reggie note add src/big/ --type why \"…\""
+  note forms  : [read-first, add-note]  (sections whose empty action is a note form)
+file src/big/a02.ts [default lens]
+  section ids : read-first, exports, used-by, uses, tests, tasks, history, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this file."
+  hint        : "reggie note add src/big/a02.ts --type why \"…\""
+  note forms  : [read-first, add-note]  (sections whose empty action is a note form)
+repo [lens=knowledge]
+  section ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this repo."
+  hint        : "reggie note add _repo --type why \"…\""
+  note forms  : [what, add-note]  (sections whose empty action is a note form)
+area src/big [lens=knowledge]
+  section ids : read-first, inside, uses, used-by, tests, people, tasks, recent, add-note, gaps
+  last id     : gaps
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this area."
+  hint        : "reggie note add src/big/ --type why \"…\""
+  note forms  : [read-first, add-note]  (sections whose empty action is a note form)
+file src/big/a02.ts [lens=knowledge]
+  section ids : read-first, exports, used-by, uses, tests, tasks, history, add-note, gaps
+  last id     : gaps
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this file."
+  hint        : "reggie note add src/big/a02.ts --type why \"…\""
+  note forms  : [read-first, add-note]  (sections whose empty action is a note form)
+  read-first paragraphs: 0
+  read-first empty form: note
+  repo 'what' paragraphs: 0, empty form: note
+  areaStory(ctx, ".") -> id="." title="reggie-probe-UO6MKv"
+     add-note hint: "reggie note add _repo --type why \"…\""
+     read-first hint: "reggie note add _repo --type why \"…\""
+
+==============================================================================
+CASE 2 — the state `reggie onboard` leaves: one `_repo` note with a `why` entry
+==============================================================================
+repo [default lens]
+  section ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this repo."
+  hint        : "reggie note add _repo --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+area src/big [default lens]
+  section ids : read-first, inside, uses, used-by, tests, people, tasks, recent, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this area."
+  hint        : "reggie note add src/big/ --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+file src/big/a02.ts [default lens]
+  section ids : read-first, exports, used-by, uses, tests, tasks, history, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this file."
+  hint        : "reggie note add src/big/a02.ts --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+repo [lens=knowledge]
+  section ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this repo."
+  hint        : "reggie note add _repo --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+area src/big [lens=knowledge]
+  section ids : read-first, inside, uses, used-by, tests, people, tasks, recent, add-note, gaps
+  last id     : gaps
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this area."
+  hint        : "reggie note add src/big/ --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+file src/big/a02.ts [lens=knowledge]
+  section ids : read-first, exports, used-by, uses, tests, tasks, history, add-note, gaps
+  last id     : gaps
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this file."
+  hint        : "reggie note add src/big/a02.ts --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+  read-first paragraphs: 2
+    [note] This repo exists to probe the add-note section.
+    [gap] No note is written on [[#/repo/reggie-probe-9icEkV/area/src/big|src/big]] itself; everything above is inherited from the repo and the folders around it.
+  read-first empty form: (none — section is filled)
+  repo 'what' paragraphs: 1, empty form: (none — section is filled)
+  areaStory(ctx, ".") -> id="." title="reggie-probe-9icEkV"
+     add-note hint: "reggie note add _repo --type why \"…\""
+     read-first hint: undefined
+
+==============================================================================
+CASE 3 — `_repo` note plus the folder's own note
+==============================================================================
+repo [default lens]
+  section ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this repo."
+  hint        : "reggie note add _repo --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+area src/big [default lens]
+  section ids : read-first, inside, uses, used-by, tests, people, tasks, recent, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this area."
+  hint        : "reggie note add src/big/ --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+file src/big/a02.ts [default lens]
+  section ids : read-first, exports, used-by, uses, tests, tasks, history, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this file."
+  hint        : "reggie note add src/big/a02.ts --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+repo [lens=knowledge]
+  section ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this repo."
+  hint        : "reggie note add _repo --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+area src/big [lens=knowledge]
+  section ids : read-first, inside, uses, used-by, tests, people, tasks, recent, add-note, gaps
+  last id     : gaps
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this area."
+  hint        : "reggie note add src/big/ --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+file src/big/a02.ts [lens=knowledge]
+  section ids : read-first, exports, used-by, uses, tests, tasks, history, add-note, gaps
+  last id     : gaps
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this file."
+  hint        : "reggie note add src/big/a02.ts --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+  read-first paragraphs: 2
+    [note] This repo exists to probe the add-note section.
+    [note] The big folder holds the chained files.
+  read-first empty form: (none — section is filled)
+  repo 'what' paragraphs: 1, empty form: (none — section is filled)
+  areaStory(ctx, ".") -> id="." title="reggie-probe-9spStE"
+     add-note hint: "reggie note add _repo --type why \"…\""
+     read-first hint: undefined
+
+==============================================================================
+CASE 4 — only the folder's own note, no `_repo` note
+==============================================================================
+repo [default lens]
+  section ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this repo."
+  hint        : "reggie note add _repo --type why \"…\""
+  note forms  : [what, add-note]  (sections whose empty action is a note form)
+area src/big [default lens]
+  section ids : read-first, inside, uses, used-by, tests, people, tasks, recent, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this area."
+  hint        : "reggie note add src/big/ --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+file src/big/a02.ts [default lens]
+  section ids : read-first, exports, used-by, uses, tests, tasks, history, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this file."
+  hint        : "reggie note add src/big/a02.ts --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+repo [lens=knowledge]
+  section ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this repo."
+  hint        : "reggie note add _repo --type why \"…\""
+  note forms  : [what, add-note]  (sections whose empty action is a note form)
+area src/big [lens=knowledge]
+  section ids : read-first, inside, uses, used-by, tests, people, tasks, recent, add-note, gaps
+  last id     : gaps
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this area."
+  hint        : "reggie note add src/big/ --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+file src/big/a02.ts [lens=knowledge]
+  section ids : read-first, exports, used-by, uses, tests, tasks, history, add-note, gaps
+  last id     : gaps
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this file."
+  hint        : "reggie note add src/big/a02.ts --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+  read-first paragraphs: 1
+    [note] The big folder holds the chained files.
+  read-first empty form: (none — section is filled)
+  repo 'what' paragraphs: 0, empty form: note
+  areaStory(ctx, ".") -> id="." title="reggie-probe-OQYQvH"
+     add-note hint: "reggie note add _repo --type why \"…\""
+     read-first hint: "reggie note add _repo --type why \"…\""
+
+==============================================================================
+CASE 5 — a `_repo` note of `how` entries and no `why`
+==============================================================================
+repo [default lens]
+  section ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this repo."
+  hint        : "reggie note add _repo --type why \"…\""
+  note forms  : [what, add-note]  (sections whose empty action is a note form)
+area src/big [default lens]
+  section ids : read-first, inside, uses, used-by, tests, people, tasks, recent, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this area."
+  hint        : "reggie note add src/big/ --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+file src/big/a02.ts [default lens]
+  section ids : read-first, exports, used-by, uses, tests, tasks, history, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this file."
+  hint        : "reggie note add src/big/a02.ts --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+repo [lens=knowledge]
+  section ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this repo."
+  hint        : "reggie note add _repo --type why \"…\""
+  note forms  : [what, add-note]  (sections whose empty action is a note form)
+area src/big [lens=knowledge]
+  section ids : read-first, inside, uses, used-by, tests, people, tasks, recent, add-note, gaps
+  last id     : gaps
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this area."
+  hint        : "reggie note add src/big/ --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+file src/big/a02.ts [lens=knowledge]
+  section ids : read-first, exports, used-by, uses, tests, tasks, history, add-note, gaps
+  last id     : gaps
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this file."
+  hint        : "reggie note add src/big/a02.ts --type why \"…\""
+  note forms  : [add-note]  (sections whose empty action is a note form)
+  read-first paragraphs: 2
+    [note] Run npm test.
+    [gap] No note is written on [[#/repo/reggie-probe-9N9Rzm/area/src/big|src/big]] itself; everything above is inherited from the repo and the folders around it.
+  read-first empty form: (none — section is filled)
+  repo 'what' paragraphs: 0, empty form: note
+  areaStory(ctx, ".") -> id="." title="reggie-probe-9N9Rzm"
+     add-note hint: "reggie note add _repo --type why \"…\""
+     read-first hint: undefined
+
+==============================================================================
+CASE 6 — a repo with no code files, so no area pages
+==============================================================================
+repo [default lens]
+  section ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this repo."
+  hint        : "reggie note add _repo --type why \"…\""
+  note forms  : [what, add-note]  (sections whose empty action is a note form)
+file src/big/a02.ts [default lens]: (null)
+repo [lens=knowledge]
+  section ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  last id     : add-note
+  add-note    : heading="Add a note" paragraphs=0 form=note
+  empty.text  : "Write what the next person should know about this repo."
+  hint        : "reggie note add _repo --type why \"…\""
+  note forms  : [what, add-note]  (sections whose empty action is a note form)
+file src/big/a02.ts [lens=knowledge]: (null)
+  repo 'what' paragraphs: 0, empty form: note
+  areaStory(ctx, ".") -> id="." title="reggie-probe-ysju3G"
+     add-note hint: "reggie note add _repo --type why \"…\""
+     read-first hint: "reggie note add _repo --type why \"…\""
+
+CASE 6 — areaStory for every path in a repo with no code files:
+  areaStory(ctx, ".") -> a story
+  areaStory(ctx, "src") -> null
+  areaStory(ctx, "src/big") -> null
+  areaStory(ctx, "doc") -> null

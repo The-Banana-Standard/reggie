@@ -110,7 +110,7 @@
       "id": "add-note",
       "heading": "Add a note",
       "paragraphs": [],
-      "empty": { "text": "Write what the next person should know about this file.", "action": { "label": "Add note", "form": "note", "command": "reggie note add packages/reggie/src/paths.ts --type how \"…\"" } }
+      "empty": { "text": "Write what the next person should know about this file.", "action": { "label": "Add note", "form": "note", "command": "reggie note add packages/reggie/src/paths.ts --type why \"…\"" } }
     }
   ],
   "next": [

@@ -1,0 +1,43 @@
+Criterion 5 — exactly four exact-array assertions change across the two test files; every other
+scope's list is byte-identical to the landing commit of graph-coverage-published (dd613ed).
+
+$ git diff dd613ed -- packages/reggie/src/story.test.ts packages/reggie/test/serve.test.ts | grep -E '^[-+].*(toEqual\(\[|^\s+(repo|area|file|task|workspace):)'
+-    expect(sectionIds(repoStory(ctx))).toEqual(["needs-you", "what", "made-of", "starts", "talks", "flight", "recent", "gaps", "run"]);
++    expect(sectionIds(repoStory(ctx))).toEqual(["needs-you", "what", "made-of", "starts", "talks", "flight", "recent", "gaps", "run", "add-note"]);
+-    expect(sectionIds(story!)).toEqual(["read-first", "inside", "uses", "used-by", "tests", "people", "tasks", "recent"]);
++    expect(sectionIds(story!)).toEqual(["read-first", "inside", "uses", "used-by", "tests", "people", "tasks", "recent", "add-note"]);
++    expect(sectionIds(repoStory(k))).toEqual(["needs-you", "what", "made-of", "starts", "talks", "flight", "recent", "gaps", "run", "add-note"]);
++    expect(sectionIds(areaStory(k, "src/big")!)).toEqual(["read-first", "inside", "uses", "used-by", "tests", "people", "tasks", "recent", "add-note", "gaps"]);
++    expect(sectionIds(fileStory(k, "src/big/a02.ts")!)).toEqual(["read-first", "exports", "used-by", "uses", "tests", "tasks", "history", "add-note", "gaps"]);
++    expect(sectionOf(story, "what").paragraphs).toEqual([]);
++    expect(noteFormSections(story), "the repo keeps its empty-state form and gains add-note").toEqual(["what", "add-note"]);
++    expect(noteFormSections(area), "add-note is the area's only note form").toEqual(["add-note"]);
++    expect(noteFormSections(repo)).toEqual(["what", "add-note"]);
++    expect(noteFormSections(area)).toEqual(["read-first", "add-note"]);
++    expect(noteFormSections(repoStory(onboarded))).toEqual(["add-note"]);
++    expect(noteFormSections(area)).toEqual(["add-note"]);
+-    repo: ["needs-you", "what", "made-of", "starts", "talks", "flight", "recent", "gaps", "run"],
+-    area: ["read-first", "inside", "uses", "used-by", "tests", "people", "tasks", "recent"],
++    repo: ["needs-you", "what", "made-of", "starts", "talks", "flight", "recent", "gaps", "run", "add-note"],
++    area: ["read-first", "inside", "uses", "used-by", "tests", "people", "tasks", "recent", "add-note"],
+
+Reading: four MINUS lines and their four PLUS counterparts are the repo and area lists in each of
+the two files. The other toEqual([...]) lines that appear as additions are new assertions inside
+the new 'the add-note section' block, not edits to existing ones.
+
+The frozen lists, read out of the working tree and compared with dd613ed:
+--- file, test/serve.test.ts ---
+  dd613ed :     file: ["read-first", "exports", "used-by", "uses", "tests", "tasks", "history", "add-note"],
+  working :     file: ["read-first", "exports", "used-by", "uses", "tests", "tasks", "history", "add-note"],
+--- task, test/serve.test.ts ---
+  dd613ed :     task: ["state", "owner", "problem", "approach", "files", "criteria", "verification", "assumptions", "scope", "bail", "risk", "packet", "journal"],
+  working :     task: ["state", "owner", "problem", "approach", "files", "criteria", "verification", "assumptions", "scope", "bail", "risk", "packet", "journal"],
+--- workspace, test/serve.test.ts ---
+  dd613ed :     workspace: ["needs-you", "repos", "connect"],
+  working :     workspace: ["needs-you", "repos", "connect"],
+
+--- the other exact lists in src/story.test.ts (task-with-a-plan, brief, intake, services, flow, workspace) ---
+$ git diff dd613ed -- packages/reggie/src/story.test.ts | grep -c '^-.*toEqual(\['
+  removed exact-array lines: 2
+$ git diff dd613ed -- packages/reggie/test/serve.test.ts | grep -c '^-'
+  removed lines in serve.test.ts: 2

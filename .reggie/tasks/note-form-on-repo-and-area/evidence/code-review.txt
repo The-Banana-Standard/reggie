@@ -1,0 +1,62 @@
+/code-review, medium effort, pointed at this worktree:
+  /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/note-form-on-repo-and-area
+  branch task/note-form-on-repo-and-area
+
+HOW I CONFIRMED IT READ MY DIFF AND NOT A MERGED CHECKOUT
+A session earlier tonight had /code-review silently review already-merged code in the serving
+checkout, so this was checked rather than assumed. The review names symbols and facts that exist
+only on this branch and nowhere in the merged tree:
+
+  - `addNoteSection` as "a single builder used by all three scopes"      (new function, this branch)
+  - `areaNoteEntity` as "written once and shared with areaReadFirst"     (new function, this branch)
+  - "`EMPTY_TEXT.fileAddNote` has no remaining references after the rename"  (the rename is this branch)
+  - "the `--type how` -> `--type why` change lines the hint up with noteForm's default select"
+  - the knowledge-lens ordering "…, add-note, gaps" matching sectionHeadingsFor
+  - `ui/dev/*.json` among the reviewed files, and `test/serve.test.ts`'s section lists "both updated"
+  - `packages/reggie/src/story.ts:1288` and `:818`, the two new call-site line numbers
+
+It also reported the same pre-existing timezone failure this task measured independently
+(src/tasks.test.ts, task.age expected 0 got 1), and correctly described the branch commits as
+plan/journal/meta with the code change still uncommitted, which was true at the time it ran.
+
+THREE FINDINGS, AND WHAT WAS DONE
+
+1. MEDIUM — ui/app.js:1533. The Spotlight's "Add a note" focuses the first `.form--note` on the
+   current page rather than a form for the node it describes, so tapping an area node on the repo
+   map and clicking Add a note now writes to `_repo`. NOT FIXED, ALREADY CAPTURED before this task
+   began, as intake item `the-spotlight-s-add-a-note-button-focuses-whatev` (.reggie/intake.md),
+   whose detail describes this exact scenario and names the fix: the Spotlight has to hand its
+   node's entity to the form, which needs an `entity` channel on `StorySection.empty.action` that
+   the contract does not have. The plan rules it out under "Out of scope" for that reason.
+
+   The review adds something the capture did not say, and it is recorded here and in the packet:
+   this change WIDENS the exposure. Before it, an onboarded repo had no form on the repo page or on
+   any area page, so `focusNoteForm()` returned false and the user got the warn toast and navigated.
+   After it, every repo and area page carries a form, so the path that used to warn now succeeds
+   against the page's own entity. The mitigation the plan relied on is real and was verified in the
+   browser: the form prints "on `_repo`" above the textarea and the success toast names the entity
+   it wrote to (evidence/two-forms.txt). It is a mis-target the reader can see before and after
+   submitting, not a silent one. It is still worth doing early.
+
+2. LOW — story.ts:1288 / ui/story.js:260. At the repo root reached as an area page the hint says
+   `_repo` while the client's noteEntityFor turns `story.id === "."` into `"./"`, so the form's chip
+   reads "on `./`". NOT FIXED, ALREADY CAPTURED as intake item
+   `the-repo-root-reached-as-an-area-page-shows-the`, which names both halves and both possible
+   fixes. Pre-existing: areaReadFirst already spelled that hint `_repo` before this task. Both
+   spellings resolve to the same note through resolveNoteTarget (src/notes.ts:48), so nothing is
+   written to the wrong place. This change does put a second `_repo` hint on that page, which is
+   why the plan captured it while planning.
+
+3. LOW — narration. NEW, not anticipated by the plan. Verified by measurement rather than accepted
+   on the review's word: spokenSection (src/narrate.ts:109) renders a paragraph-less section as its
+   empty sentence and narrate (src/narrate.ts:128) filters no ids, so every repo and area episode
+   now ends "Add a note. Write what the next person should know about this repo." right before the
+   outro. Measured on a throwaway repo for all three scopes; file scope already did this before this
+   task. NOT FIXED — the fix belongs in src/narrate.ts, which is not in the plan's files to touch
+   and which the plan never analysed, and the behaviour is pre-existing at file scope rather than
+   introduced here. CAPTURED as `the-audio-episode-for-a-repo-or-an-area-now-ends` with the
+   measurement and the decision it needs.
+
+The review found no correctness defect in the change itself. Its closing paragraph confirms the
+single builder, the single area-entity expression, the lens ordering against sectionHeadingsFor, the
+contract and serve.test.ts updates, the hint/select alignment, and the clean rename.

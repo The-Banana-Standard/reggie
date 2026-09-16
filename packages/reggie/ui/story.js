@@ -55,6 +55,7 @@ const HEADINGS = {
     ["recent", "What happened recently"],
     ["gaps", "What nobody has written down"],
     ["run", "How to run it"],
+    ["add-note", "Add a note"],
   ],
   area: [
     ["read-first", "Read these first"],
@@ -65,6 +66,7 @@ const HEADINGS = {
     ["people", "Who works here"],
     ["tasks", "Tasks that will touch this area"],
     ["recent", "Recently"],
+    ["add-note", "Add a note"],
   ],
   file: [
     ["read-first", "Read these first"],

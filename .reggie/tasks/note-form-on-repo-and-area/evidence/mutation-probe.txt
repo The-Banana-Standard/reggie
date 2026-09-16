@@ -1,0 +1,538 @@
+Mutation probe for note-form-on-repo-and-area (acceptance criterion 22).
+Run from packages/reggie. Command each time:
+  npx vitest run src/story.test.ts test/serve.test.ts
+The pin must be a NAMED failing test in EACH of the two files, for EACH of the two call sites.
+
+==============================================================================
+PROBE A — delete addNoteSection("repo", "_repo") from repoStory
+==============================================================================
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/note-form-on-repo-and-area/packages/reggie
+
+ ❯ src/story.test.ts (97 tests | 11 failed) 4832ms
+     × emits every section id from the contract, in order 140ms
+     × is present and is a form at repo, area and file scope 1ms
+     × carries non-empty empty text at every scope, so the client cannot drop it 1ms
+     × names its scope in the empty text, and keeps the file sentence as it was 0ms
+     × hints --type why at every scope, so the copied command matches what the form posts 1ms
+     × spells the note entity the way `reggie note add` accepts it, including at the repo root 0ms
+     × is last at every scope in the default lens, and leaves gaps last under the knowledge lens 1ms
+     × shows the repo two note forms and the area one, because only `why` fills About this repo 227ms
+     × offers two note forms on each page, both writing to the same entity 1ms
+     × leaves add-note as the only note form on the repo page and on every area page 1ms
+     × still offers the repo page a note form, and has no area page below the root 204ms
+ ❯ test/serve.test.ts (97 tests | 1 failed) 6544ms
+     × returns the contract's section ids for every scope 5ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/story.test.ts > repoStory on the fixture repo > emits every section id from the contract, in order
+AssertionError: expected [ Array(9) ] to deeply equal [ Array(10) ]
+
+- Expected
++ Received
+
+@@ -6,7 +6,6 @@
+    "talks",
+    "flight",
+    "recent",
+    "gaps",
+    "run",
+-   "add-note",
+  ]
+
+ ❯ src/story.test.ts:250:40
+    248| describe("repoStory on the fixture repo", () => {
+    249|   it("emits every section id from the contract, in order", () => {
+    250|     expect(sectionIds(repoStory(ctx))).toEqual(["needs-you", "what", "…
+       |                                        ^
+    251|   });
+    252|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  src/story.test.ts > the add-note section > is present and is a form at repo, area and file scope
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ src/story.test.ts:520:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  src/story.test.ts > the add-note section > carries non-empty empty text at every scope, so the client cannot drop it
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ src/story.test.ts:532:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  src/story.test.ts > the add-note section > names its scope in the empty text, and keeps the file sentence as it was
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ text src/story.test.ts:539:36
+ ❯ src/story.test.ts:540:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  src/story.test.ts > the add-note section > hints --type why at every scope, so the copied command matches what the form posts
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ src/story.test.ts:553:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ FAIL  src/story.test.ts > the add-note section > spells the note entity the way `reggie note add` accepts it, including at the repo root
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ hint src/story.test.ts:558:36
+ ❯ src/story.test.ts:559:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/12]⎯
+
+ FAIL  src/story.test.ts > the add-note section > is last at every scope in the default lens, and leaves gaps last under the knowledge lens
+AssertionError: expected 'run' to be 'add-note' // Object.is equality
+
+Expected: "add-note"
+Received: "run"
+
+ ❯ src/story.test.ts:584:47
+    582|
+    583|   it("is last at every scope in the default lens, and leaves gaps last…
+    584|     expect(sectionIds(repoStory(ctx)).at(-1)).toBe("add-note");
+       |                                               ^
+    585|     expect(sectionIds(areaStory(ctx, "src/big")!).at(-1)).toBe("add-no…
+    586|     expect(sectionIds(fileStory(ctx, "src/big/a02.ts")!).at(-1)).toBe(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/12]⎯
+
+ FAIL  src/story.test.ts > a repo with a description but no why note > shows the repo two note forms and the area one, because only `why` fills About this repo
+AssertionError: the repo keeps its empty-state form and gains add-note: expected [ 'what' ] to deeply equal [ 'what', 'add-note' ]
+
+- Expected
++ Received
+
+  [
+    "what",
+-   "add-note",
+  ]
+
+ ❯ src/story.test.ts:897:95
+    895|     const story = repoStory(c);
+    896|     expect(sectionOf(story, "what").paragraphs).toEqual([]);
+    897|     expect(noteFormSections(story), "the repo keeps its empty-state fo…
+       |                                                                                               ^
+    898|
+    899|     const area = areaStory(c, "src/big")!;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/12]⎯
+
+ FAIL  src/story.test.ts > a repo with no notes, tasks, journal or commands > offers two note forms on each page, both writing to the same entity
+AssertionError: expected [ 'what' ] to deeply equal [ 'what', 'add-note' ]
+
+- Expected
++ Received
+
+  [
+    "what",
+-   "add-note",
+  ]
+
+ ❯ src/story.test.ts:936:36
+    934|     // page are the same form twice and the Spotlight's jump cannot mi…
+    935|     const repo = repoStory(bare);
+    936|     expect(noteFormSections(repo)).toEqual(["what", "add-note"]);
+       |                                    ^
+    937|     expect(noteEntityFor(repo)).toBe("_repo");
+    938|     expect(sectionOf(repo, "add-note").empty?.action?.command).toBe('r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/12]⎯
+
+ FAIL  src/story.test.ts > the state `reggie onboard` leaves: one `_repo` note with a `why` entry > leaves add-note as the only note form on the repo page and on every area page
+AssertionError: expected [] to deeply equal [ 'add-note' ]
+
+- Expected
++ Received
+
+- [
+-   "add-note",
+- ]
++ []
+
+ ❯ src/story.test.ts:1010:52
+    1008|     // every area in the repo at once, because `noteChain` starts at `…
+    1009|     // existed, that meant no area page in a set-up repo had a note fo…
+    1010|     expect(noteFormSections(repoStory(onboarded))).toEqual(["add-note"…
+       |                                                    ^
+    1011|     const area = areaStory(onboarded, "src/big")!;
+    1012|     expect(noteFormSections(area)).toEqual(["add-note"]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/12]⎯
+
+ FAIL  src/story.test.ts > a repo with no code files > still offers the repo page a note form, and has no area page below the root
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ src/story.test.ts:1039:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/12]⎯
+
+ FAIL  test/serve.test.ts > GET /api/story and /api/explain > returns the contract's section ids for every scope
+AssertionError: expected [ Array(9) ] to deeply equal [ Array(10) ]
+
+- Expected
++ Received
+
+@@ -6,7 +6,6 @@
+    "talks",
+    "flight",
+    "recent",
+    "gaps",
+    "run",
+-   "add-note",
+  ]
+
+ ❯ test/serve.test.ts:376:52
+    374|       expect(typeof story.title).toBe("string");
+    375|       expect(Array.isArray(story.crumbs)).toBe(true);
+    376|       expect(story.sections.map((s: any) => s.id)).toEqual(sections[sc…
+       |                                                    ^
+    377|       for (const section of story.sections) {
+    378|         expect(typeof section.heading).toBe("string");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/12]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  12 failed | 182 passed (194)
+   Start at  22:08:10
+   Duration  6.87s (transform 387ms, setup 0ms, import 535ms, tests 11.38s, environment 0ms)
+
+PROBE A vitest exit: 1
+(restored src/story.ts)
+
+==============================================================================
+PROBE B — delete addNoteSection("area", areaNoteEntity(dirPath)) from areaStory
+==============================================================================
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/note-form-on-repo-and-area/packages/reggie
+
+ ❯ src/story.test.ts (97 tests | 13 failed) 4523ms
+     × emits every section id from the contract 6ms
+     × is present and is a form at repo, area and file scope 1ms
+     × carries non-empty empty text at every scope, so the client cannot drop it 1ms
+     × names its scope in the empty text, and keeps the file sentence as it was 0ms
+     × hints --type why at every scope, so the copied command matches what the form posts 1ms
+     × spells the note entity the way `reggie note add` accepts it, including at the repo root 0ms
+     × is written once: the area hint and the read-first empty state agree on the entity 0ms
+     × is last at every scope in the default lens, and leaves gaps last under the knowledge lens 1ms
+     × shows the repo two note forms and the area one, because only `why` fills About this repo 235ms
+     × offers two note forms on each page, both writing to the same entity 1ms
+     × leaves add-note as the only note form on the repo page and on every area page 1ms
+     × says no note is written on the folder and offers a form for that folder in the same payload 0ms
+     × still offers the repo page a note form, and has no area page below the root 200ms
+ ❯ test/serve.test.ts (97 tests | 1 failed) 6275ms
+     × returns the contract's section ids for every scope 7ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/story.test.ts > areaStory > emits every section id from the contract
+AssertionError: expected [ Array(8) ] to deeply equal [ Array(9) ]
+
+- Expected
++ Received
+
+@@ -5,7 +5,6 @@
+    "used-by",
+    "tests",
+    "people",
+    "tasks",
+    "recent",
+-   "add-note",
+  ]
+
+ ❯ src/story.test.ts:381:32
+    379|     const story = areaStory(ctx, "src/big");
+    380|     expect(story).not.toBeNull();
+    381|     expect(sectionIds(story!)).toEqual(["read-first", "inside", "uses"…
+       |                                ^
+    382|   });
+    383|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/14]⎯
+
+ FAIL  src/story.test.ts > the add-note section > is present and is a form at repo, area and file scope
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ src/story.test.ts:520:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/14]⎯
+
+ FAIL  src/story.test.ts > the add-note section > carries non-empty empty text at every scope, so the client cannot drop it
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ src/story.test.ts:532:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/14]⎯
+
+ FAIL  src/story.test.ts > the add-note section > names its scope in the empty text, and keeps the file sentence as it was
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ text src/story.test.ts:539:36
+ ❯ src/story.test.ts:541:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/14]⎯
+
+ FAIL  src/story.test.ts > the add-note section > hints --type why at every scope, so the copied command matches what the form posts
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ src/story.test.ts:553:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/14]⎯
+
+ FAIL  src/story.test.ts > the add-note section > spells the note entity the way `reggie note add` accepts it, including at the repo root
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ hint src/story.test.ts:558:36
+ ❯ src/story.test.ts:560:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/14]⎯
+
+ FAIL  src/story.test.ts > the add-note section > is written once: the area hint and the read-first empty state agree on the entity
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ src/story.test.ts:575:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/14]⎯
+
+ FAIL  src/story.test.ts > the add-note section > is last at every scope in the default lens, and leaves gaps last under the knowledge lens
+AssertionError: expected 'recent' to be 'add-note' // Object.is equality
+
+Expected: "add-note"
+Received: "recent"
+
+ ❯ src/story.test.ts:585:59
+    583|   it("is last at every scope in the default lens, and leaves gaps last…
+    584|     expect(sectionIds(repoStory(ctx)).at(-1)).toBe("add-note");
+    585|     expect(sectionIds(areaStory(ctx, "src/big")!).at(-1)).toBe("add-no…
+       |                                                           ^
+    586|     expect(sectionIds(fileStory(ctx, "src/big/a02.ts")!).at(-1)).toBe(…
+    587|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/14]⎯
+
+ FAIL  src/story.test.ts > a repo with a description but no why note > shows the repo two note forms and the area one, because only `why` fills About this repo
+AssertionError: add-note is the area's only note form: expected [] to deeply equal [ 'add-note' ]
+
+- Expected
++ Received
+
+- [
+-   "add-note",
+- ]
++ []
+
+ ❯ src/story.test.ts:901:77
+    899|     const area = areaStory(c, "src/big")!;
+    900|     expect(sectionOf(area, "read-first").paragraphs.length, "the how n…
+    901|     expect(noteFormSections(area), "add-note is the area's only note f…
+       |                                                                             ^
+    902|   });
+    903| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/14]⎯
+
+ FAIL  src/story.test.ts > a repo with no notes, tasks, journal or commands > offers two note forms on each page, both writing to the same entity
+AssertionError: expected [ 'read-first' ] to deeply equal [ 'read-first', 'add-note' ]
+
+- Expected
++ Received
+
+  [
+    "read-first",
+-   "add-note",
+  ]
+
+ ❯ src/story.test.ts:941:36
+    939|
+    940|     const area = areaStory(bare, "src")!;
+    941|     expect(noteFormSections(area)).toEqual(["read-first", "add-note"]);
+       |                                    ^
+    942|     expect(noteEntityFor(area)).toBe("src/");
+    943|     expect(sectionOf(area, "add-note").empty?.action?.command).toBe('r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/14]⎯
+
+ FAIL  src/story.test.ts > the state `reggie onboard` leaves: one `_repo` note with a `why` entry > leaves add-note as the only note form on the repo page and on every area page
+AssertionError: expected [] to deeply equal [ 'add-note' ]
+
+- Expected
++ Received
+
+- [
+-   "add-note",
+- ]
++ []
+
+ ❯ src/story.test.ts:1012:36
+    1010|     expect(noteFormSections(repoStory(onboarded))).toEqual(["add-note"…
+    1011|     const area = areaStory(onboarded, "src/big")!;
+    1012|     expect(noteFormSections(area)).toEqual(["add-note"]);
+       |                                    ^
+    1013|     expect(sectionOf(area, "add-note").empty?.action?.command).toBe('r…
+    1014|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/14]⎯
+
+ FAIL  src/story.test.ts > the state `reggie onboard` leaves: one `_repo` note with a `why` entry > says no note is written on the folder and offers a form for that folder in the same payload
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ src/story.test.ts:1025:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/14]⎯
+
+ FAIL  src/story.test.ts > a repo with no code files > still offers the repo page a note form, and has no area page below the root
+AssertionError: section add-note is missing: expected undefined to be defined
+ ❯ sectionOf src/story.test.ts:80:45
+     78| function sectionOf(story: Story, id: string) {
+     79|   const found = story.sections.find((s) => s.id === id);
+     80|   expect(found, `section ${id} is missing`).toBeDefined();
+       |                                             ^
+     81|   return found!;
+     82| }
+ ❯ src/story.test.ts:1050:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/14]⎯
+
+ FAIL  test/serve.test.ts > GET /api/story and /api/explain > returns the contract's section ids for every scope
+AssertionError: expected [ Array(8) ] to deeply equal [ Array(9) ]
+
+- Expected
++ Received
+
+@@ -5,7 +5,6 @@
+    "used-by",
+    "tests",
+    "people",
+    "tasks",
+    "recent",
+-   "add-note",
+  ]
+
+ ❯ test/serve.test.ts:376:52
+    374|       expect(typeof story.title).toBe("string");
+    375|       expect(Array.isArray(story.crumbs)).toBe(true);
+    376|       expect(story.sections.map((s: any) => s.id)).toEqual(sections[sc…
+       |                                                    ^
+    377|       for (const section of story.sections) {
+    378|         expect(typeof section.heading).toBe("string");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/14]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  14 failed | 180 passed (194)
+   Start at  22:08:31
+   Duration  6.62s (transform 387ms, setup 0ms, import 555ms, tests 10.80s, environment 0ms)
+
+PROBE B vitest exit: 1
+(restored src/story.ts)
+
+==============================================================================
+PROBE C — both calls restored, the same command run green
+==============================================================================
+src/story.ts restored byte-for-byte (diff -q against the pre-probe copy: identical)
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/note-form-on-repo-and-area/packages/reggie
+
+
+ Test Files  2 passed (2)
+      Tests  194 passed (194)
+   Start at  22:08:50
+   Duration  7.34s (transform 393ms, setup 0ms, import 536ms, tests 12.14s, environment 0ms)
+
+PROBE C vitest exit: 0
+
+SUMMARY
+  Probe A (repoStory call deleted): 12 failed / 182 passed. Named pins in BOTH files —
+    src/story.test.ts > repoStory on the fixture repo > emits every section id from the contract, in order
+    test/serve.test.ts > GET /api/story and /api/explain > returns the contract's section ids for every scope
+  Probe B (areaStory call deleted): 14 failed / 180 passed. Named pins in BOTH files —
+    src/story.test.ts > areaStory > emits every section id from the contract
+    test/serve.test.ts > GET /api/story and /api/explain > returns the contract's section ids for every scope
+  Probe C (restored): 194 passed, exit 0.
