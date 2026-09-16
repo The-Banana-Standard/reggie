@@ -1,0 +1,43 @@
+# The footer's bail condition, measured rather than argued
+
+The plan bails if "the container footer with the new segment wraps to three or more lines at 1000
+pixels wide". Measured in a real browser against the real stylesheets (ui/styles.css + ui/map.css),
+rendering `.map-footer` inside a `.map-stage` of the map column's width at each viewport. Height 21px
+is one line, 39px two, 56px three. `.map-footer` is `max-width: 60%`, `font-size: var(--fs-meta)`
+(12px), and wraps inside the card rather than clipping.
+
+Above 1100px the story pane takes at least 380px and the map column is the rest; at 1100px and below
+the panes stack (styles.css:300) and the map column is the whole viewport.
+
+1600px window                    | before, plain      | col 1220px | footer  220x 21 | 1 line
+1600px window                    | after, plain       | col 1220px | footer  369x 21 | 1 line
+1600px window                    | before, tests lens | col 1220px | footer  333x 21 | 1 line
+1600px window                    | after, tests lens  | col 1220px | footer  490x 21 | 1 line
+1280px window                    | before, plain      | col  900px | footer  220x 21 | 1 line
+1280px window                    | after, plain       | col  900px | footer  369x 21 | 1 line
+1280px window                    | before, tests lens | col  900px | footer  333x 21 | 1 line
+1280px window                    | after, tests lens  | col  900px | footer  490x 21 | 1 line
+1000px window (panes stacked)    | before, plain      | col 1000px | footer  220x 21 | 1 line
+1000px window (panes stacked)    | after, plain       | col 1000px | footer  369x 21 | 1 line
+1000px window (panes stacked)    | before, tests lens | col 1000px | footer  333x 21 | 1 line
+1000px window (panes stacked)    | after, tests lens  | col 1000px | footer  490x 21 | 1 line
+760px window (phone)             | before, plain      | col  760px | footer  220x 21 | 1 line
+760px window (phone)             | after, plain       | col  760px | footer  369x 21 | 1 line
+760px window (phone)             | before, tests lens | col  760px | footer  333x 21 | 1 line
+760px window (phone)             | after, tests lens  | col  760px | footer  455x 39 | 2 lines
+390px window (phone portrait)    | before, plain      | col  390px | footer  220x 21 | 1 line
+390px window (phone portrait)    | after, plain       | col  390px | footer  233x 39 | 2 lines
+390px window (phone portrait)    | before, tests lens | col  390px | footer  233x 39 | 2 lines
+390px window (phone portrait)    | after, tests lens  | col  390px | footer  233x 56 | 3 lines
+
+Reading. At 1000px and above, every string the container branch can produce is one line, before and
+after. The bail condition is not met and the task does not bail.
+
+The strings above use an unresolved count of 23, which is far above anything measured on a real repo
+(this repo publishes 2), so the "after" lines are a worst case rather than a typical one.
+
+At phone widths the segment costs one extra line: two lines at 760px under the tests lens, and at
+390px portrait the compound worst case (tests lens plus a two-digit count) reaches three lines of
+56px in a card whose bottom-left neighbour is the legend. That is below the width the bail condition
+names and it is a crowding question about the floating card rather than about this segment's content,
+so it is captured as its own item rather than fixed by redesigning the footer here.

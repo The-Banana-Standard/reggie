@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fullPlan, makeTempRepo, type TempRepo } from "../test/helpers.js";
-import { BOUNDARY_DETECTORS, buildGraph, dirKey, expandUseTree, findCycles, flatGraph, jsImports, tarjan, type RepoGraph } from "./graph.js";
+import { BOUNDARY_DETECTORS, buildGraph, dirKey, expandUseTree, findCycles, flatGraph, jsImports, skippedLanguages, tarjan, type RepoGraph } from "./graph.js";
 import { clearHistoryCache, repoHistory } from "./history.js";
 import { ensureLayout } from "./layout.js";
 import { addNote, notesIndex } from "./notes.js";
@@ -395,5 +395,107 @@ describe("import parsing", () => {
     ]);
     expect(expandUseTree("commands::git::run")).toEqual([["commands", "git", "run"]]);
     expect(expandUseTree("x::*")).toEqual([["x", "*"]]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Coverage: what the graph never read, and what it could not follow
+// ---------------------------------------------------------------------------
+
+describe("graph coverage", () => {
+  // Guarded and reset: if `makeTempRepo` throws (no git on PATH, an unwritable tmpdir), an
+  // unconditional cleanup would dereference `undefined` and report that instead of the real cause,
+  // and a later test would re-clean an already-deleted root.
+  let repo: TempRepo | null = null;
+  afterEach(() => {
+    repo?.cleanup();
+    repo = null;
+  });
+
+  it("counts skipped code files by language, largest first, and never counts documentation, configuration or data", () => {
+    repo = makeTempRepo("reggie-skipped-");
+    repo.write("src/index.ts", "export const x = 1;\n");
+    repo.write("src/lib.js", "export const y = 2;\n");
+    repo.write("ui/a.css", ".a { color: red; }\n");
+    repo.write("ui/b.css", ".b { color: blue; }\n");
+    repo.write("ui/c.scss", "$c: green;\n");
+    repo.write("ui/index.html", "<!doctype html><title>x</title>\n");
+    repo.write("scripts/build.sh", "#!/bin/sh\necho hi\n");
+    // None of these is code: they describe or configure the product.
+    repo.write("docs/guide.md", "# guide\n");
+    repo.write("package.json", '{ "name": "x" }\n');
+    repo.write("config.yaml", "a: 1\n");
+    repo.write("settings.toml", "a = 1\n");
+    repo.commitAll("mixed languages");
+
+    const g = buildGraph(repoPaths(repo.root));
+
+    // CSS 3 (two .css and one .scss), then HTML and Shell at one each, ties by language ascending.
+    expect(g.skipped).toEqual([
+      { language: "CSS", files: 3 },
+      { language: "HTML", files: 1 },
+      { language: "Shell", files: 1 },
+    ]);
+    expect(g.skipped.map((s) => s.language)).not.toContain("Markdown");
+    expect(g.skipped.map((s) => s.language)).not.toContain("JSON");
+    expect(g.skipped.map((s) => s.language)).not.toContain("YAML");
+    expect(g.skipped.map((s) => s.language)).not.toContain("TOML");
+    // The two partition the repo's code files: nothing read is also counted as skipped.
+    expect(g.totalCodeFiles).toBe(2);
+    expect(g.totalCodeFiles + g.skipped.reduce((s, e) => s + e.files, 0)).toBe(7);
+  });
+
+  it("counts unresolved imports as distinct importing-file-and-specifier pairs", () => {
+    repo = makeTempRepo("reggie-unresolved-");
+    // One file, one bad path, written twice: one broken import line to go and look at, not two.
+    repo.write("src/twice.ts", 'import "./missing";\nimport { thing } from "./missing";\n\nexport const a = 1;\n');
+    // The same bad path from two files: two.
+    repo.write("src/one.ts", 'import { gone } from "./gone.js";\n\nexport const b = gone;\n');
+    repo.write("src/two.ts", 'import { gone } from "./gone.js";\n\nexport const c = gone;\n');
+    // A bound `require` matches both scanner patterns and used to be counted twice. The specifier is
+    // interpolated rather than written out, because `REQUIRE_RE` is not anchored to a line: a call
+    // written in full, even inside a string or a comment, is scanned as an import of this very file
+    // and would add a broken import to *this* repo's own published coverage number. (The two
+    // `import` fixtures above are safe for the opposite reason — `ES_IMPORT_RE` needs a real line
+    // start, and theirs is an escaped newline inside a string.)
+    const missing = "./nowhere";
+    repo.write("src/cjs.ts", `const { f, g: h } = require(${JSON.stringify(missing)});\n\nexport const d = f ?? h;\n`);
+    // A bare specifier is a package, not a broken relative path, and is never counted.
+    repo.write("src/pkg.ts", 'import { z } from "some-package";\n\nexport const e = z;\n');
+    repo.commitAll("broken imports");
+
+    expect(buildGraph(repoPaths(repo.root)).unresolved).toBe(4);
+  });
+});
+
+/**
+ * The rule and the ranking, over a literal file list. `skippedLanguages` touches no disk and no git,
+ * so the cases that are only about which extensions count and in what order do not need a repo; the
+ * two cases above keep repos because they are about the partition invariant and about resolution.
+ */
+describe("skippedLanguages", () => {
+  const CASES: [name: string, files: string[], expected: { language: string; files: number }[]][] = [
+    ["nothing at all", [], []],
+    ["everything in a language it reads", ["src/a.ts", "ui/b.js", "native/c.rs"], []],
+    ["documentation, configuration and data are never skipped code", ["README.md", "package.json", "config.yaml", "Cargo.toml", "reggie-logo.png"], []],
+    ["largest first", ["ui/a.css", "ui/b.css", "ui/c.css", "ui/i.html", "run.sh"], [{ language: "CSS", files: 3 }, { language: "HTML", files: 1 }, { language: "Shell", files: 1 }]],
+    // A tie is broken by language name, so the order is the same on every machine and every run.
+    ["ties by language name", ["db/s.sql", "run.sh", "ui/i.html"], [{ language: "HTML", files: 1 }, { language: "Shell", files: 1 }, { language: "SQL", files: 1 }]],
+    ["scss folds into CSS, the language the table names", ["ui/a.css", "ui/b.scss"], [{ language: "CSS", files: 2 }]],
+    // A file whose "extension" names something on Object.prototype must not become a language.
+    ["a file named after a prototype key", ["snapshot.constructor", "x.__proto__", "y.toString"], []],
+  ];
+
+  it.each(CASES)("%s", (_name, files, expected) => {
+    expect(skippedLanguages(files)).toEqual(expected);
+  });
+
+  it("names every language the table knows that the graph cannot read", () => {
+    // Order is asserted by the cases above; here only the membership, so the test does not depend
+    // on how a collation orders "C#" against "C++".
+    const files = ["cmd/main.go", "App.swift", "Main.kt", "Main.java", "gen.py", "lib.rb", "P.cs", "m.c", "m.cpp", "V.m", "b.ps1", "db/q.sql", "ui/i.html", "ui/s.css", "run.sh"];
+    const out = skippedLanguages(files);
+    expect(out.map((e) => e.language).sort()).toEqual(["C", "C#", "C++", "CSS", "Go", "HTML", "Java", "Kotlin", "Objective-C", "PowerShell", "Python", "Ruby", "SQL", "Shell", "Swift"].sort());
+    expect(out.reduce((sum, e) => sum + e.files, 0)).toBe(files.length);
   });
 });

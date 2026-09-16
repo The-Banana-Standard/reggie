@@ -70,6 +70,12 @@
       "heading": "What it is made of",
       "paragraphs": [
         {
+          "id": "made-of-coverage",
+          "kind": "fact",
+          "text": "Reggie read 140 of this repo's 152 code files, skipping nine CSS files, two HTML files and one Shell file; three imports pointed at no file, so the map is missing those connections.",
+          "refs": ["repo:reggie"]
+        },
+        {
           "id": "made-of-1",
           "kind": "fact",
           "text": "[[#/repo/reggie/area/src/components|src/components]] is a TypeScript area: [[#/repo/reggie/area/src/components?lens=structure|29 source files]], [[#/repo/reggie/area/src/components?lens=tests|20 of them tested]], [[#/repo/reggie/area/src/components?lens=knowledge|none with a note]], [[#/repo/reggie/area/src/components?lens=heat|changed 12 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]].",

@@ -1,0 +1,79 @@
+# Criterion 18: the ui/dev samples carry the two fields, and the hand-written stories agree
+
+## node ui/dev/gen-samples.mjs (rerun on the final code)
+sample-container.json
+sample-dir.json
+sample-dir-tests.json
+sample-impact.json
+sample-blast.json
+sample-workspace.json
+
+## git diff --stat of the dev samples, the generator and the harness
+ packages/reggie/ui/dev/gen-samples.mjs         | 14 ++++++++++----
+ packages/reggie/ui/dev/map-harness.html        |  2 +-
+ packages/reggie/ui/dev/sample-blast.json       | 17 ++++++++++++++++-
+ packages/reggie/ui/dev/sample-container.json   | 17 ++++++++++++++++-
+ packages/reggie/ui/dev/sample-dir-tests.json   | 17 ++++++++++++++++-
+ packages/reggie/ui/dev/sample-dir.json         | 17 ++++++++++++++++-
+ packages/reggie/ui/dev/sample-impact.json      | 17 ++++++++++++++++-
+ packages/reggie/ui/dev/sample-story-empty.json |  6 ++++++
+ packages/reggie/ui/dev/sample-story.json       |  6 ++++++
+ 9 files changed, 103 insertions(+), 10 deletions(-)
+
+## The generator's shared constant
+37:const COVERAGE = { skipped: [{ language: "CSS", files: 9 }, { language: "HTML", files: 2 }, { language: "Shell", files: 1 }], unresolved: 3 };
+86:  counts: { totalCodeFiles: 140, shown: 7, folded: 0, hiddenTests: 49, ...COVERAGE },
+164:  counts: { totalCodeFiles: 140, shown: 15, folded: 14, hiddenTests: 25, ...COVERAGE },
+213:  counts: { totalCodeFiles: 140, shown: 26, folded: 6, hiddenTests: 11, up: [21, 8], down: [2], ...COVERAGE },
+254:  counts: { totalCodeFiles: 140, shown: 12, folded: 0, hiddenTests: 4, up: [7, 1], down: [0], ...COVERAGE },
+
+## The counts block of each generated sample that has one
+sample-container.json    {"totalCodeFiles":140,"shown":7,"folded":0,"hiddenTests":49,"skipped":[{"language":"CSS","files":9},{"language":"HTML","files":2},{"language":"Shell","files":1}],"unresolved":3}
+sample-dir.json          {"totalCodeFiles":140,"shown":15,"folded":14,"hiddenTests":25,"skipped":[{"language":"CSS","files":9},{"language":"HTML","files":2},{"language":"Shell","files":1}],"unresolved":3}
+sample-dir-tests.json    {"totalCodeFiles":140,"shown":15,"folded":14,"hiddenTests":0,"skipped":[{"language":"CSS","files":9},{"language":"HTML","files":2},{"language":"Shell","files":1}],"unresolved":3}
+sample-impact.json       {"totalCodeFiles":140,"shown":26,"folded":6,"hiddenTests":11,"up":[21,8],"down":[2],"skipped":[{"language":"CSS","files":9},{"language":"HTML","files":2},{"language":"Shell","files":1}],"unresolved":3}
+sample-blast.json        {"totalCodeFiles":140,"shown":12,"folded":0,"hiddenTests":4,"up":[7,1],"down":[0],"skipped":[{"language":"CSS","files":9},{"language":"HTML","files":2},{"language":"Shell","files":1}],"unresolved":3}
+
+## sample-workspace.json has no counts block and is unchanged (nothing below):
+
+## The hand edits to the two story samples
+diff --git a/packages/reggie/ui/dev/sample-story-empty.json b/packages/reggie/ui/dev/sample-story-empty.json
+index 76c14b7..f9b6f37 100644
+--- a/packages/reggie/ui/dev/sample-story-empty.json
++++ b/packages/reggie/ui/dev/sample-story-empty.json
+@@ -22,6 +22,12 @@
+       "id": "made-of",
+       "heading": "What it is made of",
+       "paragraphs": [
++        {
++          "id": "made-of-coverage",
++          "kind": "fact",
++          "text": "Reggie read all 21 code files in this repo and followed every import written as a path.",
++          "refs": ["repo:reggie", "dir:packages/reggie/"]
++        },
+         {
+           "id": "made-of-1",
+           "kind": "fact",
+diff --git a/packages/reggie/ui/dev/sample-story.json b/packages/reggie/ui/dev/sample-story.json
+index 59c702d..c259ab7 100644
+--- a/packages/reggie/ui/dev/sample-story.json
++++ b/packages/reggie/ui/dev/sample-story.json
+@@ -69,6 +69,12 @@
+       "id": "made-of",
+       "heading": "What it is made of",
+       "paragraphs": [
++        {
++          "id": "made-of-coverage",
++          "kind": "fact",
++          "text": "Reggie read 140 of this repo's 152 code files, skipping nine CSS files, two HTML files and one Shell file; three imports pointed at no file, so the map is missing those connections.",
++          "refs": ["repo:reggie"]
++        },
+         {
+           "id": "made-of-1",
+           "kind": "fact",
+
+## Machine check: the hand-written sentence against what the code renders from the container
+## sample's counts
+expected from sample-container counts : Reggie read 140 of this repo's 152 code files, skipping nine CSS files, two HTML files and one Shell file; three imports pointed at no file, so the map is missing those connections.
+hand-written in sample-story.json     : Reggie read 140 of this repo's 152 code files, skipping nine CSS files, two HTML files and one Shell file; three imports pointed at no file, so the map is missing those connections.
+IDENTICAL: true

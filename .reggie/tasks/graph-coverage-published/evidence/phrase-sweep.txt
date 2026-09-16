@@ -1,0 +1,22 @@
+# Criterion 12: the word 'unresolved' reaches no reader
+
+## grep -rin "unresolved" packages/reggie/ui/*.js packages/reggie/ui/*.html
+packages/reggie/ui/map.js:1527:    // Last, and only here. `unresolved` is repo-wide, so a dir or impact footer reporting it would
+packages/reggie/ui/map.js:1530:    // and worded without the word "unresolved", which is jargon to the reader being addressed.
+packages/reggie/ui/map.js:1533:    const unresolved = model?.counts?.unresolved ?? 0;
+packages/reggie/ui/map.js:1535:    const unresolvedText = unresolved > 0 ? `${plural(unresolved, "import")} ${unresolved === 1 ? "points" : "point"} at no file` : null;
+packages/reggie/ui/map.js:1536:    return [plural(areas, "area"), plural(edges, "edge"), hiddenText, unresolvedText].filter(Boolean).join(" · ");
+
+## Every reader-visible string the change adds, quoted:
+  footer   : "N imports point at no file" / "1 import points at no file"
+  sentence : "; N imports pointed at no file, so the map is missing those connections."
+  sentence : " and followed every import written as a path."
+  empty    : "Nothing here is in a language the map reads: N code files in X and Y."
+  empty    : "Nothing here is in a language the map reads: N code files, mostly X, Y and Z."
+  hint     : "The files are in the repo. They are missing from the map, not from the code."
+
+## The field keeps its name in the payload and the contract, where the audience is a client author:
+packages/reggie/docs/ui-api-contract.md:72:No params (compatibility): `{ nodes: GraphNode[] /* kind file|task only */, edges: GraphEdge[], dirs: string[], unresolved: number, generatedAt: string, languages: string[], totalCodeFiles: number, included: number, truncated: boolean }`. This route's `unresolved` and `languages` are the compatibility shape and the UI does not read them — the client only ever fetches the levelled routes below, and `counts` is where it reads coverage from. `languages` here includes the synthetic `task` language and is not a list of languages the graph read; `skipped` is deliberately absent, because the counts block is its published home.
+packages/reggie/docs/ui-api-contract.md:88:            unresolved: number;                              // repo-wide: distinct (file, RELATIVE specifier) pairs that resolved to nothing
+packages/reggie/docs/ui-api-contract.md:94:`counts.skipped` and `counts.unresolved` describe the repo, not the view. They are lifted unchanged from one `RepoGraph` at all three levels (container, dir, impact), so within a payload the three cannot disagree and neither can the story built from the same graph — but a client must not read them as being about the scope on screen, and two *separate* requests can still skew, because the story and the level payloads are cached independently and neither carries the commit they were built from.
+packages/reggie/docs/ui-api-contract.md:100:`unresolved` counts distinct (importing file, **relative** specifier) pairs: one bad path written twice in one file is one and the same bad path imported from two files is two. Only specifiers starting with `.` are counted. An unresolvable `@/` or `~/` alias, and any bare package specifier, is dropped with no edge and no count, so a zero here means "no path-style import failed" and not "every import was followed".

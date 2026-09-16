@@ -1,0 +1,33 @@
+# Criteria 7 and 11: the made-of section rendered against this worktree
+
+## AFTER
+# made-of section for /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/graph-coverage-published
+heading: What it is made of
+--- id=made-of-coverage kind=fact refs=["repo:reggie","dir:packages/reggie/src/","dir:packages/reggie/ui/"]
+Reggie read 86 of this repo's 97 code files, skipping five CSS files, five HTML files and one Shell file; two imports pointed at no file, so the map is missing those connections.
+--- id=made-of-1 kind=fact refs=["dir:packages/reggie/src/","person:jacobpress"]
+[[#/repo/reggie/area/packages/reggie/src|packages/reggie/src]] is a TypeScript area: [[#/repo/reggie/area/packages/reggie/src?lens=structure|38 source files]], [[#/repo/reggie/area/packages/reggie/src?lens=tests|35 of them tested]], [[#/repo/reggie/area/packages/reggie/src?lens=knowledge|24 with a note]], [[#/repo/reggie/area/packages/reggie/src?lens=heat|changed 18 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]].
+--- id=made-of-2 kind=fact refs=["dir:packages/reggie/ui/","person:jacobpress"]
+[[#/repo/reggie/area/packages/reggie/ui|packages/reggie/ui]] is a JavaScript area: [[#/repo/reggie/area/packages/reggie/ui?lens=structure|14 source files]], [[#/repo/reggie/area/packages/reggie/ui?lens=knowledge|four with a note]], [[#/repo/reggie/area/packages/reggie/ui?lens=heat|changed 12 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]]. It stands alone: nothing else in the repo imports it.
+
+## Diff against the same section rendered at the branch point, before any source change
+2a3,4
+> --- id=made-of-coverage kind=fact refs=["repo:reggie","dir:packages/reggie/src/","dir:packages/reggie/ui/"]
+> Reggie read 86 of this repo's 97 code files, skipping five CSS files, five HTML files and one Shell file; two imports pointed at no file, so the map is missing those connections.
+4c6
+< [[#/repo/reggie/area/packages/reggie/src|packages/reggie/src]] is a TypeScript area: [[#/repo/reggie/area/packages/reggie/src?lens=structure|38 source files]], [[#/repo/reggie/area/packages/reggie/src?lens=tests|35 of them tested]], [[#/repo/reggie/area/packages/reggie/src?lens=knowledge|23 with a note]], [[#/repo/reggie/area/packages/reggie/src?lens=heat|changed 18 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]].
+---
+> [[#/repo/reggie/area/packages/reggie/src|packages/reggie/src]] is a TypeScript area: [[#/repo/reggie/area/packages/reggie/src?lens=structure|38 source files]], [[#/repo/reggie/area/packages/reggie/src?lens=tests|35 of them tested]], [[#/repo/reggie/area/packages/reggie/src?lens=knowledge|24 with a note]], [[#/repo/reggie/area/packages/reggie/src?lens=heat|changed 18 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]].
+
+Only the new first paragraph appears. The area paragraphs keep made-of-1 and made-of-2 and
+their text is byte-identical to the landing commit of false-tests-sentence.
+
+The refs carry the repo and both Level-1 areas. A lone repo ref is unresolvable on a
+container canvas, and the story column's reading observer passes whatever resolves to the
+map's soft highlight — so a lone repo ref made scrolling into this section clear the halo.
+
+## Criterion 11: the coverage line against the sentence in the plan, character by character
+plan     : Reggie read 86 of this repo's 97 code files, skipping five CSS files, five HTML files and one Shell file; two imports pointed at no file, so the map is missing those connections.
+rendered : Reggie read 86 of this repo's 97 code files, skipping five CSS files, five HTML files and one Shell file; two imports pointed at no file, so the map is missing those connections.
+len(plan)=178  len(rendered)=178
+IDENTICAL: True

@@ -23,6 +23,12 @@
       "heading": "What it is made of",
       "paragraphs": [
         {
+          "id": "made-of-coverage",
+          "kind": "fact",
+          "text": "Reggie read all 21 code files in this repo and followed every import written as a path.",
+          "refs": ["repo:reggie", "dir:packages/reggie/"]
+        },
+        {
           "id": "made-of-1",
           "kind": "fact",
           "text": "[[#/repo/reggie/area/packages/reggie|packages/reggie]] is a TypeScript package: 21 source files. It stands alone: nothing else in the repo imports it.",

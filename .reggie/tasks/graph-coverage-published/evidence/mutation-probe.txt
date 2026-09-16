@@ -1,0 +1,95 @@
+# Mutation probes for graph-coverage-published
+# Run from packages/reggie on 2026-09-16 01:34 UTC, against the final code.
+# TZ=UTC so the known, unrelated src/tasks.test.ts timezone failure appears in none of the three runs.
+
+==============================================================================
+## 1. Delete the coverage paragraph
+==============================================================================
+Line removed from madeOfSection in packages/reggie/src/story.ts:
+
+  if (coverage) paragraphs.unshift(para("made-of-coverage", "fact", coverage, [`repo:${ctx.repo}`, ...areas.map((a) => a.id)]));
+
+     × is the first paragraph, has its own id, and leaves the area paragraphs where they were 5ms
+     × carries refs the map can resolve, so scrolling into the section does not blank the halo 2ms
+     × renders the fixture's own numbers, which are not zero 4ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/story.test.ts > the coverage paragraph on the repo page > is the first paragraph, has its own id, and leaves the area paragraphs where they were
+ FAIL  src/story.test.ts > the coverage paragraph on the repo page > carries refs the map can resolve, so scrolling into the section does not blank the halo
+ FAIL  src/story.test.ts > the coverage paragraph on the repo page > renders the fixture's own numbers, which are not zero
+ Test Files  1 failed | 30 passed (31)
+      Tests  3 failed | 650 passed | 1 skipped (654)
+
+==============================================================================
+## 2. Restore it, then drop skipped and unresolved from ViewCounts' three build sites
+==============================================================================
+Removed from packages/reggie/src/views.ts at the container, dir and impact build sites:
+
+  , skipped: g.skipped, unresolved: g.unresolved   (container and dir, inline in the counts literal)
+      skipped: g.skipped,                          (impact, in the named ViewCounts value)
+      unresolved: g.unresolved,
+
+ ❯ src/views.test.ts (36 tests | 11 failed) 7430ms
+ ❯ src/story.test.ts (85 tests | 25 failed) 8758ms
+ ❯ test/serve.test.ts (97 tests | 4 failed) 13140ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 40 ⎯⎯⎯⎯⎯⎯⎯
+ ❯ src/story.test.ts:226:23
+ ❯ src/story.test.ts:230:19
+ ❯ src/story.test.ts:236:25
+ ❯ src/story.test.ts:246:25
+ ❯ src/story.test.ts:272:34
+ ❯ src/story.test.ts:295:25
+ ❯ src/story.test.ts:304:25
+ ❯ src/story.test.ts:315:28
+ ❯ src/story.test.ts:323:19
+ ❯ src/story.test.ts:331:19
+ ❯ src/story.test.ts:689:12
+ ❯ src/story.test.ts:695:12
+ ❯ src/story.test.ts:704:25
+ ❯ src/story.test.ts:713:25
+ ❯ src/story.test.ts:723:27
+ ❯ src/story.test.ts:749:19
+ ❯ src/story.test.ts:774:19
+ ❯ src/story.test.ts:787:30
+ ❯ src/story.test.ts:799:19
+ ❯ src/story.test.ts:807:28
+ ❯ src/story.test.ts:822:27
+ ❯ src/story.test.ts:1066:23
+ ❯ src/story.test.ts:1151:31
+ ❯ src/story.test.ts:1161:29
+ ❯ src/story.test.ts:1171:29
+ ❯ src/views.test.ts:279:5
+ ❯ src/views.test.ts:306:5
+ ❯ src/views.test.ts:317:5
+ ❯ src/views.test.ts:353:5
+ ❯ src/views.test.ts:425:5
+ ❯ src/views.test.ts:447:5
+ ❯ src/views.test.ts:461:5
+ ❯ src/views.test.ts:492:5
+ ❯ src/views.test.ts:508:5
+ ❯ src/views.test.ts:547:35
+ ❯ src/views.test.ts:560:37
+ ❯ test/serve.test.ts:260:132
+ ❯ test/serve.test.ts:372:21
+ ❯ test/serve.test.ts:1243:20
+ ❯ test/serve.test.ts:1459:18
+ Test Files  3 failed | 28 passed (31)
+      Tests  40 failed | 613 passed | 1 skipped (654)
+
+==============================================================================
+## 3. Revert both, run green
+==============================================================================
+ Test Files  31 passed (31)
+      Tests  653 passed | 1 skipped (654)
+
+(The first attempt at this third run reported "1 failed | 30 passed" with 86 tests skipped — a
+collection bail, because the restore copied the file back while vitest was still transforming it.
+Re-run on a settled tree with no mutation in place, the numbers above are what it gives. Recorded
+rather than quietly replaced.)
+
+Both files byte-identical to the committed work after reverting.
+
+Note on what each probe proves. Probe 1 bites through the shared fixture context, which is the
+end-to-end path: graph, view, story, paragraph. The table tests over the exported helper do not
+bite under either mutation, by design — they pin the wording, and the three tests on the fixture
+pin the wiring. Probe 2 reaches much further than this task's own tests because the counts block
+is read by the story on every scope and by the served payloads.

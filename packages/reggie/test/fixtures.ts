@@ -77,7 +77,8 @@ function commitPaths(root: string, files: string[], message: string): void {
 
 /**
  * A throwaway repo with two TypeScript areas (45-file chain + 2-file dir), a shared types file,
- * tests, a Rust crate with a Tauri command and a TS invoke, notes (one stale), journal entries,
+ * tests, a Rust crate with a Tauri command and a TS invoke, a stylesheet and a shell script in code
+ * languages the graph does not read, notes (one stale), journal entries,
  * and tasks in three states: ungroomed (intake), in-process (task branch with a commit),
  * awaiting-decision (task branch with a committed packet).
  *
@@ -130,6 +131,12 @@ export function makeFixtureRepo(): FixtureRepo {
   repo.write("native/src/lib.rs", "pub mod commands;\n\npub fn run() {\n    println!(\"running\");\n}\n");
   repo.write("native/src/commands/mod.rs", "pub mod widgets;\n");
   repo.write("native/src/commands/widgets.rs", "#[tauri::command]\npub fn list_widgets() -> Vec<String> {\n    vec![\"a\".into(), \"b\".into()]\n}\n");
+
+  // Two files in code languages the graph does not read, so `skipped` is non-zero here and every
+  // assertion about it is not an assertion about zero. Neither extension is in `CODE_EXT`, so they
+  // get no node and no edge: `totalCodeFiles`, `included` and every count pinned to them are unmoved.
+  repo.write("src/big/chain.css", ".chain {\n  display: flex;\n  gap: 4px;\n}\n");
+  repo.write("native/build.sh", "#!/bin/sh\nset -e\ncargo build --release\n");
   repo.commitAll("code: big chain, tiny area, shared types, native crate");
 
   // --- onboard --------------------------------------------------------------

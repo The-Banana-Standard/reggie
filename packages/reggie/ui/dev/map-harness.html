@@ -122,7 +122,7 @@
     const kn = { own: 1, inherited: 1, stale: 0, byType: {}, lastNoteDate: null, lowestConfidence: null };
     const swapped = {
       level: "dir", root: T, areas: view.areas, cycles: [], generatedAt: view.generatedAt,
-      counts: { totalCodeFiles: 140, shown: 7, folded: 0, hiddenTests: 1 },
+      counts: { totalCodeFiles: 140, shown: 7, folded: 0, hiddenTests: 1, skipped: [{ language: "CSS", files: 9 }, { language: "HTML", files: 2 }, { language: "Shell", files: 1 }], unresolved: 3 },
       nodes: [
         ...files.map((p, i) => ({ id: p, kind: "file", label: p.split("/").pop(), path: p, parent: T, lang: "TypeScript", lines: 80, role: "source", area: T, knowledge: kn, tasks: [], inDegree: [21, 8, 5, 3, 2, 1, 9][i], outDegree: 1, testedBy: [], entry: false, entryKinds: [], history: { commits30: i, commits90: i, commits365: i, linesChanged: 10, lastTouched: null, authors: [], busFactor: 1 }, dir: "src/types", noteCount: 0, dirNoteCount: 0 })),
         { id: "ghost:up:dir:src/components/", kind: "dir", label: "src/components · 12 files used", path: "src/components", parent: null, lang: "TypeScript", lines: 0, role: "source", area: "dir:src/components/", knowledge: kn, tasks: [], inDegree: 0, outDegree: 0, testedBy: [], entry: false, entryKinds: [], aggregates: { files: 12, source: 12, tests: 0, config: 0, lines: 0, documented: 0, stale: 0, testedSource: 0, tasks: [] }, ghost: true, side: "up", dir: "", noteCount: 0, dirNoteCount: 0 },

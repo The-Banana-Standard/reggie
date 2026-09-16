@@ -39,8 +39,9 @@ function expectViewGraph(view: ViewGraph, level: ViewGraph["level"]): void {
   expect(Array.isArray(view.edges)).toBe(true);
   expect(Array.isArray(view.cycles)).toBe(true);
   expect(typeof view.generatedAt).toBe("string");
-  expect(Object.keys(view.counts)).toEqual(expect.arrayContaining(["totalCodeFiles", "shown", "folded", "hiddenTests"]));
-  for (const key of ["totalCodeFiles", "shown", "folded", "hiddenTests"] as const) expect(typeof view.counts[key]).toBe("number");
+  expect(Object.keys(view.counts)).toEqual(expect.arrayContaining(["totalCodeFiles", "shown", "folded", "hiddenTests", "skipped", "unresolved"]));
+  for (const key of ["totalCodeFiles", "shown", "folded", "hiddenTests", "unresolved"] as const) expect(typeof view.counts[key]).toBe("number");
+  expect(Array.isArray(view.counts.skipped)).toBe(true);
   for (const a of view.areas) {
     expect(Object.keys(a).sort()).toEqual(["files", "hue", "id", "label", "source"]);
     expect(a.hue).toBeGreaterThanOrEqual(0);
@@ -526,5 +527,39 @@ describe("impactView", () => {
     expect(view.nodes).toEqual([]);
     expect(view.root).toBe("");
     expect(view.counts.shown).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Coverage on the counts block
+// ---------------------------------------------------------------------------
+
+describe("ViewCounts carries the repo's coverage, unchanged, at every level", () => {
+  it("lifts skipped and unresolved from the graph at container, dir and impact", () => {
+    const container = containerView(fx);
+    const dir = dirView(fx, "src/big");
+    const impact = impactView(fx, ["src/big/a20.ts"], { depth: 2, direction: "both" });
+    expect(dir).not.toBeNull();
+
+    for (const view of [container, dir as ViewGraph, impact]) {
+      // Verbatim, not recomputed: these describe the repo, not the scope on screen, so all three
+      // levels must agree with the graph and with each other.
+      expect(view.counts.skipped).toEqual(fx.skipped);
+      expect(view.counts.unresolved).toBe(fx.unresolved);
+    }
+    // src/big holds the fixture's stylesheet, src/types holds nothing skipped: same numbers anyway.
+    const elsewhere = dirView(fx, "src/types");
+    expect(elsewhere?.counts.skipped).toEqual(fx.skipped);
+    expect(elsewhere?.counts.unresolved).toBe(fx.unresolved);
+  });
+
+  it("reports the fixture's own skipped languages, so no assertion here is an assertion about zero", () => {
+    // Containment, not equality: the shared fixture is general-purpose and another test may add a
+    // file in a fourth language to it without this one having an opinion.
+    expect(fx.skipped).toEqual(expect.arrayContaining([{ language: "CSS", files: 1 }, { language: "Shell", files: 1 }]));
+    expect(containerView(fx).counts.skipped.reduce((s, e) => s + e.files, 0)).toBeGreaterThanOrEqual(2);
+    // Sorted largest first, ties by language name, at every level.
+    const shown = [...containerView(fx).counts.skipped];
+    expect(shown).toEqual([...shown].sort((a, b) => b.files - a.files || a.language.localeCompare(b.language)));
   });
 });

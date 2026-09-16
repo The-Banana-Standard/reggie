@@ -1,0 +1,58 @@
+# Criteria 12, 13 and 14: footerFor and emptyMapText over the ui/dev samples
+
+## AFTER
+[container] level=container file=sample-container.json
+  footer: "7 areas · 14 edges · 49 tests hidden · 3 imports point at no file"
+[container (lens=tests)] level=container file=sample-container.json
+  footer: "7 areas · 14 edges · 49 tests counted inside these areas · 3 imports point at no file"
+[dir] level=dir file=sample-dir.json
+  footer: "Showing 12 of 29 files; 14 folded into +N more · 3 sub-areas · 32 edges · 25 tests hidden"
+[dir-tests] level=dir file=sample-dir-tests.json
+  footer: "Showing 12 of 29 files; 14 folded into +N more · 3 sub-areas · 38 edges · 6 tests shown"
+[impact] level=impact file=sample-impact.json
+  footer: "29 upstream · 2 downstream at depth 2 · 11 tests hidden"
+[blast] level=impact file=sample-blast.json
+  footer: "8 upstream · 0 downstream at depth 2 · 4 tests hidden"
+[workspace] level=workspace file=sample-workspace.json
+  footer: "3 repos · 2 connections"
+[empty container, nothing readable] counts={"totalCodeFiles":0,"shown":0,"folded":0,"hiddenTests":0,"skipped":[{"language":"Go","files":180},{"language":"Swift","files":34}],"unresolved":0}
+  footer: ""
+  empty:  {"text":"Nothing here is in a language the map reads: 214 code files in Go and Swift.","hint":"The files are in the repo. They are missing from the map, not from the code."}
+[empty container, three languages, all named] counts.skipped=[{"language":"CSS","files":9},{"language":"HTML","files":2},{"language":"Shell","files":1}]
+  empty:  {"text":"Nothing here is in a language the map reads: 12 code files in CSS, HTML and Shell.","hint":"The files are in the repo. They are missing from the map, not from the code."}
+[empty container, code read but nothing drawable] counts={"totalCodeFiles":140,"shown":7,"folded":0,"hiddenTests":49,"skipped":[{"language":"CSS","files":9},{"language":"HTML","files":2},{"language":"Shell","files":1}],"unresolved":3}
+  footer: ""
+  empty:  {"text":"No code files under here, so there is nothing to draw.","hint":"Areas appear on the map once they hold files the import graph can read."}
+[empty dir] counts={"totalCodeFiles":140,"shown":15,"folded":14,"hiddenTests":25,"skipped":[{"language":"CSS","files":9},{"language":"HTML","files":2},{"language":"Shell","files":1}],"unresolved":3}
+  footer: ""
+  empty:  {"text":"No code files under here, so there is nothing to draw.","hint":"Areas appear on the map once they hold files the import graph can read."}
+[container, model with no counts block]
+  footer: "1 area · 0 edges"
+[container, exactly one]
+  footer: "7 areas · 14 edges · 49 tests hidden · 1 import points at no file"
+[empty container, four languages, three named]
+  empty:  {"text":"Nothing here is in a language the map reads: 229 code files, mostly Go, Swift and Python.","hint":"The files are in the repo. They are missing from the map, not from the code."}
+
+## Diff of the shared cases against the same script run at the branch point
+2c2
+<   footer: "7 areas · 14 edges · 49 tests hidden"
+---
+>   footer: "7 areas · 14 edges · 49 tests hidden · 3 imports point at no file"
+4c4
+<   footer: "7 areas · 14 edges · 49 tests counted inside these areas"
+---
+>   footer: "7 areas · 14 edges · 49 tests counted inside these areas · 3 imports point at no file"
+
+Reading. Only the two container lines change, and only by one appended segment. The dir,
+dir-tests, impact, blast and workspace footer strings are byte-identical (criterion 13).
+
+The empty-state cases below the diff are new and cover every reason the canvas can be empty:
+  - nothing readable at all  -> the card names the skipped total and its languages
+  - three languages, all named -> 'in X, Y and Z', no 'mostly' asserting a remainder
+  - four languages, three named -> ', mostly X, Y and Z'
+  - code read but nothing drawable (every area candidate folded) -> the OLD text stands,
+    because the language is not the reason and claiming it is would be a worse lie
+  - dir level -> unchanged, and captured: it carries the same falsehood for a folder
+  - a hand-built model with no counts block -> footerFor returns a line rather than throwing
+  - exactly one -> '1 import points at no file', the verb agreeing with the count
+The footer is "" in every empty case (criterion 14).

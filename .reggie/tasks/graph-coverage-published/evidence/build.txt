@@ -1,0 +1,85 @@
+# Criterion 22: the three commands the plan names, run from packages/reggie, with exit codes.
+# TZ=UTC is set deliberately: src/tasks.test.ts's 'assembles plan, packet, claim, journal, and
+# impact as a task moves' fails in local evening time because ageInDays parses a bare
+# YYYY-MM-DD as midnight UTC against a locally written date. It is unrelated to this task — the
+# branch touches neither tasks.ts nor tasks.test.ts — is captured as its own intake item, and
+# reproduces on a clean repo-manager. Both runs are below, honestly.
+
+==============================================================================
+## TZ=UTC npm test
+==============================================================================
+
+> reggie@3.0.0-alpha.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/graph-coverage-published/packages/reggie
+
+
+ Test Files  31 passed (31)
+      Tests  653 passed | 1 skipped (654)
+   Start at  01:30:34
+   Duration  13.45s (transform 2.48s, setup 0ms, import 3.99s, tests 125.90s, environment 1ms)
+
+TZ=UTC EXIT=0
+
+==============================================================================
+## npm test  (local timezone: the one pre-existing failure, and nothing else)
+==============================================================================
+
+> reggie@3.0.0-alpha.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/graph-coverage-published/packages/reggie
+
+ ❯ src/tasks.test.ts (17 tests | 1 failed) 11941ms
+     × assembles plan, packet, claim, journal, and impact as a task moves 493ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tasks.test.ts > state machine and task detail > assembles plan, packet, claim, journal, and impact as a task moves
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ src/tasks.test.ts:262:29
+    260|     expect(detail.task.reason).toContain("no brief");
+    261|     expect(detail.task.stateDefinition).toBe(stateDefinition("ungroome…
+    262|     expect(detail.task.age).toBe(0);
+       |                             ^
+    263|     expect(detail.task.planFiles).toEqual([]);
+    264|     expect(detail.task.changedFiles).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 30 passed (31)
+      Tests  1 failed | 652 passed | 1 skipped (654)
+   Start at  21:30:54
+   Duration  13.49s (transform 2.28s, setup 0ms, import 3.67s, tests 127.15s, environment 1ms)
+
+LOCAL EXIT=1
+
+==============================================================================
+## npm run typecheck, then npm run build
+==============================================================================
+
+> reggie@3.0.0-alpha.1 typecheck
+> tsc -p tsconfig.json --noEmit
+
+TYPECHECK EXIT=0
+
+> reggie@3.0.0-alpha.1 build
+> tsc -p tsconfig.json
+
+BUILD EXIT=0
+
+==============================================================================
+## The branch touches neither file behind the pre-existing failure:
+==============================================================================
+(nothing above)

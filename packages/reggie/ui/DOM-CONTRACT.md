@@ -31,7 +31,7 @@ Every container below exists on first paint and is never replaced, only filled.
 | `tb-fit`, `tb-zoom-out`, `tb-zoom-in`, `tb-relayout`, `tb-tests` | Toolbar buttons; `tb-tests` carries `aria-pressed` | app.js wires, map.js acts |
 | `tb-extra` | Slot for depth / direction / planned-actual controls (`display: contents`) | map.js / board.js |
 | `legend` | Floating legend card (empty = hidden) | map.js |
-| `map-footer` | Bottom-right counts line ("7 areas · 12 edges · 49 tests hidden") | map.js |
+| `map-footer` | Bottom-right counts line ("7 areas · 12 edges · 49 tests hidden"). On the repo map only, and only when `counts.unresolved` is positive, a last segment is appended: "7 areas · 12 edges · 49 tests hidden · 2 imports point at no file" (singular: "1 import points at no file"). Omitted entirely at zero, and never shown on the dir, impact or workspace footers, because the number is repo-wide. Empty string when the model holds no non-compound node at all — the canvas explains itself instead; a view whose every child is folded still has non-compound nodes and still renders a line | map.js |
 | `map-tip` | The single tooltip div (`.tip`, `hidden` when idle) | map.js |
 | `reader` | Reader drawer container (`hidden` when closed) | reader.js |
 | `palette`, `palette-backdrop`, `palette-input`, `palette-results` | Search modal | app.js |

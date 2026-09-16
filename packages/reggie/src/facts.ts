@@ -75,6 +75,39 @@ const LANGUAGE_BY_EXT: Record<string, string> = {
   json: "JSON",
 };
 
+/**
+ * The languages in `LANGUAGE_BY_EXT` that describe or configure the product rather than being it.
+ * Everything else the table knows is code (see `codeLanguageOf`). Read-only on purpose: it is the
+ * repo-wide line between code and not-code, and it must not be movable at a distance by an importer.
+ */
+export const NON_CODE_LANGUAGES: ReadonlySet<string> = new Set(["Markdown", "JSON", "YAML", "TOML"]);
+
+/**
+ * The language of a file when that file is code, and `null` otherwise.
+ *
+ * The rule, stated once here because more than one table in this repo answers "is this code?"
+ * differently: a file is code when a person authored it as part of how the product behaves or looks
+ * — programming languages, shell, SQL, and the markup and stylesheets a browser runs — and is not
+ * code when it describes or configures the product. So HTML, CSS, SCSS, Shell and SQL count, and
+ * Markdown, JSON, YAML and TOML do not.
+ *
+ * It is the denominator for coverage claims: `graph.ts` reads only `CODE_EXT`, and the count of code
+ * files it never looked at is meaningless unless the line is drawn here rather than against every
+ * tracked file or against every language the table recognises, which on a documentation-heavy repo
+ * is mostly Markdown. HTML and CSS stay in deliberately — on a static-site repo, dropping them would
+ * report no code at all and let the page claim Reggie read all of nothing.
+ *
+ * `Object.hasOwn` rather than a bare lookup: a file called `snapshot.constructor` would otherwise
+ * find `Object.prototype.constructor`, which is truthy, is not in `NON_CODE_LANGUAGES`, and would
+ * be returned as a language and then sorted with `localeCompare`.
+ */
+export function codeLanguageOf(file: string): string | null {
+  const ext = path.extname(file).slice(1).toLowerCase();
+  if (!Object.hasOwn(LANGUAGE_BY_EXT, ext)) return null;
+  const lang = LANGUAGE_BY_EXT[ext];
+  return lang && !NON_CODE_LANGUAGES.has(lang) ? lang : null;
+}
+
 const IGNORED_SEGMENTS = new Set([
   "node_modules",
   ".git",

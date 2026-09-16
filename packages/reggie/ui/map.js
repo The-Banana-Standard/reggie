@@ -1524,7 +1524,16 @@ export function footerFor(model, controls = {}) {
   const hiddenText = !hidden ? null : controls.lens === "tests" ? (level === "container" ? `${plural(hidden, "test")} counted inside these areas` : null) : `${plural(hidden, "test")} hidden`;
   if (level === "container") {
     const areas = drawable.filter((n) => n.kind === "dir").length;
-    return [plural(areas, "area"), plural(edges, "edge"), hiddenText].filter(Boolean).join(" · ");
+    // Last, and only here. `unresolved` is repo-wide, so a dir or impact footer reporting it would
+    // invite the reader to attach it to the scope that footer describes; the repo map and the repo
+    // story are the two repo-wide surfaces. Omitted at zero, like every other segment on this line,
+    // and worded without the word "unresolved", which is jargon to the reader being addressed.
+    // `model?.counts?` because `footerFor` is part of this module's exported surface and a caller
+    // that hand-builds a model need not have a counts block — the in-app path always does.
+    const unresolved = model?.counts?.unresolved ?? 0;
+    // The verb agrees with the count: "1 import points at no file", "2 imports point at no file".
+    const unresolvedText = unresolved > 0 ? `${plural(unresolved, "import")} ${unresolved === 1 ? "points" : "point"} at no file` : null;
+    return [plural(areas, "area"), plural(edges, "edge"), hiddenText, unresolvedText].filter(Boolean).join(" · ");
   }
   if (level === "dir") {
     const files = drawable.filter((n) => n.kind === "file" && n.role !== "test").length;
@@ -1589,7 +1598,36 @@ export function emptyMapText(model) {
       hint: "Raise the depth, or switch the direction, to look further out from it.",
     };
   }
-  if (level === "dir" || level === "container") {
+  if (level === "container" || level === "dir") {
+    // A repo written in a language the graph does not read lands here with a canvas that is empty
+    // and a footer that `footerFor` returns "" for (F-MAP-C: the canvas says why, the footer says
+    // nothing). "No code files under here" is then false in the most damaging way available — the
+    // files exist, and only Reggie's ability to read them is missing — so the container card says
+    // so from `counts.skipped`. A repo-wide skipped list does not explain why one folder is empty,
+    // so the dir card keeps its own text.
+    //
+    // `totalCodeFiles === 0` is the other half of the guard and it is not optional. A container
+    // canvas comes back empty for reasons that have nothing to do with language: `chooseAreas`
+    // folds every candidate below `MIN_AREA_FILES`, so two source files under `src` beside one
+    // stylesheet already draws nothing. Without the check this card would tell a repo whose code
+    // the map reads perfectly well that nothing here is in a language the map reads, and would
+    // print a file count that omits the files it did read — a worse lie than the one it replaces.
+    const counts = model?.counts ?? {};
+    const skipped = level === "container" && (counts.totalCodeFiles ?? 0) === 0 ? (counts.skipped ?? []) : [];
+    if (skipped.length > 0) {
+      const files = skipped.reduce((sum, e) => sum + (e.files ?? 0), 0);
+      const named = skipped.slice(0, 3).map((e) => e.language);
+      const list = named.length > 1 ? `${named.slice(0, -1).join(", ")} and ${named[named.length - 1]}` : named[0];
+      // "mostly" only when the named languages do not account for all of them; with three or fewer
+      // the list is the whole set and "mostly" would assert a remainder that does not exist. The
+      // comma belongs to the hedge, not to the exhaustive list: "12 code files in CSS and HTML",
+      // "229 code files, mostly Go, Swift and Python".
+      const languages = skipped.length > named.length ? `, mostly ${list}` : ` in ${list}`;
+      return {
+        text: `Nothing here is in a language the map reads: ${plural(files, "code file")}${languages}.`,
+        hint: "The files are in the repo. They are missing from the map, not from the code.",
+      };
+    }
     return { text: "No code files under here, so there is nothing to draw.", hint: "Areas appear on the map once they hold files the import graph can read." };
   }
   if (level === "workspace") {

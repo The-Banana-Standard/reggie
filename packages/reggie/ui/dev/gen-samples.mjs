@@ -30,6 +30,12 @@ function file(path, o = {}) {
     history: o.history ?? hist(o.c30 ?? 0, o.authors), dir: dirPath, noteCount: o.knowledge?.own ?? 0, dirNoteCount: 0, ...(o.extra ?? {}),
   };
 }
+// Repo-wide coverage, lifted from `RepoGraph` onto every level's counts block by views.ts, so the
+// same values ride every sample: code files the graph never read (by language, largest first) and
+// import lines that pointed at no file. sample-story.json quotes these numbers in its made-of
+// coverage paragraph and has no generator, so keep the two in step by hand.
+const COVERAGE = { skipped: [{ language: "CSS", files: 9 }, { language: "HTML", files: 2 }, { language: "Shell", files: 1 }], unresolved: 3 };
+
 const edge = (source, target, o = {}) => ({ source, target, kind: o.kind ?? "import", ...(o.weight ? { weight: o.weight } : {}), ...(o.names ? { names: o.names } : {}), ...(o.via ? { via: o.via } : {}), ...(o.confidence ? { confidence: o.confidence } : {}), ...(o.cycle ? { cycle: true } : {}) });
 
 // ---------------------------------------------------------------- container (Level 1)
@@ -77,7 +83,7 @@ const container = {
   ],
   areas,
   cycles: [["dir:src/hooks/", "dir:src/services/"]],
-  counts: { totalCodeFiles: 140, shown: 7, folded: 0, hiddenTests: 49 },
+  counts: { totalCodeFiles: 140, shown: 7, folded: 0, hiddenTests: 49, ...COVERAGE },
   generatedAt: NOW,
 };
 
@@ -155,7 +161,7 @@ const dirView = {
   ],
   areas,
   cycles: [["src/components/Layout.tsx", "src/components/StatusBar.tsx"]],
-  counts: { totalCodeFiles: 140, shown: 15, folded: 14, hiddenTests: 25 },
+  counts: { totalCodeFiles: 140, shown: 15, folded: 14, hiddenTests: 25, ...COVERAGE },
   generatedAt: NOW,
 };
 // Fix the accidental spread above: the fold node must be a clean fold node.
@@ -204,7 +210,7 @@ const impact = {
   ],
   areas,
   cycles: [[centre, "packages/reggie/src/util.ts"]],
-  counts: { totalCodeFiles: 140, shown: 26, folded: 6, hiddenTests: 11, up: [21, 8], down: [2] },
+  counts: { totalCodeFiles: 140, shown: 26, folded: 6, hiddenTests: 11, up: [21, 8], down: [2], ...COVERAGE },
   generatedAt: NOW,
 };
 
@@ -245,7 +251,7 @@ const blast = {
   ],
   areas,
   cycles: [],
-  counts: { totalCodeFiles: 140, shown: 12, folded: 0, hiddenTests: 4, up: [7, 1], down: [0] },
+  counts: { totalCodeFiles: 140, shown: 12, folded: 0, hiddenTests: 4, up: [7, 1], down: [0], ...COVERAGE },
   generatedAt: NOW,
 };
 
