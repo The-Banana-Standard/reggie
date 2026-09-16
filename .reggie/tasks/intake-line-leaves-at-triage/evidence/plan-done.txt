@@ -1,0 +1,28 @@
+# AC9 and AC20, in the same throwaway repo after triage --all.
+
+## AC9: reggie triage <slug> a second time changes no file and exits 0.
+$ find .reggie -type f | sort | xargs shasum | shasum   (fingerprint before)
+2ee666204296c9415d318d2af32aae37b4dcbc07  -
+$ reggie triage first-captured-thing-about-the-login-loop
+.reggie/tasks/first-captured-thing-about-the-login-loop/brief.md already exists; pass --force to rewrite it
+exit=0
+$ find .reggie -type f | sort | xargs shasum | shasum   (fingerprint after)
+2ee666204296c9415d318d2af32aae37b4dcbc07  -
+
+## AC20: plan done still exists, still removes a line, and says what it is for.
+$ reggie plan done --help
+Usage: reggie plan done [options] <slug>
+
+Sweep an intake line that outlived its brief; triage removes the line itself now
+
+Options:
+  -h, --help  display help for command
+$ reggie plan done first-captured-thing-about-the-login-loop      (its line is already gone)
+first-captured-thing-about-the-login-loop was not in intake
+exit=0
+
+$ reggie capture --slug swept-by-hand "A line written after its brief existed"
+Captured swept-by-hand
+$ reggie plan done swept-by-hand
+Removed swept-by-hand from intake
+exit=0

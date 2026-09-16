@@ -1,0 +1,8 @@
+# AC6: the same slug/state/reason before and after the code change, over one working tree.
+# Both runs were made in the task worktree at the same commit, so the only variable is the code:
+#   before: dist built from repo-manager at 87bee39 (the base this branch started from)
+#   after:  dist built from this branch's src
+# Command: node dist/cli.js tasks --json --all | jq -S '[.[]|{slug,state,reason}]|sort_by(.slug)'
+# then: diff board-before.json board-after.json
+$ diff board-before.json board-after.json
+exit 0, no output — 73 of 73 tasks identical.

@@ -2092,6 +2092,12 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       if (!text || !text.trim()) return json(res, 400, { error: "text is required" });
       const task = tasksOf(c).find((t) => t.slug === slug);
       if (!task) return json(res, 404, { error: `unknown task: ${slug}` });
+      // Triage takes the line and the brief becomes the record. `addIntakeDetail` writes a fresh
+      // line for a slug that has none, so answering here would rebuild the very line triage
+      // removed — and pull the card's age back with it. Refuse, and say where the answer belongs.
+      if (task.brief?.exists) {
+        return json(res, 409, { error: `${slug} has a brief; answers belong in .reggie/tasks/${slug}/brief.md, not back in intake` });
+      }
       const input: { slug: string; text: string; person: Person; source: string; title?: string } = { slug, text, person, source: "web" };
       if (!task.intake) input.title = task.title;
       try {
@@ -2215,6 +2221,9 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       const known = new Set(tasksOf(c).map((t) => t.slug));
       const created: string[] = [];
       const skipped: { slug: string; reason: string }[] = [];
+      // The client clears each card's intake line optimistically, so it has to be told which
+      // lines the scaffold actually took rather than assuming every created brief took one.
+      const takenFromIntake: string[] = [];
       for (const slug of slugs) {
         if (!known.has(slug)) {
           skipped.push({ slug, reason: "nothing in this repo names that task" });
@@ -2224,9 +2233,10 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
         const r = scaffoldBrief(c.paths, { slug, author: person.handle });
         if (r.skipped) skipped.push({ slug, reason: "a brief already exists" });
         else created.push(slug);
+        if (r.intakeRemoved) takenFromIntake.push(slug);
       }
       if (created.length > 0) c.invalidate();
-      return json(res, 200, { created, skipped });
+      return json(res, 200, { created, skipped, takenFromIntake });
     }
     case "/api/launch": {
       // The one route that starts a process. Everything is validated before it is; the command

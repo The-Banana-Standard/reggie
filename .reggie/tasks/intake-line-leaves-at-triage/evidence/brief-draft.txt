@@ -1,0 +1,31 @@
+$ TZ=UTC npx vitest run src/brief.test.ts --reporter=verbose   (AC1)
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/intake-line-leaves-at-triage/packages/reggie
+
+ ✓ src/brief.test.ts > brief contract > template fails lint until placeholders are replaced 2ms
+ ✓ src/brief.test.ts > brief contract > a template prefilled by triage still needs its sections written 1ms
+ ✓ src/brief.test.ts > brief contract > a complete brief passes 0ms
+ ✓ src/brief.test.ts > brief contract > parses front matter, sections, and the derived lists 0ms
+ ✓ src/brief.test.ts > brief contract > falls back to the H1 for the title and reads an unknown size or priority as unset 0ms
+ ✓ src/brief.test.ts > brief contract > flags a missing slug 0ms
+ ✓ src/brief.test.ts > brief contract > flags a missing title 0ms
+ ✓ src/brief.test.ts > brief contract > flags an unset size 0ms
+ ✓ src/brief.test.ts > brief contract > flags an unset priority 0ms
+ ✓ src/brief.test.ts > brief contract > flags a missing section 0ms
+ ✓ src/brief.test.ts > brief contract > flags an empty section 0ms
+ ✓ src/brief.test.ts > brief contract > flags a placeholder left in one section 0ms
+ ✓ src/brief.test.ts > brief contract > flags an unresolved TBD or TODO 0ms
+ ✓ src/brief.test.ts > brief contract > advises without blocking on unset risk, an empty area, and a thin problem 0ms
+ ✓ src/brief.test.ts > brief contract > advises when Suspected area names nothing 0ms
+ ✓ src/brief.test.ts > briefDraft > calls a bare scaffold a draft, naming the Problem and every other placeholder section 0ms
+ ✓ src/brief.test.ts > briefDraft > calls a scaffold prefilled from an intake line a draft, naming only the placeholder sections 0ms
+ ✓ src/brief.test.ts > briefDraft > does not call a written brief a draft just because size and priority are unset 0ms
+ ✓ src/brief.test.ts > briefDraft > calls a brief with an empty Problem a draft, and one with no Problem heading at all 0ms
+ ✓ src/brief.test.ts > briefDraft > passes a brief that satisfies the contract 0ms
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  03:28:40
+   Duration  103ms (transform 28ms, setup 0ms, import 36ms, tests 6ms, environment 0ms)
+
+exit=0

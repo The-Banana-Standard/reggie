@@ -23,3 +23,6 @@ sources: task-attribution-by-merge
 A build prompt carries the dependency setup the claim did not finish. LaunchInput.setup is a list of directories and commands, from pendingSetup over the claim's outcomes, and the prompt names each one before it says to execute the plan. Every build prompt, setup or not, tells the session to unlink a node_modules symlink before adding or changing a dependency. Both launchers claim with deps: defer rather than installing themselves.
 sources: packages/reggie/src/launch.ts, a-task-worktree-has-no-node-modules-so-nothing-r
 
+## how · 2026-09-15 · Claude via jacobpress · medium
+The shape prompt says triage also removes the intake line, and tells the session to fill in a brief that is already there rather than passing --force, because the scaffold's Problem is where the captured words live once the line is gone.
+

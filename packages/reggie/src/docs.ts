@@ -47,8 +47,8 @@ export function renderGeneratedBlock(facts: RepoFacts, config: ReggieConfig, too
     "- Raw ideas and discovered issues go to `.reggie/intake.md` via `reggie capture \"text\"`. Never fix unrelated issues in passing; capture them.",
     "",
     `## Working here with Reggie and ${toolName} (generated)`,
-    `- Mode: **${config.mode}**. Task state is read from git: intake line = ungroomed, \`brief.md\` = groomed, a plan that passes the contract = planned, \`task/<slug>\` branch = in process, open PR = awaiting decision, merged = done.`,
-    "- Shape a raw item first: `reggie triage <slug>` writes the brief, then `reggie brief lint <slug>`. Plan in plan mode against the contract, then `reggie claim <slug>` to start work on a `task/<slug>` branch. Finish with `reggie packet <slug>` and a PR whose body is the packet.",
+    `- Mode: **${config.mode}**. Task state is read from git: an intake line, or a \`brief.md\` still holding triage's scaffold, = ungroomed; a \`brief.md\` somebody has written into = groomed; a plan that passes the contract = planned; \`task/<slug>\` branch = in process; open PR = awaiting decision; merged = done.`,
+    "- Shape a raw item first: `reggie triage <slug>` scaffolds the brief and removes the intake line, then fill every section in and check it with `reggie brief lint <slug>` — the card stays ungroomed until you do. Plan in plan mode against the contract, then `reggie claim <slug>` to start work on a `task/<slug>` branch. Finish with `reggie packet <slug>` and a PR whose body is the packet.",
     `- ${mcp}`,
     END_MARKER,
   ];

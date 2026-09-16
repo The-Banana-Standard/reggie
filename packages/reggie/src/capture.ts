@@ -1,7 +1,7 @@
 import { INTAKE_HEADER } from "./layout.js";
 import type { RepoPaths } from "./paths.js";
 import type { Person } from "./people.js";
-import { knownSlugs } from "./tasks.js";
+import { knownSlugs, parseIntake } from "./tasks.js";
 import { appendText, readText, slugify, today, writeText } from "./util.js";
 
 export interface CaptureInput {
@@ -37,26 +37,38 @@ export function capture(paths: RepoPaths, input: CaptureInput): CaptureResult {
   return { slug, line };
 }
 
-/** Remove an intake line (and its detail lines) once a plan exists. */
+/**
+ * Remove a slug's intake lines, and the detail under each, once a brief has replaced them.
+ *
+ * Which lines those are is decided by `parseIntake` and not by a second pattern here. That is the
+ * whole point: the intake header invites hand-written lines, and the parser accepts far more than
+ * `- slug:` — any of `-`, `*`, `+`, a checkbox, up to three spaces of indent, a raw prefix it
+ * slugifies (`Login_Retry:` becomes `login-retry`), and a bullet with no prefix at all whose slug
+ * comes from its text. A shape the parser counts as an item but the remover misses would outlive
+ * its own brief and sit in the queue for work the board already reports as shaped, with no verb
+ * able to sweep it. Duplicated slugs are all removed, which is why triage reads every one of them
+ * before this runs.
+ */
 export function removeFromIntake(paths: RepoPaths, slug: string): boolean {
   const content = readText(paths.intake);
   if (!content) return false;
-  const lines = content.split("\n");
+  const starts = new Set(parseIntake(content).filter((i) => i.slug === slug).map((i) => i.line));
+  if (starts.size === 0) return false;
   const out: string[] = [];
   let skipping = false;
-  let removed = false;
-  for (const line of lines) {
-    if (new RegExp(`^- ${slug}:\\s`).test(line)) {
+  // `parseIntake` normalises CRLF before splitting, which changes no line count, so its 1-based
+  // line numbers index this split too.
+  content.split("\n").forEach((line, idx) => {
+    if (starts.has(idx + 1)) {
       skipping = true;
-      removed = true;
-      continue;
+      return;
     }
-    if (skipping && /^\s+>/.test(line)) continue;
+    if (skipping && /^\s+>/.test(line)) return;
     skipping = false;
     out.push(line);
-  }
-  if (removed) writeText(paths.intake, out.join("\n"));
-  return removed;
+  });
+  writeText(paths.intake, out.join("\n"));
+  return true;
 }
 
 export interface IntakeDetailInput {

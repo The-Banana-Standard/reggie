@@ -1,0 +1,55 @@
+# AC21: the state machine the server serves, beside the client's hand-written copy.
+# Read from a live `reggie serve` on a throwaway repo built by this branch's dist.
+
+$ curl -s localhost:8793/api/state-machine | jq '.states[0,1], .transitions[0]'
+{
+  "id": "ungroomed",
+  "label": "Ungroomed",
+  "definition": "Captured but not yet shaped: nothing says what it is beyond the line someone wrote, or the scaffold triage left behind.",
+  "rule": "an intake item or a .reggie/tasks/<slug>/ folder exists, with no plan and no task/<slug> branch, and either no brief.md on disk or on the default branch or one that is still triage's unfilled scaffold"
+}
+{
+  "id": "groomed",
+  "label": "Groomed",
+  "definition": "Shaped by a session: somebody has written into the brief, so the item says what it is. No plan that passes the contract yet.",
+  "rule": "brief.md exists on disk or on the default branch with its Problem and its placeholder hints written over, and no plan passes the contract; a plan draft that fails the contract, or a plan/<slug> branch, also lands here"
+}
+{
+  "from": "ungroomed",
+  "to": "groomed",
+  "trigger": "somebody fills in .reggie/tasks/<slug>/brief.md: why now, the suspected area, the open questions and what this is not. `reggie triage <slug>` only scaffolds it, and takes the intake line as it does, so the card stays here until the scaffold is written over",
+  "who": "a shaping session; triage scaffolds a whole column at once, but each brief still has to be written"
+}
+
+--- packages/reggie/ui/board.js, the client's shorter form -------------------
+const FALLBACK_STATES = [
+  { id: "ungroomed", label: "Ungroomed", definition: "Captured but not yet shaped: nothing says what it is beyond the line someone wrote, or the scaffold triage left behind.", rule: "an intake item or a task folder with no brief.md, or one still holding triage's scaffold" },
+  { id: "groomed", label: "Groomed", definition: "Shaped by a session: somebody has written into the brief, so the item says what it is. No plan that passes the contract yet.", rule: "brief.md is written in, not still the scaffold, and no plan passes the contract" },
+  { id: "planned", label: "Planned", definition: "Fully groomed: a plan that passes the contract, written against the code. Ready to build.", rule: "plan.md passes the plan contract and is on the default branch" },
+  { id: "in-process", label: "In process", definition: "Someone holds a task/<slug> branch and is committing work on it.", rule: "a task/<slug> branch with no packet and no open pull request" },
+  { id: "awaiting-decision", label: "Awaiting decision", definition: "A pull request is open or a completion packet sits on the branch, waiting for a verdict.", rule: "an open pull request, or packet.md on the branch" },
+  { id: "done", label: "Done", definition: "The pull request was merged, or the packet was approved on the default branch.", rule: "the pull request merged, or packet.md approved on the default branch" },
+];
+const FALLBACK_TRANSITIONS = [
+  { from: "ungroomed", to: "groomed", trigger: "somebody fills in brief.md: why now, the suspected area, the open questions, what this is not. Triage only scaffolds it, and takes the intake line as it does", who: "a shaping session" },
+  { from: "groomed", to: "planned", trigger: "a plan.md that passes the plan contract lands on the default branch", who: "the planner, after reading the code" },
+  { from: "planned", to: "in-process", trigger: "reggie claim <slug> creates the task/<slug> branch", who: "the person taking the task" },
+  { from: "in-process", to: "awaiting-decision", trigger: "a packet is committed on the branch, or a pull request opens", who: "the task owner" },
+  { from: "awaiting-decision", to: "done", trigger: "the pull request merges, or reggie decide <slug> approved lands on the default branch", who: "a decider" },
+  { from: "awaiting-decision", to: "in-process", trigger: "reggie decide <slug> needs-work sends it back", who: "a decider" },
+];
+const COLUMN_RULE = {
+  ungroomed: "No brief, or an empty one.",
+  groomed: "brief.md written, no plan.",
+  planned: "plan.md passes, on main.",
+  "in-process": "task/<slug> open, no PR.",
+  "awaiting-decision": "PR open, or a packet.md.",
+  done: "PR merged, or approved.",
+};
+
+--- packages/reggie/ui/app.js, the state tooltips ----------------------------
+  ungroomed: "Ungroomed: captured but not yet shaped — no brief.md says what it is, or the one there is still triage's unfilled scaffold.",
+  groomed: "Groomed: somebody wrote into the brief — a problem, a suspected area, a size and a priority. No plan that passes the contract yet.",
+--
+  ungroomed: "Ungroomed",
+  groomed: "Groomed",

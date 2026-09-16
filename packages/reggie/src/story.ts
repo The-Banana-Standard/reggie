@@ -151,7 +151,7 @@ export const EMPTY_TEXT = {
   /** spec §2, repo/talks */
   repoTalks: "The areas do not import each other.",
   /** spec §2 and §4, tasks */
-  tasks: "Nothing has been captured yet. A task starts as one line in intake; a plan makes it groomed; a `task/<slug>` branch means in process; an open PR means awaiting decision; a merge means done.",
+  tasks: "Nothing has been captured yet. A task starts as one line in intake; triage turns that line into a brief; filling the brief in makes it groomed; a plan that passes the contract makes it planned; a `task/<slug>` branch means in process; an open PR means awaiting decision; a merge means done.",
   /** spec §2, repo/gaps */
   repoGaps: "Every area has a note and none is stale.",
   /** spec §2, repo/run */
@@ -1165,9 +1165,12 @@ function taskLine(ctx: StoryContext, t: TaskInfo): string {
   const head = link(ctx.repo, `task:${t.slug}`, t.slug);
   const bits: string[] = [stateWords(t.state)];
   if (t.owner) bits.push(t.owner);
+  // Once triage takes the line there is no capture date to print, and an ungroomed card with a
+  // scaffolded brief is now the common case — so fall back to the age rather than printing nothing.
   if (t.state === "ungroomed" && !t.owner) {
     const captured = t.intake?.meta ? /\d{4}-\d{2}-\d{2}/.exec(t.intake.meta)?.[0] ?? null : null;
     if (captured) bits.push(`captured ${formatDate(captured, ctx.now)}`);
+    else if (t.age !== null) bits.push(formatAge(t.age));
   } else if (t.age !== null) bits.push(formatAge(t.age));
   return `${head} (${bits.join(", ")}): ${t.title || t.slug}`;
 }
@@ -1936,10 +1939,15 @@ function briefSections(ctx: StoryContext, task: TaskInfo, brief: TaskBriefDetail
   });
   const questions: Paragraph[] = brief.questions.length > 0 ? [para("questions-1", "list", brief.questions.join("\n"), [taskId])] : [];
   const notThis: Paragraph[] = not ? [para("not-1", "fact", not, [taskId])] : [];
+  // An ungroomed task with a brief is one triage scaffolded and nobody has written into: the next
+  // step is that writing, not a plan. The state is the derivation's own answer, so ask it rather
+  // than re-deciding here what counts as filled in.
   const next: Paragraph[] = [
-    para("next-1", "fact", brief.questions.length > 0
-      ? `${countPhrase(brief.questions.length, "question is", "questions are")} still open. Answer them here or in the planning session; then plan it in plan mode from the task board, or run \`reggie launch ${task.slug} --run\`.`
-      : `Nothing is open. The next step is a plan: a conversation in plan mode that ends with acceptance criteria a reviewer can check and the evidence that will prove each one. Start it from the task board, or run \`reggie launch ${task.slug} --run\`.`, [taskId]),
+    para("next-1", "fact", task.state === "ungroomed"
+      ? `At least one section of this brief is still the template triage wrote, so the task is still unshaped. The next step is a conversation that ends with the problem in plain English, where it probably lives, a size and a priority, and the questions still open. Shape it from the task board, or run \`reggie launch ${task.slug} --run\`.`
+      : brief.questions.length > 0
+        ? `${countPhrase(brief.questions.length, "question is", "questions are")} still open. Answer them here or in the planning session; then plan it in plan mode from the task board, or run \`reggie launch ${task.slug} --run\`.`
+        : `Nothing is open. The next step is a plan: a conversation in plan mode that ends with acceptance criteria a reviewer can check and the evidence that will prove each one. Start it from the task board, or run \`reggie launch ${task.slug} --run\`.`, [taskId]),
   ];
   return [
     section("ask", "What is being asked for", ask, { text: "The brief's Problem section is still the scaffold placeholder. Shaping was started but never finished.", action: { label: "Shape it in a session", command: `reggie launch ${task.slug} --run` } }),

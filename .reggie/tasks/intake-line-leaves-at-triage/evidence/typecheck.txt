@@ -1,0 +1,10 @@
+$ npm run typecheck
+
+> reggie@3.0.0-alpha.1 typecheck
+> npm --prefix packages/reggie run typecheck
+
+
+> reggie@3.0.0-alpha.1 typecheck
+> tsc -p tsconfig.json --noEmit
+
+exit=0

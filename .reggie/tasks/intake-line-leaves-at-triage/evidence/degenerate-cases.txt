@@ -1,0 +1,109 @@
+# The six degenerate cases the planner measured, re-measured against the built code
+# after the code review. Run in a throwaway repo onboarded by this branch's dist.
+
+==========================================================================
+## 1. Two intake lines colliding on one slug.
+Before: triage prefilled from the FIRST line only, but removal deleted BOTH,
+so the second wording was silently lost. Now every line carrying the slug is read.
+$ reggie triage collide
+Created .reggie/tasks/collide/brief.md and took its 2 intake lines
+$ sed -n '/## Problem/,/## Why now/p' .reggie/tasks/collide/brief.md
+## Problem
+The first wording someone wrote (alice, cli, 2026-09-13)
+detail under the first
+
+The second wording, written later by hand (bob, voice, 2026-09-15)
+detail under the second
+
+## Why now
+$ grep -c collide .reggie/intake.md   (lines left carrying the slug)
+0
+0
+Both wordings, both detail lines, and both capture stamps are in the brief.
+
+==========================================================================
+## 2. Hand-written bullet shapes.
+Before: parseIntake accepted '- ', '* ', '+ ', '- [ ] ', indented forms, a raw
+prefix it slugifies, and a bullet with no prefix at all, while removeFromIntake
+matched only '- slug:'. Removal is now driven by parseIntake itself.
+$ reggie plan done dash                                 -> Removed dash from intake
+$ reggie plan done star                                 -> Removed star from intake
+$ reggie plan done plus                                 -> Removed plus from intake
+$ reggie plan done boxed                                -> Removed boxed from intake
+$ reggie plan done indented                             -> Removed indented from intake
+$ reggie plan done raw-prefix                           -> Removed raw-prefix from intake
+$ reggie plan done a-bullet-with-no-slug-prefix-at-all  -> Removed a-bullet-with-no-slug-prefix-at-all from intake
+$ reggie plan done foo                                  -> Removed foo from intake
+$ cat .reggie/intake.md   (only foo-2 must remain: a prefix match never takes it)
+# Intake
+
+- foo-2: The slug that only shares a prefix (a, cli, 2026-09-15)
+$ tail -c 20 .reggie/intake.md | od -c
+0000000    a   ,       c   l   i   ,       2   0   2   6   -   0   9   -
+0000020    1   5   )  \n                                                
+0000024
+
+==========================================================================
+## 3. --force after the line is already gone.
+Before: --force replaced Problem with the placeholder AND collapsed the title
+to the slug, which under the new rule would also demote the card to ungroomed.
+$ reggie tasks   (the filled-in brief, before --force)
+  forced [P1 · small] · probe
+    Cap login retries on web (brief on disk; no plan yet)
+$ reggie triage forced --force
+Rewrote .reggie/tasks/forced/brief.md
+$ the title and Problem that survived:
+title: Cap login retries on web
+## Problem
+Web clients retry login forever when the server is down, so nobody can tell an outage from a broken page. (probe, cli, 2026-09-15)
+
+$ reggie triage forced --force --title "A title the owner typed"
+Rewrote .reggie/tasks/forced/brief.md
+title: A title the owner typed
+
+The capture stamp travels too, so who captured it and when survive the line's deletion.
+--force still rewrites the other sections back to the scaffold, which is what it has
+always meant ("discarding what it says"), so the card is ungroomed afterwards.
+
+==========================================================================
+## 4. The web answer form after removal (POST /api/intake).
+Before: addIntakeDetail RE-CREATED the line, so one button press rebuilt what
+triage deleted (createdLine: true) and the intake file regrew.
+$ grep -c collide .reggie/intake.md   (no line for the triaged slug)
+0
+0
+$ curl -X POST http://127.0.0.1:8793/api/intake -d '{"slug":"collide","text":"Here is what I meant."}'
+{"error":"collide has a brief; answers belong in .reggie/tasks/collide/brief.md, not back in intake"}
+HTTP 409
+$ grep -c collide .reggie/intake.md   (still 0: nothing was rebuilt)
+0
+0
+
+A slug that still has a line and no brief is still accepted:
+{"slug":"a-line-nobody-has-shaped","line":"- a-line-nobody-has-shaped: A line nobody has shaped (probe, web, 2026-09-15)"}
+{"slug":"a-line-nobody-has-shaped","added":["Here is what I meant."],"createdLine":false}
+HTTP 200
+- a-line-nobody-has-shaped: A line nobody has shaped (probe, web, 2026-09-15)
+  > Here is what I meant. (probe, web, 2026-09-15)
+
+==========================================================================
+## 5. ui/board.js optimistically setting state to groomed after a triage POST.
+Before: the card jumped to Groomed and the next reconcile pulled it back.
+$ curl -X POST http://127.0.0.1:8793/api/triage -d '{"slug":"a-line-nobody-has-shaped"}'
+{"created":["a-line-nobody-has-shaped"],"skipped":[],"takenFromIntake":["a-line-nobody-has-shaped"]}
+$ the card the server reports straight after, which is what the client now writes:
+{
+ "slug": "a-line-nobody-has-shaped",
+ "state": "ungroomed",
+ "reason": "brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this",
+ "intake": null
+}
+
+==========================================================================
+## 6. docs.ts generating the old rule into every onboarded repo.
+Before: 'Task state is read from git: intake line = ungroomed, brief.md = groomed, ...'
+$ grep 'Task state is read from git' $T/CLAUDE.md $T/AGENTS.md   (a repo onboarded by this branch)
+- Mode: **solo**. Task state is read from git: an intake line, or a `brief.md` still holding triage's scaffold, = ungroomed; a `brief.md` somebody has written into = groomed; a plan that passes the contract = planned; `task/<slug>` branch = in process; open PR = awaiting decision; merged = done.
+- Mode: **solo**. Task state is read from git: an intake line, or a `brief.md` still holding triage's scaffold, = ungroomed; a `brief.md` somebody has written into = groomed; a plan that passes the contract = planned; `task/<slug>` branch = in process; open PR = awaiting decision; merged = done.
+$ the line after it:
+- Shape a raw item first: `reggie triage <slug>` scaffolds the brief and removes the intake line, then fill every section in and check it with `reggie brief lint <slug>` — the card stays ungroomed until you do. Plan in plan mode against the contract, then `reggie claim <slug>` to start work on a `task/<slug>` branch. Finish with `reggie packet <slug>` and a PR whose body is the packet.

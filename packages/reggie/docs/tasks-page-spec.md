@@ -12,8 +12,8 @@ So the model gains a real middle state. The phases are: capture it, shape it, pl
 
 | State | Means | Derived from |
 |---|---|---|
-| `ungroomed` | Captured, not yet shaped. | An intake line, or a task folder, with no `brief.md`. |
-| `groomed` | Shaped by triage: it has a problem statement, a suspected area, a size and a priority. No full plan yet. | `brief.md` exists (on the default branch, or on disk) and no plan passes the contract. A plan draft that fails the contract leaves the task here, with the reason naming the draft. |
+| `ungroomed` | Captured, not yet shaped. | An intake line, or a task folder, with no `brief.md` — or a `brief.md` that is still triage's scaffold: any section holding its parenthesised hint, or a missing or empty `## Problem`. |
+| `groomed` | Shaped by a session: somebody has written into the brief, so it says what the item is. No full plan yet. | `brief.md` exists (on the default branch, or on disk), is not still the scaffold, and no plan passes the contract. A brief left on `size: unset` is still `groomed` — that is visible work. A plan draft that fails the contract leaves the task here, with the reason naming the draft. |
 | `planned` | Fully groomed: a plan that passes the contract, informed by the code. Ready to build. | `plan.md` passes `lintPlan` and is on the default branch; in solo mode a passing plan on disk counts. |
 | `in-process` | Someone holds the branch and is building. | `task/<slug>` branch, no packet, or a packet marked needs-work. |
 | `awaiting-decision` | Finished, waiting for a verdict. | An open PR, or `packet.md` on the branch without a needs-work verdict. |
@@ -21,7 +21,7 @@ So the model gains a real middle state. The phases are: capture it, shape it, pl
 
 `grooming` is removed as a state name. A `plan/<slug>` branch, or a plan draft failing the contract, is reported as `groomed` with a reason that says a plan is in progress. Anything that has a plan but no brief is still `planned` (or `groomed` if the plan fails); a brief is not retroactively required for tasks that already have plans.
 
-`STATE_MACHINE` gains the new states, definitions, rules and transitions, including the two new triggers: triage writes the brief (`ungroomed → groomed`) and planning writes the plan (`groomed → planned`).
+`STATE_MACHINE` gains the new states, definitions, rules and transitions, including the two new triggers: somebody fills the brief in (`ungroomed → groomed`; triage only scaffolds it, and takes the intake line as it does) and planning writes the plan (`groomed → planned`).
 
 ## 3. The brief
 
@@ -55,7 +55,7 @@ Two new project commands installed by `onboard`, alongside the existing four: `r
 
 ## 5. CLI
 
-- `reggie triage [slug]` — scaffold `brief.md` from the intake line. `--all` scaffolds one for every ungroomed item. `--title`, `--area`, `--size`, `--priority` prefill; `--force` rewrites a brief that is already there.
+- `reggie triage [slug]` — scaffold `brief.md` from the intake line, and remove the line. `--all` scaffolds one for every ungroomed item that has no brief yet, and names the ones that already have an unfilled draft. `--title`, `--area`, `--size`, `--priority` prefill; `--force` rewrites a brief that is already there.
 - `reggie brief lint <slug>` — check a brief against its contract; exit 1 on errors.
 - `reggie brief show <slug>` — print it.
 - `reggie launch <slug...> --tool claude|codex --mode discuss|build [--note "…"]` — print the command, and run it with `--run`. The goal (shape, plan, discuss, build) follows from the task's state; `discuss` accepts several slugs only when every one is ungroomed. `--run` writes the context pack for each task, mints a Claude session id, and for a build claims the task and opens the session in its worktree. (Superseded 2026-09-13: the four modes `chat|triage|plan|implement` and their slash commands are gone.)
@@ -98,7 +98,7 @@ Per-card actions, by state:
 
 | State | Actions |
 |---|---|
-| ungroomed | Read the intake line (with a form to add what you meant); **Shape it** (a discussion in plan mode that ends in a brief); Scaffold a brief (POST /api/triage, secondary) |
+| ungroomed | Read the intake line (with a form to add what you meant, offered only while there is no brief); **Shape it** (a discussion in plan mode that ends in a brief); Scaffold a brief (POST /api/triage, secondary) |
 | groomed | **Read the brief**; **Plan it** (a discussion in plan mode that ends in a plan) |
 | planned | **Read the plan**; **Start** (claims the task, opens its worktree, builds); **Discuss** |
 | in-process | Read the plan; **Resume** (build, in the worktree); open the branch; **Discuss** |
@@ -107,7 +107,7 @@ Per-card actions, by state:
 
 Every launch action offers both tools. Remember the last tool used in `localStorage` and default to it. The tool menu carries a textarea for the user's own words (`note`), appended verbatim to the prompt. Before spawning, show the exact command in the button's tooltip; after spawning, toast what was started and how to reopen the chat. If the platform cannot spawn, show the command in a copyable field instead and say why.
 
-A task page for a task with no plan renders the task story (`/api/story?scope=task`) instead of ten empty plan sections, then a form that adds detail under the intake line (`POST /api/intake`). Every task page carries the Listen control (`ui/listen.js`): read the narration aloud with the browser's voice, make an episode (`POST /api/episode`), or show the script.
+A task page for a task with no plan renders the task story (`/api/story?scope=task`) instead of ten empty plan sections, then, for a task that has no brief yet, a form that adds detail under the intake line (`POST /api/intake`). Every task page carries the Listen control (`ui/listen.js`): read the narration aloud with the browser's voice, make an episode (`POST /api/episode`), or show the script.
 
 An **Add a task** form sits at the top of the Ungroomed column, always visible: one text field, an optional detail field, POSTing to `/api/capture`, and the new card appears without a reload.
 
@@ -117,7 +117,7 @@ Empty states use the register the rest of the product uses: say why it is empty 
 
 1. A repo with no tasks shows the Add form and an empty-state sentence explaining the four phases.
 2. Capturing through the form creates an intake line and an Ungroomed card without a reload.
-3. Shaping an ungroomed card writes `brief.md` and the card moves to Groomed, with the reason naming the brief.
+3. Shaping an ungroomed card writes `brief.md`, clears its intake line, and the card stays in Ungroomed with the reason naming the draft; filling the brief in moves it to Groomed.
 4. Selecting three ungroomed cards and pressing Shape these writes three briefs in one action.
 5. A groomed card reads its brief in place; a planned card reads its plan; both render the sections, not raw markdown.
 6. Plan it on a groomed card launches a planning session in the chosen tool, in that repo, and the toast names the command.

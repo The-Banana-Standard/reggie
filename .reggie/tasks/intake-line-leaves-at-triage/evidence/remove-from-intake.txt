@@ -1,0 +1,17 @@
+$ TZ=UTC npx vitest run src/capture.test.ts --reporter=verbose   (AC12, AC13)
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/intake-line-leaves-at-triage/packages/reggie
+
+ ✓ src/capture.test.ts > capture > derives unique slugs and keeps detail lines 99ms
+ ✓ src/capture.test.ts > capture > removes an item and its detail once planned 85ms
+ ✓ src/capture.test.ts > capture > removes every bullet shape parseIntake accepts, and leaves a slug that only shares a prefix 52ms
+ ✓ src/capture.test.ts > capture > writes nothing for a slug that has no line, so a second sweep is harmless 73ms
+ ✓ src/capture.test.ts > capture > adds detail under an existing intake item, after the detail already there 84ms
+ ✓ src/capture.test.ts > capture > writes an intake line to hold detail for a slug that has none, and refuses empty detail 63ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  03:28:50
+   Duration  595ms (transform 58ms, setup 0ms, import 83ms, tests 457ms, environment 0ms)
+
+exit=0

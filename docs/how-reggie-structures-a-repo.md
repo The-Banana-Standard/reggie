@@ -58,7 +58,7 @@ The reason for the split is that hand-written descriptions of derivable facts go
 
 ### .reggie/intake.md: where ideas land
 
-One line per item, no structure required. You can add a line by hand, by `reggie capture`, from a Claude or Codex session through the MCP tools, or later from a voice note. Each line gets a slug, and the slug follows the task for the rest of its life. When a plan is written, the intake line is removed.
+One line per item, no structure required. You can add a line by hand, by `reggie capture`, from a Claude or Codex session through the MCP tools, or later from a voice note. Each line gets a slug, and the slug follows the task for the rest of its life. `reggie triage <slug>` removes the line as it writes the brief: from then on the brief is the record of that item, so this file stays the queue of what has not been shaped rather than a log of everything ever captured.
 
 ### .reggie/tasks/<slug>/plan.md: the plan, against a contract
 
@@ -108,7 +108,8 @@ Four small commands, `reggie-onboard`, `reggie-plan`, `reggie-execute`, and `reg
 | `reggie onboard` | Creates `.reggie/`, the generated blocks, commands, `.mcp.json`, and the onboarding brief |
 | Code changes | Nothing automatically; `reggie docs refresh` updates the facts, `reggie note stale` finds notes to revisit |
 | A capture | One line in `intake.md` |
-| A plan | `tasks/<slug>/plan.md`; the intake line is removed |
+| A triage | `tasks/<slug>/brief.md`, scaffolded; the intake line is removed |
+| A plan | `tasks/<slug>/plan.md` |
 | A claim | A `task/<slug>` branch and a journal entry |
 | Work | Commits on the branch, notes for touched files, journal entries, evidence files |
 | A packet | `tasks/<slug>/packet.md` |

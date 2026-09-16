@@ -1,0 +1,43 @@
+$ npm test   (local time, TZ=EDT — the known ageInDays failure is expected here)
+
+> reggie@3.0.0-alpha.1 test
+> npm --prefix packages/reggie run test
+
+
+> reggie@3.0.0-alpha.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/intake-line-leaves-at-triage/packages/reggie
+
+ ❯ src/tasks.test.ts (21 tests | 1 failed) 13634ms
+     × assembles plan, packet, claim, journal, and impact as a task moves 534ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tasks.test.ts > state machine and task detail > assembles plan, packet, claim, journal, and impact as a task moves
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ src/tasks.test.ts:263:29
+    261|     expect(detail.task.reason).toContain("no brief");
+    262|     expect(detail.task.stateDefinition).toBe(stateDefinition("ungroome…
+    263|     expect(detail.task.age).toBe(0);
+       |                             ^
+    264|     expect(detail.task.planFiles).toEqual([]);
+    265|     expect(detail.task.changedFiles).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 31 passed (32)
+      Tests  1 failed | 686 passed | 1 skipped (688)
+   Start at  23:27:45
+   Duration  14.44s (transform 2.22s, setup 0ms, import 3.86s, tests 138.68s, environment 1ms)
+
+exit=1

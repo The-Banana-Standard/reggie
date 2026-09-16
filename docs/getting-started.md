@@ -104,11 +104,12 @@ reggie plan new <slug>            # scaffold from the contract
 # edit .reggie/tasks/<slug>/plan.md
 reggie plan risk <slug>           # low, medium, or high from the files
 reggie plan lint <slug>           # PASS or a list of what is missing
-reggie plan done <slug>           # remove the intake line
 git add .reggie && git commit -m "plan: <slug>"
 ```
 
-In solo mode, committing the plan to your default branch is the approval. The task is now **groomed**.
+In solo mode, committing the plan to your default branch is the approval. The task is now **planned**.
+
+(`reggie triage` already removed the intake line when it wrote the brief. `reggie plan done <slug>` is still there to sweep a line that outlived its brief — one captured before triage did that, or written by hand afterwards.)
 
 **Execute.** In Claude Code:
 

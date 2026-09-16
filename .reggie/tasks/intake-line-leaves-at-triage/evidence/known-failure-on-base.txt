@@ -1,0 +1,37 @@
+# The same test, on the untouched base checkout (branch repo-manager at 87bee39), local time.
+# Proof that the one local-time failure predates this task.
+$ npx vitest run src/tasks.test.ts -t 'assembles plan, packet, claim, journal, and impact as a task moves'
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/packages/reggie
+
+ ❯ src/tasks.test.ts (17 tests | 1 failed | 16 skipped) 225ms
+     × assembles plan, packet, claim, journal, and impact as a task moves 224ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tasks.test.ts > state machine and task detail > assembles plan, packet, claim, journal, and impact as a task moves
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ src/tasks.test.ts:262:29
+    260|     expect(detail.task.reason).toContain("no brief");
+    261|     expect(detail.task.stateDefinition).toBe(stateDefinition("ungroome…
+    262|     expect(detail.task.age).toBe(0);
+       |                             ^
+    263|     expect(detail.task.planFiles).toEqual([]);
+    264|     expect(detail.task.changedFiles).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 skipped (17)
+   Start at  23:01:51
+   Duration  406ms (transform 91ms, setup 0ms, import 121ms, tests 225ms, environment 0ms)
+
+exit=1

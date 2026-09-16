@@ -2,7 +2,7 @@ import { rmSync } from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fullPlan, makeTempRepo, type TempRepo } from "../test/helpers.js";
-import { capture } from "./capture.js";
+import { capture, removeFromIntake } from "./capture.js";
 import { claimTask } from "./claim.js";
 import { git } from "./git.js";
 import { onboard } from "./onboard.js";
@@ -24,6 +24,7 @@ import {
   taskPhase,
   type TaskDetail,
 } from "./tasks.js";
+import { scaffoldBrief } from "./triage.js";
 import { readText, writeText } from "./util.js";
 
 /** A brief that satisfies the brief contract, for the states that only need one to exist. */
@@ -448,6 +449,48 @@ describe("briefs shape a task before a plan does", () => {
     expect(groomed.title).toBe("Cap login retries on web");
     expect(groomed.planExists).toBe(false);
     expect(groomed.planLintOk).toBeNull();
+  });
+
+  it("the scaffold triage writes leaves the task ungroomed, with a reason naming the draft", () => {
+    const { paths, config, slug } = captured();
+    scaffoldBrief(paths, { slug, author: "test" });
+    const t = getTask(paths, config, slug);
+    expect(t.state).toBe("ungroomed");
+    expect(t.phase).toBe("capture");
+    expect(t.reason).toBe("brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this");
+    // The brief is really there; it is its emptiness that keeps the card where it is.
+    expect(t.brief?.exists).toBe(true);
+  });
+
+  it("a brief written out but missing size and priority is groomed, with today's reason", () => {
+    const { paths, config, slug } = captured();
+    writeText(briefFile(paths, slug), fullBrief(slug).replace("size: small", "size: unset").replace("priority: P1", "priority: unset"));
+    const t = getTask(paths, config, slug);
+    expect(t.state).toBe("groomed");
+    expect(t.reason).toBe("brief on disk; no plan yet");
+  });
+
+  it("a brief written out but with an empty Problem is ungroomed, naming the empty Problem", () => {
+    const { paths, config, slug } = captured();
+    writeText(
+      briefFile(paths, slug),
+      fullBrief(slug).replace("Web clients retry login forever when the server is down, so nobody can tell an outage from a broken page.", ""),
+    );
+    const t = getTask(paths, config, slug);
+    expect(t.state).toBe("ungroomed");
+    expect(t.reason).toBe("brief on disk is still triage's scaffold: the Problem section is empty");
+  });
+
+  it("dates a card with a brief and no branch from the brief's created, once the line is gone", () => {
+    const { paths, config, slug } = captured();
+    writeText(briefFile(paths, slug), fullBrief(slug));
+    expect(removeFromIntake(paths, slug)).toBe(true);
+    const t = getTask(paths, config, slug);
+    expect(t.intake).toBeNull();
+    expect(t.lastActivity).toBeNull();
+    // fullBrief carries created: 2026-09-08, so the age is the whole days since that UTC midnight.
+    expect(t.age).toBe(ageInDays("2026-09-08"));
+    expect(t.age).not.toBeNull();
   });
 
   it("a brief committed to the default branch counts even when it is gone from disk", () => {

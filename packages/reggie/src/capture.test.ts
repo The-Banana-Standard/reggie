@@ -5,6 +5,7 @@ import { ensureLayout } from "./layout.js";
 import { repoPaths } from "./paths.js";
 import { currentPerson } from "./people.js";
 import { readIntake } from "./tasks.js";
+import { readText, writeText } from "./util.js";
 
 describe("capture", () => {
   let repo: TempRepo;
@@ -37,6 +38,59 @@ describe("capture", () => {
     const items = readIntake(paths);
     expect(items.map((i) => i.slug)).toEqual(["second-thing"]);
     expect(removeFromIntake(paths, "first-thing")).toBe(false);
+  });
+
+  it("removes every bullet shape parseIntake accepts, and leaves a slug that only shares a prefix", () => {
+    const paths = repoPaths(repo.root);
+    // The intake header invites hand-written lines, and parseIntake takes all of these. A shape
+    // parsed as an item but not matched here would outlive its own brief and sit in the queue.
+    const file = [
+      "# Intake",
+      "",
+      "- dash: A plain dash (a, cli, 2026-09-15)",
+      "  > detail under the dash",
+      "* star: A star bullet (a, cli, 2026-09-15)",
+      "  > detail under the star",
+      "+ plus: A plus bullet (a, cli, 2026-09-15)",
+      "- [ ] boxed: A checkbox bullet (a, cli, 2026-09-15)",
+      "   - indented: Three spaces of indent (a, cli, 2026-09-15)",
+      "- Raw_Prefix: A prefix parseIntake slugifies (a, cli, 2026-09-15)",
+      "  > detail under the slugified prefix",
+      "- A bullet with no slug prefix at all (a, cli, 2026-09-15)",
+      "- foo: The short slug (a, cli, 2026-09-15)",
+      "- foo-2: The slug that only shares a prefix (a, cli, 2026-09-15)",
+      "",
+    ].join("\n");
+    writeText(paths.intake, file);
+    expect(readIntake(paths).map((i) => i.slug)).toEqual([
+      "dash",
+      "star",
+      "plus",
+      "boxed",
+      "indented",
+      "raw-prefix",
+      "a-bullet-with-no-slug-prefix-at-all",
+      "foo",
+      "foo-2",
+    ]);
+
+    for (const slug of ["dash", "star", "plus", "boxed", "indented", "raw-prefix", "a-bullet-with-no-slug-prefix-at-all"]) {
+      expect(removeFromIntake(paths, slug)).toBe(true);
+    }
+    expect(removeFromIntake(paths, "foo")).toBe(true);
+    expect(readText(paths.intake)).toBe("# Intake\n\n- foo-2: The slug that only shares a prefix (a, cli, 2026-09-15)\n");
+    expect(readIntake(paths).map((i) => i.slug)).toEqual(["foo-2"]);
+  });
+
+  it("writes nothing for a slug that has no line, so a second sweep is harmless", () => {
+    const paths = repoPaths(repo.root);
+    const person = currentPerson(repo.root);
+    capture(paths, { text: "Still waiting", person, source: "cli" });
+    const before = readText(paths.intake);
+    expect(removeFromIntake(paths, "never-captured")).toBe(false);
+    expect(readText(paths.intake)).toBe(before);
+    expect(removeFromIntake(paths, "still-waiting")).toBe(true);
+    expect(removeFromIntake(paths, "still-waiting")).toBe(false);
   });
 
   it("adds detail under an existing intake item, after the detail already there", () => {

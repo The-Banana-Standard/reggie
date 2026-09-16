@@ -19,12 +19,12 @@ capture -> shape (brief) -> plan -> build -> decide
 ```
 
 1. `reggie capture "…"` puts a raw idea in `.reggie/intake.md`.
-2. `reggie triage <slug>` shapes it into a brief: the problem, the suspected area, a size and a priority.
+2. `reggie triage <slug>` scaffolds a brief from that line and removes the line; you fill the brief in with the problem, the suspected area, a size and a priority.
 3. Plan in your tool's own plan mode against Reggie's plan contract, then `reggie plan lint <slug>`.
 4. `reggie claim <slug>` starts a `task/<slug>` branch; the plan names the evidence that will prove it works.
 5. `reggie packet <slug>` writes the completion packet, and the PR body is that packet.
 
-Task state is not stored — it is read from git. An intake line means ungroomed; a brief means groomed; a plan that passes the contract means planned; a `task/<slug>` branch means in process; an open PR means awaiting decision; a merge means done.
+Task state is not stored — it is read from git. An intake line means ungroomed, and so does a brief still holding triage's scaffold; a brief somebody has written into means groomed; a plan that passes the contract means planned; a `task/<slug>` branch means in process; an open PR means awaiting decision; a merge means done.
 
 ---
 

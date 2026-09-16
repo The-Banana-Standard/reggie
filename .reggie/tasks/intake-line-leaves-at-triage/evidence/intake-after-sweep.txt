@@ -1,0 +1,36 @@
+# AC24: the sweep. Every intake line whose slug already has a brief.md on disk.
+# The twelve were found by joining parseIntake over .reggie/intake.md against the board,
+# not typed out by hand, and they are exactly the twelve the plan named.
+
+$ item count before:
+68 items
+
+$ reggie plan done a-task-worktree-has-no-node-modules-so-nothing-r -> Removed a-task-worktree-has-no-node-modules-so-nothing-r from intake
+$ reggie plan done derive-the-journal                               -> Removed derive-the-journal from intake
+$ reggie plan done task-attribution-by-merge                        -> Removed task-attribution-by-merge from intake
+$ reggie plan done branch-diff-in-reader                            -> Removed branch-diff-in-reader from intake
+$ reggie plan done needs-you-queue                                  -> Removed needs-you-queue from intake
+$ reggie plan done idea-from-every-page                             -> Removed idea-from-every-page from intake
+$ reggie plan done low-risk-auto-approval                           -> Removed low-risk-auto-approval from intake
+$ reggie plan done graph-coverage-published                         -> Removed graph-coverage-published from intake
+$ reggie plan done false-tests-sentence                             -> Removed false-tests-sentence from intake
+$ reggie plan done note-form-on-repo-and-area                       -> Removed note-form-on-repo-and-area from intake
+$ reggie plan done docs-check-in-ci                                 -> Removed docs-check-in-ci from intake
+$ reggie plan done intake-line-leaves-at-triage                     -> Removed intake-line-leaves-at-triage from intake
+
+$ item count after:
+56 items
+
+$ every slug left in intake, joined against reggie tasks --json --all:
+items left: 56
+items that are not ungroomed, or that have a brief.md: 0
+=> every remaining slug is ungroomed and has no brief.
+
+$ blank-line runs and the trailing newline:
+consecutive blank lines: 0
+ends with exactly one newline: True
+bytes: 35586 lines: 112
+$ tail -c 30 .reggie/intake.md | od -c
+0000000    i   n   t   a   k   e   -   l   i   n   e   -   l   e   a   v
+0000020    e   s   -   a   t   -   t   r   i   a   g   e   .  \n        
+0000036

@@ -56,8 +56,8 @@ export const GLOSSARY = {
   decide: "Stage: decide — a maintainer approved or sent the work back.",
   release: "Stage: release — the claim on the task was released.",
   // task states
-  ungroomed: "Ungroomed: captured but not yet shaped — no brief.md says what it is.",
-  groomed: "Groomed: triage wrote a brief — a problem, a suspected area, a size and a priority. No plan that passes the contract yet.",
+  ungroomed: "Ungroomed: captured but not yet shaped — no brief.md says what it is, or the one there is still triage's unfilled scaffold.",
+  groomed: "Groomed: somebody wrote into the brief — a problem, a suspected area, a size and a priority. No plan that passes the contract yet.",
   planned: "Planned: a plan that passes the contract is on the default branch. Ready to build.",
   "in-process": "In process: a task/<slug> branch has commits.",
   "awaiting-decision": "Awaiting decision: an open PR or a completion packet on the branch.",
