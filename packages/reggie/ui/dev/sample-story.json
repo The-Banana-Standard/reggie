@@ -72,13 +72,13 @@
         {
           "id": "made-of-1",
           "kind": "fact",
-          "text": "[[#/repo/reggie/area/src/components|src/components]] is a TypeScript area: [[#/repo/reggie/area/src/components?lens=structure|29 source files]] ([[#/repo/reggie/area/src/components?lens=tests|54 with tests]]), [[#/repo/reggie/area/src/components?lens=knowledge|none with a note]], [[#/repo/reggie/area/src/components?lens=heat|changed 12 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]].",
+          "text": "[[#/repo/reggie/area/src/components|src/components]] is a TypeScript area: [[#/repo/reggie/area/src/components?lens=structure|29 source files]], [[#/repo/reggie/area/src/components?lens=tests|20 of them tested]], [[#/repo/reggie/area/src/components?lens=knowledge|none with a note]], [[#/repo/reggie/area/src/components?lens=heat|changed 12 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]].",
           "refs": ["dir:src/components/", "person:jacobpress"]
         },
         {
           "id": "made-of-2",
           "kind": "fact",
-          "text": "[[#/repo/reggie/area/packages/reggie|packages/reggie]] is a TypeScript package: [[#/repo/reggie/area/packages/reggie|21 source files]] ([[#/repo/reggie/area/packages/reggie?lens=tests|32 with tests]]), [[#/repo/reggie/area/packages/reggie?lens=knowledge|seven with a note]], [[#/repo/reggie/area/packages/reggie?lens=heat|changed 41 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]]. It stands alone: nothing else in the repo imports it.",
+          "text": "[[#/repo/reggie/area/packages/reggie|packages/reggie]] is a TypeScript package: [[#/repo/reggie/area/packages/reggie|21 source files]], [[#/repo/reggie/area/packages/reggie?lens=tests|12 of them tested]], [[#/repo/reggie/area/packages/reggie?lens=knowledge|seven with a note]], [[#/repo/reggie/area/packages/reggie?lens=heat|changed 41 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]]. It stands alone: nothing else in the repo imports it.",
           "refs": ["dir:packages/reggie/", "person:jacobpress"]
         },
         {

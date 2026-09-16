@@ -1,0 +1,86 @@
+Run from packages/reggie on the landing tree. Three commands, each with its exit code.
+
+NOTE, read before the first result: `npm test` exits 1 in local time and 0 under TZ=UTC.
+The single failure is src/tasks.test.ts, an age assertion, and it has nothing to do with this
+task: nothing in its import graph touches story.ts, and the whole difference is the clock.
+A task's capture date is written in local time and aged against midnight UTC, so from about
+20:00 EDT onwards a task captured today measures as one day old. Both runs are below, and
+the defect is captured to intake as its own item rather than fixed here.
+
+==========================================================================
+$ npm run test
+==========================================================================
+
+> reggie@3.0.0-alpha.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/false-tests-sentence/packages/reggie
+
+ ❯ src/tasks.test.ts (17 tests | 1 failed) 6413ms
+     × assembles plan, packet, claim, journal, and impact as a task moves 238ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tasks.test.ts > state machine and task detail > assembles plan, packet, claim, journal, and impact as a task moves
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ src/tasks.test.ts:262:29
+    260|     expect(detail.task.reason).toContain("no brief");
+    261|     expect(detail.task.stateDefinition).toBe(stateDefinition("ungroome…
+    262|     expect(detail.task.age).toBe(0);
+       |                             ^
+    263|     expect(detail.task.planFiles).toEqual([]);
+    264|     expect(detail.task.changedFiles).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 30 passed (31)
+      Tests  1 failed | 583 passed | 1 skipped (585)
+   Start at  20:09:51
+   Duration  14.70s (transform 1.94s, setup 0ms, import 3.36s, tests 113.56s, environment 1ms)
+
+--- exit=1 ---
+
+==========================================================================
+$ npm run typecheck
+==========================================================================
+
+> reggie@3.0.0-alpha.1 typecheck
+> tsc -p tsconfig.json --noEmit
+
+--- exit=0 ---
+
+==========================================================================
+$ npm run build
+==========================================================================
+
+> reggie@3.0.0-alpha.1 build
+> tsc -p tsconfig.json
+
+--- exit=0 ---
+
+==========================================================================
+$ TZ=UTC npm test          (the same suite, with the clock artifact out of the way)
+==========================================================================
+
+> reggie@3.0.0-alpha.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/false-tests-sentence/packages/reggie
+
+
+ Test Files  31 passed (31)
+      Tests  584 passed | 1 skipped (585)
+   Start at  00:10:08
+   Duration  13.22s (transform 2.23s, setup 0ms, import 3.77s, tests 123.17s, environment 1ms)
+
+--- exit=0 ---

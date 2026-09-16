@@ -1,0 +1,36 @@
+The subtitle beside the Tests section, per area, on the landing tree.
+
+The clause and the Tests paragraph both read aggregates.testedSource, so the number after "of them
+tested" and the first number after "cover" are the same field and cannot disagree. Rendered, not
+argued:
+
+
+=== REPO ===
+  areaTests  : 33 test files cover 35 of 52 source files.
+
+=== AREA packages/reggie/src ===
+  subtitle   : TypeScript area, 38 source files, 35 of them tested.
+  areaTests  : 28 test files cover 35 of 38 source files.
+
+=== AREA packages/reggie/ui ===
+  subtitle   : JavaScript area, 14 source files.
+  areaTests  : (empty) No test file imports anything in this folder.
+
+=== DIR packages/reggie/test (not a Level-1 area; asked for by name) ===
+  subtitle   : TypeScript area, no source files.
+  areaTests  : five test files cover no of no source files.
+
+=== DIR packages/reggie (not a Level-1 area; asked for by name) ===
+  subtitle   : TypeScript package, 52 source files, 35 of them tested.
+  areaTests  : 33 test files cover 35 of 52 source files.
+
+Read the pairs:
+
+  packages/reggie/src   subtitle says "35 of them tested"; Tests says "cover 35 of 38". Agree.
+  packages/reggie/ui    no clause; Tests section is empty and says so. Agree.
+  packages/reggie/test  subtitle is exactly "TypeScript area, no source files." — no tests clause,
+                        which is the plan's criterion 8. Its Tests paragraph still reads "five test
+                        files cover no of no source files", which is one of the two defects in that
+                        section captured to intake rather than fixed here; that section is the fixed
+                        point this task was made to agree with, so it is left alone.
+  packages/reggie       subtitle says "35 of them tested"; Tests says "cover 35 of 52". Agree.

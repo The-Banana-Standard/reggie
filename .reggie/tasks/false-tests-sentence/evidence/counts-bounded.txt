@@ -1,0 +1,31 @@
+The counts each of the three sites used, and the bound, on the landing tree.
+
+Criterion 7: no clause prints a tested count greater than the source count printed beside it in the
+same sentence, at any of the three sites, for every Level-1 area and for the repo. The three sites
+take both numbers from the same node's aggregates, so one row per node covers all three.
+
+=== REPO ===
+  aggregates : source=52 files=86 tests=33 testedSource=35
+  BOUND      : tested=35 source=52 -> OK
+=== AREA packages/reggie/src ===
+  aggregates : source=38 files=66 tests=28 testedSource=35
+  BOUND      : tested=35 source=38 -> OK
+=== AREA packages/reggie/ui ===
+  aggregates : source=14 files=14 tests=0 testedSource=0
+  BOUND      : tested=0 source=14 -> OK
+=== DIR packages/reggie/test (not a Level-1 area; asked for by name) ===
+  aggregates : source=0 files=5 tests=5 testedSource=0
+  BOUND      : tested=0 source=0 -> OK
+=== DIR packages/reggie (not a Level-1 area; asked for by name) ===
+  aggregates : source=52 files=86 tests=33 testedSource=35
+  BOUND      : tested=35 source=52 -> OK
+
+Every row is OK, and it is not a coincidence that holds on this repo: graph.ts increments
+testedSource only for a node whose role is "source", and source counts exactly those nodes, so
+testedSource <= source by construction at every level of the fold. The BEFORE run in
+rendered-before-after.txt shows what the old clause printed against the same numbers — 66 against
+38 source files, 86 against 52 — which was never a count of tested anything.
+
+The same bound is asserted per area in the new test ("prints one wording at every site, and never
+more tested than source"), so a future change that breaks it fails the suite rather than waiting
+for someone to read a page.

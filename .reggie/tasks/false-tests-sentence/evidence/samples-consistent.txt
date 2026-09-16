@@ -1,0 +1,31 @@
+The two hand-written dev samples beside the aggregates their areas carry in sample-container.json.
+
+The samples under ui/dev are hand-written payloads: ui/dev/gen-samples.mjs writes
+sample-container, sample-dir, sample-dir-tests, sample-impact, sample-blast and sample-workspace,
+and neither sample-story nor sample-explain is among them. They were edited by hand and their
+numbers taken from the aggregates below, which are the same source the real clause reads.
+
+$ node -e "<walk sample-container.json for the three areas the samples name>"
+  dir:packages/reggie/       source=21  files=32  tests=11  testedSource=12
+  dir:src/components/        source=29  files=54  tests=25  testedSource=20
+  dir:src/types/             source=7   files=8   tests=1   testedSource=1
+
+$ grep -n "of them tested" ui/dev/sample-story.json ui/dev/sample-explain.json
+ui/dev/sample-story.json:75:          "text": "[[#/repo/reggie/area/src/components|src/components]] is a TypeScript area: [[#/repo/reggie/area/src/components?lens=structure|29 source files]], [[#/repo/reggie/area/src/components?lens=tests|20 of them tested]], [[#/repo/reggie/area/src/components?lens=knowledge|none with a note]], [[#/repo/reggie/area/src/components?lens=heat|changed 12 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]].",
+ui/dev/sample-story.json:81:          "text": "[[#/repo/reggie/area/packages/reggie|packages/reggie]] is a TypeScript package: [[#/repo/reggie/area/packages/reggie|21 source files]], [[#/repo/reggie/area/packages/reggie?lens=tests|12 of them tested]], [[#/repo/reggie/area/packages/reggie?lens=knowledge|seven with a note]], [[#/repo/reggie/area/packages/reggie?lens=heat|changed 41 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]]. It stands alone: nothing else in the repo imports it.",
+ui/dev/sample-explain.json:13:      "text": "[[#/repo/reggie/area/src/types|src/types]] is a TypeScript area of seven source files, one of them tested, holding the shared types of the desktop app.",
+
+Line by line:
+
+  sample-story  src/components    clause "20 of them tested", testedSource 20.  Match.
+  sample-story  packages/reggie   clause "12 of them tested", testedSource 12.  Match.
+  sample-explain src/types        clause "one of them tested", testedSource 1.  Match, and
+                                  numberWord writes 1 as the word "one".
+
+Each number is also at or below the source count printed beside it in the same sentence (20 of 29,
+12 of 21, one of seven), which the old samples were not: they read "(54 with tests)" against 29
+source files and "(32 with tests)" against 21.
+
+$ python3 -c "json.load(...)"  — both files still parse
+  ui/dev/sample-story.json: valid JSON
+  ui/dev/sample-explain.json: valid JSON

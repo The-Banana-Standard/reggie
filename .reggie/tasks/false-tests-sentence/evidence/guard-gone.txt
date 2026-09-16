@@ -1,0 +1,12 @@
+$ cd packages/reggie
+$ grep -n 'files > source' src/story.ts
+(no output; exit 1 — the guard is gone from the file)
+
+$ grep -n 'with tests' src/story.ts
+(no output; exit 1 — the phrase is gone from the file)
+
+$ grep -n 'testedClause' src/story.ts     — one definition, three call sites
+224:function testedClause(tested: number): string | null {
+927:    const tested = testedClause(agg?.testedSource ?? 0);
+1221:  const tested = testedClause(agg?.testedSource ?? 0);
+2167:  const tested = testedClause(agg?.testedSource ?? 0);

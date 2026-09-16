@@ -10,7 +10,7 @@
   "route": "#/repo/reggie/area/src/types",
   "sentences": [
     {
-      "text": "[[#/repo/reggie/area/src/types|src/types]] is a TypeScript area of seven source files (eight with tests) holding the shared types of the desktop app.",
+      "text": "[[#/repo/reggie/area/src/types|src/types]] is a TypeScript area of seven source files, one of them tested, holding the shared types of the desktop app.",
       "refs": ["dir:src/types/"]
     },
     {
