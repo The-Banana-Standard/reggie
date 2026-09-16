@@ -208,6 +208,23 @@ export function countPhrase(n: number, singular: string, plural = `${singular}s`
   return `${numberWord(n)} ${n === 1 ? singular : plural}`;
 }
 
+/**
+ * The tests clause, or nothing at all. Pass `aggregates.testedSource` — the count of source files
+ * with an inbound test edge — and append the result after the source-file count the sentence has
+ * just printed, as `, ${clause}`. Every site that says how well something is tested calls this one
+ * function: the made-of paragraph, the area subtitle and the container Spotlight used to build the
+ * clause three separate times and drifted from the graph together.
+ *
+ * Two properties the wording depends on. "Of them" always refers to the source files named
+ * immediately before it, and `testedSource` only ever counts files whose role is source, so the
+ * number can never exceed the one beside it. And a zero returns null rather than "none of them
+ * tested": in a repo whose imports the graph cannot resolve, silence is honest and a stated zero
+ * would be a fresh false claim.
+ */
+function testedClause(tested: number): string | null {
+  return tested > 0 ? `${numberWord(tested)} of them tested` : null;
+}
+
 /** "6 Sep" in the current year, "6 Sep 2025" otherwise. Accepts ISO dates and timestamps. */
 export function formatDate(value: string | null | undefined, now: Date = new Date()): string {
   if (!value) return "an unknown date";
@@ -905,13 +922,15 @@ function madeOfSection(ctx: StoryContext): StorySection {
     const node = byId.get(ref.id);
     const agg = node?.aggregates;
     const source = agg?.source ?? ref.source;
-    const files = agg?.files ?? ref.files;
+    // No `ref.files` fallback: `AreaRef` carries no tested count, so a node without aggregates
+    // omits the clause rather than printing a number it does not have.
+    const tested = testedClause(agg?.testedSource ?? 0);
     const documented = noted.get(ref.id) ?? 0;
     const commits30 = agg?.history?.commits30 ?? 0;
     const author = topAuthor(agg?.history);
     const lang = node?.lang ? `${node.lang} ` : "";
     const parts: string[] = [`${link(ctx.repo, ref.id, ref.label)} is a ${lang}${areaKindWord(node)}: ${linkRoute(routeFor(ctx.repo, ref.id, { lens: "structure" }), countPhrase(source, "source file"))}`];
-    if (files > source) parts.push(` (${linkRoute(routeFor(ctx.repo, ref.id, { lens: "tests" }), `${numberWord(files)} with tests`)})`);
+    if (tested) parts.push(`, ${linkRoute(routeFor(ctx.repo, ref.id, { lens: "tests" }), tested)}`);
     parts.push(`, ${linkRoute(routeFor(ctx.repo, ref.id, { lens: "knowledge" }), documented === 0 ? "none with a note" : `${numberWord(documented)} with a note`)}`);
     if (commits30 > 0) parts.push(`, ${linkRoute(routeFor(ctx.repo, ref.id, { lens: "heat" }), `changed ${timesPhrase(commits30)}`)} in the last 30 days`);
     if (author) parts.push(`, mostly by ${link(ctx.repo, `person:${author.handle}`, author.handle)}`);
@@ -1199,9 +1218,9 @@ export function areaStory(ctx: StoryContext, id: string): Story | null {
   if (ctx.lens === "knowledge") sections.push(areaGaps(ctx, rootId, dirPath));
 
   const source = agg?.source ?? 0;
-  const files = agg?.files ?? 0;
+  const tested = testedClause(agg?.testedSource ?? 0);
   const lang = node.lang ? `${node.lang} ` : "";
-  const subtitle = `${lang}${areaKindWord(node)}, ${countPhrase(source, "source file")}${files > source ? ` (${numberWord(files)} with tests)` : ""}.`;
+  const subtitle = `${lang}${areaKindWord(node)}, ${countPhrase(source, "source file")}${tested ? `, ${tested}` : ""}.`;
 
   const next: Crumb[] = [];
   const relied = mostReliedOn(ctx, rootId);
@@ -2145,10 +2164,10 @@ function explainContainer(ctx: StoryContext, node: GraphNode): Explain {
   const label = isRepoNode ? link(ctx.repo, `repo:${ctx.repo}`, ctx.repo) : link(ctx.repo, node.id, dirPathOf(node.id));
   const agg = node.aggregates;
   const source = agg?.source ?? 0;
-  const files = agg?.files ?? 0;
+  const tested = testedClause(agg?.testedSource ?? 0);
   const lang = node.lang ? `${node.lang} ` : "";
   const what = sentence(
-    `${label} is a ${lang}${isRepoNode ? "repo" : areaKindWord(node)} of ${countPhrase(source, "source file")}${files > source ? ` (${numberWord(files)} with tests)` : ""}, ${countPhrase(agg?.lines ?? node.lines, "line")} in all.`,
+    `${label} is a ${lang}${isRepoNode ? "repo" : areaKindWord(node)} of ${countPhrase(source, "source file")}${tested ? `, ${tested}` : ""}, ${countPhrase(agg?.lines ?? node.lines, "line")} in all.`,
     [node.id],
   );
 

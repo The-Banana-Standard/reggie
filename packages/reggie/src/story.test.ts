@@ -625,6 +625,115 @@ describe("explain", () => {
 });
 
 // ---------------------------------------------------------------------------
+// The tests clause, at the three sites that print it
+// ---------------------------------------------------------------------------
+
+/**
+ * Three purpose-built areas, one per case the clause has to get right: an area whose source files
+ * are imported by a test, an area whose only non-source file is a config file, and an area of
+ * source files and nothing else. The middle one is the point of the fixture. The clause used to be
+ * guarded by `files > source`, which is true of any area holding anything that is not source, so
+ * a folder with a config file and no test at all announced that it had tests. A `tsconfig.json`
+ * will not reproduce that: `.json` is not a scanned extension and never reaches the graph, so the
+ * config case has to be a config file with a code extension.
+ */
+describe("the tests clause", () => {
+  /**
+   * The retired wording, named once so the repo holds exactly one copy of it. The phrase sweep in
+   * this task's acceptance criteria greps for it; this constant is the only live reference left.
+   */
+  const OLD_WORDING = "with tests";
+  /** The clause in either wording, plus the link only the clause ever emits. None may appear. */
+  const NO_CLAUSE = new RegExp(`of them tested|${OLD_WORDING}|lens=tests`);
+  let local: StoryContext;
+
+  beforeAll(() => {
+    const repo = makeTempRepo("reggie-story-clause-");
+    cleanups.push(repo);
+    // covered/: three source files, each imported by the one test file.
+    for (let i = 1; i <= 3; i += 1) repo.write(`covered/c${i}.ts`, `export const c${i} = ${i};\n`);
+    repo.write(
+      "covered/__tests__/covered.test.ts",
+      ['import { c1 } from "../c1.js";', 'import { c2 } from "../c2.js";', 'import { c3 } from "../c3.js";', "", "export const seen = [c1, c2, c3];", ""].join("\n"),
+    );
+    // configured/: three source files and one config file. No test anywhere in it.
+    for (let i = 1; i <= 3; i += 1) repo.write(`configured/g${i}.ts`, `export const g${i} = ${i};\n`);
+    repo.write("configured/vitest.config.ts", "export default { test: {} };\n");
+    // plain/: three source files and nothing else.
+    for (let i = 1; i <= 3; i += 1) repo.write(`plain/p${i}.ts`, `export const p${i} = ${i};\n`);
+    repo.commitAll("one tested area, one config-only area, one source-only area");
+    local = contextFor(repo.root);
+  }, 120_000);
+
+  const aggOf = (area: string) => {
+    const agg = local.node(`dir:${area}/`)?.aggregates;
+    expect(agg, `no aggregates for ${area}`).toBeDefined();
+    return agg!;
+  };
+
+  /** Site 1: the repo page's "What it is made of" paragraph for one area. */
+  function madeOf(area: string): string {
+    const found = sectionOf(repoStory(local), "made-of").paragraphs.find((p) => p.text.includes(`|${area}]]`));
+    expect(found, `no made-of paragraph for ${area}`).toBeDefined();
+    return found!.text;
+  }
+  /** Site 2: the area page's subtitle. */
+  const subtitleOf = (area: string) => areaStory(local, area)?.subtitle ?? "";
+  /** Site 3: the first of the four Spotlight sentences for the container. */
+  const spotlightOf = (area: string) => explain(local, `dir:${area}/`)?.sentences[0]?.text ?? "";
+
+  it("names the tested-source count at all three sites when source files are tested", () => {
+    const agg = aggOf("covered");
+    expect([agg.source, agg.testedSource]).toEqual([3, 3]);
+    expect(madeOf("covered")).toContain("three of them tested");
+    expect(subtitleOf("covered")).toBe("TypeScript area, three source files, three of them tested.");
+    expect(spotlightOf("covered")).toContain("three source files, three of them tested,");
+  });
+
+  it("makes the clause in the made-of paragraph a link to the tests lens", () => {
+    expect(madeOf("covered")).toContain(`[[${routeFor(local.repo, "dir:covered/", { lens: "tests" })}|three of them tested]]`);
+  });
+
+  it("says nothing about tests when the only non-source file is a config file", () => {
+    const agg = aggOf("configured");
+    expect([agg.source, agg.config, agg.testedSource]).toEqual([3, 1, 0]);
+    // The condition the old guard tripped on. It is still true here; it just no longer says anything.
+    expect(agg.files).toBeGreaterThan(agg.source);
+    expect(subtitleOf("configured")).toBe("TypeScript area, three source files.");
+    for (const text of [madeOf("configured"), subtitleOf("configured"), spotlightOf("configured")]) {
+      expect(text, text).not.toMatch(NO_CLAUSE);
+    }
+  });
+
+  it("says nothing about tests in an area of source files only", () => {
+    const agg = aggOf("plain");
+    expect([agg.source, agg.files, agg.testedSource]).toEqual([3, 3, 0]);
+    expect(subtitleOf("plain")).toBe("TypeScript area, three source files.");
+    for (const text of [madeOf("plain"), subtitleOf("plain"), spotlightOf("plain")]) {
+      expect(text, text).not.toMatch(NO_CLAUSE);
+    }
+  });
+
+  it("prints one wording at every site, and never more tested than source", () => {
+    for (const area of ["covered", "configured", "plain"]) {
+      const agg = aggOf(area);
+      expect(agg.testedSource, area).toBeLessThanOrEqual(agg.source);
+      const clause = agg.testedSource > 0 ? `${numberWord(agg.testedSource)} of them tested` : null;
+      for (const text of [madeOf(area), subtitleOf(area), spotlightOf(area)]) {
+        if (clause) expect(text, text).toContain(clause);
+        else expect(text, text).not.toContain("of them tested");
+        expect(text, text).not.toContain(OLD_WORDING);
+      }
+    }
+  });
+
+  it("names the same count as the area's own Tests section, which is the fixed point", () => {
+    expect(sectionOf(areaStory(local, "covered")!, "tests").paragraphs[0]?.text).toBe("one test file covers three of three source files.");
+    expect(subtitleOf("covered")).toContain("three of them tested");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Empty inputs: every section states its absence in the spec's words
 // ---------------------------------------------------------------------------
 
