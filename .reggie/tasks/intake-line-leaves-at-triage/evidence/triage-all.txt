@@ -12,10 +12,11 @@ Fill every section, then: reggie brief lint <slug>
 Shape them in a session: reggie launch first-captured-thing-about-the-login-loop second-captured-thing-about-caching third-captured-thing-about-the-board --run
 exit=0
 
-$ wc -l .reggie/intake.md ; grep -c '^- ' .reggie/intake.md
-      14
-0
-0 bullets left
+$ reggie tasks             (both kinds of ungroomed work counted separately)
+  third-captured-thing-about-the-board · probe
+    Third captured thing about the board (brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this)
+
+3 ungroomed with a brief nobody has filled in. Shape them in a session: reggie launch first-captured-thing-about-the-login-loop second-captured-thing-about-caching third-captured-thing-about-the-board --run
 
 $ reggie triage --all      (second run)
 
@@ -23,13 +24,10 @@ $ reggie triage --all      (second run)
 Shape them in a session: reggie launch first-captured-thing-about-the-login-loop second-captured-thing-about-caching third-captured-thing-about-the-board --run
 exit=0
 
-$ reggie tasks
-Ungroomed (3) — Captured but not yet shaped: nothing says what it is beyond the line someone wrote, or the scaffold triage left behind.
-  first-captured-thing-about-the-login-loop · probe
-    First captured thing about the login loop (brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this)
-  second-captured-thing-about-caching · probe
-    Second captured thing about caching (brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this)
-  third-captured-thing-about-the-board · probe
-    Third captured thing about the board (brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this)
+$ reggie capture "A fourth raw one" && reggie tasks
 
-3 ungroomed. Shape them into briefs: reggie triage --all
+1 ungroomed with no brief yet. Scaffold it: reggie triage --all
+3 ungroomed with a brief nobody has filled in. Shape them in a session: reggie launch first-captured-thing-about-the-login-loop second-captured-thing-about-caching third-captured-thing-about-the-board --run
+
+The two summary counts add up to the Ungroomed column header, and each names
+the verb that actually does something for that half.

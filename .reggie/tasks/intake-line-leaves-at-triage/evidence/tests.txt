@@ -13,7 +13,7 @@ $ TZ=UTC npm test   (in packages/reggie, via the root delegate)
 
  Test Files  32 passed (32)
       Tests  687 passed | 1 skipped (688)
-   Start at  03:01:07
-   Duration  15.74s (transform 2.89s, setup 0ms, import 4.35s, tests 144.92s, environment 1ms)
+   Start at  03:27:23
+   Duration  15.26s (transform 2.44s, setup 0ms, import 3.90s, tests 138.86s, environment 1ms)
 
 exit=0

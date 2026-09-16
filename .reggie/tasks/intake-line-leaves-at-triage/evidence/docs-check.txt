@@ -1,0 +1,21 @@
+$ node dist/cli.js docs check      (on a clean tree)
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/api-intake-409.txt
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/board-after.json
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/board-before.json
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/brief-draft.txt
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/degenerate-cases.txt
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/plan-done.txt
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/remove-from-intake.txt
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/state-derivation.txt
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/state-machine.txt
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/tests-local-tz.txt
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/tests.txt
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/triage-all.txt
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/triage.txt
+  git status:  M .reggie/tasks/intake-line-leaves-at-triage/evidence/ui-board-and-task-page.txt
+  git status: ?? .reggie/tasks/intake-line-leaves-at-triage/evidence/docs-check.txt
+  git status: ?? .reggie/tasks/intake-line-leaves-at-triage/evidence/docs-refresh.txt
+  git status: ?? .reggie/tasks/intake-line-leaves-at-triage/packet.md
+fresh: CLAUDE.md
+fresh: AGENTS.md
+exit=0

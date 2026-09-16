@@ -68,11 +68,11 @@ $ TZ=UTC npx vitest run test/serve.test.ts -t 'intake' --reporter=verbose   (AC1
  ↓ test/serve.test.ts > GET /api/launch > carries the user's note into the prompt
  ↓ test/serve.test.ts > GET /api/launch > shapes several ungroomed slugs at once and refuses several of anything else
  ↓ test/serve.test.ts > GET /api/launch > 400s an unknown tool, an unknown mode, a bad slug, and no slug at all; 404s an unknown task
- ✓ test/serve.test.ts > POST /api/triage > scaffolds a brief, takes the intake line, and leaves the card ungroomed until it is filled in 701ms
+ ✓ test/serve.test.ts > POST /api/triage > scaffolds a brief, takes the intake line, and leaves the card ungroomed until it is filled in 810ms
  ↓ test/serve.test.ts > POST /api/triage > never overwrites a brief that is already there
  ↓ test/serve.test.ts > POST /api/triage > shapes a whole selection in one call and skips what it does not know
  ↓ test/serve.test.ts > POST /api/triage > moves the card to Groomed once somebody writes into the scaffold
- ✓ test/serve.test.ts > POST /api/triage > refuses an intake answer for a task that has a brief, rather than rebuilding the line 94ms
+ ✓ test/serve.test.ts > POST /api/triage > refuses an intake answer for a task that has a brief, rather than rebuilding the line 96ms
  ↓ test/serve.test.ts > POST /api/triage > 400s an empty request and a bad slug
  ↓ test/serve.test.ts > POST /api/launch > refuses a cross-site launch with 403 and starts nothing
  ↓ test/serve.test.ts > POST /api/launch > refuses a foreign Origin with 403
@@ -104,7 +104,7 @@ $ TZ=UTC npx vitest run test/serve.test.ts -t 'intake' --reporter=verbose   (AC1
 
  Test Files  1 passed (1)
       Tests  2 passed | 97 skipped (99)
-   Start at  03:02:23
-   Duration  1.67s (transform 235ms, setup 0ms, import 297ms, tests 1.32s, environment 0ms)
+   Start at  03:28:51
+   Duration  1.77s (transform 222ms, setup 0ms, import 281ms, tests 1.44s, environment 0ms)
 
 exit=0

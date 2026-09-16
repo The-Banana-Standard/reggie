@@ -1,13 +1,13 @@
-# AC9 and AC20, run against the throwaway repo after triage --all.
+# AC9 and AC20, in the same throwaway repo after triage --all.
 
 ## AC9: reggie triage <slug> a second time changes no file and exits 0.
 $ find .reggie -type f | sort | xargs shasum | shasum   (fingerprint before)
-8a50717f9c50ed1e33dd248ca5d2c71baabda7fa  -
+2ee666204296c9415d318d2af32aae37b4dcbc07  -
 $ reggie triage first-captured-thing-about-the-login-loop
 .reggie/tasks/first-captured-thing-about-the-login-loop/brief.md already exists; pass --force to rewrite it
 exit=0
 $ find .reggie -type f | sort | xargs shasum | shasum   (fingerprint after)
-8a50717f9c50ed1e33dd248ca5d2c71baabda7fa  -
+2ee666204296c9415d318d2af32aae37b4dcbc07  -
 
 ## AC20: plan done still exists, still removes a line, and says what it is for.
 $ reggie plan done --help
@@ -26,8 +26,3 @@ Captured swept-by-hand
 $ reggie plan done swept-by-hand
 Removed swept-by-hand from intake
 exit=0
-
-$ reggie tasks      (closing line when every ungroomed task already has a scaffold)
-    Third captured thing about the board (brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this)
-
-3 ungroomed, each with a brief nobody has filled in yet. Shape them in a session: reggie launch first-captured-thing-about-the-login-loop second-captured-thing-about-caching third-captured-thing-about-the-board --run

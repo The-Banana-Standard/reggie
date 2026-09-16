@@ -2,31 +2,31 @@ $ TZ=UTC npx vitest run src/tasks.test.ts --reporter=verbose   (AC2-AC5, AC15, A
 
  RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/intake-line-leaves-at-triage/packages/reggie
 
- ✓ src/tasks.test.ts > task state from git > parses intake lines with detail 149ms
- ✓ src/tasks.test.ts > task state from git > walks a task through every state 1346ms
- ✓ src/tasks.test.ts > task state from git > refuses to take over another person's branch 229ms
- ✓ src/tasks.test.ts > state machine and task detail > describes every state and transition in TASK_STATES order 131ms
- ✓ src/tasks.test.ts > state machine and task detail > computes ages from ISO dates and intake metadata 132ms
- ✓ src/tasks.test.ts > state machine and task detail > parses plan file operations and packet checklists 138ms
- ✓ src/tasks.test.ts > state machine and task detail > returns null for an unknown slug and throws on an unsafe one 173ms
- ✓ src/tasks.test.ts > state machine and task detail > assembles plan, packet, claim, journal, and impact as a task moves 1491ms
- ✓ src/tasks.test.ts > state machine and task detail > reads a plan that only exists on the task branch and reports files that exist there 683ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > a brief alone makes an ungroomed item groomed 222ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > the scaffold triage writes leaves the task ungroomed, with a reason naming the draft 189ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > a brief written out but missing size and priority is groomed, with today's reason 186ms
+ ✓ src/tasks.test.ts > task state from git > parses intake lines with detail 160ms
+ ✓ src/tasks.test.ts > task state from git > walks a task through every state 1290ms
+ ✓ src/tasks.test.ts > task state from git > refuses to take over another person's branch 228ms
+ ✓ src/tasks.test.ts > state machine and task detail > describes every state and transition in TASK_STATES order 129ms
+ ✓ src/tasks.test.ts > state machine and task detail > computes ages from ISO dates and intake metadata 130ms
+ ✓ src/tasks.test.ts > state machine and task detail > parses plan file operations and packet checklists 141ms
+ ✓ src/tasks.test.ts > state machine and task detail > returns null for an unknown slug and throws on an unsafe one 167ms
+ ✓ src/tasks.test.ts > state machine and task detail > assembles plan, packet, claim, journal, and impact as a task moves 1499ms
+ ✓ src/tasks.test.ts > state machine and task detail > reads a plan that only exists on the task branch and reports files that exist there 666ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > a brief alone makes an ungroomed item groomed 219ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > the scaffold triage writes leaves the task ungroomed, with a reason naming the draft 188ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > a brief written out but missing size and priority is groomed, with today's reason 185ms
  ✓ src/tasks.test.ts > briefs shape a task before a plan does > a brief written out but with an empty Problem is ungroomed, naming the empty Problem 193ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > dates a card with a brief and no branch from the brief's created, once the line is gone 186ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > a brief committed to the default branch counts even when it is gone from disk 217ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan draft that fails the contract leaves a briefed task groomed, naming the draft 193ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan/<slug> branch reads as groomed with a plan in progress 280ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan that passes the contract makes it planned 267ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > dates a card with a brief and no branch from the brief's created, once the line is gone 193ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > a brief committed to the default branch counts even when it is gone from disk 213ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan draft that fails the contract leaves a briefed task groomed, naming the draft 192ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan/<slug> branch reads as groomed with a plan in progress 259ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan that passes the contract makes it planned 262ms
  ✓ src/tasks.test.ts > briefs shape a task before a plan does > a plan with no brief is still planned; a brief is not required retroactively 256ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > getTaskDetail parses the brief beside the plan 227ms
- ✓ src/tasks.test.ts > briefs shape a task before a plan does > sorts the board with the most advanced work first and done last 218ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > getTaskDetail parses the brief beside the plan 221ms
+ ✓ src/tasks.test.ts > briefs shape a task before a plan does > sorts the board with the most advanced work first and done last 226ms
 
  Test Files  1 passed (1)
       Tests  21 passed (21)
-   Start at  03:02:13
-   Duration  7.30s (transform 94ms, setup 0ms, import 132ms, tests 7.11s, environment 0ms)
+   Start at  03:28:40
+   Duration  7.19s (transform 88ms, setup 0ms, import 119ms, tests 7.02s, environment 0ms)
 
 exit=0

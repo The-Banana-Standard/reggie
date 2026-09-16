@@ -1,72 +1,75 @@
-# AC18 and AC19, checked in a real browser against a live `reggie serve` on a
-# throwaway repo (http://127.0.0.1:8791), driven by this branch's built dist.
+# AC18, AC19 and AC21's client half, checked in a real browser against a live
+# `reggie serve` on a throwaway repo, driven by this branch's built dist.
 #
 # DEVIATION from the plan's verification strategy: the plan named PNG screenshots
 # (task-page-no-form.png, task-page-form-still-there.png, board-shape-stays-ungroomed.png).
 # This unattended session can drive the browser but cannot write image files from it,
 # so each screenshot is replaced by the DOM query it was meant to prove. The queries
-# are machine-checkable, which a screenshot is not. The pages were also viewed.
+# are machine-checkable, which a screenshot is not, and every page was also viewed.
 
-## AC18 — the "Say what you meant" form is gone for a task that has a brief.
+## AC18 — the "Say what you meant" form, present and absent.
 
-$ open #/repo/degen-repo/task/a-line-that-has-not-been-shaped-at-all-yet   (intake line, no brief)
+$ open #/repo/degen2/task/foo-2                  (an intake line, no brief)
   find "Say what you meant" -> 3 matches:
     heading "Say what you meant"
-    textbox "Add detail under a-line-that-has-not-been-shaped-at-all-yet"
+    textbox "Add detail under foo-2"
       placeholder "Say what you meant: where it is, who feels it, what done looks like, …"
-  => the form is still there while the intake line is the record.
+  => still offered while the intake line is the record.
 
-$ open #/repo/degen-repo/task/collide                                       (brief, no intake line)
+$ open #/repo/degen2/task/collide                (a brief, no intake line)
   find "Say what you meant" -> No matches.
-  => the form is not offered, so the 409 is never reached by an ordinary click.
+  => not offered, so the 409 is never reached by an ordinary click.
 
-  The same page's "What happens next" section read, verbatim:
-    "Triage wrote this brief and took the intake line; nobody has filled it in yet,
-     so the task is still unshaped. The next step is a conversation that ends with
-     the problem in plain English, where it probably lives, a size and a priority,
-     and the questions still open. Shape it from the task board, or run
-     `reggie launch collide --run`."
+  The same page's story sections, read from the DOM:
+    "What is being asked for: The first wording someone wrote (alice, cli, 2026-09-13)
+     detail under the first  The second wording, written later by hand (bob, voice, 2026-09-15)
+     detail under the second"
+      — both collided wordings, both detail lines and both capture stamps survived
+        into the brief that replaced them.
+    "What happens next: At least one section of this brief is still the template triage
+     wrote, so the task is still unshaped. The next step is a conversation that ends with
+     the problem in plain English, where it probably lives, a size and a priority, and the
+     questions still open. Shape it from the task board, or run `reggie launch collide --run`."
 
 ## AC19 — pressing Scaffold leaves the card in Ungroomed.
 
-$ open #/repo/degen-repo/tasks, click "Scaffold a brief" on the one raw card
+$ open #/repo/degen2/tasks (earlier probe repo), click "Scaffold a brief" on the raw card
   toast: "Shaped `a-line-that-has-not-been-shaped-at-all-yet`: a brief is waiting to be filled in."
   column counts straight after the click, read from the DOM:
     ungroomed 5, groomed 0, planned 0, in-process 0, awaiting-decision 0
   the card, still in the ungroomed column:
     "A line that has not been shaped at all yet / brief not filled in / 1 day old / brief"
-  After the reconcile that follows, the server reports the same thing, so nothing
-  snapped back:
-    { "slug": "a-line-that-has-not-been-shaped-at-all-yet",
+  The server reports the same thing on the next reconcile, so nothing snapped back:
+    { "slug": "a-line-nobody-has-shaped",
       "state": "ungroomed",
       "reason": "brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this",
       "intake": null }
 
-## The card actions and the column button, after a reload (DOM query)
+## The card actions and the column button (DOM query, after a reload)
 
 {
  "shapeButton": "Scaffold briefs (1)",
+ "rules": [
+  { "state": "ungroomed",         "rule": "No brief, or an empty one." },
+  { "state": "groomed",           "rule": "brief.md written, no plan." },
+  { "state": "planned",           "rule": "plan.md passes, on main." },
+  { "state": "in-process",        "rule": "task/<slug> open, no PR." },
+  { "state": "awaiting-decision", "rule": "PR open, or a packet.md." }
+ ],
  "cards": [
-  { "slug": "a-line-that-has-not-been-shaped-at-all-yet", "hasTick": false,
+  { "slug": "a-line-nobody-has-shaped", "hasTick": false,
     "actions": ["Read the brief", "Shape it", "▾", "Shape it in Claude Code", "Shape it in Codex"] },
-  { "slug": "a-raw-item-nobody-has-shaped", "hasTick": false,
+  { "slug": "forced",  "hasTick": false,
     "actions": ["Read the brief", "Shape it", "▾", "Shape it in Claude Code", "Shape it in Codex"] },
-  { "slug": "forced", "hasTick": false,
-    "actions": ["Read the brief", "Shape it", "▾", "Shape it in Claude Code", "Shape it in Codex"] },
-  { "slug": "still-raw", "hasTick": true,
-    "actions": ["Read the intake line", "Shape it", "▾", "Shape it in Claude Code", "Shape it in Codex", "Scaffold a brief"] },
   { "slug": "collide", "hasTick": false,
-    "actions": ["Read the brief", "Shape it", "▾", "Shape it in Claude Code", "Shape it in Codex"] }
+    "actions": ["Read the brief", "Shape it", "▾", "Shape it in Claude Code", "Shape it in Codex"] },
+  { "slug": "foo-2",   "hasTick": true,
+    "actions": ["Read the intake line", "Shape it", "▾", "Shape it in Claude Code", "Shape it in Codex", "Scaffold a brief"] }
  ]
 }
 
-Only `still-raw` — the one card that still has an intake line and no brief — carries a tick
-and a "Scaffold a brief" button, and the column button counts 1 rather than 5. The four cards
-that already hold a scaffold read their brief instead of a line that is gone, and are not
-offered a scaffold the server would skip.
-
-## The column sublabels, rendered at the narrowest column width (screenshot, one line each)
-
-  Ungroomed: "No brief, or an empty one."
-  Groomed:   "brief.md written, no plan."
-  Planned:   "plan.md passes, on main."
+Only `foo-2` — the one card that still has an intake line and no brief — carries a tick and a
+"Scaffold a brief" button, and the column button counts 1 rather than 4. The three cards that
+already hold a scaffold read their brief instead of a line that is gone, and are not offered a
+scaffold the server would skip. Each column rule still renders on one line at the narrowest
+column width, which is what the comment above COLUMN_RULE requires.

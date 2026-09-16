@@ -1,7 +1,7 @@
 # AC21: the state machine the server serves, beside the client's hand-written copy.
 # Read from a live `reggie serve` on a throwaway repo built by this branch's dist.
 
-$ curl -s localhost:8791/api/state-machine | jq '.states[0,1], .transitions[0]'
+$ curl -s localhost:8793/api/state-machine | jq '.states[0,1], .transitions[0]'
 {
   "id": "ungroomed",
   "label": "Ungroomed",
@@ -46,3 +46,10 @@ const COLUMN_RULE = {
   "awaiting-decision": "PR open, or a packet.md.",
   done: "PR merged, or approved.",
 };
+
+--- packages/reggie/ui/app.js, the state tooltips ----------------------------
+  ungroomed: "Ungroomed: captured but not yet shaped — no brief.md says what it is, or the one there is still triage's unfilled scaffold.",
+  groomed: "Groomed: somebody wrote into the brief — a problem, a suspected area, a size and a priority. No plan that passes the contract yet.",
+--
+  ungroomed: "Ungroomed",
+  groomed: "Groomed",
