@@ -37,16 +37,23 @@ export function capture(paths: RepoPaths, input: CaptureInput): CaptureResult {
   return { slug, line };
 }
 
-/** Remove an intake line (and its detail lines) once a plan exists. */
+/**
+ * Remove a slug's intake lines, and the detail under each, once a brief has replaced them.
+ * Every bullet shape `parseIntake` accepts as an item is matched, because the intake header
+ * invites hand-written lines: a line the parser counts and this does not would survive its own
+ * brief and sit in the queue for work the board already reports as shaped. Duplicated slugs are
+ * all removed, which is why triage reads every one of them before this runs.
+ */
 export function removeFromIntake(paths: RepoPaths, slug: string): boolean {
   const content = readText(paths.intake);
   if (!content) return false;
   const lines = content.split("\n");
+  const itemRe = new RegExp(`^ {0,3}[-*+]\\s+(?:\\[[ xX]\\]\\s+)?${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:\\s`);
   const out: string[] = [];
   let skipping = false;
   let removed = false;
   for (const line of lines) {
-    if (new RegExp(`^- ${slug}:\\s`).test(line)) {
+    if (itemRe.test(line)) {
       skipping = true;
       removed = true;
       continue;

@@ -193,3 +193,49 @@ export function lintBrief(content: string): LintResult {
 
   return { ok: errors.length === 0, errors, warnings };
 }
+
+/** What `briefDraft` found: whether the brief is still triage's scaffold, and what says so. */
+export interface BriefDraftResult {
+  /** True when nobody has written into the scaffold yet. */
+  draft: boolean;
+  /**
+   * The clause a card's reason appends after "brief on disk is" or "brief on <base> is";
+   * empty when the brief is not a draft.
+   */
+  reason: string;
+  /** Section names whose parenthesised hint is still in place, in `BRIEF_SECTIONS` order. */
+  placeholders: string[];
+  /** Set when `## Problem` is missing outright or present but empty. */
+  problem: "missing" | "empty" | null;
+}
+
+/**
+ * Is this still the scaffold `reggie triage` wrote? Only emptiness disproves "somebody has said
+ * what this is", so the answer is drawn from exactly two kinds of `lintBrief` error: a section
+ * still holding its parenthesised hint, and a Problem that is missing or empty. Every other
+ * failure — an unset size, an unset priority, a TBD — is a brief someone wrote and has not
+ * finished, which is visible work and stays `groomed`.
+ *
+ * Read from `lintBrief`'s errors rather than re-deriving them, so the contract stays the one
+ * place that decides what a filled-in section looks like.
+ */
+export function briefDraft(content: string): BriefDraftResult {
+  const { errors } = lintBrief(content);
+  const placeholders: string[] = [];
+  let problem: "missing" | "empty" | null = null;
+  for (const error of errors) {
+    const placeholder = /^placeholder text still present in ## (.+)$/.exec(error);
+    if (placeholder) {
+      placeholders.push(placeholder[1] ?? "");
+      continue;
+    }
+    if (error === "missing section: ## Problem") problem = "missing";
+    else if (error === "empty section: ## Problem") problem = "empty";
+  }
+  const draft = placeholders.length > 0 || problem !== null;
+  if (!draft) return { draft: false, reason: "", placeholders, problem };
+  const clauses: string[] = [];
+  if (problem) clauses.push(`the Problem section is ${problem}`);
+  if (placeholders.length) clauses.push(`placeholder text in ${placeholders.join(", ")}`);
+  return { draft: true, reason: `still triage's scaffold: ${clauses.join("; ")}`, placeholders, problem };
+}

@@ -169,13 +169,13 @@ function shapePrompt(tasks: readonly LaunchTask[], files: readonly string[], not
   return [
     many ? `We are going to shape these captured items into briefs together, before anyone plans them: ${list}.` : `We are going to shape ${list} into a brief together, before anyone plans it.`,
     reads,
-    "Work from the intake line, the notes and the graph rather than reading much code; a brief is cheap on purpose.",
+    "Work from the intake line (or, once triage has taken it, the Problem section of the scaffolded brief that holds the same words), the notes and the graph rather than reading much code; a brief is cheap on purpose.",
     "Ask me the questions whose answers would change the shape of the work, one at a time, and tell me what you think the item is about and where in the code it probably lives.",
     many
-      ? "When we agree on one, run `reggie triage <slug>` to scaffold `.reggie/tasks/<slug>/brief.md` and fill every section: Problem, Why now, Suspected area, Open questions, Not this; set area, size and priority in the front matter."
-      : `When we agree, run \`reggie triage ${tasks[0]?.slug}\` to scaffold \`.reggie/tasks/${tasks[0]?.slug}/brief.md\` and fill every section: Problem, Why now, Suspected area, Open questions, Not this; set area, size and priority in the front matter.`,
+      ? "When we agree on one, run `reggie triage <slug>` to scaffold `.reggie/tasks/<slug>/brief.md` (which also removes the item's intake line, so the brief becomes the record) and fill every section: Problem, Why now, Suspected area, Open questions, Not this; set area, size and priority in the front matter. A task whose brief already exists is already scaffolded: fill that one in instead, and do not pass --force."
+      : `When we agree, run \`reggie triage ${tasks[0]?.slug}\` to scaffold \`.reggie/tasks/${tasks[0]?.slug}/brief.md\` (which also removes the item's intake line, so the brief becomes the record) and fill every section: Problem, Why now, Suspected area, Open questions, Not this; set area, size and priority in the front matter. If the brief is already there, it is already scaffolded: fill that one in instead, and do not pass --force.`,
     "Anything we could not settle becomes an Open question. This is shaping, not planning: no implementation approach and no file-by-file design, and do not start the work.",
-    "Run `reggie brief lint <slug>` and fix every error, then write one journal entry with `reggie journal add --stage triage`.",
+    "Run `reggie brief lint <slug>` and fix every error; until every placeholder is written over the task stays ungroomed. Then write one journal entry with `reggie journal add --stage triage`.",
     ...noteClause(note),
   ].join(" ");
 }

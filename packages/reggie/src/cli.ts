@@ -162,7 +162,7 @@ program
 
 program
   .command("triage [slug]")
-  .description("Shape a captured item into a brief: scaffold .reggie/tasks/<slug>/brief.md from the intake line (ungroomed → groomed)")
+  .description("Shape a captured item into a brief: scaffold .reggie/tasks/<slug>/brief.md from the intake line and remove the line, leaving the task ungroomed until the scaffold is filled in")
   .option("--all", "shape every ungroomed task, one brief each")
   .option("--title <title>", "override the intake line as the title")
   .option("--area <dir>", "repo-relative directory the work probably touches")
@@ -177,12 +177,16 @@ program
     if (opts.size !== undefined && !isSize(opts.size)) fail(`--size must be one of ${SIZES.join(", ")}`);
     if (opts.priority !== undefined && !isPriority(opts.priority)) fail(`--priority must be one of ${PRIORITIES.join(", ")}`);
 
-    const slugs = opts.all
-      ? listTasks(c.paths, c.config).filter((t) => t.state === "ungroomed").map((t) => t.slug)
-      : [requireSlug(slug ?? "")];
-    if (slugs.length === 0) return out("Nothing is ungroomed. Capture something first: reggie capture \"...\"");
+    // An ungroomed task can already have a brief now — an unfilled scaffold keeps it in this
+    // column — and scaffolding over it would only print "already exists" forever. Those need a
+    // session, not another template, so they are named at the end instead of retried.
+    const ungroomedTasks = opts.all ? listTasks(c.paths, c.config).filter((t) => t.state === "ungroomed") : [];
+    const drafts = ungroomedTasks.filter((t) => t.brief?.exists).map((t) => t.slug);
+    const slugs = opts.all ? ungroomedTasks.filter((t) => !t.brief?.exists).map((t) => t.slug) : [requireSlug(slug ?? "")];
+    if (slugs.length === 0 && drafts.length === 0) return out("Nothing is ungroomed. Capture something first: reggie capture \"...\"");
 
     let written = 0;
+    let taken = 0;
     for (const s of slugs) {
       const input: TriageInput = { slug: s, author: c.person.handle };
       if (opts.title !== undefined) input.title = opts.title;
@@ -195,13 +199,21 @@ program
       if (r.skipped) out(`${rel} already exists; pass --force to rewrite it`);
       else {
         written += 1;
-        out(`${r.created ? "Created" : "Rewrote"} ${rel}`);
+        taken += r.intakeRemoved;
+        out(`${r.created ? "Created" : "Rewrote"} ${rel}${r.intakeRemoved ? ` and took ${r.intakeRemoved === 1 ? "its intake line" : `its ${r.intakeRemoved} intake lines`}` : ""}`);
       }
     }
-    if (written === 0) return;
+    if (written === 0 && drafts.length === 0) return;
     out("");
-    out(`Fill every section, then: reggie brief lint ${slugs.length === 1 ? slugs[0] : "<slug>"}`);
-    out(`Or shape them in a session: reggie launch ${slugs.join(" ")} --run`);
+    if (written > 0) {
+      if (taken > 0) out(`The brief is the record now: ${taken === 1 ? "that line is" : "those lines are"} out of intake, and the task stays ungroomed until the scaffold is filled in.`);
+      out(`Fill every section, then: reggie brief lint ${slugs.length === 1 ? slugs[0] : "<slug>"}`);
+    }
+    const toShape = [...slugs, ...drafts];
+    if (drafts.length > 0) {
+      out(`${drafts.length === 1 ? "One brief is" : `${drafts.length} briefs are`} already scaffolded and still unfilled, so ${drafts.length === 1 ? "it needs" : "they need"} a session rather than another template: ${drafts.join(" ")}`);
+    }
+    out(`Shape ${toShape.length === 1 ? "it" : "them"} in a session: reggie launch ${toShape.join(" ")} --run`);
   });
 
 /** The board order the tasks page reads in: what is moving first, what has not started last. */
@@ -247,10 +259,18 @@ program
       out(`${stateLabel(state)} (${group.length}) — ${stateDefinition(state)}`);
       for (const t of group) out(boardLine(t));
     }
-    const ungroomed = tasks.filter((t) => t.state === "ungroomed").length;
+    // An ungroomed task that already carries a scaffold is not waiting for another one, so naming
+    // `triage --all` there would name a command that does nothing; those need a session instead.
+    const ungroomedTasks = tasks.filter((t) => t.state === "ungroomed");
+    const ungroomed = ungroomedTasks.filter((t) => !t.brief?.exists).length;
+    const drafts = ungroomedTasks.filter((t) => t.brief?.exists);
     const groomed = tasks.filter((t) => t.state === "groomed").length;
     out("");
     if (ungroomed > 0) out(`${ungroomed} ungroomed. Shape ${ungroomed === 1 ? "it into a brief" : "them into briefs"}: reggie triage --all`);
+    else if (drafts.length > 0)
+      out(
+        `${drafts.length} ungroomed, ${drafts.length === 1 ? "with a brief" : "each with a brief"} nobody has filled in yet. Shape ${drafts.length === 1 ? "it" : "them"} in a session: reggie launch ${drafts.map((t) => t.slug).join(" ")} --run`,
+      );
     else if (groomed > 0) out(`${groomed} groomed and unplanned. Plan one: reggie launch <slug> --run`);
     else out("Nothing is waiting to be shaped.");
   });
@@ -346,7 +366,7 @@ plan
   });
 plan
   .command("done <slug>")
-  .description("Remove the intake line once the plan is written and committed")
+  .description("Sweep an intake line that outlived its brief; triage removes the line itself now")
   .action((slug: string) => {
     const c = ctx(program.opts<{ root?: string }>().root);
     out(removeFromIntake(c.paths, requireSlug(slug)) ? `Removed ${slug} from intake` : `${slug} was not in intake`);

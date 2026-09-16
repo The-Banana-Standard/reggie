@@ -28,7 +28,7 @@ npm link            # puts `reggie` on your PATH
 | `reggie plan lint <slug>` | Check the plan against the contract; exit 1 on errors. |
 | `reggie plan risk <slug>` | Set `risk:` from the files the plan touches and the rules in `config.yaml`. |
 | `reggie plan prompt <slug>` | Print the planning prompt and the exact interactive and headless commands for Claude Code and Codex. |
-| `reggie plan done <slug>` | Remove the intake line after the plan exists. |
+| `reggie plan done <slug>` | Sweep an intake line that outlived its brief. Triage removes the line itself now, so this is only for lines captured before it did, or written by hand afterwards. |
 | `reggie claim <slug> [--worktree]` | Create or switch to `task/<slug>` and commit a claim record on it; refuses a branch someone else holds. |
 | `reggie release <slug> [--force]` | Delete your local task branch and worktree. Refuses someone else's branch and unmerged commits unless forced. |
 | `reggie context [slug] [-p path...] [--max-lines n]` | The pack to read before working. |
@@ -59,14 +59,14 @@ Four phases: capture it, shape it, plan it, build it.
 
 | State | Phase | Derived from |
 |---|---|---|
-| ungroomed | capture | an intake line, with no `brief.md` |
-| groomed | shape | `brief.md` exists; a plan draft that fails the contract also lands here |
+| ungroomed | capture | an intake line with no `brief.md`, or a `brief.md` that is still triage's unfilled scaffold |
+| groomed | shape | `brief.md` exists and somebody has written into it; a plan draft that fails the contract also lands here |
 | planned | plan | `plan.md` passes the contract on the default branch (solo mode also accepts a passing plan on disk) |
 | in-process | build | `task/<slug>` branch with commits |
 | awaiting-decision | review | open PR from that branch, or a packet on the branch |
 | done | done | PR merged, or packet approved on the default branch |
 
-A brief is the cheap half of grooming: the problem, the area, a size and a priority, written from the intake line without reading much code. A plan is the expensive half. Splitting them lets you shape a whole backlog in one pass and plan only what you decide to build.
+A brief is the cheap half of grooming: the problem, the area, a size and a priority, written from the intake line without reading much code. `reggie triage` scaffolds it and takes the intake line with it — the brief is the record of that item from then on — but the card stays ungroomed until the scaffold is filled in, so scaffolding a column never reports untouched drafts as shaped work. A plan is the expensive half. Splitting them lets you shape a whole backlog in one pass and plan only what you decide to build.
 
 ## The backlog you already had
 

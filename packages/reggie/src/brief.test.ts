@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lintBrief, parseBrief, renderBriefTemplate } from "./brief.js";
+import { briefDraft, lintBrief, parseBrief, renderBriefTemplate } from "./brief.js";
 
 /** A brief that satisfies the contract, so each test can break exactly one thing. */
 function fullBrief(slug = "demo"): string {
@@ -169,5 +169,62 @@ describe("brief contract", () => {
     ));
     expect(r.ok).toBe(true);
     expect(r.warnings.some((w) => w.startsWith("Suspected area:"))).toBe(true);
+  });
+});
+
+describe("briefDraft", () => {
+  it("calls a bare scaffold a draft, naming the Problem and every other placeholder section", () => {
+    // With no intake line to prefill from, the Problem is the hint too, so it is a placeholder
+    // rather than an empty section: five of the five sections are untouched.
+    const d = briefDraft(renderBriefTemplate({ slug: "demo", title: "demo", author: "test" }));
+    expect(d.draft).toBe(true);
+    expect(d.problem).toBeNull();
+    expect(d.placeholders).toEqual(["Problem", "Why now", "Suspected area", "Open questions", "Not this"]);
+    expect(d.reason).toBe("still triage's scaffold: placeholder text in Problem, Why now, Suspected area, Open questions, Not this");
+  });
+
+  it("calls a scaffold prefilled from an intake line a draft, naming only the placeholder sections", () => {
+    const d = briefDraft(renderBriefTemplate({ slug: "demo", title: "Login loops forever", author: "test", problem: "Login loops forever when the server is down." }));
+    expect(d.draft).toBe(true);
+    expect(d.problem).toBeNull();
+    expect(d.placeholders).toEqual(["Why now", "Suspected area", "Open questions", "Not this"]);
+    expect(d.reason).toBe("still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this");
+  });
+
+  it("does not call a written brief a draft just because size and priority are unset", () => {
+    const written = fullBrief().replace("size: small", "size: unset").replace("priority: P1", "priority: unset");
+    const lint = lintBrief(written);
+    expect(lint.ok).toBe(false);
+    expect(lint.errors).toEqual([
+      "front matter: size must be small, medium, or large",
+      "front matter: priority must be P1, P2, or P3",
+    ]);
+    const d = briefDraft(written);
+    expect(d.draft).toBe(false);
+    expect(d.reason).toBe("");
+    expect(d.placeholders).toEqual([]);
+    expect(d.problem).toBeNull();
+  });
+
+  it("calls a brief with an empty Problem a draft, and one with no Problem heading at all", () => {
+    const empty = fullBrief().replace(
+      "Web clients retry login forever when the server is down, so support sees a flood of reports\nfrom people who cannot tell that the site is offline rather than broken.\n\nSupport has raised it twice this month.",
+      "",
+    );
+    const d = briefDraft(empty);
+    expect(d.draft).toBe(true);
+    expect(d.problem).toBe("empty");
+    expect(d.placeholders).toEqual([]);
+    expect(d.reason).toBe("still triage's scaffold: the Problem section is empty");
+
+    const gone = briefDraft(fullBrief().replace("## Problem", "## Background"));
+    expect(gone.draft).toBe(true);
+    expect(gone.problem).toBe("missing");
+    expect(gone.reason).toBe("still triage's scaffold: the Problem section is missing");
+  });
+
+  it("passes a brief that satisfies the contract", () => {
+    expect(lintBrief(fullBrief()).ok).toBe(true);
+    expect(briefDraft(fullBrief())).toEqual({ draft: false, reason: "", placeholders: [], problem: null });
   });
 });

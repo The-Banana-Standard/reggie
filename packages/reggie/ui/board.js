@@ -68,15 +68,15 @@ const PEOPLE_OTHER = "#9ca3af";
 
 /** Used only when /api/state-machine is unavailable; mirrors tasks.ts STATE_MACHINE (spec §6.8). */
 const FALLBACK_STATES = [
-  { id: "ungroomed", label: "Ungroomed", definition: "Captured but not yet shaped: nothing says what it is beyond the line someone wrote.", rule: "an intake item or a task folder with no brief.md" },
-  { id: "groomed", label: "Groomed", definition: "Shaped by triage: a problem statement, a suspected area, a size and a priority. No plan that passes the contract yet.", rule: "brief.md exists and no plan passes the contract" },
+  { id: "ungroomed", label: "Ungroomed", definition: "Captured but not yet shaped: nothing says what it is beyond the line someone wrote, or the scaffold triage left behind.", rule: "an intake item or a task folder with no brief.md, or one still holding triage's scaffold" },
+  { id: "groomed", label: "Groomed", definition: "Shaped by a session: somebody has written into the brief, so the item says what it is. No plan that passes the contract yet.", rule: "brief.md is written in, not still the scaffold, and no plan passes the contract" },
   { id: "planned", label: "Planned", definition: "Fully groomed: a plan that passes the contract, written against the code. Ready to build.", rule: "plan.md passes the plan contract and is on the default branch" },
   { id: "in-process", label: "In process", definition: "Someone holds a task/<slug> branch and is committing work on it.", rule: "a task/<slug> branch with no packet and no open pull request" },
   { id: "awaiting-decision", label: "Awaiting decision", definition: "A pull request is open or a completion packet sits on the branch, waiting for a verdict.", rule: "an open pull request, or packet.md on the branch" },
   { id: "done", label: "Done", definition: "The pull request was merged, or the packet was approved on the default branch.", rule: "the pull request merged, or packet.md approved on the default branch" },
 ];
 const FALLBACK_TRANSITIONS = [
-  { from: "ungroomed", to: "groomed", trigger: "triage writes brief.md: the problem, why now, the suspected area, a size and a priority", who: "whoever runs triage" },
+  { from: "ungroomed", to: "groomed", trigger: "somebody fills in brief.md: why now, the suspected area, the open questions, what this is not. Triage only scaffolds it, and takes the intake line as it does", who: "a shaping session" },
   { from: "groomed", to: "planned", trigger: "a plan.md that passes the plan contract lands on the default branch", who: "the planner, after reading the code" },
   { from: "planned", to: "in-process", trigger: "reggie claim <slug> creates the task/<slug> branch", who: "the person taking the task" },
   { from: "in-process", to: "awaiting-decision", trigger: "a packet is committed on the branch, or a pull request opens", who: "the task owner" },
@@ -86,8 +86,9 @@ const FALLBACK_TRANSITIONS = [
 
 /**
  * The board column sublabel: the state's rule in **one rendered line**. The server's `rule` is a full
- * git derivation ("an intake item or a .reggie/tasks/<slug>/ folder exists, with no brief.md on disk
- * or on the default branch, no plan, and no task/<slug> branch") and its `definition` is prose; both
+ * git derivation ("an intake item or a .reggie/tasks/<slug>/ folder exists, with no plan and no
+ * task/<slug> branch, and either no brief.md … or one that is still triage's unfilled scaffold")
+ * and its `definition` is prose; both
  * ran four to six lines in a column this narrow, and a column head three lines tall pushes every card
  * down and makes the row of heads ragged. Each string below is the same fact in one line at the
  * narrowest column width. Nothing is lost: `.board__def` carries the server's `definition` as its
@@ -95,8 +96,8 @@ const FALLBACK_TRANSITIONS = [
  * and the story column does not repeat it.
  */
 const COLUMN_RULE = {
-  ungroomed: "No brief.md yet.",
-  groomed: "brief.md, no passing plan.",
+  ungroomed: "No brief, or an empty one.",
+  groomed: "brief.md written, no plan.",
   planned: "plan.md passes, on main.",
   "in-process": "task/<slug> open, no PR.",
   "awaiting-decision": "PR open, or a packet.md.",
@@ -105,7 +106,7 @@ const COLUMN_RULE = {
 
 const COLUMN_EMPTY = {
   ungroomed: "Nothing raw is waiting. Add one above, or run `reggie capture \"…\"`.",
-  groomed: "Nothing shaped yet. Shape an ungroomed item and its brief lands here.",
+  groomed: "Nothing shaped yet. Fill in an ungroomed task's brief and it lands here.",
   planned: "Nothing planned yet. Plan a groomed task; a plan that passes the contract puts it here.",
   "in-process": "No branch open. Start a planned task and its `task/<slug>` branch shows up here.",
   "awaiting-decision": "Nothing to decide. A packet on the branch, or an open PR, puts a task here.",
@@ -1503,11 +1504,18 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
       // (shape a brief, write a plan, or talk) follows from the state on the server, so no
       // button can send the wrong prompt. Build claims the task and opens its worktree.
       case "ungroomed":
+        // An ungroomed task can already hold a scaffolded brief, because triage writes one and
+        // takes the intake line without shaping anything. Then the brief is the record to read,
+        // and scaffolding again would be a no-op the server skips, so neither button is offered.
         return [
-          legacyOnly && !t.intake ? readButton(t, "legacy", "Read the backlog entry") : readButton(t, "intake", "Read the intake line"),
+          t.brief?.exists
+            ? readButton(t, "brief", "Read the brief")
+            : legacyOnly && !t.intake
+              ? readButton(t, "legacy", "Read the backlog entry")
+              : readButton(t, "intake", "Read the intake line"),
           launchFor(t, "discuss", "Shape it", "btn--primary"),
-          shapeButton(t),
-        ];
+          t.brief?.exists ? null : shapeButton(t),
+        ].filter(Boolean);
       case "groomed":
         return [
           legacyOnly ? readButton(t, "legacy", "Read the backlog entry") : readButton(t, "brief", "Read the brief"),
@@ -1538,7 +1546,7 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
         class: "btn btn--small btn--ghost",
         type: "button",
         disabled: busy,
-        title: `Scaffold .reggie/tasks/${t.slug}/brief.md from the intake line with every section left to fill in; this moves the card to Groomed, so prefer shaping it in a session`,
+        title: `Scaffold .reggie/tasks/${t.slug}/brief.md from the intake line, and remove the line, with every section left to fill in; the card stays in Ungroomed until somebody writes it, so prefer shaping it in a session`,
         on: { click: () => shape([t.slug]) },
       },
       busy ? "Scaffolding…" : "Scaffold a brief",
@@ -1600,8 +1608,10 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     const risk = t.risk ?? "unset";
     const age = ageText(t.age);
     const when = relTime(t.lastActivity) ?? (age === "today" ? "today" : age ? `${age} old` : "no activity yet");
+    // Only cards "Shape these" could actually act on get a tick: one that already carries a
+    // scaffold is skipped by the server, so a checkbox there would narrow the set to nothing.
     const pick =
-      t.state === "ungroomed"
+      t.state === "ungroomed" && !t.brief?.exists
         ? h("input", {
             class: "board__pick",
             type: "checkbox",
@@ -1722,7 +1732,9 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
         (line.detail ?? []).length ? h("div", { class: "detail__sec" }, h("h4", { class: "task-sub" }, "Detail"), (line.detail ?? []).map((x) => h("p", { class: "para para--fact" }, inline(x, { repo: ctx.repo })))) : null,
         metaChips(line.meta),
         h("p", { class: "hint" }, "Open the task to read what Reggie can say about it, or to hear it: ", entityLink("task", taskRoute(ctx.repo, t.slug), "where it probably lives, what is known there, and what is unclear"), "."),
-        answerForm(ctx, t, { onAnswered: () => ctx.deps?.onCapture?.() }),
+        // A line that outlived its brief is the one case where both exist; the server refuses an
+        // answer into intake once there is a brief, so offer the form only while it would work.
+        t.brief?.exists ? h("p", { class: "hint" }, "A brief has replaced this line. Write what you meant into the brief instead.") : answerForm(ctx, t, { onAnswered: () => ctx.deps?.onCapture?.() }),
       );
     }
     if (kind === "brief") {
@@ -1977,7 +1989,12 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
   }
 
   // --- triage ------------------------------------------------------------------
-  /** POST /api/triage for a set of slugs, then move each created card to Groomed with no reload. */
+  /**
+   * POST /api/triage for a set of slugs. The card stays in Ungroomed: triage writes a scaffold
+   * nobody has filled in yet, which is what the server will say on the next reconcile, so moving
+   * it to Groomed here would only flicker and snap back. What does change is the intake line,
+   * which the scaffold took.
+   */
   async function shape(slugs) {
     if (!slugs.length) return;
     for (const s of slugs) model.busy.add(s);
@@ -1986,13 +2003,15 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
       const res = await ctx.post("/api/triage", { slugs });
       const created = Array.isArray(res?.created) ? res.created : [];
       const skipped = Array.isArray(res?.skipped) ? res.skipped : [];
+      const taken = new Set(Array.isArray(res?.takenFromIntake) ? res.takenFromIntake : []);
       for (const slug of created) {
         const t = model.tasks.find((x) => x.slug === slug);
         if (!t) continue;
-        t.state = "groomed";
-        t.reason = `brief.md written by triage`;
-        t.lastActivity = new Date().toISOString();
-        t.brief = { exists: true, area: "", size: "unset", priority: "unset", problem: t.intake?.text ?? "" };
+        const problem = t.intake?.text ?? "";
+        t.state = "ungroomed";
+        t.reason = "brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this";
+        t.brief = { exists: true, area: "", size: "unset", priority: "unset", problem };
+        if (taken.has(slug)) t.intake = null;
         model.selected.delete(slug);
         model.detail.delete(slug);
       }
@@ -2010,9 +2029,13 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     }
   }
 
-  /** The set "Shape these" acts on: the ticked cards, or the whole column when none are ticked. */
+  /**
+   * The set "Shape these" acts on: the ticked cards, or the whole column when none are ticked.
+   * Cards that already carry a scaffolded brief are left out — the server skips them, and a
+   * button whose count includes them promises work it will not do.
+   */
   function shapeSet() {
-    const all = model.tasks.filter((t) => t.state === "ungroomed").map((t) => t.slug);
+    const all = model.tasks.filter((t) => t.state === "ungroomed" && !t.brief?.exists).map((t) => t.slug);
     const picked = all.filter((s) => model.selected.has(s));
     return picked.length ? picked : all;
   }
@@ -2730,10 +2753,15 @@ export function renderTaskPage(storyEl, mapEl, data = {}, deps = {}) {
           if (!column) return;
           column.classList.remove("is-skeleton");
           renderStory(column, story, { repo, map: ctx.map, route: appState.route, onJournal: () => deps.onDecide?.(), onCapture: () => deps.onDecide?.(), onNote: () => deps.onDecide?.() });
-          const answer = section("answer", "Say what you meant", answerForm(ctx, task, { heading: task.state === "ungroomed" ? "Add detail under the line" : "Add to the intake detail", onAnswered: () => deps.onDecide?.() }));
-          const journal = column.querySelector('[data-section="journal"], #sec-journal, .section[id$="journal"]');
-          if (journal) journal.before(answer);
-          else column.appendChild(answer);
+          // Only while the intake line is still the record. Once a brief exists the line is gone,
+          // and an answer written here would rebuild it; the server refuses that with a 409, and
+          // a button nobody can use honestly should not be on the page at all.
+          if (!task.brief?.exists) {
+            const answer = section("answer", "Say what you meant", answerForm(ctx, task, { heading: task.state === "ungroomed" ? "Add detail under the line" : "Add to the intake detail", onAnswered: () => deps.onDecide?.() }));
+            const journal = column.querySelector('[data-section="journal"], #sec-journal, .section[id$="journal"]');
+            if (journal) journal.before(answer);
+            else column.appendChild(answer);
+          }
           hookStoryHover(target, ctx);
         })
         .catch((e) => {

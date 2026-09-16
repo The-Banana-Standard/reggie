@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -911,24 +911,29 @@ describe("GET /api/launch", () => {
 });
 
 describe("POST /api/triage", () => {
-  it("scaffolds a brief and moves the card from ungroomed to groomed", async () => {
+  it("scaffolds a brief, takes the intake line, and leaves the card ungroomed until it is filled in", async () => {
     const slug = fx.slugs.ungroomed;
     const before = await ok("/api/tasks?all=1");
     expect(before.find((t: any) => t.slug === slug).state).toBe("ungroomed");
     expect(before.find((t: any) => t.slug === slug).brief).toBeNull();
     expect(before.find((t: any) => t.slug === slug).phase).toBe("capture");
+    expect(before.find((t: any) => t.slug === slug).intake).not.toBeNull();
 
     const { status, body } = await post("/api/triage", { slug });
     expect(status, JSON.stringify(body)).toBe(200);
     expect(body.created).toEqual([slug]);
     expect(body.skipped).toEqual([]);
+    expect(body.takenFromIntake).toEqual([slug]);
     expect(readFileSync(briefFile(fx.paths, slug), "utf8")).toContain("## Suspected area");
+    expect(readFileSync(fx.paths.intake, "utf8")).not.toContain(slug);
 
     const after = await ok("/api/tasks?all=1");
     const card = after.find((t: any) => t.slug === slug);
-    expect(card.state).toBe("groomed");
-    expect(card.phase).toBe("shape");
-    expect(card.reason).toContain("brief");
+    // The brief exists, but nobody has written into it, so nothing has been shaped yet.
+    expect(card.state).toBe("ungroomed");
+    expect(card.phase).toBe("capture");
+    expect(card.reason).toBe("brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this");
+    expect(card.intake).toBeNull();
     expect(card.brief.exists).toBe(true);
     expect(card.brief.size).toBe("unset");
     expect(card.brief.priority).toBe("unset");
@@ -956,6 +961,39 @@ describe("POST /api/triage", () => {
     expect(body.created).toEqual([fx.slugs.inProcess]);
     expect(body.skipped).toEqual([{ slug: "no-such-task", reason: "nothing in this repo names that task" }]);
     expect(existsSync(briefFile(fx.paths, fx.slugs.inProcess))).toBe(true);
+  });
+
+  it("moves the card to Groomed once somebody writes into the scaffold", async () => {
+    // The transition the state machine now describes: filling the brief in is what shapes it,
+    // and triage only wrote the template. This is also what puts a card in the Groomed column
+    // for the counts further down.
+    const slug = fx.slugs.ungroomed;
+    const filled = readFileSync(briefFile(fx.paths, slug), "utf8")
+      .replace("size: unset", "size: small")
+      .replace("priority: unset", "priority: P2")
+      .replace(/^\(what makes this worth shaping.*\)$/m, "The chain is the slowest area to read and every task in it pays for the split being deferred.")
+      .replace(/^- \(one bullet per file or directory.*\)$/m, "- src/big/ because the chain that would be split lives there")
+      .replace(/^- \(each question whose answer.*\)$/m, "- Does anything outside src/big/ import the middle of the chain?")
+      .replace(/^- \(the nearby work a reader might confuse this with.*\)$/m, "- Caching the chain shape, which is its own task against the same files");
+    writeFileSync(briefFile(fx.paths, slug), filled, "utf8");
+
+    const card = (await ok("/api/tasks?all=1")).find((t: any) => t.slug === slug);
+    expect(card.state).toBe("groomed");
+    expect(card.phase).toBe("shape");
+    expect(card.reason).toBe("brief on disk; no plan yet");
+  });
+
+  it("refuses an intake answer for a task that has a brief, rather than rebuilding the line", async () => {
+    const slug = fx.slugs.ungroomed;
+    const brief = await ok(`/api/task/${slug}`);
+    expect(brief.task.brief.exists).toBe(true);
+    const before = readFileSync(fx.paths.intake, "utf8");
+
+    const { status, body } = await post("/api/intake", { slug, text: "Here is what I meant." });
+    expect(status, JSON.stringify(body)).toBe(409);
+    expect(body.error).toContain(`.reggie/tasks/${slug}/brief.md`);
+    // `addIntakeDetail` would have written a fresh line for a slug that has none; nothing moved.
+    expect(readFileSync(fx.paths.intake, "utf8")).toBe(before);
   });
 
   it("400s an empty request and a bad slug", async () => {

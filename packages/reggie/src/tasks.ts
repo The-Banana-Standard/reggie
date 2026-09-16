@@ -3,7 +3,7 @@ import path from "node:path";
 import { aheadCount, currentBranch, defaultBranch, fileAtRef, git, lastCommitDate, listBranches, treePaths, type BranchInfo } from "./git.js";
 import { pullRequestForBranch, type PullRequest } from "./gh.js";
 import { readJournal, type JournalEntry } from "./journal.js";
-import { parseBrief, type BriefMeta } from "./brief.js";
+import { briefDraft, parseBrief, type BriefMeta } from "./brief.js";
 import { listEvidence, parsePacketVerdict, type Verdict } from "./packet.js";
 import { readLegacy, type LegacyBacklog, type LegacyItem } from "./legacy.js";
 import { briefFile, briefRelPath, claimRelPath, packetFile, packetRelPath, planFile, planRelPath, REGGIE_DIR, TASKS_REL_DIR, type RepoPaths } from "./paths.js";
@@ -64,14 +64,14 @@ export const STATE_MACHINE: StateMachine = {
     {
       id: "ungroomed",
       label: "Ungroomed",
-      definition: "Captured but not yet shaped: nothing says what it is beyond the line someone wrote.",
-      rule: "an intake item or a .reggie/tasks/<slug>/ folder exists, with no brief.md on disk or on the default branch, no plan, and no task/<slug> branch",
+      definition: "Captured but not yet shaped: nothing says what it is beyond the line someone wrote, or the scaffold triage left behind.",
+      rule: "an intake item or a .reggie/tasks/<slug>/ folder exists, with no plan and no task/<slug> branch, and either no brief.md on disk or on the default branch or one that is still triage's unfilled scaffold",
     },
     {
       id: "groomed",
       label: "Groomed",
-      definition: "Shaped by triage: a problem statement, a suspected area, a size and a priority. No plan that passes the contract yet.",
-      rule: "brief.md exists on disk or on the default branch and no plan passes the contract; a plan draft that fails the contract, or a plan/<slug> branch, also lands here",
+      definition: "Shaped by a session: somebody has written into the brief, so the item says what it is. No plan that passes the contract yet.",
+      rule: "brief.md exists on disk or on the default branch with its Problem and its placeholder hints written over, and no plan passes the contract; a plan draft that fails the contract, or a plan/<slug> branch, also lands here",
     },
     {
       id: "planned",
@@ -102,8 +102,8 @@ export const STATE_MACHINE: StateMachine = {
     {
       from: "ungroomed",
       to: "groomed",
-      trigger: "triage writes .reggie/tasks/<slug>/brief.md (reggie triage <slug>): the problem, why now, the suspected area, a size and a priority",
-      who: "whoever runs triage; briefs are cheap, so they are usually written for a whole column at once",
+      trigger: "somebody fills in .reggie/tasks/<slug>/brief.md: why now, the suspected area, the open questions and what this is not. `reggie triage <slug>` only scaffolds it, and takes the intake line as it does, so the card stays here until the scaffold is written over",
+      who: "a shaping session; triage scaffolds a whole column at once, but each brief still has to be written",
     },
     {
       from: "groomed",
@@ -216,7 +216,7 @@ export interface TaskInfo {
   owner: string | null;
   ownerEmail: string | null;
   lastActivity: string | null;
-  /** Whole days since lastActivity, else since the date in the intake line; null when neither is known. */
+  /** Whole days since lastActivity, else since the intake line's date, else since the brief's `created`; null when none is known. */
   age: number | null;
   branch: string | null;
   pr: PullRequest | null;
@@ -548,9 +548,13 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
         : "plan draft on disk does not pass the contract yet; a plan is in progress";
     }
   } else if (hasBrief) {
-    // A brief and nothing else: triage has shaped it, planning has not started.
-    state = "groomed";
-    reason = briefLocal !== null ? "brief on disk; no plan yet" : `brief on ${snap.base}; no plan yet`;
+    // A brief and nothing else: triage has shaped it, planning has not started — unless nobody has
+    // written into the scaffold triage left, in which case the item is still as unshaped as the
+    // intake line it replaced, and says so rather than counting as work that is done.
+    const draft = briefDraft(briefContent ?? "");
+    const where = briefLocal !== null ? "disk" : snap.base;
+    state = draft.draft ? "ungroomed" : "groomed";
+    reason = draft.draft ? `brief on ${where} is ${draft.reason}` : `brief on ${where}; no plan yet`;
   } else if (legacyItem && legacyItem.planned && legacyPlan) {
     // The backlog says planned *and* the plan document is really there. The tag alone is not
     // enough: a folder of plans can outlive the decision to build any of them.
@@ -575,7 +579,9 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
   const owner = claim?.person || branch?.author || planBranch?.author || parsed?.meta.author || parsedBrief?.meta.author || null;
   const ownerEmail = claim?.email || branch?.email || planBranch?.email || null;
   const lastActivity = branch?.date || planBranch?.date || (planLocal ? lastCommitDate(root, planRelPath(slug)) : null) || legacyItem?.completedAt || null;
-  const age = ageInDays(lastActivity, snap.now) ?? ageInDays(intakeDate(intake), snap.now);
+  // Once triage takes the intake line, the brief's own `created` is the only date a card with no
+  // branch has left; without it a whole column would read "no recorded activity".
+  const age = ageInDays(lastActivity, snap.now) ?? ageInDays(intakeDate(intake), snap.now) ?? ageInDays(parsedBrief?.meta.created, snap.now);
   const planFiles = parsed ? uniq(parsed.files.map(normalizePlanPath).filter(Boolean)) : [];
   const changedFiles = branch ? branchChangedFiles(root, snap.base, refFor(branch)) : [];
 

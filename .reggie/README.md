@@ -29,8 +29,10 @@ cache. If a file exists, it is meant to be read and committed.
 
 Reggie does not keep a separate status database. It reads git:
 
-- An intake line with no plan is **ungroomed**.
-- A plan merged to the default branch is **groomed**.
+- An intake line is **ungroomed**, and so is a `brief.md` that is still the
+  scaffold `reggie triage` wrote.
+- A `brief.md` somebody has written into is **groomed**. A plan that passes the
+  plan contract is **planned**.
 - A `task/<slug>` branch with commits is **in process**. Its last commit says who and when.
 - An open pull request for that branch is **awaiting decision**.
 - A merged pull request is **done**.

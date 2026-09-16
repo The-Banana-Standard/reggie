@@ -15,3 +15,6 @@ sources: task-attribution-by-merge
 POST /api/launch claims a build with deps: defer. Linking is instant and still happens, but an install is never run inside the request: this server answers one request at a time, so a cold npm ci would hold every other request for minutes. The deferred commands travel to the session in the build prompt.
 sources: packages/reggie/src/serve.ts:2260
 
+## gotcha · 2026-09-15 · Claude via jacobpress · medium
+POST /api/intake answers 409 for a task that has a brief. addIntakeDetail writes a fresh line for a slug that has none, so an answer posted after triage would rebuild the very line triage removed and bring the card's age back with it. The task page hides the form in that case, so the refusal is not reached by an ordinary click. POST /api/triage reports takenFromIntake so the client knows which cards' lines really went.
+
