@@ -1,0 +1,83 @@
+$ cd packages/reggie && npx vitest run src/story.test.ts --reporter=verbose
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/false-tests-sentence/packages/reggie
+
+ ✓ src/story.test.ts > numbers, dates and ages > writes 0 as 'no', 1–9 as words and 10 and up as digits 1ms
+ ✓ src/story.test.ts > numbers, dates and ages > agrees number and noun 0ms
+ ✓ src/story.test.ts > numbers, dates and ages > counts repetitions as once / twice / N times 0ms
+ ✓ src/story.test.ts > numbers, dates and ages > drops the year inside the current year and keeps it otherwise 0ms
+ ✓ src/story.test.ts > numbers, dates and ages > writes ages in days 0ms
+ ✓ src/story.test.ts > routeFor > maps every id kind to the route in spec §2 0ms
+ ✓ src/story.test.ts > routeFor > appends the query string and escapes what would break the hash 0ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > emits every section id from the contract, in order 105ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > keeps every paragraph and every link well formed 4ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > puts the awaiting-decision task in Needs you with a decision block 0ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > describes each area with counts, notes, heat and its island status 0ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > keeps the 'mostly for' count inside the total the sentence gives 192ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > lists the three fixture tasks grouped by state, in process first 0ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > quotes the journal verbatim with attribution chips 0ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > names the stale note and the undocumented area in Gaps 0ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > uses the repo name in the header and carries no subtitle 0ms
+ ✓ src/story.test.ts > repoStory on the fixture repo > shows the repo note's why entries as prose under About this repo and its other entries under How to run it 0ms
+ ✓ src/story.test.ts > areaStory > emits every section id from the contract 1ms
+ ✓ src/story.test.ts > areaStory > adds a gaps section under the knowledge lens 21ms
+ ✓ src/story.test.ts > areaStory > reads the note chain first and flags the stale folder note 0ms
+ ✓ src/story.test.ts > areaStory > names the most relied-on file and keeps the links parseable 1ms
+ ✓ src/story.test.ts > areaStory > returns null for a path that is not a directory in the graph 0ms
+ ✓ src/story.test.ts > fileStory > emits every section id from the contract 2ms
+ ✓ src/story.test.ts > fileStory > lists the most-used exports first, so the cap cannot bury them 189ms
+ ✓ src/story.test.ts > fileStory > lists exports with their usage counts when a reader is available 0ms
+ ✓ src/story.test.ts > fileStory > leaves exports empty, with its empty text, when no reader was passed in 22ms
+ ✓ src/story.test.ts > fileStory > says exactly 'No test imports this file.' when nothing tests it 0ms
+ ✓ src/story.test.ts > fileStory > names the test that imports a covered file 0ms
+ ✓ src/story.test.ts > fileStory > groups importers by area and lists external packages 2ms
+ ✓ src/story.test.ts > fileStory > always offers the note form, and adds gaps under the knowledge lens 23ms
+ ✓ src/story.test.ts > fileStory > returns null for an unknown path 0ms
+ ✓ src/story.test.ts > taskStory > emits every section id from the contract, in order 1ms
+ ✓ src/story.test.ts > taskStory > states the state, its definition and the git reason 0ms
+ ✓ src/story.test.ts > taskStory > links the planned files and calls out the collision with the other plan 0ms
+ ✓ src/story.test.ts > taskStory > explains an ungroomed task from what was written, instead of ten empty plan sections 76ms
+ ✓ src/story.test.ts > taskStory > tells a groomed task's story from its brief 277ms
+ ✓ src/story.test.ts > taskStory > keeps every paragraph and link well formed for an in-process task 99ms
+ ✓ src/story.test.ts > taskStory > returns null for an unknown slug 34ms
+ ✓ src/story.test.ts > explain > returns exactly four sentences for a directory 1ms
+ ✓ src/story.test.ts > explain > returns exactly four sentences for a file 0ms
+ ✓ src/story.test.ts > explain > returns exactly four sentences for a task 0ms
+ ✓ src/story.test.ts > explain > gives every sentence refs and links that parse 1ms
+ ✓ src/story.test.ts > explain > returns null for an id that is not in the graph 0ms
+ ✓ src/story.test.ts > the tests clause > names the tested-source count at all three sites when source files are tested 1ms
+ ✓ src/story.test.ts > the tests clause > makes the clause in the made-of paragraph a link to the tests lens 0ms
+ ✓ src/story.test.ts > the tests clause > says nothing about tests when the only non-source file is a config file 0ms
+ ✓ src/story.test.ts > the tests clause > says nothing about tests in an area of source files only 0ms
+ ✓ src/story.test.ts > the tests clause > prints one wording at every site, and never more tested than source 1ms
+ ✓ src/story.test.ts > the tests clause > names the same count as the area's own Tests section, which is the fixed point 0ms
+ ✓ src/story.test.ts > a repo with a description but no why note > falls back to the package description as the empty text of About this repo 196ms
+ ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > uses the spec's empty text for every empty repo section 0ms
+ ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > says how far back it looked when nothing falls inside the journal window 109ms
+ ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > hides Needs you and never leaves 'What it is made of' empty 0ms
+ ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > emits a gap sentence naming the undocumented area 0ms
+ ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > uses the spec's note text for an empty note chain at every level 1ms
+ ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > still produces well-formed links everywhere 1ms
+ ✓ src/story.test.ts > workspaceStory > emits the workspace section ids from the contract 0ms
+ ✓ src/story.test.ts > workspaceStory > writes one paragraph per repo with counts, coverage and the last journal line 0ms
+ ✓ src/story.test.ts > workspaceStory > names the cross-repo edge and the awaiting-decision task 0ms
+ ✓ src/story.test.ts > workspaceStory > uses the spec's empty text when no manifest links the repos 0ms
+ ✓ src/story.test.ts > servicesStory and flowStory > puts the undeclared secret first, then the unused binding, then the shared writer 1ms
+ ✓ src/story.test.ts > servicesStory and flowStory > describes each service: what it is, where it is declared, who reads and who writes 0ms
+ ✓ src/story.test.ts > servicesStory and flowStory > says where a secret comes from without calling it declared 0ms
+ ✓ src/story.test.ts > servicesStory and flowStory > carries refs, links and the paragraph contract on every services paragraph 1ms
+ ✓ src/story.test.ts > servicesStory and flowStory > numbers every step and points each paragraph at its own step 1ms
+ ✓ src/story.test.ts > servicesStory and flowStory > names the service a step lands on and does not overstate a heuristic payload 0ms
+ ✓ src/story.test.ts > servicesStory and flowStory > ends with what could not be derived, and why 0ms
+ ✓ src/story.test.ts > servicesStory and flowStory > says what a cap dropped, at which hop, when one bites 52ms
+ ✓ src/story.test.ts > servicesStory and flowStory > links both pages from the repo story only when they have something on them 0ms
+ ✓ src/story.test.ts > servicesStory and flowStory > routes a service id to the services page and a flow step's symbol to its file 0ms
+
+ Test Files  1 passed (1)
+      Tests  70 passed (70)
+   Start at  20:05:06
+   Duration  3.48s (transform 181ms, setup 0ms, import 227ms, tests 3.20s, environment 0ms)
+
+
+exit=0

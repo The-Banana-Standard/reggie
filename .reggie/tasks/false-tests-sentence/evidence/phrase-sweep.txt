@@ -1,0 +1,25 @@
+$ grep -rn "with tests" packages/reggie/src packages/reggie/ui packages/reggie/docs docs
+packages/reggie/src/views.ts:537: * only while test files are drawn: with tests hidden, a test file's import is still an import of
+packages/reggie/src/story.test.ts:645:  const OLD_WORDING = "with tests";
+
+Two lines, not the one the plan asked for. Both are deliberate and neither publishes the old
+wording as current:
+  views.ts     — the lens comment about test files being hidden; unrelated to the clause.
+  story.test.ts — the retired phrase, named once, so the test fails if it ever comes back.
+See the packet, Deviations, for why the second one is kept rather than spelled around.
+
+$ grep -rn "of them tested" packages/reggie/src packages/reggie/ui packages/reggie/docs docs
+packages/reggie/src/story.test.ts:647:  const NO_CLAUSE = new RegExp(`of them tested|${OLD_WORDING}|lens=tests`);
+packages/reggie/src/story.test.ts:688:    expect(madeOf("covered")).toContain("three of them tested");
+packages/reggie/src/story.test.ts:689:    expect(subtitleOf("covered")).toBe("TypeScript area, three source files, three of them tested.");
+packages/reggie/src/story.test.ts:690:    expect(spotlightOf("covered")).toContain("three source files, three of them tested,");
+packages/reggie/src/story.test.ts:694:    expect(madeOf("covered")).toContain(`[[${routeFor(local.repo, "dir:covered/", { lens: "tests" })}|three of them tested]]`);
+packages/reggie/src/story.test.ts:721:      const clause = agg.testedSource > 0 ? `${numberWord(agg.testedSource)} of them tested` : null;
+packages/reggie/src/story.test.ts:724:        else expect(text, text).not.toContain("of them tested");
+packages/reggie/src/story.test.ts:732:    expect(subtitleOf("covered")).toContain("three of them tested");
+packages/reggie/src/story.ts:225:  return tested > 0 ? `${numberWord(tested)} of them tested` : null;
+packages/reggie/ui/dev/sample-explain.json:13:      "text": "[[#/repo/reggie/area/src/types|src/types]] is a TypeScript area of seven source files, one of them tested, holding the shared types of the desktop app.",
+docs/ui-plan.md:143:- Also on this track: "What this is" became "About this repo" on 2026-09-14 (task `about-this-repo`): the `_repo` note's `why` entries as prose, the manifest description only as the empty-state fallback, no subtitle; reading `README`/`ARCHITECTURE`/`CLAUDE.md` into it was rejected because the point is that a person wrote it. Fixed on 2026-09-15 (task `false-tests-sentence`): the parenthetical beside the source-file count rendered the area's total file count as a tests claim, so the most-read paragraph on the landing page announced more tested files than the area had files at all, and announced them for any area holding a config or generated file and no test. The parenthetical is gone. The clause is now `"N of them tested"` — the count of source files a test file imports, which cannot exceed the source count printed beside it — built by one helper that the made-of paragraph, the area subtitle and the container Spotlight all share, and omitted entirely when that count is zero.
+packages/reggie/ui/dev/sample-story.json:75:          "text": "[[#/repo/reggie/area/src/components|src/components]] is a TypeScript area: [[#/repo/reggie/area/src/components?lens=structure|29 source files]], [[#/repo/reggie/area/src/components?lens=tests|20 of them tested]], [[#/repo/reggie/area/src/components?lens=knowledge|none with a note]], [[#/repo/reggie/area/src/components?lens=heat|changed 12 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]].",
+packages/reggie/ui/dev/sample-story.json:81:          "text": "[[#/repo/reggie/area/packages/reggie|packages/reggie]] is a TypeScript package: [[#/repo/reggie/area/packages/reggie|21 source files]], [[#/repo/reggie/area/packages/reggie?lens=tests|12 of them tested]], [[#/repo/reggie/area/packages/reggie?lens=knowledge|seven with a note]], [[#/repo/reggie/area/packages/reggie?lens=heat|changed 41 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]]. It stands alone: nothing else in the repo imports it.",
+packages/reggie/docs/ui-spec.md:49:| made-of | What it is made of | One paragraph per L1 area, ordered by source-file count: "`[[packages/reggie]]` is a TypeScript package: 21 source files, 12 of them tested, 7 with a note, changed 41 times in the last 30 days, mostly by [[jacobpress]]." Every number is a link to the area with the matching lens (`N source files` → `?lens=structure`, `N of them tested` → `?lens=tests`, `with a note` → `?lens=knowledge`, `changed N times` → `?lens=heat`). `N of them tested` counts the area's source files that a test file imports (`aggregates.testedSource`), so it can never exceed the source-file count beside it; when no source file is tested the clause is omitted entirely and the rest of the sentence is unchanged. Islands are stated: "It stands alone: nothing else in the repo imports it." | never empty |

@@ -1,0 +1,136 @@
+=== MUTATION PROBE — part 1 of 2: the old guard restored ===
+
+The three sites in src/story.ts were reverted, by hand, to the exact expressions the plan
+quotes from this commit's parent, and nothing else was touched. The new test must fail; a
+test that passes either way proves nothing.
+
+$ grep -n 'files > source' src/story.ts
+931:    if (files > source) parts.push(` (${linkRoute(routeFor(ctx.repo, ref.id, { lens: "tests" }), `${numberWord(files)} with tests`)})`);
+1221:  const subtitle = `${lang}${areaKindWord(node)}, ${countPhrase(source, "source file")}${files > source ? ` (${numberWord(files)} with tests)` : ""}.`;
+2168:    `${label} is a ${lang}${isRepoNode ? "repo" : areaKindWord(node)} of ${countPhrase(source, "source file")}${files > source ? ` (${numberWord(files)} with tests)` : ""}, ${countPhrase(agg?.lines ?? node.lines, "line")} in all.`,
+
+$ npx vitest run src/story.test.ts -t 'the tests clause' --reporter=verbose
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/false-tests-sentence/packages/reggie
+
+ × src/story.test.ts > the tests clause > names the tested-source count at all three sites when source files are tested 7ms
+   → expected '[[#/repo/reggie-story-clause-UqdcEY/a…' to contain 'three of them tested'
+ × src/story.test.ts > the tests clause > makes the clause in the made-of paragraph a link to the tests lens 2ms
+   → expected '[[#/repo/reggie-story-clause-UqdcEY/a…' to contain '[[#/repo/reggie-story-clause-UqdcEY/a…'
+ × src/story.test.ts > the tests clause > says nothing about tests when the only non-source file is a config file 1ms
+   → expected 'TypeScript area, three source files (…' to be 'TypeScript area, three source files.' // Object.is equality
+ ✓ src/story.test.ts > the tests clause > says nothing about tests in an area of source files only 1ms
+ × src/story.test.ts > the tests clause > prints one wording at every site, and never more tested than source 1ms
+   → [[#/repo/reggie-story-clause-UqdcEY/area/covered|covered]] is a TypeScript area: [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=structure|three source files]] ([[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=tests|four with tests]]), [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=knowledge|none with a note]], [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=heat|changed once]] in the last 30 days, mostly by [[#/repo/reggie-story-clause-UqdcEY/person/test|test]]. It stands alone: nothing else in the repo imports it.: expected '[[#/repo/reggie-story-clause-UqdcEY/a…' to contain 'three of them tested'
+ × src/story.test.ts > the tests clause > names the same count as the area's own Tests section, which is the fixed point 0ms
+   → expected 'TypeScript area, three source files (…' to contain 'three of them tested'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/story.test.ts > the tests clause > names the tested-source count at all three sites when source files are tested
+AssertionError: expected '[[#/repo/reggie-story-clause-UqdcEY/a…' to contain 'three of them tested'
+
+Expected: "three of them tested"
+Received: "[[#/repo/reggie-story-clause-UqdcEY/area/covered|covered]] is a TypeScript area: [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=structure|three source files]] ([[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=tests|four with tests]]), [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=knowledge|none with a note]], [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=heat|changed once]] in the last 30 days, mostly by [[#/repo/reggie-story-clause-UqdcEY/person/test|test]]. It stands alone: nothing else in the repo imports it."
+
+ ❯ src/story.test.ts:683:31
+    681|     const agg = aggOf("covered");
+    682|     expect([agg.source, agg.testedSource]).toEqual([3, 3]);
+    683|     expect(madeOf("covered")).toContain("three of them tested");
+       |                               ^
+    684|     expect(subtitleOf("covered")).toBe("TypeScript area, three source …
+    685|     expect(spotlightOf("covered")).toContain("three source files, thre…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/story.test.ts > the tests clause > makes the clause in the made-of paragraph a link to the tests lens
+AssertionError: expected '[[#/repo/reggie-story-clause-UqdcEY/a…' to contain '[[#/repo/reggie-story-clause-UqdcEY/a…'
+
+Expected: "[[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=tests|three of them tested]]"
+Received: "[[#/repo/reggie-story-clause-UqdcEY/area/covered|covered]] is a TypeScript area: [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=structure|three source files]] ([[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=tests|four with tests]]), [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=knowledge|none with a note]], [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=heat|changed once]] in the last 30 days, mostly by [[#/repo/reggie-story-clause-UqdcEY/person/test|test]]. It stands alone: nothing else in the repo imports it."
+
+ ❯ src/story.test.ts:689:31
+    687|
+    688|   it("makes the clause in the made-of paragraph a link to the tests le…
+    689|     expect(madeOf("covered")).toContain(`[[${routeFor(local.repo, "dir…
+       |                               ^
+    690|   });
+    691|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/story.test.ts > the tests clause > says nothing about tests when the only non-source file is a config file
+AssertionError: expected 'TypeScript area, three source files (…' to be 'TypeScript area, three source files.' // Object.is equality
+
+Expected: "TypeScript area, three source files."
+Received: "TypeScript area, three source files (four with tests)."
+
+ ❯ src/story.test.ts:697:38
+    695|     // The condition the old guard tripped on. It is still true here; …
+    696|     expect(agg.files).toBeGreaterThan(agg.source);
+    697|     expect(subtitleOf("configured")).toBe("TypeScript area, three sour…
+       |                                      ^
+    698|     for (const text of [madeOf("configured"), subtitleOf("configured")…
+    699|       expect(text, text).not.toMatch(NO_CLAUSE);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/story.test.ts > the tests clause > prints one wording at every site, and never more tested than source
+AssertionError: [[#/repo/reggie-story-clause-UqdcEY/area/covered|covered]] is a TypeScript area: [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=structure|three source files]] ([[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=tests|four with tests]]), [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=knowledge|none with a note]], [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=heat|changed once]] in the last 30 days, mostly by [[#/repo/reggie-story-clause-UqdcEY/person/test|test]]. It stands alone: nothing else in the repo imports it.: expected '[[#/repo/reggie-story-clause-UqdcEY/a…' to contain 'three of them tested'
+
+Expected: "three of them tested"
+Received: "[[#/repo/reggie-story-clause-UqdcEY/area/covered|covered]] is a TypeScript area: [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=structure|three source files]] ([[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=tests|four with tests]]), [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=knowledge|none with a note]], [[#/repo/reggie-story-clause-UqdcEY/area/covered?lens=heat|changed once]] in the last 30 days, mostly by [[#/repo/reggie-story-clause-UqdcEY/person/test|test]]. It stands alone: nothing else in the repo imports it."
+
+ ❯ src/story.test.ts:718:40
+    716|       const clause = agg.testedSource > 0 ? `${numberWord(agg.testedSo…
+    717|       for (const text of [madeOf(area), subtitleOf(area), spotlightOf(…
+    718|         if (clause) expect(text, text).toContain(clause);
+       |                                        ^
+    719|         else expect(text, text).not.toContain("of them tested");
+    720|         expect(text, text).not.toContain("with tests");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/story.test.ts > the tests clause > names the same count as the area's own Tests section, which is the fixed point
+AssertionError: expected 'TypeScript area, three source files (…' to contain 'three of them tested'
+
+Expected: "three of them tested"
+Received: "TypeScript area, three source files (four with tests)."
+
+ ❯ src/story.test.ts:727:35
+    725|   it("names the same count as the area's own Tests section, which is t…
+    726|     expect(sectionOf(areaStory(local, "covered")!, "tests").paragraphs…
+    727|     expect(subtitleOf("covered")).toContain("three of them tested");
+       |                                   ^
+    728|   });
+    729| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 1 passed | 64 skipped (70)
+   Start at  20:05:56
+   Duration  1.70s (transform 178ms, setup 0ms, import 225ms, tests 1.41s, environment 0ms)
+
+
+vitest exit=1   (non-zero: the mutation is caught)
+
+
+=== MUTATION PROBE — part 2 of 2: the mutation reverted ===
+
+$ grep -n 'files > source' src/story.ts
+(no output: the guard is gone again)
+
+$ npx vitest run src/story.test.ts --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/false-tests-sentence/packages/reggie
+ ✓ src/story.test.ts > the tests clause > names the tested-source count at all three sites when source files are tested 1ms
+ ✓ src/story.test.ts > the tests clause > makes the clause in the made-of paragraph a link to the tests lens 0ms
+ ✓ src/story.test.ts > the tests clause > says nothing about tests when the only non-source file is a config file 0ms
+ ✓ src/story.test.ts > the tests clause > says nothing about tests in an area of source files only 0ms
+ ✓ src/story.test.ts > the tests clause > prints one wording at every site, and never more tested than source 1ms
+ ✓ src/story.test.ts > the tests clause > names the same count as the area's own Tests section, which is the fixed point 0ms
+ Test Files  1 passed (1)
+      Tests  70 passed (70)
+
+vitest exit=0   (zero: green again on the landing code)

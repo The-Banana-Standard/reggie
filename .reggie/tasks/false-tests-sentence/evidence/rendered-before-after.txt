@@ -1,0 +1,96 @@
+The three sentences, rendered against this repo's real graph, before and after.
+
+Produced by a throwaway script run with tsx from the scratchpad — no file was added to the repo —
+which builds the story context the server builds (buildStoryContext over buildGraph and
+repoHistory with diskCache: false, so nothing is written into the working tree) and prints, for
+the repo and every Level-1 area, all three sites that carry the clause plus the Tests section
+paragraph they have to agree with. `packages/reggie/test` and `packages/reggie` are not Level-1
+areas, so they are asked for by name; the first is the all-tests folder the plan calls out.
+
+BEFORE was rendered on the clean tree at 2bcfc2b. AFTER is the landing tree. The line counts
+differ between the two only because the change itself adds lines to the repo.
+
+The made-of text is shown with its raw [[route|label]] markup, which is what the payload carries
+and what the client turns into links, so the ?lens=tests route on the clause label is visible.
+
+# BEFORE (the defect as it stands) — task/false-tests-sentence at 2bcfc2b
+repo=reggie branch=task/false-tests-sentence
+
+=== REPO ===
+  aggregates : source=52 files=86 tests=33 testedSource=35
+  spotlight  : [[#/repo/reggie|reggie]] is a TypeScript repo of 52 source files (86 with tests), 43903 lines in all.
+  areaTests  : 33 test files cover 35 of 52 source files.
+  BOUND      : tested=35 source=52 -> OK
+
+=== AREA packages/reggie/src ===
+  aggregates : source=38 files=66 tests=28 testedSource=35
+  made-of    : [[#/repo/reggie/area/packages/reggie/src|packages/reggie/src]] is a TypeScript area: [[#/repo/reggie/area/packages/reggie/src?lens=structure|38 source files]] ([[#/repo/reggie/area/packages/reggie/src?lens=tests|66 with tests]]), [[#/repo/reggie/area/packages/reggie/src?lens=knowledge|23 with a note]], [[#/repo/reggie/area/packages/reggie/src?lens=heat|changed 17 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]].
+  subtitle   : TypeScript area, 38 source files (66 with tests).
+  spotlight  : [[#/repo/reggie/area/packages/reggie/src|packages/reggie/src]] is a TypeScript area of 38 source files (66 with tests), 28307 lines in all.
+  areaTests  : 28 test files cover 35 of 38 source files.
+  BOUND      : tested=35 source=38 -> OK
+
+=== AREA packages/reggie/ui ===
+  aggregates : source=14 files=14 tests=0 testedSource=0
+  made-of    : [[#/repo/reggie/area/packages/reggie/ui|packages/reggie/ui]] is a JavaScript area: [[#/repo/reggie/area/packages/reggie/ui?lens=structure|14 source files]], [[#/repo/reggie/area/packages/reggie/ui?lens=knowledge|four with a note]], [[#/repo/reggie/area/packages/reggie/ui?lens=heat|changed 11 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]]. It stands alone: nothing else in the repo imports it.
+  subtitle   : JavaScript area, 14 source files.
+  spotlight  : [[#/repo/reggie/area/packages/reggie/ui|packages/reggie/ui]] is a JavaScript area of 14 source files, 13650 lines in all.
+  areaTests  : (empty) No test file imports anything in this folder.
+  BOUND      : tested=0 source=14 -> OK
+
+=== DIR packages/reggie/test (not a Level-1 area; asked for by name) ===
+  aggregates : source=0 files=5 tests=5 testedSource=0
+  subtitle   : TypeScript area, no source files (five with tests).
+  spotlight  : [[#/repo/reggie/area/packages/reggie/test|packages/reggie/test]] is a TypeScript area of no source files (five with tests), 1935 lines in all.
+  areaTests  : five test files cover no of no source files.
+  BOUND      : tested=0 source=0 -> OK
+
+=== DIR packages/reggie (not a Level-1 area; asked for by name) ===
+  aggregates : source=52 files=86 tests=33 testedSource=35
+  subtitle   : TypeScript package, 52 source files (86 with tests).
+  spotlight  : [[#/repo/reggie/area/packages/reggie|packages/reggie]] is a TypeScript package of 52 source files (86 with tests), 43903 lines in all.
+  areaTests  : 33 test files cover 35 of 52 source files.
+  BOUND      : tested=35 source=52 -> OK
+
+
+############################################################################
+
+# AFTER — the landing tree on task/false-tests-sentence
+repo=reggie branch=task/false-tests-sentence
+
+=== REPO ===
+  aggregates : source=52 files=86 tests=33 testedSource=35
+  spotlight  : [[#/repo/reggie|reggie]] is a TypeScript repo of 52 source files, 35 of them tested, 44031 lines in all.
+  areaTests  : 33 test files cover 35 of 52 source files.
+  BOUND      : tested=35 source=52 -> OK
+
+=== AREA packages/reggie/src ===
+  aggregates : source=38 files=66 tests=28 testedSource=35
+  made-of    : [[#/repo/reggie/area/packages/reggie/src|packages/reggie/src]] is a TypeScript area: [[#/repo/reggie/area/packages/reggie/src?lens=structure|38 source files]], [[#/repo/reggie/area/packages/reggie/src?lens=tests|35 of them tested]], [[#/repo/reggie/area/packages/reggie/src?lens=knowledge|23 with a note]], [[#/repo/reggie/area/packages/reggie/src?lens=heat|changed 17 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]].
+  subtitle   : TypeScript area, 38 source files, 35 of them tested.
+  spotlight  : [[#/repo/reggie/area/packages/reggie/src|packages/reggie/src]] is a TypeScript area of 38 source files, 35 of them tested, 28435 lines in all.
+  areaTests  : 28 test files cover 35 of 38 source files.
+  BOUND      : tested=35 source=38 -> OK
+
+=== AREA packages/reggie/ui ===
+  aggregates : source=14 files=14 tests=0 testedSource=0
+  made-of    : [[#/repo/reggie/area/packages/reggie/ui|packages/reggie/ui]] is a JavaScript area: [[#/repo/reggie/area/packages/reggie/ui?lens=structure|14 source files]], [[#/repo/reggie/area/packages/reggie/ui?lens=knowledge|four with a note]], [[#/repo/reggie/area/packages/reggie/ui?lens=heat|changed 11 times]] in the last 30 days, mostly by [[#/repo/reggie/person/jacobpress|jacobpress]]. It stands alone: nothing else in the repo imports it.
+  subtitle   : JavaScript area, 14 source files.
+  spotlight  : [[#/repo/reggie/area/packages/reggie/ui|packages/reggie/ui]] is a JavaScript area of 14 source files, 13650 lines in all.
+  areaTests  : (empty) No test file imports anything in this folder.
+  BOUND      : tested=0 source=14 -> OK
+
+=== DIR packages/reggie/test (not a Level-1 area; asked for by name) ===
+  aggregates : source=0 files=5 tests=5 testedSource=0
+  subtitle   : TypeScript area, no source files.
+  spotlight  : [[#/repo/reggie/area/packages/reggie/test|packages/reggie/test]] is a TypeScript area of no source files, 1935 lines in all.
+  areaTests  : five test files cover no of no source files.
+  BOUND      : tested=0 source=0 -> OK
+
+=== DIR packages/reggie (not a Level-1 area; asked for by name) ===
+  aggregates : source=52 files=86 tests=33 testedSource=35
+  subtitle   : TypeScript package, 52 source files, 35 of them tested.
+  spotlight  : [[#/repo/reggie/area/packages/reggie|packages/reggie]] is a TypeScript package of 52 source files, 35 of them tested, 44031 lines in all.
+  areaTests  : 33 test files cover 35 of 52 source files.
+  BOUND      : tested=35 source=52 -> OK
+
