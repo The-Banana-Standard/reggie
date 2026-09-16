@@ -1,0 +1,29 @@
+# Criterion 6: the published numbers for this worktree, before and after
+
+## BEFORE (branch point: repo-manager at the landing commit of false-tests-sentence)
+root: /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/graph-coverage-published
+facts.totalFiles: 223
+facts.languages: [{"language":"Markdown","files":96},{"language":"TypeScript","files":78},{"language":"JSON","files":18},{"language":"JavaScript","files":8},{"language":"CSS","files":5},{"language":"HTML","files":5},{"language":"YAML","files":4},{"language":"Shell","files":1}]
+graph.totalCodeFiles: 86
+graph.unresolved: 3
+graph.languages: ["JavaScript","TypeScript","task"]
+graph.skipped: null
+sum(skipped.files): 0
+totalCodeFiles + sum(skipped): 86
+
+## AFTER (this branch, final code)
+root: /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/graph-coverage-published
+facts.totalFiles: 223
+facts.languages: [{"language":"Markdown","files":96},{"language":"TypeScript","files":78},{"language":"JSON","files":18},{"language":"JavaScript","files":8},{"language":"CSS","files":5},{"language":"HTML","files":5},{"language":"YAML","files":4},{"language":"Shell","files":1}]
+graph.totalCodeFiles: 86
+graph.unresolved: 2
+graph.languages: ["JavaScript","TypeScript","task"]
+graph.skipped: [{"language":"CSS","files":5},{"language":"HTML","files":5},{"language":"Shell","files":1}]
+sum(skipped.files): 11
+totalCodeFiles + sum(skipped): 97
+
+## Reading
+unresolved 3 -> 2. Deduping on (importing file, specifier) counts the bound require once.
+skipped: CSS 5, HTML 5, Shell 1 = 11, against totalCodeFiles 86, so 97 code files in all.
+See what-the-number-counts.txt for exactly which two import lines the 2 refers to, and for
+the class of import the number cannot see at all.

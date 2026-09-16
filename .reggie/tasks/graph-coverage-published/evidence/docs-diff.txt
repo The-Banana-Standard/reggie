@@ -1,0 +1,117 @@
+# Criteria 16, 17 and 21: the written record moves with the code, in the same commit
+
+==============================================================================
+## packages/reggie/docs/ui-api-contract.md
+==============================================================================
+diff --git a/packages/reggie/docs/ui-api-contract.md b/packages/reggie/docs/ui-api-contract.md
+index 74d2311..4df6117 100644
+--- a/packages/reggie/docs/ui-api-contract.md
++++ b/packages/reggie/docs/ui-api-contract.md
+@@ -69,7 +69,7 @@ Unchanged shape: `{ facts: RepoFacts, config: ReggieConfig, people: PeopleFile }
+ `{ ready: boolean; steps: { files: boolean; imports: boolean; notes: boolean; history: boolean; tasks: boolean }; headSha: string }` — first-load card ticks. The route never blocks: the first hit starts the warm-up in the background and answers immediately with the ticks so far (so the very first poll of a cold server reports `ready:false`), and each later poll reports more. `ready` flips true once every source has been attempted; a source that failed to build keeps its tick off.
+ 
+ ## GET /api/graph
+-No params (compatibility): `{ nodes: GraphNode[] /* kind file|task only */, edges: GraphEdge[], dirs: string[], unresolved: number, generatedAt: string, languages: string[], totalCodeFiles: number, included: number, truncated: boolean }`.
++No params (compatibility): `{ nodes: GraphNode[] /* kind file|task only */, edges: GraphEdge[], dirs: string[], unresolved: number, generatedAt: string, languages: string[], totalCodeFiles: number, included: number, truncated: boolean }`. This route's `unresolved` and `languages` are the compatibility shape and the UI does not read them — the client only ever fetches the levelled routes below, and `counts` is where it reads coverage from. `languages` here includes the synthetic `task` language and is not a list of languages the graph read; `skipped` is deliberately absent, because the counts block is its published home.
+ 
+ Every **drawable** node of `?level=container` and `?level=dir` (that is, every node that is not a ghost or a `fold:`) carries git history: a file node on `history`, an area node on `aggregates.history`. Areas that are not whole directories — a split residual ("src (other)") and the residual left by a `config.yaml` `areas:` pin — are rolled up over their own file set, summing per-file lines and counting each commit once across the set, so their `commits30` is comparable with a real directory's rather than absent. A node whose files have no git history at all is sent with the `null` counts described under `History`, never with zeros and never with the field missing.
+ 
+@@ -82,11 +82,23 @@ interface ViewGraph {
+   edges: GraphEdge[];                  // aggregated; tests edges only when tests=1
+   areas: AreaRef[];                    // Level-1 areas with hue assignment (always the full L1 set)
+   cycles: string[][];                  // SCCs of size ≥ 2 among the returned nodes
+-  counts: { totalCodeFiles: number; shown: number; folded: number; hiddenTests: number; up?: number[]; down?: number[] };
++  counts: { totalCodeFiles: number;                          // repo-wide: code files the graph opened and read
++            shown: number; folded: number; hiddenTests: number;
++            skipped: { language: string; files: number }[];  // repo-wide: code files the graph never read, largest first
++            unresolved: number;                              // repo-wide: distinct (file, RELATIVE specifier) pairs that resolved to nothing
++            up?: number[]; down?: number[] };
+   center?: string; centers?: string[]; // impact only
+   generatedAt: string;
+ }
+ ```
++`counts.skipped` and `counts.unresolved` describe the repo, not the view. They are lifted unchanged from one `RepoGraph` at all three levels (container, dir, impact), so within a payload the three cannot disagree and neither can the story built from the same graph — but a client must not read them as being about the scope on screen, and two *separate* requests can still skew, because the story and the level payloads are cached independently and neither carries the commit they were built from.
++
++`skipped` is the array rather than a total — the sum is the number of code files the graph never read, and the entries name the languages, largest first (ties by language name). A file counts as skipped code when it is in a language a person authors as part of how the product behaves or looks (programming languages, shell, SQL, HTML, CSS, SCSS) and the graph's own extension table does not read it; Markdown, JSON, YAML and TOML are never counted.
++
++`totalCodeFiles` is the number of code files the graph **opened and read**, not the number whose extension it recognises: a file listed by git but missing from the worktree is in neither `totalCodeFiles` nor `skipped`, so `totalCodeFiles` plus the sum of `skipped` is the repo's code-file total less any file that could not be opened. It is also the `M` the dir footer's "Showing N of M files" compares against, which is a count of read files and not of everything under the folder — the name predates this and is misleading.
++
++`unresolved` counts distinct (importing file, **relative** specifier) pairs: one bad path written twice in one file is one and the same bad path imported from two files is two. Only specifiers starting with `.` are counted. An unresolvable `@/` or `~/` alias, and any bare package specifier, is dropped with no edge and no count, so a zero here means "no path-style import failed" and not "every import was followed".
++
+ `?level=dir&root=<path>&tests=0|1&all=0|1` → `ViewGraph` with `nodes` = sub-areas + loose files (+ one `fold:` node unless `all=1`) + ghosts (`ghost:up:<dirId>` / `ghost:down:<dirId>` ids, `ghost: true`, `side`, `label` "src/types · 3 files used", `aggregates` of the ghost's underlying dir), `edges` = intra file edges + child→ghost aggregated edges. 404 when `root` is not a known dir.
+ 
+ ## GET /api/impact?id=<file|file::symbol>&depth=1|2|3&direction=both|up|down&tests=0|1
+
+==============================================================================
+## packages/reggie/ui/DOM-CONTRACT.md
+==============================================================================
+diff --git a/packages/reggie/ui/DOM-CONTRACT.md b/packages/reggie/ui/DOM-CONTRACT.md
+index f15e309..232369a 100644
+--- a/packages/reggie/ui/DOM-CONTRACT.md
++++ b/packages/reggie/ui/DOM-CONTRACT.md
+@@ -31,7 +31,7 @@ Every container below exists on first paint and is never replaced, only filled.
+ | `tb-fit`, `tb-zoom-out`, `tb-zoom-in`, `tb-relayout`, `tb-tests` | Toolbar buttons; `tb-tests` carries `aria-pressed` | app.js wires, map.js acts |
+ | `tb-extra` | Slot for depth / direction / planned-actual controls (`display: contents`) | map.js / board.js |
+ | `legend` | Floating legend card (empty = hidden) | map.js |
+-| `map-footer` | Bottom-right counts line ("7 areas · 12 edges · 49 tests hidden") | map.js |
++| `map-footer` | Bottom-right counts line ("7 areas · 12 edges · 49 tests hidden"). On the repo map only, and only when `counts.unresolved` is positive, a last segment is appended: "7 areas · 12 edges · 49 tests hidden · 2 imports point at no file" (singular: "1 import points at no file"). Omitted entirely at zero, and never shown on the dir, impact or workspace footers, because the number is repo-wide. Empty string when the model holds no non-compound node at all — the canvas explains itself instead; a view whose every child is folded still has non-compound nodes and still renders a line | map.js |
+ | `map-tip` | The single tooltip div (`.tip`, `hidden` when idle) | map.js |
+ | `reader` | Reader drawer container (`hidden` when closed) | reader.js |
+ | `palette`, `palette-backdrop`, `palette-input`, `palette-results` | Search modal | app.js |
+
+==============================================================================
+## packages/reggie/docs/ui-spec.md
+==============================================================================
+diff --git a/packages/reggie/docs/ui-spec.md b/packages/reggie/docs/ui-spec.md
+index ac9fde7..b179abb 100644
+--- a/packages/reggie/docs/ui-spec.md
++++ b/packages/reggie/docs/ui-spec.md
+@@ -46,7 +46,7 @@ Ids: `repo:<name>`, `dir:<path>/` (always trailing slash; `dir:./` is the repo r
+ |---|---|---|---|
+ | needs-you | Needs you | One card per awaiting-decision task: title, one-line Problem (first sentence of plan Problem), owner, age, risk chip, `Approve` / `Needs work` buttons (POST `/api/decide`). | (section hidden) |
+ | what | About this repo | The `why` entries of the `_repo` note as prose paragraphs (no card, no type/author chips; the first carries a Branch chip, and a stale chip when the code moved on). Every other `_repo` entry is a card under "How to run it". There is no subtitle on this level. | `facts.description` when there is one, else "Nobody has written what this repo is for. The first useful note says why it exists and how to run it." + Add note form for `_repo`. |
+-| made-of | What it is made of | One paragraph per L1 area, ordered by source-file count: "`[[packages/reggie]]` is a TypeScript package: 21 source files, 12 of them tested, 7 with a note, changed 41 times in the last 30 days, mostly by [[jacobpress]]." Every number is a link to the area with the matching lens (`N source files` → `?lens=structure`, `N of them tested` → `?lens=tests`, `with a note` → `?lens=knowledge`, `changed N times` → `?lens=heat`). `N of them tested` counts the area's source files that a test file imports (`aggregates.testedSource`), so it can never exceed the source-file count beside it; when no source file is tested the clause is omitted entirely and the rest of the sentence is unchanged. Islands are stated: "It stands alone: nothing else in the repo imports it." | never empty |
++| made-of | What it is made of | First, one paragraph (id `made-of-coverage`, kind `fact`) saying how much of the repo the map is a picture of, so the reader can discount the inventory before reading it: "Reggie read 140 of this repo's 152 code files, skipping nine CSS files, two HTML files and one Shell file; three imports pointed at no file, so the map is missing those connections." At most three languages are named, in `counts.skipped` order, and any remainder is folded into "N files in M other languages". With nothing skipped it makes the positive claim instead ("Reggie read all 140 code files in this repo"); with nothing unresolved the sentence ends ", and followed every import written as a path." after a skipped list, or " and followed every import written as a path." without one — qualified because `counts.unresolved` only counts path-style specifiers, so an unresolvable alias is not in it. When the repo has no code files at all the paragraph is omitted entirely and the section's own empty text stands. The word "unresolved" never appears. Then one paragraph per L1 area, ordered by source-file count: "`[[packages/reggie]]` is a TypeScript package: 21 source files, 12 of them tested, 7 with a note, changed 41 times in the last 30 days, mostly by [[jacobpress]]." Every number is a link to the area with the matching lens (`N source files` → `?lens=structure`, `N of them tested` → `?lens=tests`, `with a note` → `?lens=knowledge`, `changed N times` → `?lens=heat`). `N of them tested` counts the area's source files that a test file imports (`aggregates.testedSource`), so it can never exceed the source-file count beside it; when no source file is tested the clause is omitted entirely and the rest of the sentence is unchanged. Islands are stated: "It stands alone: nothing else in the repo imports it." | never empty |
+ | starts | Where it starts | One sentence per entry point: "A user action starts in [[src/main.tsx]] and reaches the Rust side through 48 Tauri commands defined in [[src-tauri]]." / "The command line starts in [[cli.ts]] (27 commands); agents reach the same code through [[mcp.ts]] (10 tools); the web view is served by [[serve.ts]] (8 routes)." Links open the file explorer preset to `?dir=down&depth=2`. | "No entry point was recognised. Reggie looks for main/index/cli/server files and package.json bin/main." |
+ | talks | How the pieces talk | Top 6 aggregated edges as sentences: "[[src/components]] leans on [[src/types]] 41 times, mostly for [[terminal.ts]] (21)." IPC: "[[src/components]] calls into [[src-tauri]] through 27 Tauri commands (matched by name)." Cycles: "[[src/hooks]] and [[src/services]] depend on each other." `refs` = both area ids so hover lights the edge. | "The areas do not import each other." |
+ | flight | What is in flight | Tasks grouped by state, in-process first: "[[slug]] (in process, jacobpress, 2 days): title". Intake items as ungroomed. | "Nothing has been captured yet. A task starts as one line in intake; a plan makes it groomed; a `task/<slug>` branch means in process; an open PR means awaiting decision; a merge means done." + inline capture form. |
+@@ -97,7 +97,7 @@ Lens changes swap colours instantly (no animation) inside `cy.batch`. The lens i
+ 
+ ### 3.1 Guidebook shell
+ 
+-Header 48px; below it a flex row of panes: the Story (min 380px, capped at its 62ch measure plus padding, so spare width goes to the map) and the Map column, which on file pages also holds the code reader. Each pane folds: Story / Map / Code toggles in the header (`S`, `M`, `C`), and a 28px rail stands where a folded pane was and reopens it. One pane alone fills the row (a story alone sits centred); story beside map, story beside code (the reader at full height) and map beside code (side by side) are the pairs; all three are story beside map over code, with the drawer's drag handle. Choices are remembered per level (`reggie.panes.<level>`). Every story section folds from its heading (`[` / `]` fold or open them all; remembered per repo and level under `reggie.sections.<repo>.<level>`). Under 1100px the panes stack, map first at 45vh, sticky mini-breadcrumb, no toggles or rails. The Story column scrolls; the Map is `position: sticky; top: 48px; height: calc(100vh - 48px)`. Header: breadcrumb left (crumbs from `story.crumbs`, each a link; the last crumb is the page title at 22px/600), right: search trigger ("Search ⌘K"), Lens segmented control, the Story / Map / Code pane toggles, repo switcher (workspace mode only). Map column contains: tabs row (Map / Treemap ⧗) 32px, canvas, toolbar (top-left floating card: Fit, −, +, Re-layout, Show tests, Depth/Direction when applicable), legend (bottom-left floating card), footer line (bottom-right: counts like "7 areas · 12 edges · 49 tests hidden"), reader drawer (Levels 3–4). Spotlight slot sits above the story sections.
++Header 48px; below it a flex row of panes: the Story (min 380px, capped at its 62ch measure plus padding, so spare width goes to the map) and the Map column, which on file pages also holds the code reader. Each pane folds: Story / Map / Code toggles in the header (`S`, `M`, `C`), and a 28px rail stands where a folded pane was and reopens it. One pane alone fills the row (a story alone sits centred); story beside map, story beside code (the reader at full height) and map beside code (side by side) are the pairs; all three are story beside map over code, with the drawer's drag handle. Choices are remembered per level (`reggie.panes.<level>`). Every story section folds from its heading (`[` / `]` fold or open them all; remembered per repo and level under `reggie.sections.<repo>.<level>`). Under 1100px the panes stack, map first at 45vh, sticky mini-breadcrumb, no toggles or rails. The Story column scrolls; the Map is `position: sticky; top: 48px; height: calc(100vh - 48px)`. Header: breadcrumb left (crumbs from `story.crumbs`, each a link; the last crumb is the page title at 22px/600), right: search trigger ("Search ⌘K"), Lens segmented control, the Story / Map / Code pane toggles, repo switcher (workspace mode only). Map column contains: tabs row (Map / Treemap ⧗) 32px, canvas, toolbar (top-left floating card: Fit, −, +, Re-layout, Show tests, Depth/Direction when applicable), legend (bottom-left floating card), footer line (bottom-right: counts like "7 areas · 12 edges · 49 tests hidden"; on the repo map a last segment "· 2 imports point at no file" is appended when `counts.unresolved` is positive and omitted entirely when it is zero, and it appears on no other level because the number is repo-wide), reader drawer (Levels 3–4). Spotlight slot sits above the story sections.
+ 
+ Dense toggle: retired 2026-09-14. Folding sections and panes replaces it; `?dense=1` in an old link is ignored.
+ 
+
+==============================================================================
+## docs/ui-plan.md
+==============================================================================
+diff --git a/docs/ui-plan.md b/docs/ui-plan.md
+index cf56ddb..0b8bf6e 100644
+--- a/docs/ui-plan.md
++++ b/docs/ui-plan.md
+@@ -139,7 +139,7 @@ Runs alongside M3–M6; touches `graph.ts`/`roles.ts`/`facts.ts` and nothing the
+ 
+ - **Phase 1 (days): shallow tier.** Extend `CODE_EXT` and add a regex import/entry extractor for Swift, Kotlin, Go and Python. Immediately yields file nodes, areas, tests, notes, history, ownership and a real story on Color Lock, speech-therapy-app, color-lock-android and RetroFantasy. Ship the honest banner with it — `facts.ts:37-67 LANGUAGE_BY_EXT` already knows every skipped language and `facts.ts:188-196` already emits `swift build` / `go build ./...` / `pytest`.
+ - **Phase 2: tree-sitter** for real symbols and imports in those four languages, replacing the regex tier per language as each lands.
+-- Alongside: publish the graph's own coverage. `unresolved` and `SYMBOL_ENGINE` are computed and discarded today, so a partly-resolved map is indistinguishable from a complete one.
++- Alongside: publish the graph's own coverage. Done on 2026-09-15 (task `graph-coverage-published`): a partly-read map used to be indistinguishable from a complete one, because the count of imports that resolved to nothing rode only the flat `GET /api/graph` that no client fetches, and the count of files the `CODE_EXT` filter dropped was never computed at all. Both now ride `ViewCounts` — `skipped`, a per-language breakdown of the code files the graph never looked at, and `unresolved`, now counted as distinct (file, specifier) import lines rather than scanner matches — lifted from the graph at all three levels, and both are spent where the reader is: the first paragraph of the made-of section says what was read and what was skipped, and the repo map's footer gains one last segment when imports point at no file. The empty repo map explains itself from `skipped` instead of claiming there are no code files. The line between code and not-code is drawn once, in `facts.codeLanguageOf`. Nothing here narrows the gap: no language was added to `CODE_EXT` and no resolver was improved.
+ - Also on this track: "What this is" became "About this repo" on 2026-09-14 (task `about-this-repo`): the `_repo` note's `why` entries as prose, the manifest description only as the empty-state fallback, no subtitle; reading `README`/`ARCHITECTURE`/`CLAUDE.md` into it was rejected because the point is that a person wrote it. Fixed on 2026-09-15 (task `false-tests-sentence`): the parenthetical beside the source-file count rendered the area's total file count as a tests claim, so the most-read paragraph on the landing page announced more tested files than the area had files at all, and announced them for any area holding a config or generated file and no test. The parenthetical is gone. The clause is now `"N of them tested"` — the count of source files a test file imports, which cannot exceed the source count printed beside it — built by one helper that the made-of paragraph, the area subtitle and the container Spotlight all share, and omitted entirely when that count is zero.
+ 
+ ## Cuts, with reasons
+
+==============================================================================
+## Each quote checked against the real output
+==============================================================================
+DOM-CONTRACT footer example : "7 areas · 12 edges · 49 tests hidden · 2 imports point at no file"
+footers.txt container line  : "7 areas · 14 edges · 49 tests hidden · 3 imports point at no file"
+DOM-CONTRACT singular       : "1 import points at no file"
+footers.txt singular line   : "7 areas · 14 edges · 49 tests hidden · 1 import points at no file"
+
+ui-spec made-of quote uses the dev sample's figures, not this repo's live census, so the spec
+does not read as a regression the next time someone adds a stylesheet. The sample's sentence:
+  Reggie read 140 of this repo's 152 code files, skipping nine CSS files, two HTML files and one Shell file; three imports pointed at no file, so the map is missing those connections.
+ui-spec all-clear quote     : ", and followed every import written as a path." / " and followed…"
+sample-story-empty.json     : Reggie read all 21 code files in this repo and followed every import written as a path.

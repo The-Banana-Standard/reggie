@@ -1,0 +1,53 @@
+# Criteria 3 and 4: one exported helper draws the code / not-code line, and workspace.ts is untouched
+
+## grep -rn "codeLanguageOf" packages/reggie/src
+packages/reggie/src/graph.ts:22:import { codeLanguageOf, collectFacts, detectName, isIgnoredPath, type LanguageCount, type RepoFacts } from "./facts.js";
+packages/reggie/src/graph.ts:149:   * Code files the graph never looked at, by language: every file `codeLanguageOf` calls code whose
+packages/reggie/src/graph.ts:790: * The line between code and not-code is `codeLanguageOf`'s and is drawn only there.
+packages/reggie/src/graph.ts:799:    const lang = codeLanguageOf(file);
+packages/reggie/src/facts.test.ts:2:import { codeLanguageOf, collectFacts, NON_CODE_LANGUAGES } from "./facts.js";
+packages/reggie/src/facts.test.ts:60:// codeLanguageOf: the one line between code and not-code
+packages/reggie/src/facts.test.ts:63:describe("codeLanguageOf", () => {
+packages/reggie/src/facts.test.ts:115:    expect(codeLanguageOf(file)).toBe(language);
+packages/reggie/src/facts.test.ts:123:    expect(codeLanguageOf("A/B/C/Thing.TS")).toBe("TypeScript");
+packages/reggie/src/facts.test.ts:124:    expect(codeLanguageOf("A/B/C/Thing.MD")).toBeNull();
+packages/reggie/src/facts.ts:80: * Everything else the table knows is code (see `codeLanguageOf`). Read-only on purpose: it is the
+packages/reggie/src/facts.ts:104:export function codeLanguageOf(file: string): string | null {
+
+## One definition (facts.ts), one non-test caller (graph.ts). No other module calls it.
+
+## git diff --stat packages/reggie/src/workspace.ts  (expected: empty)
+(nothing above: workspace.ts is unchanged, as the plan requires)
+
+## The helper and its doc comment, as committed
+ * The languages in `LANGUAGE_BY_EXT` that describe or configure the product rather than being it.
+ * Everything else the table knows is code (see `codeLanguageOf`). Read-only on purpose: it is the
+ * repo-wide line between code and not-code, and it must not be movable at a distance by an importer.
+ */
+export const NON_CODE_LANGUAGES: ReadonlySet<string> = new Set(["Markdown", "JSON", "YAML", "TOML"]);
+
+/**
+ * The language of a file when that file is code, and `null` otherwise.
+ *
+ * The rule, stated once here because more than one table in this repo answers "is this code?"
+ * differently: a file is code when a person authored it as part of how the product behaves or looks
+ * — programming languages, shell, SQL, and the markup and stylesheets a browser runs — and is not
+ * code when it describes or configures the product. So HTML, CSS, SCSS, Shell and SQL count, and
+ * Markdown, JSON, YAML and TOML do not.
+ *
+ * It is the denominator for coverage claims: `graph.ts` reads only `CODE_EXT`, and the count of code
+ * files it never looked at is meaningless unless the line is drawn here rather than against every
+ * tracked file or against every language the table recognises, which on a documentation-heavy repo
+ * is mostly Markdown. HTML and CSS stay in deliberately — on a static-site repo, dropping them would
+ * report no code at all and let the page claim Reggie read all of nothing.
+ *
+ * `Object.hasOwn` rather than a bare lookup: a file called `snapshot.constructor` would otherwise
+ * find `Object.prototype.constructor`, which is truthy, is not in `NON_CODE_LANGUAGES`, and would
+ * be returned as a language and then sorted with `localeCompare`.
+ */
+export function codeLanguageOf(file: string): string | null {
+  const ext = path.extname(file).slice(1).toLowerCase();
+  if (!Object.hasOwn(LANGUAGE_BY_EXT, ext)) return null;
+  const lang = LANGUAGE_BY_EXT[ext];
+  return lang && !NON_CODE_LANGUAGES.has(lang) ? lang : null;
+}

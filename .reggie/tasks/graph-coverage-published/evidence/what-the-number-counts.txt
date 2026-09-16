@@ -1,0 +1,46 @@
+# What the published 'imports pointed at no file' number actually counts, on this repo
+
+## 1. The count
+graph.unresolved: 2
+
+## 2. The relative specifiers the scanner finds in this repo's own source, per file
+## (only two in the whole repo have no file behind them)
+src/graph.test.ts: ["../test/helpers.js","./cjs","./dyn","./graph.js","./history.js","./layout.js","./notes.js","./paths.js","./util.js"]
+
+## 3. Neither target exists:
+(eval):17: no matches found: src/cjs.*
+
+## 4. Where they are written — both are string literals inside the import-parsing unit test,
+## fed to jsImports directly. They are not imports of this repo; they are test inputs that the
+## file-level scanner also reads, because REQUIRE_RE and DYNAMIC_IMPORT_RE are not anchored
+## to a line the way ES_IMPORT_RE is.
+372:        'const p = import("./dyn");',
+373:        'const { f, g: h } = require("./cjs");',
+
+## 5. The count is exactly 2, and these are two provable unresolvable (file, specifier) pairs,
+## so the set is exactly these two: any third would make the number 3.
+
+## Consequence, stated rather than buried:
+## The number is defensible as 'specifiers written as a path that resolved to no file'.
+## The clause the sentence attaches to it — 'so the map is missing those connections' — is
+## an overstatement on THIS repo, because no real import is missing: the map is complete and
+## the scanner is reading a test's data as if it were code. The wording is kept, because it
+## is right for the general case and the plan chose it knowing where this repo's two came
+## from; the scanner defect is captured as its own item.
+
+==============================================================================
+# The other half: imports the number cannot see
+==============================================================================
+# A repo whose imports are all aliases or bare packages, none resolvable
+totalCodeFiles: 4
+import edges:   0
+unresolved:     0
+skipped:        []
+sentence:       Reggie read all four code files in this repo and followed every import written as a path.
+
+## Reading. Every import in that repo is an alias or a bare package and none resolves, so the
+## map has no edges at all — and the count is zero, because only specifiers starting with a
+## dot are counted. An unqualified 'and followed every import.' would be flatly false there.
+## That is why the affirmative clause now says 'followed every import written as a path': a
+## universal claim has to say what it ranges over. The existential branch (N imports pointed
+## at no file) needs no such scope and is unchanged. Closing the resolver gap is captured.

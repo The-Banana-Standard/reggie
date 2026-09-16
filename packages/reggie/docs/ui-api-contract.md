@@ -69,7 +69,7 @@ Unchanged shape: `{ facts: RepoFacts, config: ReggieConfig, people: PeopleFile }
 `{ ready: boolean; steps: { files: boolean; imports: boolean; notes: boolean; history: boolean; tasks: boolean }; headSha: string }` — first-load card ticks. The route never blocks: the first hit starts the warm-up in the background and answers immediately with the ticks so far (so the very first poll of a cold server reports `ready:false`), and each later poll reports more. `ready` flips true once every source has been attempted; a source that failed to build keeps its tick off.
 
 ## GET /api/graph
-No params (compatibility): `{ nodes: GraphNode[] /* kind file|task only */, edges: GraphEdge[], dirs: string[], unresolved: number, generatedAt: string, languages: string[], totalCodeFiles: number, included: number, truncated: boolean }`.
+No params (compatibility): `{ nodes: GraphNode[] /* kind file|task only */, edges: GraphEdge[], dirs: string[], unresolved: number, generatedAt: string, languages: string[], totalCodeFiles: number, included: number, truncated: boolean }`. This route's `unresolved` and `languages` are the compatibility shape and the UI does not read them — the client only ever fetches the levelled routes below, and `counts` is where it reads coverage from. `languages` here includes the synthetic `task` language and is not a list of languages the graph read; `skipped` is deliberately absent, because the counts block is its published home.
 
 Every **drawable** node of `?level=container` and `?level=dir` (that is, every node that is not a ghost or a `fold:`) carries git history: a file node on `history`, an area node on `aggregates.history`. Areas that are not whole directories — a split residual ("src (other)") and the residual left by a `config.yaml` `areas:` pin — are rolled up over their own file set, summing per-file lines and counting each commit once across the set, so their `commits30` is comparable with a real directory's rather than absent. A node whose files have no git history at all is sent with the `null` counts described under `History`, never with zeros and never with the field missing.
 
@@ -82,11 +82,23 @@ interface ViewGraph {
   edges: GraphEdge[];                  // aggregated; tests edges only when tests=1
   areas: AreaRef[];                    // Level-1 areas with hue assignment (always the full L1 set)
   cycles: string[][];                  // SCCs of size ≥ 2 among the returned nodes
-  counts: { totalCodeFiles: number; shown: number; folded: number; hiddenTests: number; up?: number[]; down?: number[] };
+  counts: { totalCodeFiles: number;                          // repo-wide: code files the graph opened and read
+            shown: number; folded: number; hiddenTests: number;
+            skipped: { language: string; files: number }[];  // repo-wide: code files the graph never read, largest first
+            unresolved: number;                              // repo-wide: distinct (file, RELATIVE specifier) pairs that resolved to nothing
+            up?: number[]; down?: number[] };
   center?: string; centers?: string[]; // impact only
   generatedAt: string;
 }
 ```
+`counts.skipped` and `counts.unresolved` describe the repo, not the view. They are lifted unchanged from one `RepoGraph` at all three levels (container, dir, impact), so within a payload the three cannot disagree and neither can the story built from the same graph — but a client must not read them as being about the scope on screen, and two *separate* requests can still skew, because the story and the level payloads are cached independently and neither carries the commit they were built from.
+
+`skipped` is the array rather than a total — the sum is the number of code files the graph never read, and the entries name the languages, largest first (ties by language name). A file counts as skipped code when it is in a language a person authors as part of how the product behaves or looks (programming languages, shell, SQL, HTML, CSS, SCSS) and the graph's own extension table does not read it; Markdown, JSON, YAML and TOML are never counted.
+
+`totalCodeFiles` is the number of code files the graph **opened and read**, not the number whose extension it recognises: a file listed by git but missing from the worktree is in neither `totalCodeFiles` nor `skipped`, so `totalCodeFiles` plus the sum of `skipped` is the repo's code-file total less any file that could not be opened. It is also the `M` the dir footer's "Showing N of M files" compares against, which is a count of read files and not of everything under the folder — the name predates this and is misleading.
+
+`unresolved` counts distinct (importing file, **relative** specifier) pairs: one bad path written twice in one file is one and the same bad path imported from two files is two. Only specifiers starting with `.` are counted. An unresolvable `@/` or `~/` alias, and any bare package specifier, is dropped with no edge and no count, so a zero here means "no path-style import failed" and not "every import was followed".
+
 `?level=dir&root=<path>&tests=0|1&all=0|1` → `ViewGraph` with `nodes` = sub-areas + loose files (+ one `fold:` node unless `all=1`) + ghosts (`ghost:up:<dirId>` / `ghost:down:<dirId>` ids, `ghost: true`, `side`, `label` "src/types · 3 files used", `aggregates` of the ghost's underlying dir), `edges` = intra file edges + child→ghost aggregated edges. 404 when `root` is not a known dir.
 
 ## GET /api/impact?id=<file|file::symbol>&depth=1|2|3&direction=both|up|down&tests=0|1

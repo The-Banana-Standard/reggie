@@ -17,7 +17,7 @@
  *  - a section with nothing to say carries the empty text from spec §2 / §4 rather than vanishing.
  */
 
-import { collectFacts, type RepoFacts } from "./facts.js";
+import { collectFacts, type LanguageCount, type RepoFacts } from "./facts.js";
 import { currentBranch } from "./git.js";
 import { type GraphEdge, type GraphNode, type RepoGraph, ROOT_DIR_ID, jsImports } from "./graph.js";
 import { historyFor, recentFor, type CommitInfo, type HistoryIndex } from "./history.js";
@@ -906,6 +906,60 @@ function areaKindWord(node: ViewNode | GraphNode | undefined): string {
   return "area";
 }
 
+/**
+ * How much of the repo the page beside it is a picture of, in one sentence.
+ *
+ * The made-of section is the page's literal answer to what the repo is made of, and every paragraph
+ * under it is an inventory of the files the import graph could read. A repo Reggie read in full and
+ * a repo it read a quarter of otherwise render identically, so the disclaimer goes first, where the
+ * reader can discount the inventory before reading it.
+ *
+ * Both numbers come from `ViewCounts`, which lifts them from the graph, so this sentence and the map
+ * footer beside it cannot disagree. `read` is the code files the graph read, `skipped` the code
+ * files it never looked at by language (largest first), and `unresolved` the import lines that
+ * pointed at no file. The word "unresolved" is not in the sentence on purpose: it is precise and it
+ * is jargon, and the reader being addressed has not read the code.
+ *
+ * At most three languages are named, in the order given, and any remainder is folded into one
+ * clause: naming is what makes the sentence useful and a long tail of one-file languages is what
+ * would make it unreadable. When nothing was skipped the sentence makes the positive claim rather
+ * than going silent, so the page never leaves the reader unable to tell a full read from no answer.
+ */
+export function coverageSentence(read: number, skipped: readonly LanguageCount[], unresolved: number): string | null {
+  const total = read + skipped.reduce((sum, e) => sum + e.files, 0);
+  // Nothing to be a picture of. The section's own empty paragraph already says the repo has no code
+  // files Reggie recognises, and "Reggie read all no code files in this repo" beside it would be two
+  // contradictory claims opening the section. Null, like `testedClause`, so the caller omits it.
+  if (total === 0) return null;
+  const named = skipped.slice(0, 3).map((e) => countPhrase(e.files, `${e.language} file`));
+  const rest = skipped.slice(3);
+  if (rest.length > 0) {
+    const files = rest.reduce((sum, e) => sum + e.files, 0);
+    named.push(`${countPhrase(files, "file")} in ${countPhrase(rest.length, "other language")}`);
+  }
+  // `countPhrase` for the all-read total so a one-file repo says "all one code file" and not "all
+  // one code files"; "none of" rather than `numberWord(0)`'s "no", which reads as "read no of".
+  const reading =
+    skipped.length === 0
+      ? `Reggie read all ${countPhrase(total, "code file")} in this repo`
+      : `Reggie read ${read === 0 ? "none" : numberWord(read)} of this repo's ${numberWord(total)} code files, skipping ${joinPhrases(named)}`;
+  // The comma before "and followed" only appears after a skipped list, so the all-clear sentence is
+  // unchanged and the mixed case does not run the list into the verb that follows it.
+  //
+  // "written as a path" is load-bearing, not decoration. `unresolved` counts only specifiers that
+  // start with a dot; `resolveJsImport` also resolves `@/` and `~/` aliases, and an alias that
+  // resolves to nothing is dropped with no edge and no count. An unqualified "followed every import"
+  // is therefore false for an alias-using repo — measured: a repo whose files all import through
+  // `@/` renders zero unresolved over a map with zero edges. A universal claim has to say what it
+  // ranges over; the count below is existential and needs no such scope. Closing the resolver gap is
+  // captured as its own item and is deliberately not attempted here.
+  const imports =
+    unresolved === 0
+      ? `${skipped.length > 0 ? "," : ""} and followed every import written as a path.`
+      : `; ${countPhrase(unresolved, "import")} pointed at no file, so the map is missing those connections.`;
+  return `${reading}${imports}`;
+}
+
 function madeOfSection(ctx: StoryContext): StorySection {
   const view = ctx.views.container();
   const byId = new Map(view.nodes.map((n) => [n.id, n]));
@@ -958,6 +1012,19 @@ function madeOfSection(ctx: StoryContext): StorySection {
         : `Everything sits at the repo root: ${countPhrase(agg?.source ?? 0, "source file")} in ${link(ctx.repo, ROOT_DIR_ID, ctx.repo)}, with no folder large enough to be its own area.`;
     paragraphs.push(para("made-of-1", "fact", text, [ROOT_DIR_ID, `repo:${ctx.repo}`]));
   }
+  // First, and with an id of its own: the area paragraphs keep their `made-of-1` upward numbering,
+  // so nothing that reads a paragraph id shifts under this one. Unshifted after the empty-case
+  // block above, so that block still sees only the area paragraphs when it asks whether there are
+  // any — it means "no areas", not "no paragraphs".
+  //
+  // The refs carry the repo and every Level-1 area. The repo id alone is what the sentence is about,
+  // but `map.resolveRef` cannot resolve a `repo:` id on a container map, and `observeReading` in
+  // story.js calls `softHighlight` with whatever resolves — so a lone repo ref made scrolling into
+  // this section clear the map's halo instead of lighting anything. The area ids are what a
+  // repo-wide claim points at on a repo map.
+  const c = view.counts;
+  const coverage = coverageSentence(c.totalCodeFiles, c.skipped, c.unresolved);
+  if (coverage) paragraphs.unshift(para("made-of-coverage", "fact", coverage, [`repo:${ctx.repo}`, ...areas.map((a) => a.id)]));
   return section("made-of", "What it is made of", paragraphs);
 }
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { collectFacts } from "./facts.js";
+import { codeLanguageOf, collectFacts, NON_CODE_LANGUAGES } from "./facts.js";
 import { makeTempRepo, type TempRepo } from "../test/helpers.js";
 
 let repo: TempRepo | null = null;
@@ -53,5 +53,74 @@ describe("collectFacts entry points", () => {
     const facts = collectFacts(repo.root);
     expect(facts.name).toBe("reggie");
     expect(facts.description).toBe("a repo manager");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// codeLanguageOf: the one line between code and not-code
+// ---------------------------------------------------------------------------
+
+describe("codeLanguageOf", () => {
+  // One file per language the table knows, with the answer this repo's coverage claims depend on.
+  // A file is code when a person authored it as part of how the product behaves or looks, and is
+  // not code when it describes or configures the product.
+  const CASES: [file: string, language: string | null][] = [
+    ["src/index.ts", "TypeScript"],
+    ["src/App.tsx", "TypeScript"],
+    ["src/a.mts", "TypeScript"],
+    ["src/a.cts", "TypeScript"],
+    ["ui/app.js", "JavaScript"],
+    ["ui/App.jsx", "JavaScript"],
+    ["ui/a.mjs", "JavaScript"],
+    ["ui/a.cjs", "JavaScript"],
+    ["src/main.rs", "Rust"],
+    ["cmd/main.go", "Go"],
+    ["App/App.swift", "Swift"],
+    ["app/Main.kt", "Kotlin"],
+    ["app/Main.kts", "Kotlin"],
+    ["src/Main.java", "Java"],
+    ["tools/run.py", "Python"],
+    ["lib/thing.rb", "Ruby"],
+    ["src/Program.cs", "C#"],
+    ["src/main.c", "C"],
+    ["src/main.h", "C"],
+    ["src/main.cc", "C++"],
+    ["src/main.cpp", "C++"],
+    ["src/main.hpp", "C++"],
+    ["src/View.m", "Objective-C"],
+    ["src/View.mm", "Objective-C"],
+    // Shell, SQL, markup and stylesheets are code: a person writes them and the product runs them.
+    ["scripts/build.sh", "Shell"],
+    ["scripts/build.bash", "Shell"],
+    ["scripts/build.zsh", "Shell"],
+    ["scripts/build.ps1", "PowerShell"],
+    ["db/schema.sql", "SQL"],
+    ["ui/index.html", "HTML"],
+    ["ui/styles.css", "CSS"],
+    ["ui/styles.scss", "CSS"],
+    // Documentation, configuration and data describe the product; counting them as skipped code
+    // would report 96 Markdown files on this repo and teach the reader to ignore the disclaimer.
+    ["README.md", null],
+    ["docs/spec.mdx", null],
+    ["package.json", null],
+    ["config.yaml", null],
+    ["config.yml", null],
+    ["Cargo.toml", null],
+    // An extension the table does not know at all is not code either.
+    ["reggie-logo.png", null],
+    ["LICENSE", null],
+  ];
+
+  it.each(CASES)("%s → %s", (file, language) => {
+    expect(codeLanguageOf(file)).toBe(language);
+  });
+
+  it("names exactly the four languages that describe rather than behave", () => {
+    expect([...NON_CODE_LANGUAGES].sort()).toEqual(["JSON", "Markdown", "TOML", "YAML"]);
+  });
+
+  it("does not care about case or about the rest of the path", () => {
+    expect(codeLanguageOf("A/B/C/Thing.TS")).toBe("TypeScript");
+    expect(codeLanguageOf("A/B/C/Thing.MD")).toBeNull();
   });
 });

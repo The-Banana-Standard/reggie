@@ -15,6 +15,7 @@ import {
   areaStory,
   buildStoryContext,
   countPhrase,
+  coverageSentence,
   explain,
   fileStory,
   flowStory,
@@ -1079,5 +1080,98 @@ describe("servicesStory and flowStory", () => {
     expect(routeFor("r", "sym:functions/api/chat.js#onRequestPost")).toBe("#/repo/r/file/functions/api/chat.js?symbol=onRequestPost");
     // The graph's own `::` symbol ids are untouched.
     expect(routeFor("r", "sym:src/a.ts::thing")).toBe("#/repo/r/symbol/src/a.ts::thing");
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// The coverage sentence: how much of the repo the page is a picture of
+// ---------------------------------------------------------------------------
+
+/**
+ * The made-of section is an inventory of the files the import graph could read, and until this
+ * paragraph existed a repo Reggie read in full and a repo it read a tenth of rendered identically.
+ *
+ * The wording is pinned by a table over the exported helper, because the branches that matter are
+ * the degenerate ones — a repo with no code the graph reads, a repo with one file, a repo with a
+ * long tail of skipped languages — and standing a git repo up for each of those costs most of a
+ * second to assert one string. The wiring from graph to view to story is pinned separately, on the
+ * shared fixture context that every other test in this file already shares.
+ */
+describe("coverageSentence", () => {
+  const css = (files: number) => ({ language: "CSS", files });
+  const html = (files: number) => ({ language: "HTML", files });
+  const shell = (files: number) => ({ language: "Shell", files });
+
+  const CASES: [name: string, read: number, skipped: { language: string; files: number }[], unresolved: number, expected: string | null][] = [
+    ["everything read, every path followed", 12, [], 0, "Reggie read all 12 code files in this repo and followed every import written as a path."],
+    // Agreement at one: `numberWord` alone would render "all one code files".
+    ["a one-file repo", 1, [], 0, "Reggie read all one code file in this repo and followed every import written as a path."],
+    // Nothing to be a picture of: the section's own empty paragraph already says so.
+    ["no code files at all", 0, [], 0, null],
+    ["no code files, nothing skipped, a broken path", 0, [], 2, null],
+    // "none of", not `numberWord(0)`'s "no", which would read "Reggie read no of this repo's…".
+    // This is the repo the feature exists for: a Go service, a Swift app, a static site.
+    ["a repo in languages the graph does not read", 0, [html(9), css(3)], 0, "Reggie read none of this repo's 12 code files, skipping nine HTML files and three CSS files, and followed every import written as a path."],
+    ["this repo's own numbers", 86, [css(5), html(5), shell(1)], 2, "Reggie read 86 of this repo's 97 code files, skipping five CSS files, five HTML files and one Shell file; two imports pointed at no file, so the map is missing those connections."],
+    ["one broken path, singular", 40, [], 1, "Reggie read all 40 code files in this repo; one import pointed at no file, so the map is missing those connections."],
+    // At most three named, in the order given, and the tail folded into one clause.
+    [
+      "more skipped languages than it will name",
+      2,
+      [css(4), html(3), shell(2), { language: "Python", files: 1 }, { language: "SQL", files: 1 }],
+      0,
+      "Reggie read two of this repo's 13 code files, skipping four CSS files, three HTML files, two Shell files and two files in two other languages, and followed every import written as a path.",
+    ],
+    ["exactly three skipped languages, nothing folded", 5, [css(2), html(1), shell(1)], 0, "Reggie read five of this repo's nine code files, skipping two CSS files, one HTML file and one Shell file, and followed every import written as a path."],
+    ["one skipped language, one file", 5, [shell(1)], 0, "Reggie read five of this repo's six code files, skipping one Shell file, and followed every import written as a path."],
+  ];
+
+  it.each(CASES)("%s", (_name, read, skipped, unresolved, expected) => {
+    expect(coverageSentence(read, skipped, unresolved)).toBe(expected);
+  });
+
+  it("never shows the reader the word unresolved", () => {
+    for (const [, read, skipped, unresolved] of CASES) {
+      expect(coverageSentence(read, skipped, unresolved) ?? "").not.toMatch(/unresolved/i);
+    }
+  });
+
+  it("does not claim to have followed imports it cannot see", () => {
+    // `unresolved` counts only specifiers written as a path; an alias the resolver could not follow
+    // is dropped with no edge and no count, so the affirmative clause has to say what it ranges over.
+    expect(coverageSentence(4, [], 0)).toContain("followed every import written as a path");
+    expect(coverageSentence(4, [], 0)).not.toContain("followed every import.");
+  });
+});
+
+/** The wiring: the same sentence, reached through a real graph, view and story. */
+describe("the coverage paragraph on the repo page", () => {
+  it("is the first paragraph, has its own id, and leaves the area paragraphs where they were", () => {
+    const section = sectionOf(repoStory(ctx), "made-of");
+    const first = section.paragraphs[0];
+    expect(first?.id).toBe("made-of-coverage");
+    expect(first?.kind).toBe("fact");
+    // The area paragraphs keep their own numbering from 1, so nothing that reads an id shifts.
+    expect(section.paragraphs.slice(1).map((p) => p.id)).toEqual(section.paragraphs.slice(1).map((_, i) => `made-of-${i + 1}`));
+    expect(section.paragraphs.filter((p) => p.id === "made-of-coverage")).toHaveLength(1);
+  });
+
+  it("carries refs the map can resolve, so scrolling into the section does not blank the halo", () => {
+    const first = sectionOf(repoStory(ctx), "made-of").paragraphs[0];
+    const areas = ctx.views.container().areas.map((a) => a.id);
+    expect(first?.refs[0]).toBe(`repo:${ctx.repo}`);
+    // Every Level-1 area, in the section's own order; the map can resolve these, a `repo:` id alone
+    // resolves to nothing on a container canvas and would clear the halo rather than move it.
+    expect([...(first?.refs ?? [])].slice(1).sort()).toEqual([...areas].sort());
+    expect(areas.length).toBeGreaterThan(0);
+  });
+
+  it("renders the fixture's own numbers, which are not zero", () => {
+    const first = sectionOf(repoStory(ctx), "made-of").paragraphs[0];
+    const counts = ctx.views.container().counts;
+    expect(counts.skipped.length).toBeGreaterThan(0);
+    expect(first?.text).toBe(coverageSentence(counts.totalCodeFiles, counts.skipped, counts.unresolved));
+    expect(first?.text).toMatch(/^Reggie read \d+ of this repo's \d+ code files, skipping /);
   });
 });

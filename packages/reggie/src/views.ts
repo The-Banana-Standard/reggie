@@ -13,6 +13,7 @@
  * canvas. Ghosts and `fold:` nodes are context, not drawables, and do not count.
  */
 
+import type { LanguageCount } from "./facts.js";
 import { ROOT_DIR_ID, emptyKnowledge, findCycles, type Aggregates, type EdgeKind, type GraphEdge, type GraphNode, type RepoGraph } from "./graph.js";
 import { historyForFiles, noHistory, type HistoryIndex } from "./history.js";
 import { isTestLike } from "./roles.js";
@@ -39,6 +40,17 @@ export interface ViewCounts {
   folded: number;
   /** Test and fixture files hidden because `tests` is off. */
   hiddenTests: number;
+  /**
+   * Repo-wide, not view-wide: code files the graph never read, by language (`RepoGraph.skipped`).
+   * Lifted verbatim at every level so the three cannot disagree; the footer sums it, the made-of
+   * sentence names it, and neither recomputes it.
+   *
+   * Read-only because every builder assigns the graph's own array by reference: one in-place sort in
+   * a footer or a handler would silently reorder `RepoGraph.skipped` and every surface with it.
+   */
+  skipped: readonly LanguageCount[];
+  /** Repo-wide, not view-wide: distinct import lines that pointed at no file (`RepoGraph.unresolved`). */
+  unresolved: number;
   /** Impact only: nodes discovered per hop, index 0 = hop 1. */
   up?: number[];
   down?: number[];
@@ -675,7 +687,7 @@ export function containerView(g: RepoGraph, opts: ChooseAreasOptions = {}): View
     edges,
     areas: l1.refs,
     cycles,
-    counts: { totalCodeFiles: g.totalCodeFiles, shown: nodes.length, folded: 0, hiddenTests: idx.testFiles.length },
+    counts: { totalCodeFiles: g.totalCodeFiles, shown: nodes.length, folded: 0, hiddenTests: idx.testFiles.length, skipped: g.skipped, unresolved: g.unresolved },
     generatedAt: g.generatedAt,
   };
 }
@@ -840,7 +852,7 @@ export function dirView(g: RepoGraph, root: string, opts: DirViewOptions = {}): 
     edges,
     areas: l1.refs,
     cycles,
-    counts: { totalCodeFiles: g.totalCodeFiles, shown: drawableIds.length, folded: foldedIds.length, hiddenTests },
+    counts: { totalCodeFiles: g.totalCodeFiles, shown: drawableIds.length, folded: foldedIds.length, hiddenTests, skipped: g.skipped, unresolved: g.unresolved },
     generatedAt: g.generatedAt,
   };
 }
@@ -1107,6 +1119,8 @@ export function impactView(g: RepoGraph, ids: readonly string[], opts: ImpactOpt
     shown: drawableIds.length,
     folded: [...foldGroups.values()].reduce((s, grp) => s + grp.ids.length, 0),
     hiddenTests,
+    skipped: g.skipped,
+    unresolved: g.unresolved,
   };
   if (wantUp) counts.up = countsUp;
   if (wantDown) counts.down = countsDown;

@@ -19,7 +19,7 @@
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { collectFacts, detectName, isIgnoredPath, type RepoFacts } from "./facts.js";
+import { codeLanguageOf, collectFacts, detectName, isIgnoredPath, type LanguageCount, type RepoFacts } from "./facts.js";
 import { listRepoFiles } from "./git.js";
 import { historyFor, repoHistory, type History, type HistoryIndex } from "./history.js";
 import { NOTE_TYPES, notesIndex, staleEntriesFor, type Confidence as NoteConfidence, type NoteEntry, type NoteFile, type NoteType } from "./notes.js";
@@ -143,8 +143,14 @@ export interface RepoGraph {
   cycles: string[][];
   /** Compatibility: `dirKey` groups of the file nodes plus `(tasks)`. */
   dirs: string[];
-  /** Relative import specifiers that resolved to no file. */
+  /** Distinct (importing file, relative specifier) pairs that resolved to no file. */
   unresolved: number;
+  /**
+   * Code files the graph never looked at, by language: every file `codeLanguageOf` calls code whose
+   * extension is not in `CODE_EXT`. Largest first, ties by language name. `totalCodeFiles` plus the
+   * sum of these is the repo's code-file total, because both are taken over the same file list.
+   */
+  skipped: LanguageCount[];
   generatedAt: string;
   languages: string[];
   totalCodeFiles: number;
@@ -779,6 +785,27 @@ function manifestLabel(root: string, dirPath: string, manifest: Manifest): strin
 }
 
 /**
+ * Code files this graph never looked at, by language. Walks the same list `code` is filtered from,
+ * so the two partition the repo's code files between them and no separate denominator is needed.
+ * The line between code and not-code is `codeLanguageOf`'s and is drawn only there.
+ *
+ * Exported so the sort and the rule can be pinned by a table test over a literal file list, without
+ * a git repo on disk for a function that touches neither.
+ */
+export function skippedLanguages(all: readonly string[]): LanguageCount[] {
+  const counts = new Map<string, number>();
+  for (const file of all) {
+    if (CODE_EXT[extOf(file)] !== undefined) continue;
+    const lang = codeLanguageOf(file);
+    if (!lang) continue;
+    counts.set(lang, (counts.get(lang) ?? 0) + 1);
+  }
+  return [...counts]
+    .map(([language, files]) => ({ language, files }))
+    .sort((a, b) => b.files - a.files || a.language.localeCompare(b.language));
+}
+
+/**
  * The repo as a graph: every node kind, joined with notes, history and tasks (spec §6.1).
  * TypeScript, JavaScript and Rust are resolved; other languages get no file nodes.
  */
@@ -789,6 +816,7 @@ export function buildGraph(paths: RepoPaths, opts: BuildGraphOptions = {}): Repo
   const all = listRepoFiles(root).filter((f) => !isIgnoredPath(f));
   const fileSet = new Set(all);
   const code = all.filter((f) => CODE_EXT[extOf(f)] !== undefined);
+  const skipped = skippedLanguages(all);
   const crates = cargoCrates(root, fileSet);
   const detectors = opts.detectors ?? BOUNDARY_DETECTORS;
 
@@ -885,7 +913,14 @@ export function buildGraph(paths: RepoPaths, opts: BuildGraphOptions = {}): Repo
   }
 
   // --- 3. code edges ------------------------------------------------------------
-  let unresolved = 0;
+  // Keyed by importing file and then by specifier — a nested map rather than a joined string, so no
+  // separator can appear in a path or a specifier and collapse two distinct pairs into one. The unit
+  // is a (file, specifier) pair: one bad path written twice in one file is one, the same bad path
+  // imported from twelve files is twelve. `jsImports` returns a bound `require` twice
+  // (REQUIRE_BIND_RE and REQUIRE_RE both match it), which used to inflate this number; the scanner
+  // is left alone. Only specifiers starting with "." are counted, which is what the contract says:
+  // an unresolvable `@/` or `~/` alias is not counted here and is captured as its own item.
+  const unresolvedRefs = new Map<string, Set<string>>();
   // Command name → defining file (first definer in file order wins).
   const commandDefiners = new Map<string, string>();
   for (const s of scans) for (const name of s.commands) if (!commandDefiners.has(name)) commandDefiners.set(name, s.file);
@@ -896,7 +931,14 @@ export function buildGraph(paths: RepoPaths, opts: BuildGraphOptions = {}): Repo
     for (const ref of s.imports) {
       const target = resolveJsImport(s.file, ref.spec, fileSet);
       if (!target) {
-        if (ref.spec.startsWith(".")) unresolved += 1;
+        if (ref.spec.startsWith(".")) {
+          let specs = unresolvedRefs.get(s.file);
+          if (!specs) {
+            specs = new Set<string>();
+            unresolvedRefs.set(s.file, specs);
+          }
+          specs.add(ref.spec);
+        }
         continue;
       }
       if (target === s.file) continue;
@@ -1128,10 +1170,18 @@ export function buildGraph(paths: RepoPaths, opts: BuildGraphOptions = {}): Repo
     edges: kept,
     cycles,
     dirs,
-    unresolved,
+    unresolved: [...unresolvedRefs.values()].reduce((sum, specs) => sum + specs.size, 0),
+    skipped,
     generatedAt: nowIso(),
     languages,
-    totalCodeFiles: code.length,
+    // Files actually opened and scanned, not files that passed the extension filter. `listRepoFiles`
+    // runs `git ls-files --cached --others`, so a file deleted from the worktree but still in the
+    // index is listed, `readFileSync` throws on it and the scan loop skips it. Counting it as read
+    // is what made the repo page able to say "Reggie read all 140 code files" having read 139 — the
+    // exact over-claim the coverage sentence exists to prevent. A code file the graph could not open
+    // is in neither this count nor `skipped`, so the repo's code-file total can be understated by
+    // that many; understating what is there is survivable, claiming to have read it is not.
+    totalCodeFiles: scans.length,
     included: scans.length,
     truncated: false,
   };

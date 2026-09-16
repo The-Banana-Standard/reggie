@@ -1784,7 +1784,22 @@
     "totalCodeFiles": 140,
     "shown": 15,
     "folded": 14,
-    "hiddenTests": 0
+    "hiddenTests": 0,
+    "skipped": [
+      {
+        "language": "CSS",
+        "files": 9
+      },
+      {
+        "language": "HTML",
+        "files": 2
+      },
+      {
+        "language": "Shell",
+        "files": 1
+      }
+    ],
+    "unresolved": 3
   },
   "generatedAt": "2026-09-07T12:00:00.000Z"
 }

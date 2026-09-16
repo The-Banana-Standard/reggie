@@ -78,6 +78,7 @@ Rejected alternatives:
 - packages/reggie/src/graph.test.ts (MOD)
 - packages/reggie/src/views.test.ts (MOD)
 - packages/reggie/src/story.test.ts (MOD)
+- packages/reggie/src/facts.test.ts (MOD)
 - packages/reggie/test/fixtures.ts (MOD)
 - packages/reggie/docs/ui-api-contract.md (MOD)
 - packages/reggie/ui/DOM-CONTRACT.md (MOD)
@@ -89,6 +90,8 @@ Rejected alternatives:
 - packages/reggie/ui/dev/sample-impact.json (MOD)
 - packages/reggie/ui/dev/sample-blast.json (MOD)
 - packages/reggie/ui/dev/sample-story.json (MOD)
+- packages/reggie/ui/dev/sample-story-empty.json (MOD)
+- packages/reggie/ui/dev/map-harness.html (MOD)
 - docs/ui-plan.md (MOD)
 
 ## Acceptance criteria

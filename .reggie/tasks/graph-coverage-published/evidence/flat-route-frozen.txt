@@ -1,0 +1,26 @@
+# Criterion 15: the flat GET /api/graph payload gains no field
+
+## git diff packages/reggie/test/serve.test.ts  (expected: empty)
+(nothing above: the test that pins the flat route's exact nine keys is unchanged)
+
+122:    expect(Object.keys(body).sort()).toEqual(["branch", "config", "editorScheme", "facts", "headSha", "people", "root", "workspace"]);
+160:    expect(Object.keys(body).sort()).toEqual(["dirs", "edges", "generatedAt", "included", "languages", "nodes", "totalCodeFiles", "truncated", "unresolved"]);
+419:    expect(Object.keys(body).sort()).toEqual(
+856:    expect(Object.keys(body).sort()).toEqual(["command", "cwd", "description", "goal"]);
+1286:    expect(Object.keys(body).sort()).toEqual(["edges", "generatedAt", "services", "undeclared", "unused"]);
+1340:    expect(Object.keys(body).sort()).toEqual(["callSites", "children", "editorUrl", "flows", "notes", "parent", "service", "tasks"]);
+1361:    expect(Object.keys(body).sort()).toEqual(["flows", "generatedAt"]);
+
+## npx vitest run test/serve.test.ts
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/graph-coverage-published/packages/reggie
+
+
+ Test Files  1 passed (1)
+      Tests  97 passed (97)
+   Start at  01:33:32
+   Duration  7.25s (transform 233ms, setup 0ms, import 303ms, tests 6.89s, environment 0ms)
+
+
+## Note, captured separately: the field keeps its name but its MEANING changed, from scanner
+## matches to distinct (file, relative specifier) pairs. This test pins the key set only.
