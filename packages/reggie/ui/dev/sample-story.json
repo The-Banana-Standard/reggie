@@ -231,6 +231,12 @@
         { "id": "run-1", "kind": "list", "text": "npm test\nnpm run build\nnpx tsx src/cli.ts serve --port 4310", "refs": ["dir:packages/reggie/"] },
         { "id": "run-2", "kind": "list", "text": "npm run tauri dev", "refs": ["dir:src-tauri/"] }
       ]
+    },
+    {
+      "id": "add-note",
+      "heading": "Add a note",
+      "paragraphs": [],
+      "empty": { "text": "Write what the next person should know about this repo.", "action": { "label": "Add note", "form": "note", "command": "reggie note add _repo --type why \"…\"" } }
     }
   ],
   "next": [

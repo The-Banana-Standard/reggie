@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Two note forms on one repo page · evidence for note-form-on-repo-and-area</title>
+<!-- The repo's own stylesheets, so this renders exactly as the page does. -->
+<link rel="stylesheet" href="../../../../packages/reggie/ui/styles.css">
+<link rel="stylesheet" href="../../../../packages/reggie/ui/story.css">
+<style>
+  body { margin: 0; }
+  .ev { max-width: 640px; padding: 24px; }
+  .ev__note { font: 13px/1.5 system-ui, sans-serif; color: var(--muted, #8b93a7); border-bottom: 1px solid var(--line, #2a2f3d); padding-bottom: 14px; margin-bottom: 18px; }
+  .ev__note b { color: var(--text, #e6e9f0); }
+  .ev__note code { font-family: var(--mono, ui-monospace, monospace); }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:none"><defs>
+  <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M15 9V5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15H9"/></symbol>
+</defs></svg>
+<div class="app" data-harness="story">
+<div class="ev">
+  <p class="ev__note">
+    <b>Evidence for note-form-on-repo-and-area, acceptance criterion 21.</b><br>
+    These two sections are the literal <code>outerHTML</code> captured from
+    <code>ui/dev/story-harness.html</code> rendering <code>ui/dev/sample-story-empty.json</code>
+    against a server running this worktree on port 4519. Both forms carry
+    <code>data-entity="_repo"</code>, both print <code>on _repo</code> above the textarea, both
+    default the type select to <code>why</code>, and both print the same terminal command — which is
+    the measurement the plan's "two forms on a page is accepted" assumption rests on.
+  </p>
+  <div class="sections">
+    <section class="section" id="sec-what" data-section="what" data-kind="empty"><h2 class="section__h"><button class="section__toggle" type="button" aria-expanded="true" title="Collapse or expand this section"><svg class="i" aria-hidden="true"><use href="#i-chevron"></use></svg><span class="section__label">What this is</span></button></h2><div class="card card--empty empty" role="note"><p class="empty__text">Nobody has written what this repo is for. The first useful note says why it exists and how to run it.</p><form class="form form--note" data-entity="_repo"><div class="form__row"><label class="form__label">Type <select class="form__select" name="type" aria-label="Note type"><option value="why" selected="" title="Why this exists: the reason behind a decision or a piece of code.">why</option><option value="how" title="How it works or how to run it.">how</option><option value="gotcha" title="Something surprising that has bitten someone before.">gotcha</option><option value="verify" title="How to check that this is healthy or correct.">verify</option><option value="data-source" title="Where data comes from, who reads and writes it.">data-source</option><option value="decision" title="A decision that was taken, with its alternatives.">decision</option></select></label><label class="form__label">Confidence <select class="form__select" name="confidence" aria-label="Confidence"><option value="high" title="Confidence: high — the author checked this against the code.">high</option><option value="medium" selected="" title="Confidence: medium — likely right, not fully verified.">medium</option><option value="low" title="Confidence: low — a guess; verify before relying on it.">low</option></select></label><span class="form__label form__entity" title="The note is written to notes/_repo.md">on <code>_repo</code></span></div><textarea class="form__textarea" name="text" rows="3" required="" placeholder="What should the next person know?" aria-label="Note text"></textarea><div class="form__actions"><button class="btn btn--primary" type="submit">Add note</button></div></form><p class="empty__hint hint">Or from a terminal: <code>reggie note add _repo --type why "…"</code> <button class="btn btn--link cmd__copy" type="button" aria-label="Copy command" title="Copy"><svg class="i" aria-hidden="true"><use href="#i-copy"></use></svg></button></p></div></section>
+    <section class="section" id="sec-add-note" data-section="add-note" data-kind="empty"><h2 class="section__h"><button class="section__toggle" type="button" aria-expanded="true" title="Collapse or expand this section"><svg class="i" aria-hidden="true"><use href="#i-chevron"></use></svg><span class="section__label">Add a note</span></button></h2><div class="card card--empty empty" role="note"><p class="empty__text">Write what the next person should know about this repo.</p><form class="form form--note" data-entity="_repo"><div class="form__row"><label class="form__label">Type <select class="form__select" name="type" aria-label="Note type"><option value="why" selected="" title="Why this exists: the reason behind a decision or a piece of code.">why</option><option value="how" title="How it works or how to run it.">how</option><option value="gotcha" title="Something surprising that has bitten someone before.">gotcha</option><option value="verify" title="How to check that this is healthy or correct.">verify</option><option value="data-source" title="Where data comes from, who reads and writes it.">data-source</option><option value="decision" title="A decision that was taken, with its alternatives.">decision</option></select></label><label class="form__label">Confidence <select class="form__select" name="confidence" aria-label="Confidence"><option value="high" title="Confidence: high — the author checked this against the code.">high</option><option value="medium" selected="" title="Confidence: medium — likely right, not fully verified.">medium</option><option value="low" title="Confidence: low — a guess; verify before relying on it.">low</option></select></label><span class="form__label form__entity" title="The note is written to notes/_repo.md">on <code>_repo</code></span></div><textarea class="form__textarea" name="text" rows="3" required="" placeholder="What should the next person know?" aria-label="Note text"></textarea><div class="form__actions"><button class="btn btn--primary" type="submit">Add note</button></div></form><p class="empty__hint hint">Or from a terminal: <code>reggie note add _repo --type why "…"</code> <button class="btn btn--link cmd__copy" type="button" aria-label="Copy command" title="Copy"><svg class="i" aria-hidden="true"><use href="#i-copy"></use></svg></button></p></div></section>
+  </div>
+</div>
+</div>
+</body>
+</html>

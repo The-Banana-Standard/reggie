@@ -1530,7 +1530,7 @@ function spotlightDeps(route) {
     },
     onAddNote: () => {
       setPaneOpen("story", true);
-      if (!focusNoteForm()) toast("Open a file or an area to add a note there.", { tone: "warn" });
+      if (!focusNoteForm()) toast("Open a repo, an area or a file to add a note there.", { tone: "warn" });
     },
   };
 }

@@ -81,6 +81,30 @@ function sectionOf(story: Story, id: string) {
   return found!;
 }
 
+/** The ids of the sections whose empty state is an inline note form, in page order. */
+function noteFormSections(story: Story): string[] {
+  return story.sections.filter((s) => s.empty?.action?.form === "note").map((s) => s.id);
+}
+
+/**
+ * `noteEntityFor` from ui/story.js, reimplemented here so the test can prove that every note form
+ * on a page resolves to one entity. The client derives it from the story, never from the section,
+ * which is what makes two forms on a page harmless.
+ */
+function noteEntityFor(story: Story): string | null {
+  switch (story.scope) {
+    case "repo":
+    case "workspace":
+      return "_repo";
+    case "area":
+      return `${String(story.id).replace(/\/+$/, "")}/`;
+    case "file":
+      return String(story.id);
+    default:
+      return null;
+  }
+}
+
 function allParagraphs(story: Story): Paragraph[] {
   return story.sections.flatMap((s) => s.paragraphs);
 }
@@ -223,7 +247,7 @@ describe("routeFor", () => {
 
 describe("repoStory on the fixture repo", () => {
   it("emits every section id from the contract, in order", () => {
-    expect(sectionIds(repoStory(ctx))).toEqual(["needs-you", "what", "made-of", "starts", "talks", "flight", "recent", "gaps", "run"]);
+    expect(sectionIds(repoStory(ctx))).toEqual(["needs-you", "what", "made-of", "starts", "talks", "flight", "recent", "gaps", "run", "add-note"]);
   });
 
   it("keeps every paragraph and every link well formed", () => {
@@ -354,7 +378,7 @@ describe("areaStory", () => {
   it("emits every section id from the contract", () => {
     const story = areaStory(ctx, "src/big");
     expect(story).not.toBeNull();
-    expect(sectionIds(story!)).toEqual(["read-first", "inside", "uses", "used-by", "tests", "people", "tasks", "recent"]);
+    expect(sectionIds(story!)).toEqual(["read-first", "inside", "uses", "used-by", "tests", "people", "tasks", "recent", "add-note"]);
   });
 
   it("adds a gaps section under the knowledge lens", () => {
@@ -465,6 +489,108 @@ describe("fileStory", () => {
 
   it("returns null for an unknown path", () => {
     expect(fileStory(ctx, "src/big/nope.ts")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The add-note section, at every scope it is emitted at
+// ---------------------------------------------------------------------------
+
+/**
+ * A mutation-tested pin, not a smoke test. Delete the `addNoteSection` call from `repoStory` or from
+ * `areaStory` and named tests in this block fail along with the exact-array assertions above.
+ *
+ * What it holds: the section exists at all three scopes, it is always empty and therefore always a
+ * form, it carries non-empty empty text at every scope (the client drops an empty section that has no
+ * empty block, so a section with zero paragraphs and no text would vanish from the page while this
+ * file still saw its id), and the command it prints names an entity `reggie note add` accepts.
+ */
+describe("the add-note section", () => {
+  const knowledge = (): StoryContext =>
+    buildStoryContext(fixture.paths, fixture.config, ctx.graph, ctx.history, { lens: "knowledge", journal: ctx.journal, notes: ctx.notes, tasks: ctx.tasks });
+
+  const scopes = (c: StoryContext): [string, Story][] => [
+    ["repo", repoStory(c)],
+    ["area", areaStory(c, "src/big")!],
+    ["file", fileStory(c, "src/big/a02.ts")!],
+  ];
+
+  it("is present and is a form at repo, area and file scope", () => {
+    for (const [scope, story] of scopes(ctx)) {
+      const add = sectionOf(story, "add-note");
+      expect(add.heading, scope).toBe("Add a note");
+      expect(add.paragraphs, scope).toHaveLength(0);
+      expect(add.empty?.action?.form, scope).toBe("note");
+    }
+  });
+
+  it("carries non-empty empty text at every scope, so the client cannot drop it", () => {
+    // `renderSection` returns null for a section with no paragraphs and no `empty` block, and
+    // `section()` only attaches `empty` when one is passed. This section is empty at every scope by
+    // construction, so its empty text is the only thing keeping it on the page.
+    for (const [scope, story] of scopes(ctx)) {
+      const text = sectionOf(story, "add-note").empty?.text;
+      expect(text, scope).toBeTruthy();
+      expect((text ?? "").trim().length, scope).toBeGreaterThan(0);
+    }
+  });
+
+  it("names its scope in the empty text, and keeps the file sentence as it was", () => {
+    const text = (story: Story) => sectionOf(story, "add-note").empty?.text;
+    expect(text(repoStory(ctx))).toBe("Write what the next person should know about this repo.");
+    expect(text(areaStory(ctx, "src/big")!)).toBe("Write what the next person should know about this area.");
+    expect(text(fileStory(ctx, "src/big/a02.ts")!)).toBe("Write what the next person should know about this file.");
+    // The three sentences come from EMPTY_TEXT and nowhere else.
+    expect(EMPTY_TEXT.addNoteRepo).toBe(text(repoStory(ctx)));
+    expect(EMPTY_TEXT.addNoteArea).toBe(text(areaStory(ctx, "src/big")!));
+    expect(EMPTY_TEXT.addNoteFile).toBe(text(fileStory(ctx, "src/big/a02.ts")!));
+  });
+
+  it("hints --type why at every scope, so the copied command matches what the form posts", () => {
+    // `noteForm` in ui/story.js reads `opts.type ?? "why"` and `emptyBlock` passes no opts, so the
+    // rendered select always posts `why`. A hint saying anything else disagrees with its own button.
+    for (const [scope, story] of scopes(ctx)) {
+      expect(sectionOf(story, "add-note").empty?.action?.command, scope).toContain('--type why "…"');
+    }
+  });
+
+  it("spells the note entity the way `reggie note add` accepts it, including at the repo root", () => {
+    const hint = (story: Story) => sectionOf(story, "add-note").empty?.action?.command;
+    expect(hint(repoStory(ctx))).toBe('reggie note add _repo --type why "…"');
+    expect(hint(areaStory(ctx, "src/big")!)).toBe('reggie note add src/big/ --type why "…"');
+    expect(hint(fileStory(ctx, "src/big/a02.ts")!)).toBe('reggie note add src/big/a02.ts --type why "…"');
+
+    // The repo root is reachable as an area page, and there the entity is `_repo`, not `./`.
+    const root = areaStory(ctx, ".");
+    expect(root, "the repo root is a real area page").not.toBeNull();
+    expect(root!.id).toBe(".");
+    expect(hint(root!)).toBe('reggie note add _repo --type why "…"');
+  });
+
+  it("is written once: the area hint and the read-first empty state agree on the entity", () => {
+    // Both read `areaNoteEntity`, so a folder can never be offered two spellings of its own note.
+    for (const dir of ["src/big", "src/types", "."]) {
+      const story = areaStory(ctx, dir);
+      expect(story, dir).not.toBeNull();
+      const add = sectionOf(story!, "add-note").empty?.action?.command;
+      const readFirst = sectionOf(story!, "read-first").empty?.action?.command;
+      // read-first only carries an action while it is empty; when it does, it must match.
+      if (readFirst) expect(readFirst, dir).toBe(add);
+      expect(add, dir).toBe(`reggie note add ${dir === "." ? "_repo" : `${dir}/`} --type why "…"`);
+    }
+  });
+
+  it("is last at every scope in the default lens, and leaves gaps last under the knowledge lens", () => {
+    expect(sectionIds(repoStory(ctx)).at(-1)).toBe("add-note");
+    expect(sectionIds(areaStory(ctx, "src/big")!).at(-1)).toBe("add-note");
+    expect(sectionIds(fileStory(ctx, "src/big/a02.ts")!).at(-1)).toBe("add-note");
+
+    const k = knowledge();
+    // The repo has no lens push, so add-note stays last there.
+    expect(sectionIds(repoStory(k))).toEqual(["needs-you", "what", "made-of", "starts", "talks", "flight", "recent", "gaps", "run", "add-note"]);
+    // Area and file append gaps after the base list, so gaps stays last and add-note sits before it.
+    expect(sectionIds(areaStory(k, "src/big")!)).toEqual(["read-first", "inside", "uses", "used-by", "tests", "people", "tasks", "recent", "add-note", "gaps"]);
+    expect(sectionIds(fileStory(k, "src/big/a02.ts")!)).toEqual(["read-first", "exports", "used-by", "uses", "tests", "tasks", "history", "add-note", "gaps"]);
   });
 });
 
@@ -753,6 +879,27 @@ describe("a repo with a description but no why note", () => {
     expect(what.empty?.action?.form).toBe("note");
     expect(sectionOf(story, "run").paragraphs.some((p) => p.kind === "note" && p.text === "Run npm test.")).toBe(true);
   });
+
+  it("shows the repo two note forms and the area one, because only `why` fills About this repo", () => {
+    // The reverse mismatch of the onboarding state: `whatSection` counts only `why` entries, so a
+    // `_repo` note of `how` entries leaves the repo page with its empty-state form while every area
+    // page in the same repo is filled by that same note and has none. Both pages have add-note.
+    const repo = makeTempRepo("reggie-story-howonly-");
+    cleanups.push(repo);
+    repo.write("src/big/a01.ts", 'import { b } from "./a02.js";\nexport const a = () => b() + 1;\n');
+    repo.write("src/big/a02.ts", "export const b = () => 2;\n");
+    repo.commitAll("how only");
+    addNote(repoPaths(repo.root), "_repo", { type: "how", text: "Run npm test.", author: "test", confidence: "high" });
+    const c = contextFor(repo.root);
+
+    const story = repoStory(c);
+    expect(sectionOf(story, "what").paragraphs).toEqual([]);
+    expect(noteFormSections(story), "the repo keeps its empty-state form and gains add-note").toEqual(["what", "add-note"]);
+
+    const area = areaStory(c, "src/big")!;
+    expect(sectionOf(area, "read-first").paragraphs.length, "the how note fills the area chain").toBeGreaterThan(0);
+    expect(noteFormSections(area), "add-note is the area's only note form").toEqual(["add-note"]);
+  });
 });
 
 describe("a repo with no notes, tasks, journal or commands", () => {
@@ -778,6 +925,24 @@ describe("a repo with no notes, tasks, journal or commands", () => {
     expect(sectionOf(story, "flight").empty?.text).toBe(EMPTY_TEXT.tasks);
     expect(sectionOf(story, "flight").empty?.action?.form).toBe("capture");
     expect(sectionOf(story, "run").empty?.text).toBe(EMPTY_TEXT.repoRun);
+  });
+
+  it("offers two note forms on each page, both writing to the same entity", () => {
+    // Nothing has been written, so the empty state above and the always-present section below are
+    // both forms. That is accepted rather than designed around: the client takes the entity from
+    // the story's scope and id (`noteEntityFor`) and not from the section, so the two forms on a
+    // page are the same form twice and the Spotlight's jump cannot mis-target.
+    const repo = repoStory(bare);
+    expect(noteFormSections(repo)).toEqual(["what", "add-note"]);
+    expect(noteEntityFor(repo)).toBe("_repo");
+    expect(sectionOf(repo, "add-note").empty?.action?.command).toBe('reggie note add _repo --type why "…"');
+
+    const area = areaStory(bare, "src")!;
+    expect(noteFormSections(area)).toEqual(["read-first", "add-note"]);
+    expect(noteEntityFor(area)).toBe("src/");
+    expect(sectionOf(area, "add-note").empty?.action?.command).toBe('reggie note add src/ --type why "…"');
+    // Both of the area's forms print the same command, so neither can send the reader elsewhere.
+    expect(sectionOf(area, "read-first").empty?.action?.command).toBe(sectionOf(area, "add-note").empty?.action?.command);
   });
 
   it("says how far back it looked when nothing falls inside the journal window", () => {
@@ -822,6 +987,67 @@ describe("a repo with no notes, tasks, journal or commands", () => {
     expectLinksWellFormed(repoStory(bare), bare.repo);
     expectLinksWellFormed(areaStory(bare, "src")!, bare.repo);
     expectLinksWellFormed(fileStory(bare, "src/a.ts")!, bare.repo);
+  });
+});
+
+describe("the state `reggie onboard` leaves: one `_repo` note with a `why` entry", () => {
+  let onboarded: StoryContext;
+
+  beforeAll(() => {
+    const repo = makeTempRepo("reggie-story-onboarded-");
+    cleanups.push(repo);
+    repo.write("src/big/a01.ts", 'import { b } from "./a02.js";\nexport const a = () => b() + 1;\n');
+    repo.write("src/big/a02.ts", "export const b = () => 2;\n");
+    repo.commitAll("onboarded");
+    addNote(repoPaths(repo.root), "_repo", { type: "why", text: "This repo exists to hold the chained files.", author: "test", confidence: "high" });
+    onboarded = contextFor(repo.root);
+  }, 60_000);
+
+  it("leaves add-note as the only note form on the repo page and on every area page", () => {
+    // This is the common case, not an exotic one: one repo-level note fills the read-first section of
+    // every area in the repo at once, because `noteChain` starts at `_repo`. Before this section
+    // existed, that meant no area page in a set-up repo had a note form at all.
+    expect(noteFormSections(repoStory(onboarded))).toEqual(["add-note"]);
+    const area = areaStory(onboarded, "src/big")!;
+    expect(noteFormSections(area)).toEqual(["add-note"]);
+    expect(sectionOf(area, "add-note").empty?.action?.command).toBe('reggie note add src/big/ --type why "…"');
+  });
+
+  it("says no note is written on the folder and offers a form for that folder in the same payload", () => {
+    // The gap sentence and the form that answers it have to arrive together; the sentence on its own
+    // is the page telling the reader something is missing and giving them no way to supply it.
+    const area = areaStory(onboarded, "src/big")!;
+    const readFirst = sectionOf(area, "read-first");
+    const gap = readFirst.paragraphs.find((p) => p.kind === "gap");
+    expect(gap, "the inherited-only chain prints the gap sentence").toBeDefined();
+    expect(gap!.text).toContain("No note is written on");
+    expect(gap!.text).toContain("itself; everything above is inherited from the repo and the folders around it.");
+    expect(sectionOf(area, "add-note").empty?.action?.command).toContain("reggie note add src/big/");
+  });
+});
+
+describe("a repo with no code files", () => {
+  it("still offers the repo page a note form, and has no area page below the root", () => {
+    // `makeTempRepo` commits only a README, so the graph has no code files and no area nodes under
+    // the root. Measured, not assumed: the root itself IS still reachable as an area page, so the
+    // claim is that every path below it is null, not that every path is.
+    const repo = makeTempRepo("reggie-story-nocode-");
+    cleanups.push(repo);
+    const c = contextFor(repo.root);
+
+    const story = repoStory(c);
+    const add = sectionOf(story, "add-note");
+    expect(add.paragraphs).toHaveLength(0);
+    expect(add.empty?.text).toBe(EMPTY_TEXT.addNoteRepo);
+    expect(add.empty?.action?.form).toBe("note");
+    expect(add.empty?.action?.command).toBe('reggie note add _repo --type why "…"');
+
+    for (const p of ["src", "src/big", "doc", "packages/reggie"]) expect(areaStory(c, p), p).toBeNull();
+
+    // The root reached as an area page is the one area that survives, and it says `_repo` too.
+    const root = areaStory(c, ".");
+    expect(root).not.toBeNull();
+    expect(sectionOf(root!, "add-note").empty?.action?.command).toBe('reggie note add _repo --type why "…"');
   });
 });
 

@@ -1,0 +1,76 @@
+Criteria 19 and 20 — the two written records of the payload's shape.
+
+==============================================================================
+$ git diff dd613ed -- packages/reggie/docs/ui-api-contract.md
+==============================================================================
+diff --git a/packages/reggie/docs/ui-api-contract.md b/packages/reggie/docs/ui-api-contract.md
+index 4df6117..6a9ffb0 100644
+--- a/packages/reggie/docs/ui-api-contract.md
++++ b/packages/reggie/docs/ui-api-contract.md
+@@ -124,7 +124,7 @@ interface Paragraph {
+   decision?: { slug: string; canDecide: boolean; deciders: string[] };
+ }
+ ```
+-Section ids by scope — repo: `needs-you, what, made-of, starts, talks, flight, recent, gaps, run`; area: `read-first, inside, uses, used-by, tests, people, tasks, recent`; file: `read-first, exports, used-by, uses, tests, tasks, history, add-note`; task with a plan: `state, owner, problem, approach, files, criteria, verification, assumptions, scope, bail, risk, packet, journal`; task with a brief and no plan: `state, ask, why-now, area, questions, not-this, next, journal`; task with only an intake line: `state, written, lives, known, resembles, unclear, next, journal`; workspace: `needs-you, repos, connect`; services: `needs-attention, talks-to, secrets, not-wired`; flow: `steps, not-derivable`. `lens=knowledge` adds `gaps` to area and file scopes.
++Section ids by scope — repo: `needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note`; area: `read-first, inside, uses, used-by, tests, people, tasks, recent, add-note`; file: `read-first, exports, used-by, uses, tests, tasks, history, add-note`; task with a plan: `state, owner, problem, approach, files, criteria, verification, assumptions, scope, bail, risk, packet, journal`; task with a brief and no plan: `state, ask, why-now, area, questions, not-this, next, journal`; task with only an intake line: `state, written, lives, known, resembles, unclear, next, journal`; workspace: `needs-you, repos, connect`; services: `needs-attention, talks-to, secrets, not-wired`; flow: `steps, not-derivable`. `lens=knowledge` adds `gaps` to area and file scopes.
+ 
+ `scope=services` narrates the Services page and takes no `id`. `scope=flow` needs `id` (a flow id or an entry node id) and accepts the same `depth` as `/api/flow`; 400 without an id, 404 when no entry point has it. In the `flow` scope every paragraph's `refs` are its own step's node ids, so reading the story walks the map. The repo scope's `talks` section links both pages when they have anything on them.
+ 
+
+Criterion 19 — the contract's section-ids line, read against the measured payload in
+evidence/section-ids.txt, scope by scope:
+
+  contract repo : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  measured repo : prints the section ids, the add-note section, its empty text, its terminal hint, and which
+  contract area : read-first, inside, uses, used-by, tests, people, tasks, recent, add-note
+  measured area : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  contract file : read-first, exports, used-by, uses, tests, tasks, history, add-note
+  measured file : read-first, inside, uses, used-by, tests, people, tasks, recent, add-note
+  The contract's closing sentence, 'lens=knowledge adds gaps to area and file scopes', is
+  unchanged and still true: the probe shows gaps last at area and file under the lens, and the
+  repo list identical in both lenses.
+
+==============================================================================
+$ git diff dd613ed -- packages/reggie/docs/ui-spec.md
+==============================================================================
+diff --git a/packages/reggie/docs/ui-spec.md b/packages/reggie/docs/ui-spec.md
+index b179abb..34f34a4 100644
+--- a/packages/reggie/docs/ui-spec.md
++++ b/packages/reggie/docs/ui-spec.md
+@@ -50,20 +50,21 @@ Ids: `repo:<name>`, `dir:<path>/` (always trailing slash; `dir:./` is the repo r
+ | starts | Where it starts | One sentence per entry point: "A user action starts in [[src/main.tsx]] and reaches the Rust side through 48 Tauri commands defined in [[src-tauri]]." / "The command line starts in [[cli.ts]] (27 commands); agents reach the same code through [[mcp.ts]] (10 tools); the web view is served by [[serve.ts]] (8 routes)." Links open the file explorer preset to `?dir=down&depth=2`. | "No entry point was recognised. Reggie looks for main/index/cli/server files and package.json bin/main." |
+ | talks | How the pieces talk | Top 6 aggregated edges as sentences: "[[src/components]] leans on [[src/types]] 41 times, mostly for [[terminal.ts]] (21)." IPC: "[[src/components]] calls into [[src-tauri]] through 27 Tauri commands (matched by name)." Cycles: "[[src/hooks]] and [[src/services]] depend on each other." `refs` = both area ids so hover lights the edge. | "The areas do not import each other." |
+ | flight | What is in flight | Tasks grouped by state, in-process first: "[[slug]] (in process, jacobpress, 2 days): title". Intake items as ungroomed. | "Nothing has been captured yet. A task starts as one line in intake; a plan makes it groomed; a `task/<slug>` branch means in process; an open PR means awaiting decision; a merge means done." + inline capture form. |
+ | recent | What happened recently | Last 5 journal entries verbatim (14 days), each with chips Person / Tool / Stage / Task and the date as a link to the timeline ⧗ (Core: the date is plain). Then "Read the whole journal" → `#/repo/<name>/time` ⧗ (Core: expands to 60 days in place). | "Nothing was recorded in the last 14 days. Widen to 60 days." (button) |
+ | gaps | What nobody has written down | Largest undocumented areas: "[[src/components]] has 29 source files and none of them has a note." Stale notes: "The note on [[packages/reggie/]] was written on 6 Sep but the folder changed on 7 Sep; it may be out of date." (link opens the area with the note pinned). | "Every area has a note and none is stale." |
+ | run | How to run it | `facts.commands` as copyable `<code>` chips; collapsed by default (`<details>`). | "No build or test command was recognised." |
++| add-note | Add a note | Never has paragraphs, at any scope: it is the always-open door to writing a note about this repo, and it is a form every time the page is drawn. Distinct from the empty state on "About this repo" above, which offers the same form but closes as soon as someone writes the first `why` entry. | "Write what the next person should know about this repo." + Add note form for `_repo`; hint `reggie note add _repo --type why "…"`. |
+ 
+ *Map (container map)*: one node per L1 area from `chooseAreas` (§6.2). On this repo that yields exactly 7 nodes: `packages/reggie`, `src-tauri`, `src/components`, `src/hooks`, `src/types`, `src/services`, `src (other)`. Node = rounded rectangle, width 120–220px by `sqrt(sourceFiles)` (linear between min and max of the visible set), height 64px; label inside, three lines: name (13px/600), "N files · M% documented" (11px), and, when the area holds an entry point, "▸ main.tsx" (11px). Fill = area hue (§5.1) at 100%; text `--text`. Edges: one per ordered pair of areas; `width = 1.5 + 6 * log(weight) / log(maxWeight)`; label = weight when ≥ 2; straight lines, `arrow-scale 1.2`, colour `#4b5568`. IPC edges: `line-style: dotted`, colour `--area-2` violet, label "IPC · N". Cycle edges (member of an SCC of size ≥ 2 at this level): colour `--bad`, width max(current, 2.5). Test edges hidden (they are `tests` kind). Layout: dagre `rankdir TB, ranker network-simplex, rankSep 90, nodeSep 40`; IPC edges participate in ranking so the React areas sit above the Rust crate. Tabs above the canvas: **Map** (Core) and **Treemap** ⧗.
+ 
+ *Drill-down*: click area node or area name → `#/repo/<name>/area/<path>`. Double-click does the same (single click also pins Spotlight). Click an edge → Spotlight listing the top 5 file pairs behind it (`via`), each a link to the file level. Click an entry name → file explorer preset downstream. Click a task → task page.
+ 
+ ### Level 2: Area (`#/repo/<name>/area/<path>`)
+ 
+-*Story sections*: **Read these first** (the note chain: repo note, each ancestor folder note, this folder's note; verbatim with chips; stale entries get a red "Possibly out of date" chip with "written <date>, code changed <date>"), **What is in here** (children ranked by fan-in: "[[paths.ts]] is the most relied-on file here: 19 other files use it." then sub-areas: "[[ActivityBar]] holds 8 components."), **What it depends on** / **What depends on it** (grouped by ghost: "Uses [[src/types]] for 3 files (41 imports)"), **Tests** ("14 test files cover 12 of 21 source files. Untested: [[serve.ts]], [[mcp.ts]] …" amber), **Who works here** ("[[jacobpress]] wrote 98% of the lines changed in the last year. One person holds this area." when busFactor = 1), **Tasks that will touch this area** (plans naming files here, with state), **Recently** (journal entries whose evidence or slug maps here; last 5 commits: "jacobpress changed 3 files here on 7 Sep: <subject>").
++*Story sections*: **Read these first** (the note chain: repo note, each ancestor folder note, this folder's note; verbatim with chips; stale entries get a red "Possibly out of date" chip with "written <date>, code changed <date>"), **What is in here** (children ranked by fan-in: "[[paths.ts]] is the most relied-on file here: 19 other files use it." then sub-areas: "[[ActivityBar]] holds 8 components."), **What it depends on** / **What depends on it** (grouped by ghost: "Uses [[src/types]] for 3 files (41 imports)"), **Tests** ("14 test files cover 12 of 21 source files. Untested: [[serve.ts]], [[mcp.ts]] …" amber), **Who works here** ("[[jacobpress]] wrote 98% of the lines changed in the last year. One person holds this area." when busFactor = 1), **Tasks that will touch this area** (plans naming files here, with state), **Recently** (journal entries whose evidence or slug maps here; last 5 commits: "jacobpress changed 3 files here on 7 Sep: <subject>"), **Add a note** (inline form: type select, confidence select, textarea, submit → POST `/api/note`, writing to this folder — always present, unlike the form on **Read these first**, which goes as soon as the chain has anything in it, including a note inherited from the repo).
+ 
+ *Map (focus-plus-context)*: a compound node (soft rounded rectangle, fill area hue at 12%, border area hue, label = area path at top-left 12px) containing the area's **children as chosen by `chooseAreas(root)`**: a child directory with ≥ 3 source files is a collapsed sub-area node (same style as L1 nodes, smaller: 96×44); every other source file is a circle sized by fan-in (16–40px, sqrt). Around the compound: **ghost nodes** for every outside container that exchanges at least one edge with the children (§6.3 for the ghost rule), drawn 96×40 rounded rectangles with dashed border, fill area hue at 35%, label "src/types · 3 files used". Ghosts are included in the dagre run so dagre places upstream ghosts above the compound and downstream ghosts below; a ghost with edges in both directions is emitted twice (`ghost:up:` and `ghost:down:` prefixed ids) so bands stay clean. Layout dagre TB, `rankSep 70, nodeSep 28`. Edges inside: file-to-file import edges, bezier 1.5px, arrow-scale 1.2. Child→ghost edges: one per pair, width by weight, label weight when ≥ 2. Test files: hidden by default; the toolbar shows "Show tests (14)"; when on, tests are hollow circles with a dashed border and `tests` edges are dotted grey. More than 40 children: the lowest fan-in files fold into one `+N more` node (grey, dashed) that expands on click (route gains `?all=1`).
+ 
+ *Interactions*: click a file node or file name → `#/repo/<name>/file/<path>`; click a sub-area → descend (route). Click a ghost → navigate to that area; the map animates: the old compound shrinks into a ghost and the new one expands (350 ms, `cy.animate` from previous positions). Hover a file node: importers light cyan, imports light orange for the duration (a temporary direction highlight; the legend does not change), and the map footer reads "Used by 6 · Uses 9". Toolbar: Fit, Zoom −/+, Re-layout, Show tests, Lens.
+ 
+ ### Level 3: File (`#/repo/<name>/file/<path>`)
+@@ -146,12 +147,13 @@ Treemap ⧗: `d3.treemap` (squarify, padding 2) over `/api/treemap`, tile fill =
+ ## 4. Empty and loading states (register: plain English, one sentence of why, the next action inline, the command as a secondary hint)
+ 
+ | Where | Text | Action |
+ |---|---|---|
+ | Tasks (board, flight section) | "Nothing has been captured yet. A task starts as one line in intake; …" | capture form; hint `reggie capture "…"` |
+ | Notes (any chain) | "No one has written about this area yet. The first useful note usually says why it exists and how to run it." | Add note form; hint `reggie note add <path> --type why "…"` |
++| Add a note (repo, area and file; always) | "Write what the next person should know about this repo." / "…about this area." / "…about this file." | Add note form; hint `reggie note add <entity> --type why "…"`, where `<entity>` is `_repo`, the folder path with a trailing slash, or the file path. Not an empty state that fills: this section never has paragraphs, so the form is always there. A page whose note chain is still empty therefore shows two forms, and both write to the same entity. |
+ | Journal | "Nothing was recorded in the last 14 days." | "Widen to 60 days" button |
+ | Tests section | "No test imports this file." (amber) | link to Tests lens |
+ | Filters | "No files match. Tests are hidden; show them?" | Show tests button |
+ | Search | "Nothing matches '<q>'. Try a basename, a slug, or a person." | — |
+ | Map cap | footer "Showing 40 of 63 files; 23 folded into +N more" | click fold |
+ | Renderer | "The map library did not load. The story still works. …" | Retry |

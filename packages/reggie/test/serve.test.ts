@@ -353,8 +353,8 @@ describe("GET /api/impact", () => {
 
 describe("GET /api/story and /api/explain", () => {
   const sections: Record<string, string[]> = {
-    repo: ["needs-you", "what", "made-of", "starts", "talks", "flight", "recent", "gaps", "run"],
-    area: ["read-first", "inside", "uses", "used-by", "tests", "people", "tasks", "recent"],
+    repo: ["needs-you", "what", "made-of", "starts", "talks", "flight", "recent", "gaps", "run", "add-note"],
+    area: ["read-first", "inside", "uses", "used-by", "tests", "people", "tasks", "recent", "add-note"],
     file: ["read-first", "exports", "used-by", "uses", "tests", "tasks", "history", "add-note"],
     task: ["state", "owner", "problem", "approach", "files", "criteria", "verification", "assumptions", "scope", "bail", "risk", "packet", "journal"],
     workspace: ["needs-you", "repos", "connect"],

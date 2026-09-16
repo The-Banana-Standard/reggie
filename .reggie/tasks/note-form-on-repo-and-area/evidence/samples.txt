@@ -1,0 +1,70 @@
+Criterion 21 — the two repo-scope dev samples carry the section last.
+
+==============================================================================
+$ git diff dd613ed -- packages/reggie/ui/dev/
+==============================================================================
+diff --git a/packages/reggie/ui/dev/sample-story-empty.json b/packages/reggie/ui/dev/sample-story-empty.json
+index f9b6f37..bbc3b65 100644
+--- a/packages/reggie/ui/dev/sample-story-empty.json
++++ b/packages/reggie/ui/dev/sample-story-empty.json
+@@ -74,6 +74,12 @@
+       "heading": "How to run it",
+       "paragraphs": [],
+       "empty": { "text": "No build or test command was recognised.", "action": { "label": "Record what you ran", "form": "journal", "command": "reggie journal \"…\"" } }
++    },
++    {
++      "id": "add-note",
++      "heading": "Add a note",
++      "paragraphs": [],
++      "empty": { "text": "Write what the next person should know about this repo.", "action": { "label": "Add note", "form": "note", "command": "reggie note add _repo --type why \"…\"" } }
+     }
+   ],
+   "next": []
+diff --git a/packages/reggie/ui/dev/sample-story-file.json b/packages/reggie/ui/dev/sample-story-file.json
+index e390319..768d27d 100644
+--- a/packages/reggie/ui/dev/sample-story-file.json
++++ b/packages/reggie/ui/dev/sample-story-file.json
+@@ -110,7 +110,7 @@
+       "id": "add-note",
+       "heading": "Add a note",
+       "paragraphs": [],
+-      "empty": { "text": "Write what the next person should know about this file.", "action": { "label": "Add note", "form": "note", "command": "reggie note add packages/reggie/src/paths.ts --type how \"…\"" } }
++      "empty": { "text": "Write what the next person should know about this file.", "action": { "label": "Add note", "form": "note", "command": "reggie note add packages/reggie/src/paths.ts --type why \"…\"" } }
+     }
+   ],
+   "next": [
+diff --git a/packages/reggie/ui/dev/sample-story.json b/packages/reggie/ui/dev/sample-story.json
+index c259ab7..9faedad 100644
+--- a/packages/reggie/ui/dev/sample-story.json
++++ b/packages/reggie/ui/dev/sample-story.json
+@@ -231,6 +231,12 @@
+         { "id": "run-1", "kind": "list", "text": "npm test\nnpm run build\nnpx tsx src/cli.ts serve --port 4310", "refs": ["dir:packages/reggie/"] },
+         { "id": "run-2", "kind": "list", "text": "npm run tauri dev", "refs": ["dir:src-tauri/"] }
+       ]
++    },
++    {
++      "id": "add-note",
++      "heading": "Add a note",
++      "paragraphs": [],
++      "empty": { "text": "Write what the next person should know about this repo.", "action": { "label": "Add note", "form": "note", "command": "reggie note add _repo --type why \"…\"" } }
+     }
+   ],
+   "next": [
+
+==============================================================================
+Section ids in every story sample, read back from the JSON:
+==============================================================================
+sample-story.json  scope=repo
+  ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  note forms on this page: add-note
+sample-story-empty.json  scope=repo
+  ids : needs-you, what, made-of, starts, talks, flight, recent, gaps, run, add-note
+  note forms on this page: what, add-note
+sample-story-file.json  scope=file
+  ids : read-first, exports, used-by, uses, tests, tasks, history, add-note
+  note forms on this page: add-note
+
+sample-story-empty.json is the harness's 'repo, every empty state (forms)' fixture, so it is the
+two-form page: 'what' still offers the form as its empty state and 'add-note' always does. Both
+resolve through noteEntityFor to _repo, because the client takes the entity from the story's
+scope and id and not from the section.

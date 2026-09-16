@@ -1,0 +1,48 @@
+Criteria 7 and 8 — the three sentences, their single source, and the file sentence kept byte-for-byte.
+
+$ grep -rn "fileAddNote" packages/reggie --exclude-dir=node_modules --exclude-dir=dist
+(no matches — the key is gone from the working tree)
+
+$ git diff packages/reggie/src/story.ts   [EMPTY_TEXT hunk]
+diff --git a/packages/reggie/src/story.ts b/packages/reggie/src/story.ts
+index e715f99..ec8bfcf 100644
+--- a/packages/reggie/src/story.ts
++++ b/packages/reggie/src/story.ts
+@@ -175,7 +175,10 @@ export const EMPTY_TEXT = {
+   fileUses: "It imports nothing else in this repo.",
+   fileTasks: "No plan names this file.",
+   fileHistory: "Git has no commits for this file in the last year.",
+-  fileAddNote: "Write what the next person should know about this file.",
++  // The always-present "Add a note" section: one sentence per scope, differing by one noun.
++  addNoteRepo: "Write what the next person should know about this repo.",
++  addNoteArea: "Write what the next person should know about this area.",
++  addNoteFile: "Write what the next person should know about this file.",
+   fileGaps: "This file has a note and none of the notes that apply is stale.",
+   taskNoPlan: "No plan yet. Plan it in plan mode against the contract.",
+   taskOwner: "Nobody has claimed this task.",
+@@ -812,6 +815,7 @@ export function repoStory(ctx: StoryContext, opts: RepoStoryOptions = {}): Story
+     recentSection(ctx),
+     repoGapsSection(ctx),
+     runSection(ctx),
++    addNoteSection("repo", "_repo"),
+   ];
+
+$ grep -n "addNoteRepo\|addNoteArea\|addNoteFile\|ADD_NOTE_TEXT" packages/reggie/src/story.ts
+179:  addNoteRepo: "Write what the next person should know about this repo.",
+180:  addNoteArea: "Write what the next person should know about this area.",
+181:  addNoteFile: "Write what the next person should know about this file.",
+1661:const ADD_NOTE_TEXT: Record<AddNoteScope, string> = {
+1662:  repo: EMPTY_TEXT.addNoteRepo,
+1663:  area: EMPTY_TEXT.addNoteArea,
+1664:  file: EMPTY_TEXT.addNoteFile,
+1679:    text: ADD_NOTE_TEXT[scope],
+
+The file sentence, compared against the landing commit of graph-coverage-published (dd613ed):
+$ git show dd613ed:packages/reggie/src/story.ts | grep -n 'should know about this file'
+178:  fileAddNote: "Write what the next person should know about this file.",
+$ grep -n 'should know about this file' packages/reggie/src/story.ts
+181:  addNoteFile: "Write what the next person should know about this file.",
+
+old: "Write what the next person should know about this file."
+new: "Write what the next person should know about this file."
+RESULT: byte-identical.

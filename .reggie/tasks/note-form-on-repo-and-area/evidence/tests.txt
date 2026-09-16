@@ -1,0 +1,56 @@
+Criteria 2, 3, 4, 6, 7, 9, 10, 11, 12, 13, 14, 15, 22 — the tests that hold them, and their output.
+
+$ npx vitest run src/story.test.ts test/serve.test.ts --reporter=verbose   [filtered to this task's tests]
+
+ ✓ src/story.test.ts > repoStory on the fixture repo > emits every section id from the contract, in order 129ms
+ ✓ src/story.test.ts > areaStory > emits every section id from the contract 1ms
+ ✓ src/story.test.ts > fileStory > emits every section id from the contract 2ms
+ ✓ src/story.test.ts > fileStory > always offers the note form, and adds gaps under the knowledge lens 30ms
+ ✓ src/story.test.ts > the add-note section > is present and is a form at repo, area and file scope 1ms
+ ✓ src/story.test.ts > the add-note section > carries non-empty empty text at every scope, so the client cannot drop it 1ms
+ ✓ src/story.test.ts > the add-note section > names its scope in the empty text, and keeps the file sentence as it was 1ms
+ ✓ src/story.test.ts > the add-note section > hints --type why at every scope, so the copied command matches what the form posts 0ms
+ ✓ src/story.test.ts > the add-note section > spells the note entity the way `reggie note add` accepts it, including at the repo root 1ms
+ ✓ src/story.test.ts > the add-note section > is written once: the area hint and the read-first empty state agree on the entity 1ms
+ ✓ src/story.test.ts > the add-note section > is last at every scope in the default lens, and leaves gaps last under the knowledge lens 146ms
+ ✓ src/story.test.ts > taskStory > emits every section id from the contract, in order 1ms
+ ✓ src/story.test.ts > a repo with a description but no why note > shows the repo two note forms and the area one, because only `why` fills About this repo 230ms
+ ✓ test/serve.test.ts > GET /api/story and /api/explain > returns the contract's section ids for every scope 155ms
+ ✓ src/story.test.ts > a repo with no notes, tasks, journal or commands > offers two note forms on each page, both writing to the same entity 0ms
+ ✓ src/story.test.ts > the state `reggie onboard` leaves: one `_repo` note with a `why` entry > leaves add-note as the only note form on the repo page and on every area page 0ms
+ ✓ src/story.test.ts > the state `reggie onboard` leaves: one `_repo` note with a `why` entry > says no note is written on the folder and offers a form for that folder in the same payload 0ms
+ ✓ src/story.test.ts > a repo with no code files > still offers the repo page a note form, and has no area page below the root 215ms
+ ✓ src/story.test.ts > workspaceStory > emits the workspace section ids from the contract 0ms
+ ✓ src/story.test.ts > coverageSentence > no code files at all 0ms
+ ✓ src/story.test.ts > coverageSentence > no code files, nothing skipped, a broken path 0ms
+
+==============================================================================
+The changed and added assertions, quoted.
+==============================================================================
+
+--- src/story.test.ts, the two exact-array assertions that changed ---
+250:    expect(sectionIds(repoStory(ctx))).toEqual(["needs-you", "what", "made-of", "starts", "talks", "flight", "recent", "gaps", "run", "add-note"]);
+381:    expect(sectionIds(story!)).toEqual(["read-first", "inside", "uses", "used-by", "tests", "people", "tasks", "recent", "add-note"]);
+
+--- src/story.test.ts, the file list and the knowledge-lens assertion, UNCHANGED ---
+420:    expect(sectionIds(story!)).toEqual(["read-first", "exports", "used-by", "uses", "tests", "tasks", "history", "add-note"]);
+388:    expect(sectionIds(story!).at(-1)).toBe("gaps");
+  (git: is the gaps assertion line touched?)
+  not in the diff — unchanged.
+
+--- test/serve.test.ts, the two HTTP-level lists that changed ---
+356:    repo: ["needs-you", "what", "made-of", "starts", "talks", "flight", "recent", "gaps", "run", "add-note"],
+357:    area: ["read-first", "inside", "uses", "used-by", "tests", "people", "tasks", "recent", "add-note"],
+
+--- the new test names in src/story.test.ts ---
+478:  it("always offers the note form, and adds gaps under the knowledge lens", () => {
+538:  it("names its scope in the empty text, and keeps the file sentence as it was", () => {
+549:  it("hints --type why at every scope, so the copied command matches what the form posts", () => {
+557:  it("spells the note entity the way `reggie note add` accepts it, including at the repo root", () => {
+570:  it("is written once: the area hint and the read-first empty state agree on the entity", () => {
+583:  it("is last at every scope in the default lens, and leaves gaps last under the knowledge lens", () => {
+883:  it("shows the repo two note forms and the area one, because only `why` fills About this repo", () => {
+930:  it("offers two note forms on each page, both writing to the same entity", () => {
+1006:  it("leaves add-note as the only note form on the repo page and on every area page", () => {
+1016:  it("says no note is written on the folder and offers a form for that folder in the same payload", () => {
+1030:  it("still offers the repo page a note form, and has no area page below the root", () => {

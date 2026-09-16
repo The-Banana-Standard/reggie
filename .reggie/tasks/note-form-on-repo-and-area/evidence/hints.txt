@@ -1,0 +1,53 @@
+Criteria 9 and 10 — the terminal hint at each scope, and the entity it spells.
+
+Measured by the probe (full output in evidence/section-ids.txt). One line per scope:
+
+  hint        : "reggie note add _repo --type why \"…\""
+  hint        : "reggie note add src/big/ --type why \"…\""
+  hint        : "reggie note add src/big/a02.ts --type why \"…\""
+
+By scope, from a repo with no notes (probe CASE 1):
+  repo page        hint: reggie note add _repo --type why "…"
+  area src/big     hint: reggie note add src/big/ --type why "…"
+  file a02.ts      hint: reggie note add src/big/a02.ts --type why "…"
+
+The repo root reached as an area page — the `.` branch of areaNoteEntity. It is live, not
+defensive: areaStory(ctx, ".") returns a real story with id "." titled with the repo name, and
+its hint must say _repo because that is what reggie note add accepts for the repo itself.
+
+  areaStory(ctx, ".") -> id="." title="reggie-probe-UO6MKv"
+  areaStory(ctx, ".") -> id="." title="reggie-probe-9icEkV"
+  areaStory(ctx, ".") -> id="." title="reggie-probe-9spStE"
+     add-note hint: "reggie note add _repo --type why \"…\""
+
+==============================================================================
+Why the hint says --type why and not anything else.
+==============================================================================
+
+The rendered form's type select always defaults to why, whatever the action carries:
+
+$ grep -n 'opts.type ?? "why"' packages/reggie/ui/story.js
+708:  const type = h("select", { class: "form__select", name: "type", "aria-label": "Note type" }, NOTE_TYPES.map((t) => h("option", { value: t, selected: t === (opts.type ?? "why") ? true : null, title: d.GLOSSARY?.[t] ?? null }, t)));
+
+$ grep -n 'block.appendChild(noteForm(d, story))' packages/reggie/ui/story.js   [emptyBlock passes no opts]
+817:  else if (action.form === "note") block.appendChild(noteForm(d, story));
+
+So before this change the file page printed 'reggie note add <file> --type how' beside a button
+that posted why. Confirmed in the browser against this worktree: the rendered select on both
+forms of sample-story-empty.json reads why (see evidence/two-forms.txt). The correction makes the
+copied command and the button agree at all three scopes.
+
+$ git show dd613ed:packages/reggie/src/story.ts | grep -n 'type how'   [what it said before]
+1647:    action: { label: "Add note", form: "note", command: `reggie note add ${node.id} --type how "…"` },
+
+$ grep -rn -- '--type how' packages/reggie/src packages/reggie/ui packages/reggie/docs packages/reggie/test   [what is left]
+packages/reggie/src/cli.ts:525:    if (chain.length === 0) return out(`No notes on the way to ${file}. Write the first one: reggie note add ${file} --type how "..."`);
+
+The one remaining occurrence is src/cli.ts, a terminal message with no button beside it to
+disagree with. It is correct as it stands and was deliberately left alone.
+
+$ grep -n 'areaNoteEntity' packages/reggie/src/story.ts   [one definition, and its readers]
+1288:    addNoteSection("area", areaNoteEntity(dirPath)),
+1319:function areaNoteEntity(dirPath: string): string {
+1326:  const own = ctx.noteOf(areaNoteEntity(dirPath));
+1334:    action: { label: "Add a note", form: "note", command: `reggie note add ${areaNoteEntity(dirPath)} --type why "…"` },
