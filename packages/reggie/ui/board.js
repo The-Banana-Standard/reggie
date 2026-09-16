@@ -1434,7 +1434,7 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
     if (priority) out.push(chip("Priority", priority, { tone: PRIORITY_TONE[priority] ?? "muted", tip: PRIORITY_TIPS[priority] }));
     if (size) out.push(chip("Size", size, { tone: null, tip: SIZE_TIPS[size] }));
     if (!priority && !size) {
-      out.push(chip(null, "brief not filled in", { tone: "muted", tip: "The brief exists but its front matter still says unset for both priority and size. Fill it in with reggie triage, or edit the brief." }));
+      out.push(chip(null, "brief not filled in", { tone: "muted", tip: "The brief exists but its front matter still says unset for both priority and size. Edit the brief, or shape it in a session with reggie launch <slug> --run; reggie triage only scaffolds, and --force would write every section back to the template." }));
     }
     if (risk) out.push(chip("Risk", risk, { tone: RISK_TONE[risk], tip: RISK_TIPS[risk] }));
     if (b.area) out.push(chip("Area", b.area, { tip: `The brief says the work probably lands in ${b.area}` }));
@@ -1734,7 +1734,12 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
         h("p", { class: "hint" }, "Open the task to read what Reggie can say about it, or to hear it: ", entityLink("task", taskRoute(ctx.repo, t.slug), "where it probably lives, what is known there, and what is unclear"), "."),
         // A line that outlived its brief is the one case where both exist; the server refuses an
         // answer into intake once there is a brief, so offer the form only while it would work.
-        t.brief?.exists ? h("p", { class: "hint" }, "A brief has replaced this line. Write what you meant into the brief instead.") : answerForm(ctx, t, { onAnswered: () => ctx.deps?.onCapture?.() }),
+        // A line and a brief both exist only when the line outlived its brief: one captured
+        // before triage started taking them, or written by hand since. The server refuses an
+        // answer into intake for a task that has a brief, so say where it goes instead.
+        t.brief?.exists
+          ? h("p", { class: "hint" }, "This task has a brief, so what you meant belongs there rather than under this line. `reggie plan done ", t.slug, "` sweeps the line.")
+          : answerForm(ctx, t, { onAnswered: () => ctx.deps?.onCapture?.() }),
       );
     }
     if (kind === "brief") {
@@ -2007,9 +2012,14 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
       for (const slug of created) {
         const t = model.tasks.find((x) => x.slug === slug);
         if (!t) continue;
-        const problem = t.intake?.text ?? "";
+        // Mirror what the server will report on the next reconcile. With an intake line to
+        // prefill from, the Problem is written and only the four other sections are still the
+        // template; with no line, the Problem is the template too and is named first.
+        const line = t.intake;
+        const problem = line ? [line.text, ...(line.detail ?? [])].filter(Boolean).join(" ") : "";
+        const sections = line ? "Why now, Suspected area, Open questions, Not this" : "Problem, Why now, Suspected area, Open questions, Not this";
         t.state = "ungroomed";
-        t.reason = "brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this";
+        t.reason = `brief on disk is still triage's scaffold: placeholder text in ${sections}`;
         t.brief = { exists: true, area: "", size: "unset", priority: "unset", problem };
         if (taken.has(slug)) t.intake = null;
         model.selected.delete(slug);

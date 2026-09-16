@@ -61,6 +61,8 @@ describe("triage", () => {
     const brief = parseBrief(readText(r.file) ?? "");
     expect(brief.sections.get("Problem")).toContain("Login retries are not capped");
     expect(brief.sections.get("Problem")).toContain("seen on staging");
+    // Who captured it and when travel with the words, because the line that held them is gone.
+    expect(brief.sections.get("Problem")).toMatch(/\(test, cli, \d{4}-\d{2}-\d{2}\)/);
   });
 
   it("leaves the line in place when the write throws, so the two records are never both gone", () => {
@@ -145,13 +147,16 @@ describe("triage", () => {
     expect(forced.intakeRemoved).toBe(0);
     const rewritten = parseBrief(readText(forced.file) ?? "");
     expect(rewritten.meta.title).toBe("Cap login retries on web");
-    expect(rewritten.problem).toBe("Web clients retry login forever when the server is down, so nobody can tell an outage from a broken page.");
+    expect(rewritten.problem).toContain("Web clients retry login forever when the server is down, so nobody can tell an outage from a broken page.");
+    // The capture stamp triage carried in from the line survives the rewrite too: with the line
+    // deleted, the brief is the only copy of who captured it and when.
+    expect(rewritten.problem).toMatch(/\(test, cli, \d{4}-\d{2}-\d{2}\)/);
 
     // An explicit title still wins over the brief's own.
     scaffoldBrief(p, { slug, author: "test", force: true, title: "Something the owner typed" });
     const retitled = parseBrief(readText(briefFile(p, slug)) ?? "");
     expect(retitled.meta.title).toBe("Something the owner typed");
-    expect(retitled.problem).toBe("Web clients retry login forever when the server is down, so nobody can tell an outage from a broken page.");
+    expect(retitled.problem).toBe(rewritten.problem);
   });
 
   it("keeps a slug on the board after its line is taken, because the brief's folder holds it", () => {

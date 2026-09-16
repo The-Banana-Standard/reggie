@@ -21,3 +21,6 @@ sources: packages/reggie/src/cli.ts:437
 ## how · 2026-09-15 · Claude via jacobpress · medium
 reggie triage --all scaffolds only for ungroomed tasks with no brief, and names the ungroomed ones that already have an unfilled draft in the closing line: after the draft rule they stay ungroomed, so scaffolding over them would print 'already exists' forever. plan done is kept as the sweep for a line that outlived its brief.
 
+## gotcha · 2026-09-15 · Claude via jacobpress · medium
+The Ungroomed column holds two kinds of work now and each needs a different verb: a raw line wants reggie triage, a scaffold nobody filled in wants a session. reggie tasks prints a line for each when both exist, and the two counts add up to the column header; collapsing them into one number contradicts the header and hides whichever half loses.
+

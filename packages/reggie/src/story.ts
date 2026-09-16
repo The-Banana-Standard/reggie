@@ -1165,9 +1165,12 @@ function taskLine(ctx: StoryContext, t: TaskInfo): string {
   const head = link(ctx.repo, `task:${t.slug}`, t.slug);
   const bits: string[] = [stateWords(t.state)];
   if (t.owner) bits.push(t.owner);
+  // Once triage takes the line there is no capture date to print, and an ungroomed card with a
+  // scaffolded brief is now the common case — so fall back to the age rather than printing nothing.
   if (t.state === "ungroomed" && !t.owner) {
     const captured = t.intake?.meta ? /\d{4}-\d{2}-\d{2}/.exec(t.intake.meta)?.[0] ?? null : null;
     if (captured) bits.push(`captured ${formatDate(captured, ctx.now)}`);
+    else if (t.age !== null) bits.push(formatAge(t.age));
   } else if (t.age !== null) bits.push(formatAge(t.age));
   return `${head} (${bits.join(", ")}): ${t.title || t.slug}`;
 }
@@ -1941,7 +1944,7 @@ function briefSections(ctx: StoryContext, task: TaskInfo, brief: TaskBriefDetail
   // than re-deciding here what counts as filled in.
   const next: Paragraph[] = [
     para("next-1", "fact", task.state === "ungroomed"
-      ? `Triage wrote this brief and took the intake line; nobody has filled it in yet, so the task is still unshaped. The next step is a conversation that ends with the problem in plain English, where it probably lives, a size and a priority, and the questions still open. Shape it from the task board, or run \`reggie launch ${task.slug} --run\`.`
+      ? `At least one section of this brief is still the template triage wrote, so the task is still unshaped. The next step is a conversation that ends with the problem in plain English, where it probably lives, a size and a priority, and the questions still open. Shape it from the task board, or run \`reggie launch ${task.slug} --run\`.`
       : brief.questions.length > 0
         ? `${countPhrase(brief.questions.length, "question is", "questions are")} still open. Answer them here or in the planning session; then plan it in plan mode from the task board, or run \`reggie launch ${task.slug} --run\`.`
         : `Nothing is open. The next step is a plan: a conversation in plan mode that ends with acceptance criteria a reviewer can check and the evidence that will prove each one. Start it from the task board, or run \`reggie launch ${task.slug} --run\`.`, [taskId]),

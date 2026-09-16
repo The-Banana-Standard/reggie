@@ -1,0 +1,20 @@
+$ TZ=UTC npx vitest run src/triage.test.ts --reporter=verbose   (AC7-AC11, AC14, AC16)
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/intake-line-leaves-at-triage/packages/reggie
+
+ ✓ src/triage.test.ts > triage > takes the intake line and its detail in the same call that writes the brief 195ms
+ ✓ src/triage.test.ts > triage > leaves the line in place when the write throws, so the two records are never both gone 155ms
+ ✓ src/triage.test.ts > triage > removes no line when a brief is already there and force is not set 179ms
+ ✓ src/triage.test.ts > triage > changes nothing at all when it runs a second time after the line is gone 165ms
+ ✓ src/triage.test.ts > triage > reads every line carrying the slug, because removal takes them all 134ms
+ ✓ src/triage.test.ts > triage > falls back to the brief's own title and Problem when force runs with no line left 158ms
+ ✓ src/triage.test.ts > triage > keeps a slug on the board after its line is taken, because the brief's folder holds it 228ms
+ ✓ src/triage.test.ts > triage > the --all filter skips an ungroomed task that already has a draft 218ms
+ ✓ src/triage.test.ts > triage > the scaffold it writes does not pass the brief contract, which is what keeps the card back 158ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  03:02:20
+   Duration  1.75s (transform 72ms, setup 0ms, import 100ms, tests 1.59s, environment 0ms)
+
+exit=0

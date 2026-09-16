@@ -1,0 +1,367 @@
+[
+  {
+    "reason": "intake item with no brief",
+    "slug": "a-failed-install-leaves-a-partial-node-modules-a",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "a-paragraph-whose-references-the-map-cannot-reso",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "a-published-field-on-the-compatibility-graph-rou",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "a-task-captured-today-reads-as-one-day-old-for-t",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "a-task-line-anywhere-in-a-commit-body-lets-a-squ",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "packet approved on repo-manager",
+    "slug": "a-task-worktree-has-no-node-modules-so-nothing-r",
+    "state": "done"
+  },
+  {
+    "reason": "packet approved on repo-manager",
+    "slug": "about-this-repo",
+    "state": "done"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "approving-from-the-web-board-fails-whenever-the",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "brief on disk; no plan yet",
+    "slug": "branch-diff-in-reader",
+    "state": "groomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "ci-only-fires-for-pushes-to-main-so-nothing-in-i",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "claude-md-staleness-pass",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "co-authored-by-parsed",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "codex-parity-end-to-end",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "container-view",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "context-pack-omits-intake-line",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "cross-repo-from-remotes",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "curated-flows",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "brief on disk; no plan yet",
+    "slug": "derive-the-journal",
+    "state": "groomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "discussion-story-scope",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "packet approved on repo-manager",
+    "slug": "docs-check-in-ci",
+    "state": "done"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "every-reggie-decide-approved-builds-a-full-histo",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "evidence-viewer-inline",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "explainactions-emits-an-add-note-anchor-on-every",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "packet approved on repo-manager",
+    "slug": "false-tests-sentence",
+    "state": "done"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "file-page-for-unread-file",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "four-tables-answer-is-this-a-code-file-and-two-o",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "go-deeper-on-own-page",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "packet approved on repo-manager",
+    "slug": "graph-coverage-published",
+    "state": "done"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "graph-facts-in-generated-block",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "brief on disk; no plan yet",
+    "slug": "idea-from-every-page",
+    "state": "groomed"
+  },
+  {
+    "reason": "task/intake-line-leaves-at-triage has 1 commit ahead of repo-manager",
+    "slug": "intake-line-leaves-at-triage",
+    "state": "in-process"
+  },
+  {
+    "reason": "packet approved on repo-manager",
+    "slug": "journal-files-conflict-on-merge-a-claim-in-the-m",
+    "state": "done"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "jsimports-emits-two-refs-for-one-bound-require-s",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "packet approved on repo-manager",
+    "slug": "layout-modes",
+    "state": "done"
+  },
+  {
+    "reason": "brief on disk; no plan yet",
+    "slug": "low-risk-auto-approval",
+    "state": "groomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "maketemprepo-cleanup-deletes-without-retries-whi",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "mcp-packet-and-pr-tools",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "packet approved on repo-manager",
+    "slug": "mobile-ui",
+    "state": "done"
+  },
+  {
+    "reason": "brief on disk; no plan yet",
+    "slug": "needs-you-queue",
+    "state": "groomed"
+  },
+  {
+    "reason": "packet approved on repo-manager",
+    "slug": "note-form-on-repo-and-area",
+    "state": "done"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "notes-have-no-way-to-retire-an-entry-so-a-supers",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "npm-ci-without-legacy-peer-deps",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "people-page-or-drop-links",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "pr-review-decision-as-verdict",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "reggie-packet-pairs-evidence-files-with-acceptan",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "reggie-triage-has-no-test-file-of-its-own-so-sca",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "retire-onboard-slash-commands",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "retire-v2-resources-before-merge",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "route-detection-more-languages",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "session-name-reads-real-id",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "several-small-structural-repeats-and-ordering-tr",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "packet approved on repo-manager",
+    "slug": "stale-dev-bin",
+    "state": "done"
+  },
+  {
+    "reason": "packet approved on repo-manager",
+    "slug": "task-attribution-by-merge",
+    "state": "done"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-area-tests-section-says-cover-no-of-no-sourc",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-audio-episode-for-a-repo-or-an-area-now-ends",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-empty-map-card-tells-a-directory-there-are-n",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-import-scanner-cannot-see-two-whole-classes",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-import-scanner-reads-string-literals-and-com",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-inline-note-form-ignores-the-section-s-inten",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-language-census-reads-a-file-extension-strai",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-packet-scaffold-pairs-each-acceptance-criter",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-repo-root-reached-as-an-area-page-shows-the",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-spotlight-s-add-a-note-button-focuses-whatev",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-test-suite-fails-intermittently-in-makefixtu",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-tests-section-calls-fixtures-and-helpers-tes",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-two-surfaces-that-publish-the-repo-s-coverag",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-web-client-has-no-automated-test-and-ci-neve",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-web-client-keeps-a-hand-written-copy-of-stat",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "the-web-page-s-own-writes-notes-journal-entries",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "three-tables-disagree-about-what-a-code-file-is",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "two-dev-harness-payloads-and-one-phone-width-lay",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "ui-plan-md-says-symbol-engine-is-computed-and-di",
+    "state": "ungroomed"
+  },
+  {
+    "reason": "intake item with no brief",
+    "slug": "when-decide-approved-performs-the-merge-in-solo",
+    "state": "ungroomed"
+  }
+]

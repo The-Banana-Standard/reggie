@@ -259,19 +259,21 @@ program
       out(`${stateLabel(state)} (${group.length}) — ${stateDefinition(state)}`);
       for (const t of group) out(boardLine(t));
     }
-    // An ungroomed task that already carries a scaffold is not waiting for another one, so naming
-    // `triage --all` there would name a command that does nothing; those need a session instead.
+    // The Ungroomed column now holds two different kinds of work, and they need different verbs:
+    // a raw line wants a scaffold, a scaffold nobody has filled in wants a session. Both lines
+    // print when both exist, and the two counts add up to the column header above.
     const ungroomedTasks = tasks.filter((t) => t.state === "ungroomed");
-    const ungroomed = ungroomedTasks.filter((t) => !t.brief?.exists).length;
+    const raw = ungroomedTasks.filter((t) => !t.brief?.exists);
     const drafts = ungroomedTasks.filter((t) => t.brief?.exists);
     const groomed = tasks.filter((t) => t.state === "groomed").length;
     out("");
-    if (ungroomed > 0) out(`${ungroomed} ungroomed. Shape ${ungroomed === 1 ? "it into a brief" : "them into briefs"}: reggie triage --all`);
-    else if (drafts.length > 0)
+    if (raw.length > 0) out(`${raw.length} ungroomed with no brief yet. Scaffold ${raw.length === 1 ? "it" : "them"}: reggie triage --all`);
+    if (drafts.length > 0)
       out(
-        `${drafts.length} ungroomed, ${drafts.length === 1 ? "with a brief" : "each with a brief"} nobody has filled in yet. Shape ${drafts.length === 1 ? "it" : "them"} in a session: reggie launch ${drafts.map((t) => t.slug).join(" ")} --run`,
+        `${drafts.length} ungroomed with a brief nobody has filled in. Shape ${drafts.length === 1 ? "it" : "them"} in a session: reggie launch ${drafts.map((t) => t.slug).join(" ")} --run`,
       );
-    else if (groomed > 0) out(`${groomed} groomed and unplanned. Plan one: reggie launch <slug> --run`);
+    if (ungroomedTasks.length > 0) return;
+    if (groomed > 0) out(`${groomed} groomed and unplanned. Plan one: reggie launch <slug> --run`);
     else out("Nothing is waiting to be shaped.");
   });
 

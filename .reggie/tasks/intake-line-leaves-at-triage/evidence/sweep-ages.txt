@@ -1,0 +1,19 @@
+# AC25: reggie tasks --json --all | jq '[.[]|{slug,state,age}]', under TZ=UTC,
+# captured immediately before and immediately after the sweep, then diffed.
+
+$ diff sweep-before.json sweep-after.json
+88c88
+<     "age": 3,
+---
+>     "age": 1,
+(diff exit 1)
+
+# Exactly one card changes, and only its age: derive-the-journal was captured on
+# 2026-09-13 and triaged on 2026-09-15, so once the line is gone it ages from its
+# brief instead of from the raw idea. No task changes state.
+
+$ the same comparison, keyed by slug rather than by line number:
+tasks before: 73  tasks after: 73
+cards whose slug/state/age changed: 1
+  derive-the-journal: state groomed -> groomed, age 3 -> 1
+state changes: 0

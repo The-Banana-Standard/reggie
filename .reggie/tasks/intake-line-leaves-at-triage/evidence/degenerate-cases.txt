@@ -1,0 +1,135 @@
+# The degenerate cases the planner measured, re-measured against the built code.
+
+==========================================================================
+## 1. Two intake lines colliding on one slug.
+Before: triage prefilled from the FIRST line only, but removal deleted BOTH,
+so the second wording was silently lost. Now both are read.
+$ reggie triage collide
+Created .reggie/tasks/collide/brief.md and took its 2 intake lines
+
+$ sed -n '/## Problem/,/## Why now/p' .reggie/tasks/collide/brief.md
+## Problem
+The first wording someone wrote
+detail under the first
+
+The second wording, written later by hand
+detail under the second
+
+## Why now
+$ grep -c 'collide' .reggie/intake.md   (lines left carrying the slug)
+0
+0
+
+==========================================================================
+## 2. Hand-written bullet shapes.
+Before: parseIntake accepted '- ', '* ', '+ ', '- [ ] ' and indented forms,
+while removeFromIntake matched only '- slug:' — 4 of 5 silently left behind.
+$ reggie plan done dash      -> Removed dash from intake
+$ reggie plan done star      -> Removed star from intake
+$ reggie plan done plus      -> Removed plus from intake
+$ reggie plan done boxed     -> Removed boxed from intake
+$ reggie plan done indented  -> Removed indented from intake
+$ cat .reggie/intake.md
+# Intake
+
+
+(the file above must hold no bullets, and end with one newline)
+$ tail -c 20 .reggie/intake.md | od -c | tail -3
+0000000    #       I   n   t   a   k   e  \n  \n  \n                    
+0000013
+
+==========================================================================
+## 3. --force after the line is already gone.
+Before: --force replaced Problem with the placeholder AND collapsed the title
+to the slug, which under the new rule would also demote the card to ungroomed.
+$ reggie tasks   (the filled-in brief, before --force)
+  forced [P1 · small] · probe
+    Cap login retries on web (brief on disk; no plan yet)
+$ reggie triage forced --force
+Rewrote .reggie/tasks/forced/brief.md
+$ head -3 .reggie/tasks/forced/brief.md ; sed -n '/## Problem/,/^$/p' .reggie/tasks/forced/brief.md
+slug: forced
+title: Cap login retries on web
+## Problem
+Web clients retry login forever when the server is down, so nobody can tell an outage from a broken page.
+
+$ reggie triage forced --force --title "A title the owner typed"
+Rewrote .reggie/tasks/forced/brief.md
+title: A title the owner typed
+## Problem
+Web clients retry login forever when the server is down, so nobody can tell an outage from a broken page.
+
+
+NOTE: --force rewrites the other sections back to the scaffold, which is what
+--force has always meant ("discarding what it says"), so the card is ungroomed
+afterwards. What is preserved is the title and the Problem — the captured words.
+
+==========================================================================
+## 4. The web answer form after removal (POST /api/intake).
+Before: addIntakeDetail RE-CREATED the line, so one button press rebuilt
+what triage deleted (createdLine: true) and the file regrew.
+$ cat .reggie/intake.md | grep -c collide   (no line for the triaged slug)
+0
+0
+$ curl -s -X POST localhost:8791/api/intake -d '{"slug":"collide","text":"Here is what I meant."}'
+{"error":"collide has a brief; answers belong in .reggie/tasks/collide/brief.md, not back in intake"}
+HTTP 409
+$ grep -c collide .reggie/intake.md   (must still be 0: nothing was rebuilt)
+0
+0
+
+A slug that still HAS a line, and no brief, is still accepted:
+{"slug":"a-raw-item-nobody-has-shaped","line":"- a-raw-item-nobody-has-shaped: A raw item nobody has shaped (probe, web, 2026-09-15)"}
+$ curl -X POST /api/intake for that raw slug
+{"slug":"a-raw-item-nobody-has-shaped","added":["Here is what I meant."],"createdLine":false}
+HTTP 200
+$ grep -A1 'a-raw-item' .reggie/intake.md
+- a-raw-item-nobody-has-shaped: A raw item nobody has shaped (probe, web, 2026-09-15)
+  > Here is what I meant. (probe, web, 2026-09-15)
+
+==========================================================================
+## 5. ui/board.js optimistically setting state to groomed after a triage POST.
+Before: the card jumped to Groomed and the next reconcile pulled it back.
+$ curl -X POST /api/triage for the raw slug, then read the card back
+{"created":["a-raw-item-nobody-has-shaped"],"skipped":[],"takenFromIntake":["a-raw-item-nobody-has-shaped"]}
+$ curl /api/tasks?all=1 | the card the server reports after the POST
+{
+ "slug": "a-raw-item-nobody-has-shaped",
+ "state": "ungroomed",
+ "reason": "brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this",
+ "intake": null
+}
+The client now writes exactly this state, reason and intake: null optimistically,
+so the reconcile that follows finds nothing to correct.
+
+==========================================================================
+## 6/AC21. The state machine the server serves, beside the client's copy.
+$ curl /api/state-machine | jq '.states[0,1], .transitions[0]'
+{
+  "id": "ungroomed",
+  "label": "Ungroomed",
+  "definition": "Captured but not yet shaped: nothing says what it is beyond the line someone wrote, or the scaffold triage left behind.",
+  "rule": "an intake item or a .reggie/tasks/<slug>/ folder exists, with no plan and no task/<slug> branch, and either no brief.md on disk or on the default branch or one that is still triage's unfilled scaffold"
+}
+{
+  "id": "groomed",
+  "label": "Groomed",
+  "definition": "Shaped by a session: somebody has written into the brief, so the item says what it is. No plan that passes the contract yet.",
+  "rule": "brief.md exists on disk or on the default branch with its Problem and its placeholder hints written over, and no plan passes the contract; a plan draft that fails the contract, or a plan/<slug> branch, also lands here"
+}
+{
+  "from": "ungroomed",
+  "to": "groomed",
+  "trigger": "somebody fills in .reggie/tasks/<slug>/brief.md: why now, the suspected area, the open questions and what this is not. `reggie triage <slug>` only scaffolds it, and takes the intake line as it does, so the card stays here until the scaffold is written over",
+  "who": "a shaping session; triage scaffolds a whole column at once, but each brief still has to be written"
+}
+
+ui/board.js FALLBACK_STATES / FALLBACK_TRANSITIONS / COLUMN_RULE, pasted:
+const FALLBACK_STATES = [
+  { id: "ungroomed", label: "Ungroomed", definition: "Captured but not yet shaped: nothing says what it is beyond the line someone wrote, or the scaffold triage left behind.", rule: "an intake item or a task folder with no brief.md, or one still holding triage's scaffold" },
+  { id: "groomed", label: "Groomed", definition: "Shaped by a session: somebody has written into the brief, so the item says what it is. No plan that passes the contract yet.", rule: "brief.md is written in, not still the scaffold, and no plan passes the contract" },
+const FALLBACK_TRANSITIONS = [
+  { from: "ungroomed", to: "groomed", trigger: "somebody fills in brief.md: why now, the suspected area, the open questions, what this is not. Triage only scaffolds it, and takes the intake line as it does", who: "a shaping session" },
+const COLUMN_RULE = {
+  ungroomed: "No brief, or an empty one.",
+  groomed: "brief.md written, no plan.",

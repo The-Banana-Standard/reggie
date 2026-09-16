@@ -1,0 +1,19 @@
+$ TZ=UTC npm test   (in packages/reggie, via the root delegate)
+
+> reggie@3.0.0-alpha.1 test
+> npm --prefix packages/reggie run test
+
+
+> reggie@3.0.0-alpha.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/intake-line-leaves-at-triage/packages/reggie
+
+
+ Test Files  32 passed (32)
+      Tests  687 passed | 1 skipped (688)
+   Start at  03:01:07
+   Duration  15.74s (transform 2.89s, setup 0ms, import 4.35s, tests 144.92s, environment 1ms)
+
+exit=0

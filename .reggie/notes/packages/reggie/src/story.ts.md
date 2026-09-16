@@ -30,3 +30,6 @@ sources: packages/reggie/src/story.ts, note-form-on-repo-and-area
 ## how · 2026-09-15 · Claude via jacobpress · medium
 The brief story's What happens next paragraph asks the task's own state rather than re-deciding what counts as filled in: an ungroomed task with a brief is one triage scaffolded and nobody wrote into, so the next step it names is the shaping conversation, not a plan.
 
+## gotcha · 2026-09-15 · Claude via jacobpress · medium
+taskLine prints a capture date for an unclaimed ungroomed card, which is now often absent: triage takes the line. It falls back to the card's age, which the derivation fills from the brief's created. Any other place that reads t.intake for a date needs the same fallback.
+

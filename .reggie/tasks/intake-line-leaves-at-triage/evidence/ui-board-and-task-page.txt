@@ -1,0 +1,72 @@
+# AC18 and AC19, checked in a real browser against a live `reggie serve` on a
+# throwaway repo (http://127.0.0.1:8791), driven by this branch's built dist.
+#
+# DEVIATION from the plan's verification strategy: the plan named PNG screenshots
+# (task-page-no-form.png, task-page-form-still-there.png, board-shape-stays-ungroomed.png).
+# This unattended session can drive the browser but cannot write image files from it,
+# so each screenshot is replaced by the DOM query it was meant to prove. The queries
+# are machine-checkable, which a screenshot is not. The pages were also viewed.
+
+## AC18 — the "Say what you meant" form is gone for a task that has a brief.
+
+$ open #/repo/degen-repo/task/a-line-that-has-not-been-shaped-at-all-yet   (intake line, no brief)
+  find "Say what you meant" -> 3 matches:
+    heading "Say what you meant"
+    textbox "Add detail under a-line-that-has-not-been-shaped-at-all-yet"
+      placeholder "Say what you meant: where it is, who feels it, what done looks like, …"
+  => the form is still there while the intake line is the record.
+
+$ open #/repo/degen-repo/task/collide                                       (brief, no intake line)
+  find "Say what you meant" -> No matches.
+  => the form is not offered, so the 409 is never reached by an ordinary click.
+
+  The same page's "What happens next" section read, verbatim:
+    "Triage wrote this brief and took the intake line; nobody has filled it in yet,
+     so the task is still unshaped. The next step is a conversation that ends with
+     the problem in plain English, where it probably lives, a size and a priority,
+     and the questions still open. Shape it from the task board, or run
+     `reggie launch collide --run`."
+
+## AC19 — pressing Scaffold leaves the card in Ungroomed.
+
+$ open #/repo/degen-repo/tasks, click "Scaffold a brief" on the one raw card
+  toast: "Shaped `a-line-that-has-not-been-shaped-at-all-yet`: a brief is waiting to be filled in."
+  column counts straight after the click, read from the DOM:
+    ungroomed 5, groomed 0, planned 0, in-process 0, awaiting-decision 0
+  the card, still in the ungroomed column:
+    "A line that has not been shaped at all yet / brief not filled in / 1 day old / brief"
+  After the reconcile that follows, the server reports the same thing, so nothing
+  snapped back:
+    { "slug": "a-line-that-has-not-been-shaped-at-all-yet",
+      "state": "ungroomed",
+      "reason": "brief on disk is still triage's scaffold: placeholder text in Why now, Suspected area, Open questions, Not this",
+      "intake": null }
+
+## The card actions and the column button, after a reload (DOM query)
+
+{
+ "shapeButton": "Scaffold briefs (1)",
+ "cards": [
+  { "slug": "a-line-that-has-not-been-shaped-at-all-yet", "hasTick": false,
+    "actions": ["Read the brief", "Shape it", "▾", "Shape it in Claude Code", "Shape it in Codex"] },
+  { "slug": "a-raw-item-nobody-has-shaped", "hasTick": false,
+    "actions": ["Read the brief", "Shape it", "▾", "Shape it in Claude Code", "Shape it in Codex"] },
+  { "slug": "forced", "hasTick": false,
+    "actions": ["Read the brief", "Shape it", "▾", "Shape it in Claude Code", "Shape it in Codex"] },
+  { "slug": "still-raw", "hasTick": true,
+    "actions": ["Read the intake line", "Shape it", "▾", "Shape it in Claude Code", "Shape it in Codex", "Scaffold a brief"] },
+  { "slug": "collide", "hasTick": false,
+    "actions": ["Read the brief", "Shape it", "▾", "Shape it in Claude Code", "Shape it in Codex"] }
+ ]
+}
+
+Only `still-raw` — the one card that still has an intake line and no brief — carries a tick
+and a "Scaffold a brief" button, and the column button counts 1 rather than 5. The four cards
+that already hold a scaffold read their brief instead of a line that is gone, and are not
+offered a scaffold the server would skip.
+
+## The column sublabels, rendered at the narrowest column width (screenshot, one line each)
+
+  Ungroomed: "No brief, or an empty one."
+  Groomed:   "brief.md written, no plan."
+  Planned:   "plan.md passes, on main."

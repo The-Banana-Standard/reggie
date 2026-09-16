@@ -57,9 +57,14 @@ function oneLine(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/** The intake line plus its detail lines: the one paragraph triage starts the Problem from. */
+/**
+ * The intake line plus its detail lines: the one paragraph triage starts the Problem from. The
+ * line's `(person, source, date)` stamp comes too, because the line is about to be deleted and
+ * this is the only copy of who captured it and when that survives outside git.
+ */
 function problemFrom(item: IntakeItem): string {
-  return [item.text, ...item.detail].map((l) => l.trim()).filter(Boolean).join("\n");
+  const head = item.meta ? `${item.text} (${item.meta})` : item.text;
+  return [head, ...item.detail].map((l) => l.trim()).filter(Boolean).join("\n");
 }
 
 /**

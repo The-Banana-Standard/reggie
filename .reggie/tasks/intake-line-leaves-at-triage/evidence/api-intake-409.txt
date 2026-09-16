@@ -1,0 +1,110 @@
+$ TZ=UTC npx vitest run test/serve.test.ts -t 'intake' --reporter=verbose   (AC17)
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/intake-line-leaves-at-triage/packages/reggie
+
+ ↓ test/serve.test.ts > static files > serves ui/index.html at /
+ ↓ test/serve.test.ts > static files > serves ui files and refuses traversal
+ ↓ test/serve.test.ts > static files > 404s an un-whitelisted vendor name
+ ↓ test/serve.test.ts > static files > serves a whitelisted vendor file with an immutable cache header
+ ↓ test/serve.test.ts > GET /api/facts and /api/status > returns facts with branch, headSha, root, workspace and editorScheme
+ ↓ test/serve.test.ts > GET /api/facts and /api/status > answers the first poll before the work is done, then ticks each source off
+ ↓ test/serve.test.ts > GET /api/facts and /api/status > 404s an unknown ?repo
+ ↓ test/serve.test.ts > GET /api/graph > keeps the flat compatibility payload with no parameters
+ ↓ test/serve.test.ts > GET /api/graph > returns a container ViewGraph for level=container
+ ↓ test/serve.test.ts > GET /api/graph > returns a dir ViewGraph with ghosts for level=dir
+ ↓ test/serve.test.ts > GET /api/graph > draws tests when tests=1
+ ↓ test/serve.test.ts > GET /api/graph > 404s an unknown dir and 400s an unknown level
+ ↓ test/serve.test.ts > GET /api/graph > gives every drawable node the history the Heat lens colours by
+ ↓ test/serve.test.ts > GET /api/graph > names the dominant file behind an aggregated edge under both `top` and `mostly`
+ ↓ test/serve.test.ts > numeric query parameters are bounded > refuses an out-of-range or non-numeric days on every route that takes one
+ ↓ test/serve.test.ts > numeric query parameters are bounded > bounds depth, limit and the journal window
+ ↓ test/serve.test.ts > numeric query parameters are bounded > keeps the day series the size the query asked for
+ ↓ test/serve.test.ts > GET /api/impact > returns hops and sides for a file id
+ ↓ test/serve.test.ts > GET /api/impact > answers a file::symbol id with the file's impact
+ ↓ test/serve.test.ts > GET /api/impact > 400s a traversal id and 404s an unknown file
+ ↓ test/serve.test.ts > GET /api/impact > returns a task blast radius with centres and collisions
+ ↓ test/serve.test.ts > GET /api/impact > keeps planned and actual on the slug the node reports as its task
+ ↓ test/serve.test.ts > GET /api/impact > 400s an unsafe slug and 404s an unknown one
+ ↓ test/serve.test.ts > GET /api/story and /api/explain > returns the contract's section ids for every scope
+ ↓ test/serve.test.ts > GET /api/story and /api/explain > adds the gaps section under the knowledge lens
+ ↓ test/serve.test.ts > GET /api/story and /api/explain > validates scope and id
+ ↓ test/serve.test.ts > GET /api/story and /api/explain > explains a node in exactly four sentences
+ ↓ test/serve.test.ts > GET /api/file and /api/symbols > returns the extended file shape
+ ↓ test/serve.test.ts > GET /api/file and /api/symbols > lists external packages among the imports
+ ↓ test/serve.test.ts > GET /api/file and /api/symbols > 400s a traversal path and 404s a missing file
+ ↓ test/serve.test.ts > GET /api/file and /api/symbols > returns symbols with the engine name
+ ↓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > lists tasks with the extended fields
+ ↓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > returns the task detail with plan, packet, journal and impact
+ ↓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > 400s an unsafe slug and 404s an unknown one
+ ↓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > returns the state machine with counts
+ ↓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > streams evidence and refuses traversal
+ ↓ test/serve.test.ts > GET tasks, task detail, state machine and evidence > serves evidence sandboxed, so agent-written HTML cannot reach this origin's write routes
+ ↓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns history for a path and for the repo
+ ↓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns notes with stale keys and citedBy
+ ↓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns a note chain for a path
+ ↓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns journal entries with taskExists, nodeIds and the path filter
+ ↓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns people with areas, claims and the current handle
+ ↓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > ranks search results by the contract's table
+ ↓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns the single-repo workspace summary
+ ↓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > returns a context pack
+ ↓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > 404s the withdrawn stretch routes rather than promising them with a 501
+ ↓ test/serve.test.ts > GET history, notes, journal, people, search, workspace and context > 404s an unknown api route and 405s a non-GET method
+ ↓ test/serve.test.ts > POST guards > refuses a cross-site POST with 403 and writes nothing
+ ↓ test/serve.test.ts > POST guards > refuses a foreign Origin with 403 and writes nothing
+ ↓ test/serve.test.ts > POST guards > accepts a same-origin POST header set
+ ↓ test/serve.test.ts > POST guards > refuses a DNS-rebound POST whose Origin matches its forged Host
+ ↓ test/serve.test.ts > POST guards > refuses a DNS-rebound GET, so a rebound page cannot read source either
+ ↓ test/serve.test.ts > POST guards > still serves loopback Host headers by name, literal and brackets
+ ↓ test/serve.test.ts > POST guards > 413s a body over 64 KB
+ ↓ test/serve.test.ts > POST guards > 400s malformed JSON and missing fields
+ ↓ test/serve.test.ts > POST guards > 404s a POST to an unknown route and 405s a POST to a read-only one
+ ↓ test/serve.test.ts > POST writes > captures an idea that shows up as an ungroomed task
+ ↓ test/serve.test.ts > POST writes > adds a note attributed to the web
+ ↓ test/serve.test.ts > POST writes > refuses a note that escapes the repo
+ ↓ test/serve.test.ts > POST writes > 409s a decision when no packet exists anywhere
+ ↓ test/serve.test.ts > POST writes > approves a packet that only exists on the task branch and moves the card to done
+ ↓ test/serve.test.ts > GET /api/launch > describes the session without starting anything, and derives the goal from the task's state
+ ↓ test/serve.test.ts > GET /api/launch > opens a discussion in plan mode, read-only, for both tools
+ ↓ test/serve.test.ts > GET /api/launch > carries the user's note into the prompt
+ ↓ test/serve.test.ts > GET /api/launch > shapes several ungroomed slugs at once and refuses several of anything else
+ ↓ test/serve.test.ts > GET /api/launch > 400s an unknown tool, an unknown mode, a bad slug, and no slug at all; 404s an unknown task
+ ✓ test/serve.test.ts > POST /api/triage > scaffolds a brief, takes the intake line, and leaves the card ungroomed until it is filled in 701ms
+ ↓ test/serve.test.ts > POST /api/triage > never overwrites a brief that is already there
+ ↓ test/serve.test.ts > POST /api/triage > shapes a whole selection in one call and skips what it does not know
+ ↓ test/serve.test.ts > POST /api/triage > moves the card to Groomed once somebody writes into the scaffold
+ ✓ test/serve.test.ts > POST /api/triage > refuses an intake answer for a task that has a brief, rather than rebuilding the line 94ms
+ ↓ test/serve.test.ts > POST /api/triage > 400s an empty request and a bad slug
+ ↓ test/serve.test.ts > POST /api/launch > refuses a cross-site launch with 403 and starts nothing
+ ↓ test/serve.test.ts > POST /api/launch > refuses a foreign Origin with 403
+ ↓ test/serve.test.ts > POST /api/launch > 400s bad input and 404s a task this repo has never heard of
+ ↓ test/serve.test.ts > POST /api/launch > writes the context pack, mints a session, and returns the command unlaunched where it cannot open a terminal
+ ↓ test/serve.test.ts > POST /api/launch > claims the task and starts a build in its worktree, on its branch
+ ↓ test/serve.test.ts > the completed view > says what was actually done for a finished task
+ ↓ test/serve.test.ts > the completed view > leaves the completion block null for everything still open
+ ↓ test/serve.test.ts > the completed view > still reports the six states on the state machine
+ ↓ test/serve.test.ts > the serve key and the feed's address > is loopback only by default: no key, no addresses, and a network-style request is refused
+ ↓ test/serve.test.ts > the serve key and the feed's address > names its episodes at the address it was asked on, with the key the request carried
+ ↓ test/serve.test.ts > the serve key and the feed's address > mints a key when bound to every interface, and a loopback request still needs none
+ ↓ test/serve.test.ts > a repo with nothing to talk to > answers the services routes with empty lists rather than an error
+ ↓ test/serve.test.ts > a repo with nothing to talk to > says why each services section is empty instead of dropping it
+ ↓ test/serve.test.ts > a repo with nothing to talk to > lists no flow and 404s any flow id
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > lists every declared binding with the line that declares it, plus the files that touch it
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > puts the undeclared secret and the fetch host in undeclared, and the untouched binding in unused
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > labels every edge read, write or touch, and cites a line that really holds the call
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > answers /api/service with the call sites, tasks, children and the flows that reach it
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > refuses a missing id and 404s an unknown one
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > lists the Cloudflare handler as a flow, with its route and the services it reaches
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > traces one flow with its payloads, and reaches D1 through a binding passed as a parameter
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > validates depth, clamps it to the tracer's hops, and 404s an unknown flow
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > narrates the services page, undeclared secret first
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > narrates one flow step by step, with each paragraph pointing at its own step
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > refuses a flow story without an id and 404s an unknown one
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > links both pages from the repo story once they have something on them
+ ↓ test/serve.test.ts > GET /api/services, /api/service, /api/flows and /api/flow > refuses POST on all four routes
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 97 skipped (99)
+   Start at  03:02:23
+   Duration  1.67s (transform 235ms, setup 0ms, import 297ms, tests 1.32s, environment 0ms)
+
+exit=0

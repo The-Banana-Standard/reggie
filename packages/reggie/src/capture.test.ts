@@ -54,14 +54,27 @@ describe("capture", () => {
       "+ plus: A plus bullet (a, cli, 2026-09-15)",
       "- [ ] boxed: A checkbox bullet (a, cli, 2026-09-15)",
       "   - indented: Three spaces of indent (a, cli, 2026-09-15)",
+      "- Raw_Prefix: A prefix parseIntake slugifies (a, cli, 2026-09-15)",
+      "  > detail under the slugified prefix",
+      "- A bullet with no slug prefix at all (a, cli, 2026-09-15)",
       "- foo: The short slug (a, cli, 2026-09-15)",
       "- foo-2: The slug that only shares a prefix (a, cli, 2026-09-15)",
       "",
     ].join("\n");
     writeText(paths.intake, file);
-    expect(readIntake(paths).map((i) => i.slug)).toEqual(["dash", "star", "plus", "boxed", "indented", "foo", "foo-2"]);
+    expect(readIntake(paths).map((i) => i.slug)).toEqual([
+      "dash",
+      "star",
+      "plus",
+      "boxed",
+      "indented",
+      "raw-prefix",
+      "a-bullet-with-no-slug-prefix-at-all",
+      "foo",
+      "foo-2",
+    ]);
 
-    for (const slug of ["dash", "star", "plus", "boxed", "indented"]) {
+    for (const slug of ["dash", "star", "plus", "boxed", "indented", "raw-prefix", "a-bullet-with-no-slug-prefix-at-all"]) {
       expect(removeFromIntake(paths, slug)).toBe(true);
     }
     expect(removeFromIntake(paths, "foo")).toBe(true);
