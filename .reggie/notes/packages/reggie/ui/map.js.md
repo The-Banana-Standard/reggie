@@ -15,3 +15,7 @@ sources: packages/reggie/ui/map.js, graph-coverage-published
 The empty repo map only blames the language when the language is actually the reason. A container canvas comes back empty for reasons that have nothing to do with what the graph can read: every area candidate folding below the minimum size does it, and two source files beside one stylesheet is enough. So the card asserts that nothing here is in a language the map reads only when the count of files it read is zero as well; otherwise the old text stands. Without that second half the card would tell a repo whose code the map reads perfectly well the opposite, and would print a file count that omitted the files it did read.
 sources: packages/reggie/ui/map.js, graph-coverage-published
 
+## how · 2026-09-17 · Claude via jacobpress · medium
+The empty state card prefers a sentence the view brings with it, as an empty field holding text and a hint, over the one it would derive from the level. The file page uses it in diff mode for a path the graph never read, where saying that nothing imports the file would be a claim about imports nobody measured.
+sources: packages/reggie/ui/map.js, branch-diff-in-reader
+
