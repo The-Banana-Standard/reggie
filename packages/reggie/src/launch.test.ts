@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -7,6 +7,7 @@ import {
   appleScriptLiteral,
   contextFileRel,
   launchCommand,
+  launchLogFile,
   launchRecordFile,
   launchSession,
   LAUNCH_MODES,
@@ -14,6 +15,7 @@ import {
   LAUNCH_TOOLS,
   MAX_NOTE_CHARS,
   mintSession,
+  readLaunches,
   recordLaunch,
   resolveGoal,
   shellQuote,
@@ -242,6 +244,34 @@ describe("context files and launch records", () => {
     const file = launchRecordFile(dir, SLUG);
     expect(JSON.parse(readFileSync(file, "utf8"))).toEqual(rec);
     expect(() => launchRecordFile(dir, "no good")).toThrow(/not a valid slug/);
+  });
+
+  it("keeps every launch for a slug in a log, while the single record still holds the latest", () => {
+    const plan = recordLaunch(dir, { slug: SLUG, tool: "claude", goal: "plan", session: "11111111-1111-4111-8111-111111111111", resume: null, cwd: dir });
+    const build = recordLaunch(dir, { slug: SLUG, tool: "claude", goal: "build", session: "22222222-2222-4222-8222-222222222222", resume: null, cwd: dir });
+    recordLaunch(dir, { slug: "another-task", tool: "claude", goal: "plan", session: "33333333-3333-4333-8333-333333333333", resume: null, cwd: dir });
+    expect(readLaunches(dir, SLUG)).toEqual([plan, build]);
+    expect(JSON.parse(readFileSync(launchRecordFile(dir, SLUG), "utf8"))).toEqual(build);
+    expect(readFileSync(launchLogFile(dir, SLUG), "utf8").trimEnd().split("\n")).toHaveLength(2);
+    expect(() => launchLogFile(dir, "../x")).toThrow(/not a valid slug/);
+  });
+
+  it("skips a line of the log that does not parse, or is not a launch for this slug", () => {
+    const first = recordLaunch(dir, { slug: SLUG, tool: "codex", goal: "build", session: null, resume: "codex resume --last", cwd: dir });
+    appendFileSync(launchLogFile(dir, SLUG), '{"slug": "cap-retr\nnot json at all\n[]\n{"slug":"another-task","tool":"claude","goal":"plan","session":null,"resume":null,"cwd":"/x","at":"2026-09-15T10:00:00.000Z"}\n{"slug":"cap-retries","tool":"vim","goal":"plan","session":null,"resume":null,"cwd":"/x","at":"2026-09-15T10:00:00.000Z"}\n');
+    const second = recordLaunch(dir, { slug: SLUG, tool: "claude", goal: "discuss", session: "44444444-4444-4444-8444-444444444444", resume: null, cwd: dir });
+    expect(readLaunches(dir, SLUG)).toEqual([first, second]);
+  });
+
+  it("still reads a cache that holds only the old single record and no log", () => {
+    const old = { slug: SLUG, tool: "claude", goal: "plan", session: "55555555-5555-4555-8555-555555555555", resume: null, cwd: dir, at: "2026-09-13T09:00:00.000Z" };
+    mkdirSync(path.dirname(launchRecordFile(dir, SLUG)), { recursive: true });
+    writeFileSync(launchRecordFile(dir, SLUG), `${JSON.stringify(old, null, 2)}\n`);
+    expect(readLaunches(dir, SLUG)).toEqual([old]);
+    // The next launch overwrites that single record, so it is carried into the log first.
+    const next = recordLaunch(dir, { slug: SLUG, tool: "claude", goal: "build", session: "66666666-6666-4666-8666-666666666666", resume: null, cwd: dir });
+    expect(readLaunches(dir, SLUG)).toEqual([old, next]);
+    expect(readLaunches(dir, "never-launched")).toEqual([]);
   });
 });
 
