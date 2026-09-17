@@ -19,3 +19,7 @@ sources: packages/reggie/src/changes.ts, branch-diff-in-reader
 The fixture repo in the test folder holds every awkward input as one in process branch plus one small branch per whole branch case, and both the unit tests and the route tests read it. A new degenerate case belongs there first, with a comment saying what git prints for it. The hostile config test writes a person's worst git settings into a fixture, proves an ordinary diff then runs the external program, and proves ours never does.
 sources: packages/reggie/test/diff-fixture.ts, branch-diff-in-reader
 
+## gotcha · 2026-09-17 · Claude via jacobpress · high
+A fourth thing is answered as unreadable, and it is checked before git is asked for anything: a file whose added plus deleted count, as the list already knows it, passes a quarter of a million lines. Every row is an object in memory before a page is cut from it, so a committed file of a few million one character lines would otherwise cost hundreds of megabytes per request. The cap came out of the security pass, not the plan. Raise it only with the memory arithmetic in hand; the sixty thousand line case the plan requires is far below it.
+sources: packages/reggie/src/changes.ts, branch-diff-in-reader
+
