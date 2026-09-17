@@ -182,6 +182,148 @@ export function changedFiles(root: string, base: string): string[] {
   return r.stdout.split("\n").filter((l) => l.trim());
 }
 
+// ---------------------------------------------------------------------------
+// Reading a change: two commits, a list, one file's patch
+// ---------------------------------------------------------------------------
+
+const FULL_SHA = /^[0-9a-f]{40}$/;
+
+/** A diff read that takes longer than this is reported as failed rather than holding the server. */
+export const DIFF_TIMEOUT_MS = 10_000;
+
+export function isFullSha(value: string): boolean {
+  return FULL_SHA.test(value);
+}
+
+/** A name resolved once to the full sha of the commit it points at; null when it names no commit. */
+export function resolveCommit(root: string, name: string): string | null {
+  const r = git(["rev-parse", "--verify", "--quiet", "--end-of-options", `${name}^{commit}`], { cwd: root, allowFailure: true });
+  const sha = r.stdout.trim();
+  return r.ok && FULL_SHA.test(sha) ? sha : null;
+}
+
+/** The best common ancestor of two commits; null when they share no history (git exits 1) or git fails. */
+export function mergeBase(root: string, a: string, b: string): string | null {
+  assertFullSha(a);
+  assertFullSha(b);
+  const r = git(["merge-base", "--end-of-options", a, b], { cwd: root, allowFailure: true, timeoutMs: DIFF_TIMEOUT_MS });
+  const sha = r.stdout.trim().split("\n")[0] ?? "";
+  return r.ok && FULL_SHA.test(sha) ? sha : null;
+}
+
+/** Commits reachable from `ref` and not from `base`; null when git fails. */
+export function commitCount(root: string, base: string, ref: string): number | null {
+  assertFullSha(base);
+  assertFullSha(ref);
+  const r = git(["rev-list", "--count", "--end-of-options", `${base}..${ref}`], { cwd: root, allowFailure: true, timeoutMs: DIFF_TIMEOUT_MS });
+  const n = Number.parseInt(r.stdout.trim(), 10);
+  return r.ok && Number.isFinite(n) ? n : null;
+}
+
+function assertFullSha(rev: string): void {
+  if (!FULL_SHA.test(rev)) throw new Error("a diff revision must be a full 40-character commit id");
+}
+
+export type DiffShape = "raw" | "numstat" | "patch";
+
+const DIFF_SHAPE_ARGS: Record<DiffShape, string[]> = {
+  raw: ["--raw", "-z", "--no-abbrev"],
+  numstat: ["--numstat", "-z"],
+  // What a user's config could change about a patch is said out loud: three lines of context, no
+  // merging of nearby hunks, and the a/ and b/ prefixes.
+  patch: ["--patch", "--unified=3", "--inter-hunk-context=0", "--src-prefix=a/", "--dst-prefix=b/"],
+};
+
+/**
+ * The arguments of every diff read, exported so a test can see exactly what git is handed.
+ *
+ * Revisions must be full commit ids Reggie resolved itself: anything else throws here, before git is
+ * spawned, because a revision beginning with a dash is an option (`--output=<file>` makes git write
+ * that file). They go after `--end-of-options` and paths after `--`, under `--literal-pathspecs`,
+ * so `:(exclude)src` and `*.bin` name files rather than match them. `--no-ext-diff` and
+ * `--no-textconv` keep a GET from running a program the repo's config names; `--no-color`, `-M`, the
+ * algorithm and the patch flags pin what `color.ui`, `diff.renames`, `diff.algorithm`, `diff.context`
+ * and `diff.noprefix` would otherwise change. The algorithm is pinned for all three shapes, so the
+ * counts of the list and the rows of a patch always come from the same diff.
+ */
+export function diffRangeArgs(shape: DiffShape, base: string, ref: string, paths: readonly string[] = []): string[] {
+  assertFullSha(base);
+  assertFullSha(ref);
+  return [
+    "--literal-pathspecs",
+    "-c",
+    "core.quotePath=false",
+    "-c",
+    "diff.suppressBlankEmpty=false",
+    "diff",
+    "--no-color",
+    "--no-ext-diff",
+    "--no-textconv",
+    "-M",
+    "--diff-algorithm=myers",
+    ...DIFF_SHAPE_ARGS[shape],
+    "--end-of-options",
+    base,
+    ref,
+    "--",
+    ...paths,
+  ];
+}
+
+/** Null when git failed, timed out or outgrew the buffer; "" when nothing changed. Never confused. */
+function readDiff(root: string, args: string[]): string | null {
+  const r = git(args, { cwd: root, allowFailure: true, timeoutMs: DIFF_TIMEOUT_MS });
+  return r.ok ? r.stdout : null;
+}
+
+/** `git diff --raw -z --no-abbrev` between two commits: status, modes, blob ids and both paths of a rename. */
+export function diffRawRange(root: string, base: string, ref: string): string | null {
+  return readDiff(root, diffRangeArgs("raw", base, ref));
+}
+
+/** `git diff --numstat -z` between two commits: added and deleted counts, `-` for a binary file. */
+export function numstatRange(root: string, base: string, ref: string): string | null {
+  return readDiff(root, diffRangeArgs("numstat", base, ref));
+}
+
+/**
+ * One file's patch between two commits. A rename is asked for by both of its paths, old first:
+ * asked for by its new path alone, git reports the same file as wholly added.
+ */
+export function patchFor(root: string, base: string, ref: string, paths: readonly string[]): string | null {
+  if (paths.length === 0) throw new Error("patchFor needs at least one path");
+  return readDiff(root, diffRangeArgs("patch", base, ref, paths));
+}
+
+/** Size of a blob in bytes, by blob id; null when there is no such object. */
+export function blobSize(root: string, blob: string): number | null {
+  if (!FULL_SHA.test(blob)) return null;
+  const r = git(["cat-file", "-s", blob], { cwd: root, allowFailure: true, timeoutMs: DIFF_TIMEOUT_MS });
+  const n = Number.parseInt(r.stdout.trim(), 10);
+  return r.ok && Number.isFinite(n) ? n : null;
+}
+
+/** A blob's text, by blob id; null when it cannot be read. */
+export function blobText(root: string, blob: string): string | null {
+  if (!FULL_SHA.test(blob)) return null;
+  const r = git(["cat-file", "blob", blob], { cwd: root, allowFailure: true, timeoutMs: DIFF_TIMEOUT_MS });
+  return r.ok ? r.stdout : null;
+}
+
+/** The blob id a path holds at a commit; null when the path is not a file there. The path never touches the revision. */
+export function blobAt(root: string, commit: string, file: string): string | null {
+  assertFullSha(commit);
+  const r = git(["--literal-pathspecs", "ls-tree", "-z", "--end-of-options", commit, "--", file], { cwd: root, allowFailure: true, timeoutMs: DIFF_TIMEOUT_MS });
+  if (!r.ok) return null;
+  for (const entry of r.stdout.split("\0")) {
+    const tab = entry.indexOf("\t");
+    if (tab < 0 || entry.slice(tab + 1) !== file) continue;
+    const [, type = "", sha = ""] = entry.slice(0, tab).split(" ");
+    return type === "blob" && FULL_SHA.test(sha) ? sha : null;
+  }
+  return null;
+}
+
 export function gitUser(root: string): { name: string; email: string } {
   const name = git(["config", "user.name"], { cwd: root, allowFailure: true }).stdout.trim();
   const email = git(["config", "user.email"], { cwd: root, allowFailure: true }).stdout.trim();
