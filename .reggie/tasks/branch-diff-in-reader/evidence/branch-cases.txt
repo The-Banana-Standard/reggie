@@ -1,0 +1,20 @@
+$ TZ=UTC npx vitest run src/changes.test.ts test/serve.test.ts -t branch-level cases --reporter=verbose      (skipped tests left out of this capture)
+# git 2.55.0, node v22.22.2, 2026-09-17T09:34Z, commit 4a2b2d5
+ RUN  v4.1.11 <worktree>/packages/reggie
+ ✓ src/changes.test.ts > branch-level cases > zero commits past the base: available, empty, and zero commits 53ms
+ ✓ src/changes.test.ts > branch-level cases > only Reggie's own records: no files, the records listed, totals of zero 46ms
+ ✓ src/changes.test.ts > branch-level cases > merged the base back in: only what the branch itself changed 41ms
+ ✓ src/changes.test.ts > branch-level cases > changed a line and changed it back: two commits and no net change 45ms
+ ✓ src/changes.test.ts > branch-level cases > landed by a merge, branch gone: read from the merge against its first parent, verdict and all 131ms
+ ✓ src/changes.test.ts > branch-level cases > the landing's rows and numbers survive the base moving on, and changedSince says which files moved 195ms
+ ✓ src/changes.test.ts > branch-level cases > says why there is nothing to read, in its own words 57ms
+ ✓ src/changes.test.ts > branch-level cases > resolves nothing but the two names a safe slug builds 24ms
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > an awaiting-decision task lists its file, and its packet among the records 1259ms
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > zero commits past the base 57ms
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > only Reggie's own records 114ms
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > merged the base back in: the base's own file is in neither list 87ms
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > changed a line and changed it back: nothing listed, two commits 51ms
+ Test Files  2 passed (2)
+      Tests  13 passed | 159 skipped (172)
+   Start at  09:34:47
+   Duration  3.66s (transform 315ms, setup 0ms, import 457ms, tests 5.50s, environment 0ms)

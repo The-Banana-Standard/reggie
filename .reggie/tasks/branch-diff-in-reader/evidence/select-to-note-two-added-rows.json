@@ -1,0 +1,1 @@
+{"page":"#/repo/reggie-diff-fSRia5/file/src/added.ts?diff=diff-cases","twoAddedRows":{"fromRow":"1 + new file","toRow":"2 + export const html = \"<img src=x onerror=alert(1)>\";","noteButtonShown":true,"noteButtonText":"Add a note about lines 1–2"}}

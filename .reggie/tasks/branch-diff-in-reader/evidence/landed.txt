@@ -1,0 +1,13 @@
+$ TZ=UTC npx vitest run src/changes.test.ts test/serve.test.ts -t landed --reporter=verbose      (skipped tests left out of this capture)
+# git 2.55.0, node v22.22.2, 2026-09-17T09:34Z, commit 4a2b2d5
+ RUN  v4.1.11 <worktree>/packages/reggie
+ ✓ src/changes.test.ts > branch-level cases > landed by a merge, branch gone: read from the merge against its first parent, verdict and all 139ms
+ ✓ test/serve.test.ts > what a task changed > landed tasks > reads a done task whose branch is gone through the merge that landed it 972ms
+ ✓ test/serve.test.ts > what a task changed > landed tasks > keeps the landing's rows and numbers after the base moved on, and says which files moved 214ms
+ ✓ test/serve.test.ts > what a task changed > landed tasks > counts what the Completed view counts 434ms
+ ✓ test/serve.test.ts > what a task changed > no change to read > a done task landed by fast-forward: 200 and a reason; its file route 404s with the same reason 55ms
+ ✓ test/serve.test.ts > what a task changed > editor link > opens the worktree's copy for a live task, this checkout's for a landed one, and nothing otherwise 229ms
+ Test Files  2 passed (2)
+      Tests  6 passed | 166 skipped (172)
+   Start at  09:34:55
+   Duration  3.97s (transform 321ms, setup 0ms, import 428ms, tests 5.38s, environment 0ms)

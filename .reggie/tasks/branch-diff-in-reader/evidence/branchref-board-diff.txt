@@ -1,0 +1,7 @@
+# Bail condition 5: adding branchRef to TaskInfo must change no task's state, reason or changedFiles.
+# Before: `npx tsx src/cli.ts tasks --json --all` in the task worktree right after the claim, before any edit.
+# After:  the same command after the field was added. Compared on [slug, state, reason, changedFiles].
+
+79 tasks before, 79 after; 0 differ in slug, state, reason or changedFiles
+the field before: absent; after: present on every task
+distinct branchRef values after: ["task/branch-diff-in-reader",null]

@@ -1,0 +1,199 @@
+# AC43: the note chain for each of the seven files, as `reggie note path <file>` prints it, then what the task changed under .reggie/notes/
+# 2026-09-17, commit 4a2b2d5
+
+==================================================================
+$ reggie note path packages/reggie/src/changes.ts
+==================================================================
+### _repo (repo)
+- **why** 2026-09-14 jacobpress (high): Reggie helps a repo's owner keep understanding a codebase that AI engineering builds faster than anyone can read it. Code arrives from Claude Code and Codex sessions in hours, and the person responsible for the repo needs a way to keep up: to see how the pieces fit together, to review what changed recently and why, and to notice where the knowledge is thin. Reggie draws that picture from git and from notes kept in the repo, and serves it as a web view that explains the code and the work. Once the owner understands enough to want something changed, they capture a task here, groom it into a brief, and plan it in Claude or Codex. As those sessions produce work, Reggie tracks each task from idea to plan to branch to decision, so the owner always knows what is in flight, what is waiting on them, and what landed. The loop from understanding to improvement stays inside the repo.
+  sources: docs/repo-manager-vision.md, CLAUDE.md
+- **how** 2026-09-14 jacobpress (high): The product is the TypeScript CLI, MCP server and web UI in packages/reggie. Build and test inside packages/reggie with npm run build and npm test, or from the repo root, which delegates there. Start the web view with reggie serve.
+  sources: packages/reggie/package.json, packages/reggie/src/cli.ts
+
+### packages/reggie/ (dir)
+- **how** 2026-09-06 Claude via jacobpress (high): One module per concern under src: paths and git for repo access, layout and people for the .reggie tree, facts and docs for the generated CLAUDE and AGENTS blocks, notes and journal for knowledge, plan and tasks and packet for the task loop, context for the pack agents read first, claim and capture for branches and intake, onboard for setup, mcp and cli as the two front ends. Tests sit beside modules; test/helpers.ts builds throwaway git repos.
+  sources: packages/reggie/src/cli.ts
+- **how** 2026-09-10 Claude via jacobpress (high): The whole product lives here: src holds the CLI, the MCP server, the graph and story derivation, and the HTTP server; ui holds the web client as vanilla ES modules with no bundler; docs holds the UI spec and API contract. Install with npm install --legacy-peer-deps.
+  sources: packages/reggie/package.json
+
+### packages/reggie/src/changes.ts (file)
+- **how** 2026-09-17 Claude via jacobpress (high): What a task changed, in three steps that each have their own function. taskRange turns a task into two full commit ids: a task that is not done and whose branch is ahead reads from the merge base to the tip; otherwise the merge taskLanding finds, against its first parent; otherwise a branch that still resolves; otherwise a sentence saying why there is nothing to read. listChanges reads the raw and the numstat listing in their null separated forms and joins them by the new path, sorted by path. fileDiff asks git for one listed file's patch, by both paths for a rename, parses it, and builds the rows the reader draws, two thousand to a page. changesPayload splits the list into files and Reggie's own records and counts the files only, which is the owner's ruling.
+  sources: packages/reggie/src/changes.ts, branch-diff-in-reader
+- **gotcha** 2026-09-17 Claude via jacobpress (high): The patch parser never reads a path out of a patch header and never looks for a header inside a hunk. It finds a hunk by its at-sign header, then consumes exactly as many old and new lines as that header counts, taking only the first character of each line as its sign. That is what keeps a deleted line whose text is two dashes and a path, which git prints byte for byte like a file header, a deletion. The no newline marker flags the line before it and is never a line, so new side numbers cannot drift. A count of zero in a hunk header makes the start the line before rather than the first line, which the gap arithmetic depends on. Do not make it smarter about headers; every hazard the planner measured lives there.
+  sources: packages/reggie/src/changes.ts, branch-diff-in-reader
+- **decision** 2026-09-17 Claude via jacobpress (high): A patch that cannot be trusted is answered as an unreadable card with no rows, never as best effort rows. Three things count: git failed or timed out or the patch outgrew the buffer, a hunk did not add up to its own header, and the added and deleted rows disagree with the counts git's own numstat gave for the file. The third check is why the diff algorithm is pinned for the list as well as the patch: with a person's own algorithm setting the counts and the rows would come from two different diffs and honest files would be refused. Measured over the twelve landed merges in this repo, 363 files, no file was refused.
+  sources: packages/reggie/src/changes.ts, branch-diff-in-reader
+- **verify** 2026-09-17 Claude via jacobpress (high): The fixture repo in the test folder holds every awkward input as one in process branch plus one small branch per whole branch case, and both the unit tests and the route tests read it. A new degenerate case belongs there first, with a comment saying what git prints for it. The hostile config test writes a person's worst git settings into a fixture, proves an ordinary diff then runs the external program, and proves ours never does.
+  sources: packages/reggie/test/diff-fixture.ts, branch-diff-in-reader
+- **gotcha** 2026-09-17 Claude via jacobpress (high): A fourth thing is answered as unreadable, and it is checked before git is asked for anything: a file whose added plus deleted count, as the list already knows it, passes a quarter of a million lines. Every row is an object in memory before a page is cut from it, so a committed file of a few million one character lines would otherwise cost hundreds of megabytes per request. The cap came out of the security pass, not the plan. Raise it only with the memory arithmetic in hand; the sixty thousand line case the plan requires is far below it.
+  sources: packages/reggie/src/changes.ts, branch-diff-in-reader
+
+==================================================================
+$ reggie note path packages/reggie/src/git.ts
+==================================================================
+### _repo (repo)
+- **why** 2026-09-14 jacobpress (high): Reggie helps a repo's owner keep understanding a codebase that AI engineering builds faster than anyone can read it. Code arrives from Claude Code and Codex sessions in hours, and the person responsible for the repo needs a way to keep up: to see how the pieces fit together, to review what changed recently and why, and to notice where the knowledge is thin. Reggie draws that picture from git and from notes kept in the repo, and serves it as a web view that explains the code and the work. Once the owner understands enough to want something changed, they capture a task here, groom it into a brief, and plan it in Claude or Codex. As those sessions produce work, Reggie tracks each task from idea to plan to branch to decision, so the owner always knows what is in flight, what is waiting on them, and what landed. The loop from understanding to improvement stays inside the repo.
+  sources: docs/repo-manager-vision.md, CLAUDE.md
+- **how** 2026-09-14 jacobpress (high): The product is the TypeScript CLI, MCP server and web UI in packages/reggie. Build and test inside packages/reggie with npm run build and npm test, or from the repo root, which delegates there. Start the web view with reggie serve.
+  sources: packages/reggie/package.json, packages/reggie/src/cli.ts
+
+### packages/reggie/ (dir)
+- **how** 2026-09-06 Claude via jacobpress (high): One module per concern under src: paths and git for repo access, layout and people for the .reggie tree, facts and docs for the generated CLAUDE and AGENTS blocks, notes and journal for knowledge, plan and tasks and packet for the task loop, context for the pack agents read first, claim and capture for branches and intake, onboard for setup, mcp and cli as the two front ends. Tests sit beside modules; test/helpers.ts builds throwaway git repos.
+  sources: packages/reggie/src/cli.ts
+- **how** 2026-09-10 Claude via jacobpress (high): The whole product lives here: src holds the CLI, the MCP server, the graph and story derivation, and the HTTP server; ui holds the web client as vanilla ES modules with no bundler; docs holds the UI spec and API contract. Install with npm install --legacy-peer-deps.
+  sources: packages/reggie/package.json
+
+### packages/reggie/src/git.ts (file)
+- **gotcha** 2026-09-17 Claude via jacobpress (high): The three range readers and their small helpers take full forty character commit ids and throw before git is spawned for anything else, because a revision that begins with a dash is an option: handed an output flag, git tried to write that file. Names are resolved once, by resolveCommit, and only its answer goes on. Revisions sit after end of options and paths after the double dash, under literal pathspecs, so exclude magic and globs name files instead of matching them. No external diff and no textconv are part of the security posture, not only of correctness: a read route must not run a program the repo's config names. They return null for a failed or timed out read and an empty string for an empty diff; the older helpers beside them return an empty string for both, which is why they were not reused.
+  sources: packages/reggie/src/git.ts, branch-diff-in-reader
+- **how** 2026-09-17 Claude via jacobpress (high): diffRangeArgs is the one place the diff arguments are built, exported so a test can read exactly what git is handed, the way the history log's arguments are. Everything a person's git settings could change is pinned there for all three shapes: colour, renames, the algorithm, quoting, blank context stripping, and for a patch the context width, the merging of nearby hunks and the two prefixes. Blob sizes and blob text are asked by blob id, and the blob a path holds at a commit is asked through ls-tree with the path after the double dash, so a path from a request is never spliced into a revision.
+  sources: packages/reggie/src/git.ts, branch-diff-in-reader
+
+==================================================================
+$ reggie note path packages/reggie/ui/reader.js
+==================================================================
+### _repo (repo)
+- **why** 2026-09-14 jacobpress (high): Reggie helps a repo's owner keep understanding a codebase that AI engineering builds faster than anyone can read it. Code arrives from Claude Code and Codex sessions in hours, and the person responsible for the repo needs a way to keep up: to see how the pieces fit together, to review what changed recently and why, and to notice where the knowledge is thin. Reggie draws that picture from git and from notes kept in the repo, and serves it as a web view that explains the code and the work. Once the owner understands enough to want something changed, they capture a task here, groom it into a brief, and plan it in Claude or Codex. As those sessions produce work, Reggie tracks each task from idea to plan to branch to decision, so the owner always knows what is in flight, what is waiting on them, and what landed. The loop from understanding to improvement stays inside the repo.
+  sources: docs/repo-manager-vision.md, CLAUDE.md
+- **how** 2026-09-14 jacobpress (high): The product is the TypeScript CLI, MCP server and web UI in packages/reggie. Build and test inside packages/reggie with npm run build and npm test, or from the repo root, which delegates there. Start the web view with reggie serve.
+  sources: packages/reggie/package.json, packages/reggie/src/cli.ts
+
+### packages/reggie/ (dir)
+- **how** 2026-09-06 Claude via jacobpress (high): One module per concern under src: paths and git for repo access, layout and people for the .reggie tree, facts and docs for the generated CLAUDE and AGENTS blocks, notes and journal for knowledge, plan and tasks and packet for the task loop, context for the pack agents read first, claim and capture for branches and intake, onboard for setup, mcp and cli as the two front ends. Tests sit beside modules; test/helpers.ts builds throwaway git repos.
+  sources: packages/reggie/src/cli.ts
+- **how** 2026-09-10 Claude via jacobpress (high): The whole product lives here: src holds the CLI, the MCP server, the graph and story derivation, and the HTTP server; ui holds the web client as vanilla ES modules with no bundler; docs holds the UI spec and API contract. Install with npm install --legacy-peer-deps.
+  sources: packages/reggie/package.json
+
+### packages/reggie/ui/ (dir)
+- **how** 2026-09-07 Claude via jacobpress (high): The Guidebook web UI: static files served by node:http with no bundler. index.html is the shell, app.js the router and integration layer, map.js the single Cytoscape instance with every level's element builder and lens, story.js the narrative column, reader.js the source drawer, board.js the task board and task page. Vendor libraries load from node_modules through /vendor with a CDN fallback. Sample payloads and standalone harnesses under dev/ let a module be developed without the server.
+  sources: packages/reggie/ui/DOM-CONTRACT.md
+
+### packages/reggie/ui/reader.js (file)
+- **how** 2026-09-17 Claude via jacobpress (high): The reader has two modes and its identity is the path plus the diff slug, so the same path in the other mode is always a reload. Plain mode splits a file's text into numbered rows. Diff mode draws rows the server already built, with the same line elements: only a row with a new side number carries data-line, which is what scrollTo, the highlight and select to note key on in both modes, so a deleted row and a gap row are simply not addressable. Symbol marks are dropped in diff mode because they are computed from this checkout's text. The mode button asks the page to rewrite the diff query rather than flipping itself, so the address always says what is on screen. diffUrl is exported because the page asks the same address first and the fetch cache must recognise the reader's request.
+  sources: packages/reggie/ui/reader.js, branch-diff-in-reader
+- **gotcha** 2026-09-17 Claude via jacobpress (medium): Nothing here has an automated test, which is why no arithmetic lives here: row kinds, line numbers, gaps, the no newline flag and the cut all arrive from the server. If a diff looks wrong, the bug is almost certainly in the changes module and has a test waiting to be written there. The banner's extra note is looked up by class and removed by the plain mode's code, so the landed file has changed since message deliberately uses the banner text class instead. In diff mode the editor link uses the payload's address alone and hides without one; falling back to the checkout root would open the unchanged file at the branch's line numbers.
+  sources: packages/reggie/ui/reader.js, branch-diff-in-reader
+
+==================================================================
+$ reggie note path packages/reggie/src/serve.ts
+==================================================================
+### _repo (repo)
+- **why** 2026-09-14 jacobpress (high): Reggie helps a repo's owner keep understanding a codebase that AI engineering builds faster than anyone can read it. Code arrives from Claude Code and Codex sessions in hours, and the person responsible for the repo needs a way to keep up: to see how the pieces fit together, to review what changed recently and why, and to notice where the knowledge is thin. Reggie draws that picture from git and from notes kept in the repo, and serves it as a web view that explains the code and the work. Once the owner understands enough to want something changed, they capture a task here, groom it into a brief, and plan it in Claude or Codex. As those sessions produce work, Reggie tracks each task from idea to plan to branch to decision, so the owner always knows what is in flight, what is waiting on them, and what landed. The loop from understanding to improvement stays inside the repo.
+  sources: docs/repo-manager-vision.md, CLAUDE.md
+- **how** 2026-09-14 jacobpress (high): The product is the TypeScript CLI, MCP server and web UI in packages/reggie. Build and test inside packages/reggie with npm run build and npm test, or from the repo root, which delegates there. Start the web view with reggie serve.
+  sources: packages/reggie/package.json, packages/reggie/src/cli.ts
+
+### packages/reggie/ (dir)
+- **how** 2026-09-06 Claude via jacobpress (high): One module per concern under src: paths and git for repo access, layout and people for the .reggie tree, facts and docs for the generated CLAUDE and AGENTS blocks, notes and journal for knowledge, plan and tasks and packet for the task loop, context for the pack agents read first, claim and capture for branches and intake, onboard for setup, mcp and cli as the two front ends. Tests sit beside modules; test/helpers.ts builds throwaway git repos.
+  sources: packages/reggie/src/cli.ts
+- **how** 2026-09-10 Claude via jacobpress (high): The whole product lives here: src holds the CLI, the MCP server, the graph and story derivation, and the HTTP server; ui holds the web client as vanilla ES modules with no bundler; docs holds the UI spec and API contract. Install with npm install --legacy-peer-deps.
+  sources: packages/reggie/package.json
+
+### packages/reggie/src/serve.ts (file)
+- **how** 2026-09-13 Claude via jacobpress (medium): A non-loopback bind mints or reads a key at .reggie/.cache/serve-key and requires it on every /api request over a non-loopback socket, as the X-Reggie-Key header or ?key=. Loopback sockets never need it. A keyed POST may carry an Origin equal to its own Host, because the key is the rebinding defence there. The static shell is served without the key so the page can ask for it. The feed builds enclosure URLs from the request Host and appends the key.
+  sources: packages/reggie/src/serve.ts:590
+- **how** 2026-09-15 Claude via jacobpress (high): POST /api/decide approved in solo mode goes through landTask and answers 409 on a refusal or a conflict; needs-work and team mode only write the verdict. The completed view reads commits from taskLanding: the diff comes from the merge alone, the commits from the branch, and the merge is reported separately.
+  sources: task-attribution-by-merge
+- **gotcha** 2026-09-15 Claude via jacobpress (high): POST /api/launch claims a build with deps: defer. Linking is instant and still happens, but an install is never run inside the request: this server answers one request at a time, so a cold npm ci would hold every other request for minutes. The deferred commands travel to the session in the build prompt.
+  sources: packages/reggie/src/serve.ts:2260
+- **gotcha** 2026-09-15 Claude via jacobpress (medium): POST /api/intake answers 409 for a task that has a brief. addIntakeDetail writes a fresh line for a slug that has none, so an answer posted after triage would rebuild the very line triage removed and bring the card's age back with it. The task page hides the form in that case, so the refusal is not reached by an ordinary click. POST /api/triage reports takenFromIntake so the client knows which cards' lines really went.
+- **how** 2026-09-17 Claude via jacobpress (high): Two read routes return what a task changed. The list route answers 200 for any known task and says available false with a sentence of Reggie's own when there is no range to read; the file route answers 404 carrying the same sentence. The file route checks its path twice: a path that could not be a repo path is 400, and a well formed path that is not a member of the task's own change list is 404 and never reaches git, which is what an output flag or exclude magic gets. Membership is tried on the name exactly as asked and then as tidied, so a committed name with a leading space still opens. The range is resolved on every request because a branch tip moves without this checkout's HEAD moving; the list between two commit ids is kept per slug while the ids stay the same. The file answer adds mapped, which is exactly the condition under which the story, impact and explain routes answer that path 404, and editorUrl, which follows the text on screen.
+  sources: packages/reggie/src/serve.ts, branch-diff-in-reader
+
+==================================================================
+$ reggie note path packages/reggie/src/tasks.ts
+==================================================================
+### _repo (repo)
+- **why** 2026-09-14 jacobpress (high): Reggie helps a repo's owner keep understanding a codebase that AI engineering builds faster than anyone can read it. Code arrives from Claude Code and Codex sessions in hours, and the person responsible for the repo needs a way to keep up: to see how the pieces fit together, to review what changed recently and why, and to notice where the knowledge is thin. Reggie draws that picture from git and from notes kept in the repo, and serves it as a web view that explains the code and the work. Once the owner understands enough to want something changed, they capture a task here, groom it into a brief, and plan it in Claude or Codex. As those sessions produce work, Reggie tracks each task from idea to plan to branch to decision, so the owner always knows what is in flight, what is waiting on them, and what landed. The loop from understanding to improvement stays inside the repo.
+  sources: docs/repo-manager-vision.md, CLAUDE.md
+- **how** 2026-09-14 jacobpress (high): The product is the TypeScript CLI, MCP server and web UI in packages/reggie. Build and test inside packages/reggie with npm run build and npm test, or from the repo root, which delegates there. Start the web view with reggie serve.
+  sources: packages/reggie/package.json, packages/reggie/src/cli.ts
+
+### packages/reggie/ (dir)
+- **how** 2026-09-06 Claude via jacobpress (high): One module per concern under src: paths and git for repo access, layout and people for the .reggie tree, facts and docs for the generated CLAUDE and AGENTS blocks, notes and journal for knowledge, plan and tasks and packet for the task loop, context for the pack agents read first, claim and capture for branches and intake, onboard for setup, mcp and cli as the two front ends. Tests sit beside modules; test/helpers.ts builds throwaway git repos.
+  sources: packages/reggie/src/cli.ts
+- **how** 2026-09-10 Claude via jacobpress (high): The whole product lives here: src holds the CLI, the MCP server, the graph and story derivation, and the HTTP server; ui holds the web client as vanilla ES modules with no bundler; docs holds the UI spec and API contract. Install with npm install --legacy-peer-deps.
+  sources: packages/reggie/package.json
+
+### packages/reggie/src/tasks.ts (file)
+- **gotcha** 2026-09-06 Claude via jacobpress (high): State derivation checks the pull request first, then the packet verdict on the default branch, then packet on the task branch, then branch existence, then plan on the default branch, then plan branch, then plan on disk. Order matters: a merged PR must win over a stale local plan.
+  sources: packages/reggie/src/tasks.ts
+- **gotcha** 2026-09-08 Claude via jacobpress (high): State derivation order matters and is written top down: merged or approved wins over an open pull request, which wins over a packet, which wins over a branch, which wins over a plan, which wins over a brief. The plan branches sit above the brief branch on purpose, so a task that has a plan but no brief still reads as planned rather than being dragged backwards.
+  sources: packages/reggie/src/tasks.ts
+- **decision** 2026-09-09 Claude via jacobpress (high): A legacy backlog line never overrides git. Every branch, packet and pull-request check runs first; only then does the file decide. The [planned] tag alone is not enough for the planned state either — it needs the plan document to really exist, because on the first real repo 44 of 47 plan documents belonged to items the author had explicitly parked.
+- **decision** 2026-09-15 Claude via jacobpress (medium): A brief earns groomed by saying something, not by passing its contract. resolveTask's brief branch consults briefDraft, so only an unfilled scaffold holds the task at ungroomed; a brief missing a size or a priority stays groomed with the lint reason on the card. That is deliberately not symmetric with the plan rule, where a failing draft holds at groomed: planned means a builder can follow this, which a contract can test, while groomed means somebody has said what this is, which only emptiness can disprove. Card age falls back to the brief's created once triage has taken the intake line, after lastActivity and the intake date.
+- **how** 2026-09-17 Claude via jacobpress (high): TaskInfo carries branchRef, the ref a task's branch is read from: the local task branch name, the origin name when the remote tracking ref is all the clone has, and null with no task branch. It is never a plan branch, which the older branch field may name, so anything that reads a task's change must use branchRef and not branch. It is read only plumbing: adding it changed the state, reason and changed files of none of the 79 tasks in this repo.
+  sources: packages/reggie/src/tasks.ts, branch-diff-in-reader
+
+==================================================================
+$ reggie note path packages/reggie/ui/app.js
+==================================================================
+### _repo (repo)
+- **why** 2026-09-14 jacobpress (high): Reggie helps a repo's owner keep understanding a codebase that AI engineering builds faster than anyone can read it. Code arrives from Claude Code and Codex sessions in hours, and the person responsible for the repo needs a way to keep up: to see how the pieces fit together, to review what changed recently and why, and to notice where the knowledge is thin. Reggie draws that picture from git and from notes kept in the repo, and serves it as a web view that explains the code and the work. Once the owner understands enough to want something changed, they capture a task here, groom it into a brief, and plan it in Claude or Codex. As those sessions produce work, Reggie tracks each task from idea to plan to branch to decision, so the owner always knows what is in flight, what is waiting on them, and what landed. The loop from understanding to improvement stays inside the repo.
+  sources: docs/repo-manager-vision.md, CLAUDE.md
+- **how** 2026-09-14 jacobpress (high): The product is the TypeScript CLI, MCP server and web UI in packages/reggie. Build and test inside packages/reggie with npm run build and npm test, or from the repo root, which delegates there. Start the web view with reggie serve.
+  sources: packages/reggie/package.json, packages/reggie/src/cli.ts
+
+### packages/reggie/ (dir)
+- **how** 2026-09-06 Claude via jacobpress (high): One module per concern under src: paths and git for repo access, layout and people for the .reggie tree, facts and docs for the generated CLAUDE and AGENTS blocks, notes and journal for knowledge, plan and tasks and packet for the task loop, context for the pack agents read first, claim and capture for branches and intake, onboard for setup, mcp and cli as the two front ends. Tests sit beside modules; test/helpers.ts builds throwaway git repos.
+  sources: packages/reggie/src/cli.ts
+- **how** 2026-09-10 Claude via jacobpress (high): The whole product lives here: src holds the CLI, the MCP server, the graph and story derivation, and the HTTP server; ui holds the web client as vanilla ES modules with no bundler; docs holds the UI spec and API contract. Install with npm install --legacy-peer-deps.
+  sources: packages/reggie/package.json
+
+### packages/reggie/ui/ (dir)
+- **how** 2026-09-07 Claude via jacobpress (high): The Guidebook web UI: static files served by node:http with no bundler. index.html is the shell, app.js the router and integration layer, map.js the single Cytoscape instance with every level's element builder and lens, story.js the narrative column, reader.js the source drawer, board.js the task board and task page. Vendor libraries load from node_modules through /vendor with a CDN fallback. Sample payloads and standalone harnesses under dev/ let a module be developed without the server.
+  sources: packages/reggie/ui/DOM-CONTRACT.md
+
+### packages/reggie/ui/app.js (file)
+- **how** 2026-09-13 Claude via jacobpress (medium): The page adopts ?key= from the address once, keeps it in localStorage under reggie:key, strips it from the URL, and sends it as X-Reggie-Key on every api() and post(); withKey() appends it for audio and feed links. A 401 from any API call shows a paste-the-key card once. Below 760px the map column hides behind the header's Map button (setMapOpen), which is hidden on the tasks page where the column holds the board; opening the reader drawer opens the overlay too.
+  sources: packages/reggie/ui/app.js:404
+- **how** 2026-09-14 Claude via jacobpress (medium): Panes and sections. PANES_BY_LEVEL is the one table saying what a level has (story, map, code; map may be the page itself, as the board or the workspace tiles). syncPanes writes data-panes and data-open on main for desktop widths and the header toggles follow; setPaneOpen changes story or map and remembers the set per level; code is the reader, so opening it opens the reader and onReaderVisibility mirrors the reader's hidden attribute back. section() builds every section with a folding heading, from state.collapsed loaded per repo and level. Keys S M C fold panes, [ and ] fold or open every section. Dense was retired on 2026-09-14.
+  sources: packages/reggie/ui/app.js:865
+- **gotcha** 2026-09-15 Claude via jacobpress (medium): The Spotlight's Add a note action calls focusNoteForm(), which takes the first .form--note in the document rather than one belonging to the node the Spotlight describes, so on a repo or area page it focuses that page's form and not the tapped node's. Its fallback toast has to name every scope whose page carries a form; it named only files and areas while areas in any set-up repo had none, and repo, area and file pages all carry one now. The reader drawer's own fallback beside it is scope-neutral and needs no such upkeep.
+  sources: packages/reggie/ui/app.js, note-form-on-repo-and-area
+- **how** 2026-09-17 Claude via jacobpress (high): A file route may carry a diff query naming a task, read by diffOf on the file level only. With it set the page asks for the change first, because that answer says whether the graph ever read the path. When it did not, the story, impact and explain requests are skipped rather than made and swallowed, since each would answer 404 and log a failure: the story column gets one section in plain words, no toast is raised, and the canvas is cleared with an empty view that brings its own sentence. The reader is then opened without a click, on a phone too, where the overlay is raised explicitly because a reader left open behind a closed overlay never flips its hidden flag. A symbol link clicked in diff mode is left to navigate, and openReader always passes the route's mode, so the Read button and the code pane toggle follow it.
+  sources: packages/reggie/ui/app.js, branch-diff-in-reader
+
+==================================================================
+$ reggie note path packages/reggie/ui/board.js
+==================================================================
+### _repo (repo)
+- **why** 2026-09-14 jacobpress (high): Reggie helps a repo's owner keep understanding a codebase that AI engineering builds faster than anyone can read it. Code arrives from Claude Code and Codex sessions in hours, and the person responsible for the repo needs a way to keep up: to see how the pieces fit together, to review what changed recently and why, and to notice where the knowledge is thin. Reggie draws that picture from git and from notes kept in the repo, and serves it as a web view that explains the code and the work. Once the owner understands enough to want something changed, they capture a task here, groom it into a brief, and plan it in Claude or Codex. As those sessions produce work, Reggie tracks each task from idea to plan to branch to decision, so the owner always knows what is in flight, what is waiting on them, and what landed. The loop from understanding to improvement stays inside the repo.
+  sources: docs/repo-manager-vision.md, CLAUDE.md
+- **how** 2026-09-14 jacobpress (high): The product is the TypeScript CLI, MCP server and web UI in packages/reggie. Build and test inside packages/reggie with npm run build and npm test, or from the repo root, which delegates there. Start the web view with reggie serve.
+  sources: packages/reggie/package.json, packages/reggie/src/cli.ts
+
+### packages/reggie/ (dir)
+- **how** 2026-09-06 Claude via jacobpress (high): One module per concern under src: paths and git for repo access, layout and people for the .reggie tree, facts and docs for the generated CLAUDE and AGENTS blocks, notes and journal for knowledge, plan and tasks and packet for the task loop, context for the pack agents read first, claim and capture for branches and intake, onboard for setup, mcp and cli as the two front ends. Tests sit beside modules; test/helpers.ts builds throwaway git repos.
+  sources: packages/reggie/src/cli.ts
+- **how** 2026-09-10 Claude via jacobpress (high): The whole product lives here: src holds the CLI, the MCP server, the graph and story derivation, and the HTTP server; ui holds the web client as vanilla ES modules with no bundler; docs holds the UI spec and API contract. Install with npm install --legacy-peer-deps.
+  sources: packages/reggie/package.json
+
+### packages/reggie/ui/ (dir)
+- **how** 2026-09-07 Claude via jacobpress (high): The Guidebook web UI: static files served by node:http with no bundler. index.html is the shell, app.js the router and integration layer, map.js the single Cytoscape instance with every level's element builder and lens, story.js the narrative column, reader.js the source drawer, board.js the task board and task page. Vendor libraries load from node_modules through /vendor with a CDN fallback. Sample payloads and standalone harnesses under dev/ let a module be developed without the server.
+  sources: packages/reggie/ui/DOM-CONTRACT.md
+
+### packages/reggie/ui/board.js (file)
+- **how** 2026-09-09 Claude via jacobpress (high): Parked tasks are hidden behind a Show parked toggle in the board head, and the state strip counts what the columns draw rather than the unfiltered total. On personal_website all 44 groomed tasks are parked, so without the filter the Groomed column reads as a queue of ready work when nobody intends to start any of it.
+- **gotcha** 2026-09-15 Claude via jacobpress (medium): The optimistic update after a triage POST leaves the card in Ungroomed and only clears its intake line. Triage writes a scaffold nobody has filled in, which is what the server reports on the next reconcile, so moving the card to Groomed here would flicker and snap back. FALLBACK_STATES, FALLBACK_TRANSITIONS and COLUMN_RULE are the client's hand-written copy of the server's state machine and have to be edited in the same commit as tasks.ts; each COLUMN_RULE string has to fit one rendered line at the narrowest column width.
+- **how** 2026-09-17 Claude via jacobpress (high): The task page has a What changed section for in process, awaiting decision and done tasks. It mounts as a skeleton and fills itself from the changes route: a summary of which two points the change is read between, a row per file with a status badge and counts, then Reggie's own records under their own heading with the same doors. That list is the one source of doors on the page. File links that may become doors are marked with a change path data attribute when they are drawn, and once the list arrives the marked links whose path is in it are pointed at the diff route; the rest keep the plain file link. That is how a done task, whose branch comparison is empty, gets doors too. In the Completed view a changed file is a door only when the completion carries a landing merge, because without one there is no range to read.
+  sources: packages/reggie/ui/board.js, branch-diff-in-reader
+
+==================================================================
+$ git diff --stat repo-manager...HEAD -- .reggie/notes/
+==================================================================
+ .../packages/reggie/docs/ui-api-contract.md.md     |  4 ++++
+ .reggie/notes/packages/reggie/src/changes.ts.md    | 25 ++++++++++++++++++++++
+ .reggie/notes/packages/reggie/src/git.ts.md        | 13 +++++++++++
+ .reggie/notes/packages/reggie/src/serve.ts.md      |  4 ++++
+ .reggie/notes/packages/reggie/src/tasks.ts.md      |  4 ++++
+ .../notes/packages/reggie/test/diff-fixture.ts.md  |  9 ++++++++
+ .../notes/packages/reggie/test/serve.test.ts.md    |  4 ++++
+ .../notes/packages/reggie/ui/DOM-CONTRACT.md.md    |  4 ++++
+ .reggie/notes/packages/reggie/ui/app.js.md         |  4 ++++
+ .reggie/notes/packages/reggie/ui/board.js.md       |  4 ++++
+ .../packages/reggie/ui/dev/make-diff-fixture.ts.md |  9 ++++++++
+ .reggie/notes/packages/reggie/ui/map.js.md         |  4 ++++
+ .reggie/notes/packages/reggie/ui/reader.css.md     |  9 ++++++++
+ .reggie/notes/packages/reggie/ui/reader.js.md      | 13 +++++++++++
+ 14 files changed, 110 insertions(+)

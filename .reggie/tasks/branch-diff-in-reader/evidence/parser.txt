@@ -1,0 +1,21 @@
+$ TZ=UTC npx vitest run src/changes.test.ts -t parsePatch and diffRows|parseRawZ, parseNumstatZ and joinNumstat --reporter=verbose      (skipped tests left out of this capture)
+# git 2.55.0, node v22.22.2, 2026-09-17T09:34Z, commit 4a2b2d5
+ RUN  v4.1.11 <worktree>/packages/reggie
+ ✓ src/changes.test.ts > parseRawZ, parseNumstatZ and joinNumstat > read a rename as two paths and a name holding an arrow as one 1ms
+ ✓ src/changes.test.ts > parseRawZ, parseNumstatZ and joinNumstat > split counts on the first two tabs only, and mark a binary file 0ms
+ ✓ src/changes.test.ts > parseRawZ, parseNumstatZ and joinNumstat > join by the new path and sort by path whatever order git printed 0ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > never makes the no-newline marker a row: it flags the row before it 0ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > keeps new-side numbers true after a marker in the middle of a hunk 0ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > reads hunks by the counts in the header, so content that imitates diff syntax stays content 0ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > reads the shapes a count of one or zero takes 0ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > finds no hunk in a header-only patch 0ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > reads both sections of a type change 0ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > drops a trailing carriage return and nothing else 0ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > takes an empty line inside a hunk for an empty context line 0ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > says so when a hunk does not add up, rather than guessing 0ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > cuts a long row and flags it 0ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > counts lines the way git does 0ms
+ Test Files  1 passed (1)
+      Tests  14 passed | 30 skipped (44)
+   Start at  09:34:37
+   Duration  1.71s (transform 89ms, setup 0ms, import 119ms, tests 1.53s, environment 0ms)

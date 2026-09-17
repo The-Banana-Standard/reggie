@@ -1,0 +1,20 @@
+# Bail conditions 1 and 4 against this repo, 2026-09-17: the landing lookup for every done task, and the rows
+# fileDiff builds against git's own --numstat for every file of every landed merge and of this task's own branch.
+# Script: a throwaway tsx probe that calls taskRange, listChanges and fileDiff from src/changes.ts, paging every file to its end.
+
+repo: repo-manager/.worktree/branch-diff-in-reader  integration branch: repo-manager  tasks: 82
+- branch-diff-in-reader [in-process]: branch task/branch-diff-in-reader, 5 commits, 17 files +2671 -45, 17 records
+- a-task-worktree-has-no-node-modules-so-nothing-r: merge cb46252 names the task in its subject: true; 11 files +778 -24, 18 records, 3 commits
+- about-this-repo: merge 56334b1 names the task in its subject: true; 8 files +71 -17, 8 records, 4 commits
+- docs-check-in-ci: merge 32dc1fa names the task in its subject: true; 3 files +10 -6, 13 records, 4 commits
+- false-tests-sentence: merge 729e3a2 names the task in its subject: true; 6 files +139 -11, 21 records, 4 commits
+- graph-coverage-published: merge dd613ed names the task in its subject: true; 23 files +646 -32, 34 records, 3 commits
+- intake-line-leaves-at-triage: merge 12908c9 names the task in its subject: true; 25 files +688 -133, 39 records, 6 commits
+- journal-files-conflict-on-merge-a-claim-in-the-m: merge c0502ae names the task in its subject: true; 6 files +201 -14, 15 records, 3 commits
+- layout-modes: merge c41a73e names the task in its subject: true; 8 files +374 -77, 8 records, 3 commits
+- mobile-ui: merge 8cf4e92 names the task in its subject: true; 13 files +492 -27, 16 records, 4 commits
+- note-form-on-repo-and-area: merge a3887e4 names the task in its subject: true; 10 files +290 -15, 31 records, 2 commits
+- stale-dev-bin: merge 4f214fc names the task in its subject: true; 7 files +306 -64, 12 records, 4 commits
+- task-attribution-by-merge: merge 165283e names the task in its subject: true; 11 files +765 -105, 15 records, 5 commits
+
+landing merges read: 12; files read: 395 (394 with countable lines); rows built: 21318; unreadable: 0; rows disagreeing with git's numstat: 0

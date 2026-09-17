@@ -1,0 +1,11 @@
+$ TZ=UTC npx vitest run src/changes.test.ts test/serve.test.ts -t large changes|pass the cap|cuts a long row --reporter=verbose      (skipped tests left out of this capture)
+# git 2.55.0, node v22.22.2, 2026-09-17T09:34Z, commit 4a2b2d5
+ RUN  v4.1.11 <worktree>/packages/reggie
+ ✓ src/changes.test.ts > parsePatch and diffRows > cuts a long row and flags it 1ms
+ ✓ src/changes.test.ts > file-level cases > does not read the patch of a file whose changed lines pass the cap, and says so 65ms
+ ✓ test/serve.test.ts > what a task changed > large changes > pages a 60,000-line file 2,000 rows at a time 1086ms
+ ✓ test/serve.test.ts > what a task changed > large changes > cuts a 5 MB single line to 2,000 characters in a small response 78ms
+ Test Files  2 passed (2)
+      Tests  4 passed | 168 skipped (172)
+   Start at  09:34:51
+   Duration  3.43s (transform 323ms, setup 0ms, import 429ms, tests 4.94s, environment 0ms)
