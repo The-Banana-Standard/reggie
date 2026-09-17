@@ -12,14 +12,22 @@
  *                                           `onNotePrefill` is accepted as an alias (DOM contract name).
  *   editorScheme, root                      Fallback for "Open in editor" when the payload has no
  *                                           `editorUrl`: `<scheme>/<root>/<path>:<line>` (default vscode://file).
- *   repo / withRepo(url)                    Adds `?repo=` to `/api/file` in workspace mode.
+ *   repo / withRepo(url)                    Adds `?repo=` to `/api/file` and `/api/filediff` in workspace mode.
+ *   onModeChange(slug | null)               Called by the head's mode button: null asks for the file as it is
+ *                                           now, a slug asks for that task's change again. app.js rewrites
+ *                                           `?diff=` on the route; without the dep the reader reopens itself.
  *
- * open(path, { line?, endLine?, highlight?, symbols?, file?, fresh? })
+ * open(path, { line?, endLine?, highlight?, symbols?, file?, fresh?, diff? })
  *   `file` is a pre-fetched /api/file payload (skips the fetch); `symbols` overrides the payload's
  *   symbol list (e.g. from /api/symbols); `highlight` is a symbol name or { line, endLine }.
+ *   `diff` is a task slug: the reader then shows what that task changed in the file, from
+ *   /api/filediff, instead of the file. The rows arrive built (ctx / add / del / gap, with their line
+ *   numbers); this module only draws them. A row that has a new-side number keeps `data-line`, so
+ *   scrollTo, the highlight and select-to-note mean the same thing in both modes; symbol marks are
+ *   dropped, because they are computed from this checkout's text and the rows are the branch's.
  *   Resolves once the source is rendered (or the error card is shown).
  * scrollTo(line, endLine?) — highlights line..endLine with --panel-2 and scrolls the first line into
- *   view; queued when called before the file has loaded.
+ *   view; queued when called before the file has loaded. In diff mode a line is a new-side number.
  *
  * The module has no imports so ui/dev/reader-harness.html can load it without app.js.
  */
@@ -30,6 +38,9 @@ const MAP_MIN = 120; // px of canvas always kept above the drawer
 const STORAGE_KEY = "reggie.reader.height";
 const SHOWN_CHARS = 20_000; // spec: first 20 000 characters
 const FILE_ENDPOINT = "/api/file";
+const DIFF_ENDPOINT = "/api/filediff";
+const STATUS_LABEL = { added: "Added", deleted: "Deleted", modified: "Modified", renamed: "Renamed", copied: "Copied", typechange: "Type changed" };
+const SIGN = { add: "+", del: "\u2212" };
 
 // ---------------------------------------------------------------------------
 // Small DOM helpers (kept local so this module stays import-free)
@@ -115,6 +126,16 @@ async function defaultFetchJson(url) {
   return body;
 }
 
+/**
+ * The `/api/filediff` address for one file of a task's change. Exported because app.js asks the same
+ * question first, to learn whether the file is on the map, and the two must spell the URL alike for
+ * its fetch cache to answer the reader's request.
+ */
+export function diffUrl(path, slug, offset = 0) {
+  const url = `${DIFF_ENDPOINT}?slug=${encodeURIComponent(slug)}&path=${encodeURIComponent(path)}`;
+  return offset > 0 ? `${url}&offset=${offset}` : url;
+}
+
 /** The editor link base: the payload's editorUrl without a trailing :line(:col), else built from deps. */
 function editorBase(file, path, deps) {
   if (file?.editorUrl) return String(file.editorUrl).replace(/:\d+(?::\d+)?$/, "");
@@ -148,6 +169,11 @@ export function createReader(container, deps = {}) {
     closing: null, // cancel handle for the close transition
     selection: null, // { from, to, text } behind the floating note button
     selTimer: 0,
+    diff: null, // task slug while the reader shows that task's change instead of the file
+    byLine: new Map(), // diff mode: new-side line number → .reader__line
+    shownRows: 0, // diff mode: rows drawn so far, the offset of the next page
+    widest: 1, // diff mode: the largest line number drawn, which sizes the gutter
+    lastDiff: null, // { path, slug } of the last change shown, so the plain file can offer the way back
   };
 
   // ---- DOM skeleton: handle, head, banner, body ---------------------------
@@ -171,9 +197,10 @@ export function createReader(container, deps = {}) {
   const baseEl = el("span", { class: "reader__base" });
   const pathEl = el("span", { class: "reader__path" }, dirEl, baseEl);
   const chipsEl = el("span", { class: "reader__chips" });
+  const modeBtn = el("button", { class: "btn btn--small reader__mode", type: "button", hidden: true });
   const editorLink = el("a", { class: "btn btn--small reader__editor", rel: "noopener", hidden: true }, icon("external"), "Open in editor");
   const closeBtn = el("button", { class: "btn btn--tool btn--icon reader__close", type: "button", "aria-label": "Close the reader (Escape)", title: "Close (Esc)" }, icon("close", 16));
-  const head = el("div", { class: "reader__head" }, icon("file"), pathEl, chipsEl, el("span", { class: "reader__actions" }, editorLink, closeBtn));
+  const head = el("div", { class: "reader__head" }, icon("file"), pathEl, chipsEl, el("span", { class: "reader__actions" }, modeBtn, editorLink, closeBtn));
 
   const banner = el("div", { class: "reader__banner", role: "status", hidden: true });
 
@@ -355,7 +382,18 @@ export function createReader(container, deps = {}) {
     baseEl.textContent = slash >= 0 ? path.slice(slash + 1) : path;
     pathEl.title = path;
     chipsEl.replaceChildren();
-    if (file && typeof file.text === "string") {
+    container.classList.toggle("is-diff", Boolean(st.diff));
+    setModeButton(path);
+    if (st.diff) {
+      chipsEl.append(chip("Task", st.diff, `What task ${st.diff} changed in this file`));
+      if (file) {
+        const label = STATUS_LABEL[file.status] ?? file.status;
+        chipsEl.append(el("span", { class: `chip reader__status reader__status--${file.status}`, title: file.from ? `${label} from ${file.from}` : `${label} by this task` }, label));
+        if (!file.binary) {
+          chipsEl.append(el("span", { class: "chip chip--muted reader__counts", title: `${fmt(file.added)} lines added, ${fmt(file.deleted)} deleted` }, el("span", { class: "reader__plus" }, `+${fmt(file.added)}`), " ", el("span", { class: "reader__minus" }, `\u2212${fmt(file.deleted)}`)));
+        }
+      }
+    } else if (file && typeof file.text === "string") {
       const total = toInt(file.totalLines) || st.lines.length;
       chipsEl.append(chip("Lines", fmt(total), `${fmt(total)} lines in the file`));
       const exported = st.symbols.filter((s) => s && s.exported).length;
@@ -365,8 +403,25 @@ export function createReader(container, deps = {}) {
     setEditorLine(0);
   }
 
+  /** "Show the file" while a change is on screen; "Show the change" on the plain file a change was just left for. */
+  function setModeButton(path) {
+    const back = !st.diff && st.lastDiff && st.lastDiff.path === path ? st.lastDiff.slug : null;
+    modeBtn.hidden = !st.diff && !back;
+    if (modeBtn.hidden) return;
+    modeBtn.textContent = st.diff ? "Show the file" : "Show the change";
+    modeBtn.title = st.diff ? "Show this file as it is in this checkout now" : `Show what task ${back} changed in this file`;
+    modeBtn.dataset.diff = st.diff ? "" : back;
+  }
+
+  modeBtn.addEventListener("click", () => {
+    const next = modeBtn.dataset.diff || null;
+    if (typeof deps.onModeChange === "function") deps.onModeChange(next);
+    else if (st.path) open(st.path, { diff: next });
+  });
+
   function setEditorLine(line) {
-    const base = editorBase(st.file, st.path, deps);
+    // In diff mode the link follows the text on screen: the payload names the copy to open, or none.
+    const base = st.diff ? (st.file?.editorUrl ? String(st.file.editorUrl) : null) : editorBase(st.file, st.path, deps);
     if (!base) {
       editorLink.hidden = true;
       editorLink.removeAttribute("href");
@@ -426,7 +481,7 @@ export function createReader(container, deps = {}) {
     const card = el(
       "div",
       { class: "card card--error reader__error", role: "alert" },
-      el("div", { class: "card__body" }, el("code", {}, FILE_ENDPOINT), ` failed: ${message}`),
+      el("div", { class: "card__body" }, el("code", {}, st.diff ? DIFF_ENDPOINT : FILE_ENDPOINT), ` failed: ${message}`),
       retry ? el("div", { class: "card__actions" }, el("button", { class: "btn btn--small", type: "button" }, "Retry")) : null,
     );
     if (retry) card.querySelector("button").addEventListener("click", retry);
@@ -499,6 +554,111 @@ export function createReader(container, deps = {}) {
     body.replaceChildren(noteBtn, code);
   }
 
+  // ---- Diff mode: the rows /api/filediff built, drawn with the same line DOM --------------------
+
+  /** One row. Only a row with a new-side number carries `data-line`; a deleted row shows its old number, dimmed. */
+  function diffRow(r) {
+    if (r.kind === "gap") {
+      const last = r.new + r.count - 1;
+      const where = r.count === 1 ? `line ${fmt(r.new)}` : `lines ${fmt(r.new)}\u2013${fmt(last)}`;
+      return el("div", { class: "reader__line reader__line--gap", role: "note" }, el("span", { class: "reader__ln", "aria-hidden": "true" }, el("span", { class: "reader__num" }, "\u22ef"), el("span", { class: "reader__sign" })), el("span", { class: "reader__gap" }, `${fmt(r.count)} unchanged ${r.count === 1 ? "line" : "lines"} not shown (${where})`));
+    }
+    const num = r.kind === "del" ? r.old : r.new;
+    const word = r.kind === "add" ? "added" : r.kind === "del" ? "deleted" : null;
+    const row = el(
+      "div",
+      { class: `reader__line reader__line--${r.kind}`, "data-line": r.kind === "del" ? null : String(r.new), "data-old": r.kind === "add" ? null : String(r.old) },
+      el(
+        "span",
+        { class: "reader__ln" },
+        el("span", { class: `reader__num${r.kind === "del" ? " reader__num--old" : ""}`, "aria-hidden": "true", title: r.kind === "del" ? `Line ${num} before this change` : null }, String(num)),
+        el("span", { class: "reader__sign", "aria-label": word, title: word }, SIGN[r.kind] ?? ""),
+      ),
+      el("code", { class: "reader__src" }, r.text),
+      r.cut ? el("span", { class: "reader__flag", title: "This line is longer than the 2 000 characters shown" }, "\u2026 cut") : null,
+      r.noeol ? el("span", { class: "reader__flag", title: "This is the file's last line and it does not end with a newline" }, "no newline at end of file") : null,
+    );
+    if (r.kind !== "del") st.byLine.set(r.new, row);
+    return row;
+  }
+
+  function appendDiffRows(code, rows) {
+    const frag = document.createDocumentFragment();
+    let first = null;
+    for (const r of rows) {
+      const row = diffRow(r);
+      if (!first) first = row;
+      frag.append(row);
+      st.widest = Math.max(st.widest, r.new ?? 0, r.old ?? 0, r.kind === "gap" ? r.new + r.count - 1 : 0);
+    }
+    code.append(frag);
+    // Later pages carry longer numbers; the gutter grows with them so the columns stay aligned.
+    code.style.setProperty("--reader-gutter", `${String(st.widest).length}ch`);
+    st.shownRows += rows.length;
+    return first;
+  }
+
+  function setDiffBanner(file) {
+    banner.replaceChildren();
+    const parts = [];
+    if (file.truncated || st.shownRows < toInt(file.totalRows)) {
+      const more = el("button", { class: "btn btn--small reader__more", type: "button" }, `Show the next ${fmt(Math.min(toInt(file.totalRows) - st.shownRows, 2000))} rows`);
+      more.addEventListener("click", () => loadMoreRows(more));
+      parts.push(el("span", { class: "reader__banner-text" }, "Showing rows 1\u2013", el("strong", {}, fmt(st.shownRows)), " of ", el("strong", {}, fmt(file.totalRows)), " in this change."), more);
+    }
+    if (file.changedSince === true) parts.push(el("span", { class: "reader__banner-text reader__banner-since" }, "This file has changed again since the task landed, so these line numbers are the landing's, not this checkout's."));
+    banner.append(...parts);
+    banner.hidden = parts.length === 0;
+  }
+
+  async function loadMoreRows(button) {
+    const token = st.token;
+    const path = st.path;
+    button.disabled = true;
+    try {
+      const page = await fetchJson(fileUrl(path, st.diff, st.shownRows));
+      if (token !== st.token) return;
+      const code = body.querySelector(".reader__code");
+      if (!code || !Array.isArray(page?.rows)) return;
+      const first = appendDiffRows(code, page.rows);
+      st.file = { ...st.file, truncated: page.truncated === true, totalRows: page.totalRows ?? st.file.totalRows };
+      setDiffBanner(st.file);
+      if (first) animateScroll(Math.max(0, first.offsetTop - 36));
+    } catch (err) {
+      if (token !== st.token) return;
+      button.disabled = false;
+      bannerNote(`The next rows could not be read: ${err?.message || String(err)}`);
+    }
+  }
+
+  function renderDiff(file) {
+    st.file = file;
+    st.symbols = [];
+    st.lines = [];
+    st.rows = [];
+    st.byLine = new Map();
+    st.shownRows = 0;
+    st.widest = 1;
+    hideNoteButton();
+    setHead(st.path, file);
+
+    const rows = Array.isArray(file.rows) ? file.rows : [];
+    const card = file.card ? el("div", { class: `card reader__card reader__card--${file.card.kind}`, role: "status" }, el("div", { class: "card__body" }, String(file.card.text ?? ""))) : null;
+    if (rows.length === 0) {
+      setDiffBanner(file);
+      body.replaceChildren(noteBtn, card ?? el("p", { class: "reader__empty" }, "There are no changed lines to show for this file."));
+      return;
+    }
+    const code = el("div", { class: "reader__code reader__code--diff" });
+    appendDiffRows(code, rows);
+    setDiffBanner(file);
+    body.replaceChildren(...[noteBtn, card, code].filter(Boolean));
+  }
+
+  function rowFor(n) {
+    return st.diff ? st.byLine.get(n) : st.rows[n - 1];
+  }
+
   body.addEventListener("click", (e) => {
     const mark = e.target.closest(".reader__mark[data-line]");
     if (!mark || !body.contains(mark)) return;
@@ -523,13 +683,17 @@ export function createReader(container, deps = {}) {
     clearHighlight();
     const rows = [];
     for (let n = from; n <= to; n++) {
-      const row = st.rows[n - 1];
+      const row = rowFor(n);
       if (row) {
         row.classList.add("is-hl");
         rows.push(row);
       }
     }
     setEditorLine(from);
+    if (rows.length === 0 && st.diff) {
+      bannerNote(`Line ${fmt(from)} is not among the rows of this change. "Show the file" has every line.`);
+      return false;
+    }
     if (rows.length === 0) {
       const truncated = !banner.hidden && banner.querySelector(".reader__banner-text");
       bannerNote(truncated ? `Line ${fmt(from)} is past the ${fmt(SHOWN_CHARS)} characters shown here.` : `Line ${fmt(from)} is beyond the end of this file (${fmt(st.lines.length)} lines).`);
@@ -605,12 +769,52 @@ export function createReader(container, deps = {}) {
     st.selTimer = setTimeout(updateSelection, 40);
   }
 
+  /** The row a range boundary sits in. */
+  function rowOf(node, offset, edge) {
+    let n = node;
+    if (n && n.nodeType === Node.ELEMENT_NODE && n.childNodes.length > 0) {
+      const idx = edge === "end" ? offset - 1 : offset;
+      n = n.childNodes[Math.min(Math.max(idx, 0), n.childNodes.length - 1)];
+    }
+    const elm = n && n.nodeType === Node.ELEMENT_NODE ? n : n && n.parentElement;
+    return elm && elm.closest ? elm.closest(".reader__line") : null;
+  }
+
+  /**
+   * Diff mode: a note is about lines of the branch-side text, so every row the selection covers must
+   * have a new-side number. A deleted row or a gap row anywhere inside it means there is no honest
+   * "lines a–b" to offer, and nothing is offered.
+   */
+  function diffSelection(range) {
+    const first = rowOf(range.startContainer, range.startOffset, "start");
+    let last = rowOf(range.endContainer, range.endOffset, "end");
+    if (!first || !last) return null;
+    // A drag that ends at the very start of the next row selects nothing on that row.
+    if (last !== first && range.endOffset === 0 && last.previousElementSibling) last = last.previousElementSibling;
+    const texts = [];
+    for (let row = first; row; row = row.nextElementSibling) {
+      if (!toInt(row.dataset.line)) return null;
+      texts.push(row.querySelector(".reader__src")?.textContent ?? "");
+      if (row === last) return { from: toInt(first.dataset.line), to: toInt(last.dataset.line), text: texts.join("\n") };
+    }
+    return null; // `last` came before `first`: not a forward selection inside the code
+  }
+
   function updateSelection() {
     if (!noteHandler || !st.file) return hideNoteButton();
     const sel = document.getSelection();
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return hideNoteButton();
     const range = sel.getRangeAt(0);
     if (!body.contains(range.commonAncestorContainer)) return hideNoteButton();
+    if (st.diff) {
+      const picked = diffSelection(range);
+      if (!picked || !picked.text.trim()) return hideNoteButton();
+      st.selection = picked;
+      noteBtn.textContent = picked.from === picked.to ? `Add a note about line ${picked.from}` : `Add a note about lines ${picked.from}\u2013${picked.to}`;
+      noteBtn.hidden = false;
+      positionNoteButton(range);
+      return undefined;
+    }
     const a = lineOf(range.startContainer, range.startOffset, "start");
     let b = lineOf(range.endContainer, range.endOffset, "end");
     if (!a || !b) return hideNoteButton();
@@ -655,15 +859,18 @@ export function createReader(container, deps = {}) {
   noteBtn.addEventListener("click", () => {
     const s = st.selection;
     if (!s || !noteHandler) return;
-    const prefill = s.from === s.to ? `(line ${s.from}) ` : `(lines ${s.from}–${s.to}) `;
+    // In diff mode the numbers are the branch's, not this checkout's, so the note says whose they are.
+    const where = s.from === s.to ? `line ${s.from}` : `lines ${s.from}–${s.to}`;
+    const prefill = st.diff ? `(${where}, as changed by task ${st.diff}) ` : `(${where}) `;
+    const diff = st.diff;
     hideNoteButton();
-    noteHandler(prefill, { path: st.path, from: s.from, to: s.to, text: s.text });
+    noteHandler(prefill, { path: st.path, from: s.from, to: s.to, text: s.text, diff });
   });
 
   // ---- open ----------------------------------------------------------------------------
 
-  function fileUrl(path) {
-    let url = `${FILE_ENDPOINT}?path=${encodeURIComponent(path)}`;
+  function fileUrl(path, diff, offset) {
+    let url = diff ? diffUrl(path, diff, offset) : `${FILE_ENDPOINT}?path=${encodeURIComponent(path)}`;
     if (typeof deps.withRepo === "function") return deps.withRepo(url);
     if (deps.repo) url += `&repo=${encodeURIComponent(deps.repo)}`;
     return url;
@@ -692,17 +899,24 @@ export function createReader(container, deps = {}) {
   async function open(path, opts = {}) {
     if (typeof path !== "string" || !path) return;
     reveal();
-    const sameFile = st.path === path && st.file && !opts.file && !opts.fresh;
+    const diff = typeof opts.diff === "string" && opts.diff ? opts.diff : null;
+    // The reader's identity is the path plus the mode: the same path in the other mode is a reload.
+    const sameFile = st.path === path && st.diff === diff && st.file && !opts.file && !opts.fresh;
     if (sameFile) {
       const hl = resolveHighlight(opts, Array.isArray(opts.symbols) ? opts.symbols : st.symbols);
       if (hl) scrollTo(hl.line, hl.endLine);
       return;
     }
     st.path = path;
+    st.diff = diff;
+    if (diff) st.lastDiff = { path, slug: diff };
+    else if (st.lastDiff && st.lastDiff.path !== path) st.lastDiff = null;
     st.file = null;
     st.lines = [];
     st.rows = [];
-    st.symbols = Array.isArray(opts.symbols) ? opts.symbols : [];
+    st.byLine = new Map();
+    st.shownRows = 0;
+    st.symbols = Array.isArray(opts.symbols) && !diff ? opts.symbols : [];
     st.pending = resolveHighlight(opts, st.symbols);
     const token = ++st.token;
     setHead(path, null);
@@ -711,7 +925,7 @@ export function createReader(container, deps = {}) {
     let file = opts.file ?? null;
     if (!file) {
       try {
-        file = await fetchJson(fileUrl(path));
+        file = await fetchJson(fileUrl(path, diff, 0));
       } catch (err) {
         if (token !== st.token) return;
         showError(err?.message || String(err), () => open(path, { ...opts, fresh: true }));
@@ -723,8 +937,9 @@ export function createReader(container, deps = {}) {
       showError("empty response", () => open(path, { ...opts, fresh: true }));
       return;
     }
-    const symbols = Array.isArray(opts.symbols) ? opts.symbols : Array.isArray(file.symbols) ? file.symbols : [];
-    renderFile(file, symbols);
+    const symbols = diff ? [] : Array.isArray(opts.symbols) ? opts.symbols : Array.isArray(file.symbols) ? file.symbols : [];
+    if (diff) renderDiff(file);
+    else renderFile(file, symbols);
     const hl = st.pending || resolveHighlight(opts, symbols);
     st.pending = null;
     if (hl) scrollTo(hl.line, hl.endLine);
@@ -736,6 +951,6 @@ export function createReader(container, deps = {}) {
     close,
     scrollTo,
     isOpen: () => st.open,
-    current: () => ({ path: st.path, open: st.open, loaded: Boolean(st.file), height: st.heightPx }),
+    current: () => ({ path: st.path, diff: st.diff, open: st.open, loaded: Boolean(st.file), height: st.heightPx }),
   };
 }

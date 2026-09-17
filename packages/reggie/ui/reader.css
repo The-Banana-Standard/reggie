@@ -97,7 +97,41 @@
 .reader__error { margin: var(--s-3); font-family: var(--font); font-size: var(--fs-label); }
 .reader__empty { margin: 0; padding: var(--s-3); color: var(--muted); font-family: var(--font); font-size: var(--fs-label); }
 
-/* Dense mode keeps the drawer usable at narrow widths: drop the chips first. */
+/* ---------- Diff mode: what a task changed, drawn with the same line rows ----------
+   Colour is never the only signal: every added and deleted row carries + or − in the sign column.
+   The gutter is sticky and opaque, so a tinted row needs the tint mixed into --bg rather than laid over it. */
+.reader__mode { color: var(--info); }
+.reader__sign { display: inline-block; width: 1ch; margin-left: var(--s-1); text-align: center; font-weight: 600; }
+.reader__line--add { background: #20281f; } /* --ok at 12 % over --bg */
+.reader__line--add .reader__ln { background: #20281f; }
+.reader__line--add .reader__sign, .reader__plus { color: var(--ok); }
+.reader__line--del { background: #2b1d24; } /* --bad at 12 % over --bg */
+.reader__line--del .reader__ln { background: #2b1d24; }
+.reader__line--del .reader__sign, .reader__minus { color: var(--bad); }
+.reader__line--add.is-hl, .reader__line--add.is-hl .reader__ln { background: #2a3a28; }
+.reader__num--old { font-style: italic; opacity: 0.75; }
+.reader__line--gap { margin: 2px 0; background: var(--panel); color: var(--faint-text); border-block: 1px solid var(--line); user-select: none; -webkit-user-select: none; }
+.reader__line--gap .reader__ln { background: var(--panel); }
+.reader__gap { padding: 0 var(--s-3) 0 var(--s-2); font-family: var(--font); font-size: var(--fs-sub); }
+.reader__flag { flex: 0 0 auto; align-self: center; margin-right: var(--s-3); padding: 0 6px; border-radius: 4px; background: var(--line); color: var(--muted); font-family: var(--font); font-size: var(--fs-sub); user-select: none; -webkit-user-select: none; }
+.reader__line--add .reader__src, .reader__line--del .reader__src, .reader__line--ctx .reader__src { flex: 0 0 auto; }
+.reader__card { margin: var(--s-3); font-family: var(--font); font-size: var(--fs-label); white-space: normal; }
+.reader__card--deleted { border-left-color: var(--bad); }
+.reader__card--unreadable { border-left-color: var(--warn); }
+.reader__status { font-weight: 600; }
+.reader__status--added { border-color: var(--ok); color: var(--ok); }
+.reader__status--deleted { border-color: var(--bad); color: var(--bad); }
+.reader__status--renamed, .reader__status--copied, .reader__status--typechange { border-color: var(--info); color: var(--info); }
+.reader__status--modified { border-color: var(--warn); color: var(--warn); }
+.reader__counts { font-family: var(--mono); }
+.reader__more { margin-left: auto; }
+.reader__banner-since { color: var(--warn); }
+
+/* Dense mode keeps the drawer usable at narrow widths: drop the chips first. In diff mode the chips
+   say whose change this is and how big, so they stay and take a row of their own instead. */
 @media (max-width: 1100px) {
   .reader__chips { display: none; }
+  .reader.is-diff .reader__head { flex-wrap: wrap; row-gap: 2px; padding-bottom: var(--s-1); }
+  .reader.is-diff .reader__path { flex: 1 1 0; }
+  .reader.is-diff .reader__chips { display: flex; order: 3; flex: 1 0 100%; }
 }

@@ -1574,6 +1574,11 @@ export function footerFor(model, controls = {}) {
  */
 export function emptyMapText(model) {
   const level = model?.level;
+  // A caller that knows why its view is empty says so itself: a file page in diff mode draws an
+  // empty impact view for a path the graph never read, and "nothing imports this file" would be a
+  // claim about imports nobody measured.
+  const own = model?.view?.empty;
+  if (own && typeof own.text === "string" && own.text) return { text: own.text, hint: typeof own.hint === "string" ? own.hint : "" };
   if (level === "services") {
     return {
       text: "Nothing in this repo reaches a service that can be read from the code.",
