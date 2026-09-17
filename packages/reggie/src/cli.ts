@@ -9,6 +9,7 @@ import { claimTask, releaseTask } from "./claim.js";
 import { pendingSetup, type DepsOutcome } from "./deps.js";
 import { buildContext } from "./context.js";
 import { checkComposedFile, checkGeneratedBlock, composeAgentsMd, curatedSections, renderGeneratedBlock } from "./docs.js";
+import { DeriveError, deriveJournal, realRewriteRunner, type DeriveInput } from "./derive.js";
 import { collectFacts } from "./facts.js";
 import { detectFlows, MAX_FLOW_HOPS, traceFlow, type Payload } from "./flows.js";
 import { buildGraph, type RepoGraph } from "./graph.js";
@@ -21,6 +22,7 @@ import { startServer } from "./serve.js";
 import { detectServices, type ServiceNode } from "./services.js";
 import { addNote, findNotes, NOTE_TYPES, notesForPath, renderNoteFile, staleEntries, type Confidence, type NoteType } from "./notes.js";
 import { onboard, refreshDocs } from "./onboard.js";
+import { defaultClaudeHome } from "./transcript.js";
 import { landTask, type LandResult } from "./land.js";
 import { decidePacket, scaffoldPacket } from "./packet.js";
 import { briefFile, findRepoRoot, packetFile, planFile, repoPaths, type RepoPaths } from "./paths.js";
@@ -574,6 +576,46 @@ journal
     if (opts.session) input.session = opts.session;
     const e = appendJournal(c.paths, input);
     out(`Journaled ${e.date} ${e.time} → ${path.relative(c.root, e.file)}`);
+  });
+journal
+  .command("derive <slug>")
+  .description("Write a journal entry from a task's commits and the closing words of its launched Claude sessions; appends what is new, prints all of it, and never commits")
+  .option("--session <uuid>", "also read this Claude session's transcript; it must have worked inside this repository")
+  .option("--dry-run", "print the entry and the summary, write nothing")
+  .option("--rewrite", "off by default: send the entry's text, and nothing else, to the session's own tool (claude -p) for one rewrite per entry; any failure keeps the template")
+  .action((slug: string, opts: { session?: string; dryRun?: boolean; rewrite?: boolean }) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    const input: DeriveInput = { slug: requireSlug(slug), claudeHome: defaultClaudeHome(), person: c.person };
+    if (opts.session !== undefined) input.session = opts.session;
+    if (opts.dryRun) input.dryRun = true;
+    if (opts.rewrite) {
+      input.rewrite = true;
+      input.runner = realRewriteRunner();
+    }
+    let r: ReturnType<typeof deriveJournal>;
+    try {
+      r = deriveJournal(c.paths, c.config, input);
+    } catch (err) {
+      // The summary holds counts only, and it is the last line of output either way.
+      if (err instanceof DeriveError && err.summary) out(err.summary);
+      return fail(err instanceof Error ? err.message : String(err));
+    }
+    for (const e of r.entries) {
+      out(e.block);
+      out("");
+      out(
+        e.written
+          ? `Appended to ${e.file}, which is uncommitted: read it, then commit it. Until you do, the next \`reggie decide\` in this checkout refuses to merge, as it does for any hand entry.`
+          : `Dry run: this would be appended to ${e.file}. Nothing was written.`,
+      );
+      out("");
+    }
+    if (r.message) out(r.message);
+    if (r.codexUnread > 0) out(`${r.codexUnread === 1 ? "One Codex session was" : `${r.codexUnread} Codex sessions were`} launched for this task and not read: Reggie does not read Codex transcripts yet.`);
+    for (const s of r.sessions) if (s.status === "not-found") out(`Session ${s.id} is recorded for this task, but its transcript is not on this machine.`);
+    for (const note of r.notes) out(note);
+    if (r.withheld > 0) out(`Withheld ${r.withheld} passage${r.withheld === 1 ? "" : "s"} that looked like a secret, an address or a local path.`);
+    out(r.summary);
   });
 journal
   .command("show")

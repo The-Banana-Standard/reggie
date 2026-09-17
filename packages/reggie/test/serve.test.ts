@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { claimTask } from "../src/claim.js";
 import { git } from "../src/git.js";
 import { clearHistoryCache } from "../src/history.js";
+import { appendJournal } from "../src/journal.js";
 import { briefFile, packetFile } from "../src/paths.js";
 import { startServer, type ServerHandle } from "../src/serve.js";
 import { TASK_STATES } from "../src/tasks.js";
@@ -14,7 +15,7 @@ import { currentPerson, loadConfig, loadPeople } from "../src/people.js";
 import { repoPaths } from "../src/paths.js";
 import { makeDiffFixture, oddLine, SPACED_NAMES, XSS_LINE, type DiffFixture } from "./diff-fixture.js";
 import { makeFixtureRepo, type FixtureRepo } from "./fixtures.js";
-import { makeTempRepo, type TempRepo } from "./helpers.js";
+import { fullPlan, makeTempRepo, type TempRepo } from "./helpers.js";
 
 let fx: FixtureRepo;
 let server: ServerHandle;
@@ -1988,4 +1989,37 @@ describe("what a task changed", () => {
       }
     }, 60_000);
   });
+});
+
+describe("a derived journal entry over HTTP", () => {
+  it("comes back from both journal routes with its derived object, and with the mark kept out of the text", async () => {
+    const repo = makeTempRepo("reggie-serve-derived-");
+    const paths = repoPaths(repo.root);
+    ensureLayout(paths);
+    const slug = "derived-task";
+    mkdirSync(path.join(paths.tasks, slug), { recursive: true });
+    writeFileSync(path.join(paths.tasks, slug, "plan.md"), fullPlan(slug), "utf8");
+    repo.commitAll("plan");
+    const mark = { session: "00000000-0000-4000-8000-000000000001", through: new Date().toISOString(), commits: ["0123456789ab"], prose: "template" as const };
+    appendJournal(paths, { person: "test", tool: "claude", slug, stage: "execute", text: "Reggie wrote this entry from invented facts.", evidence: [`.reggie/tasks/${slug}/plan.md`], session: mark.session, derived: mark });
+    appendJournal(paths, { person: "test", tool: "human", slug, stage: "execute", text: "A hand entry beside it.", session: "s1" });
+    const derivedServer = await startServer(paths, loadConfig(paths), { port: 0, host: "127.0.0.1", workspace: null });
+    try {
+      const fromJournal = (await (await fetch(`http://127.0.0.1:${derivedServer.port}/api/journal?slug=${slug}`)).json()) as any[];
+      const fromTask = ((await (await fetch(`http://127.0.0.1:${derivedServer.port}/api/task/${slug}`)).json()) as any).journal as any[];
+      for (const entries of [fromJournal, fromTask]) {
+        expect(entries).toHaveLength(2);
+        const derived = entries.find((e) => e.derived);
+        expect(derived.derived).toEqual(mark);
+        expect(derived.text).toBe("Reggie wrote this entry from invented facts.");
+        expect(derived.text).not.toContain("derived:");
+        expect(derived.evidence).toEqual([`.reggie/tasks/${slug}/plan.md`]);
+        expect(entries.find((e) => !e.derived).text).toBe("A hand entry beside it.");
+      }
+    } finally {
+      await derivedServer.close();
+      clearHistoryCache(repo.root);
+      repo.cleanup();
+    }
+  }, 60_000);
 });
