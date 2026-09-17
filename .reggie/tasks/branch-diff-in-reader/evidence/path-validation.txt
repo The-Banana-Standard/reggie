@@ -1,0 +1,17 @@
+$ TZ=UTC npx vitest run test/serve.test.ts -t what a task changed path validation|what a task changed no change to read|what a task changed large changes|renamed|merged the base back --reporter=verbose      (skipped tests left out of this capture)
+# git 2.55.0, node v22.22.2, 2026-09-17T10:38Z, commit 4571cfb
+ RUN  v4.1.11 <worktree>/packages/reggie
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > merged the base back in: the base's own file is in neither list 1049ms
+ ✓ test/serve.test.ts > what a task changed > large changes > pages a 60,000-line file 2,000 rows at a time 283ms
+ ✓ test/serve.test.ts > what a task changed > large changes > cuts a 5 MB single line to 2,000 characters in a small response 82ms
+ ✓ test/serve.test.ts > what a task changed > no change to read > a done task landed by fast-forward: 200 and a reason; its file route 404s with the same reason 66ms
+ ✓ test/serve.test.ts > what a task changed > no change to read > no task branch and no landing: 200 and a reason; unknown slug 404; unsafe slug 400 62ms
+ ✓ test/serve.test.ts > what a task changed > no change to read > a done task landed by fast-forward whose branch was kept: a reason, never 'no commits yet' 588ms
+ ✓ test/serve.test.ts > what a task changed > no change to read > a branch with no shared history: 200, unavailable, and a reason, never a 500 or an empty list 84ms
+ ✓ test/serve.test.ts > what a task changed > path validation > 400s a path that cannot be a repo path, 404s one that is not in the change list, and writes nothing 364ms
+ ✓ test/serve.test.ts > what a task changed > path validation > opens a committed name that begins or ends with a space, which a tidied path no longer matches 256ms
+ ✓ test/serve.test.ts > what a task changed > path validation > never answers a refusal with git's stderr or an absolute path 3ms
+ Test Files  1 passed (1)
+      Tests  10 passed | 124 skipped (134)
+   Start at  10:38:30
+   Duration  5.14s (transform 251ms, setup 0ms, import 314ms, tests 4.77s, environment 0ms)

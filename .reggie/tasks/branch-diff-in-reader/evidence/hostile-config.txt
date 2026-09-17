@@ -1,0 +1,8 @@
+$ TZ=UTC npx vitest run src/changes.test.ts -t hostile git config --reporter=verbose      (skipped tests left out of this capture)
+# git 2.55.0, node v22.22.2, 2026-09-17T10:37Z, commit 4571cfb
+ RUN  v4.1.11 <worktree>/packages/reggie
+ ✓ src/changes.test.ts > hostile git config > changes nothing about the list or the rows, and never runs the external diff program 4100ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 53 skipped (54)
+   Start at  10:37:54
+   Duration  5.99s (transform 96ms, setup 0ms, import 126ms, tests 5.81s, environment 0ms)

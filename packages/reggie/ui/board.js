@@ -127,6 +127,16 @@ const RISK_TIPS = {
 };
 const RISK_TONE = { low: "ok", medium: "warn", high: "bad", unset: "muted" };
 const OP_TIPS = { NEW: "NEW: the plan creates this file", MOD: "MOD: the plan changes this file", DEL: "DEL: the plan deletes this file" };
+/** The states whose task page asks `/api/changes`: a branch exists, or a merge landed one. */
+const CHANGE_STATES = new Set(["in-process", "awaiting-decision", "done"]);
+const CHANGE_STATUS = {
+  added: ["Added", "new", "This task added the file"],
+  deleted: ["Deleted", "del", "This task deleted the file"],
+  modified: ["Modified", "mod", "This task changed the file"],
+  renamed: ["Renamed", "ren", "This task renamed the file"],
+  copied: ["Copied", "ren", "This task copied the file from another"],
+  typechange: ["Type changed", "ren", "This task changed what kind of file it is"],
+};
 const VERDICT_TONE = { pending: "warn", approved: "ok", "needs-work": "bad" };
 const VERDICT_LABEL = { pending: "Pending", approved: "Approved", "needs-work": "Needs work" };
 const PACKET_SECTIONS = ["Changes", "Reviews", "Deviations from plan", "Discovered issues", "Open risks"];
@@ -248,6 +258,11 @@ function taskRoute(repo, slug) {
 
 function fileRoute(repo, id) {
   return routeForNode(repo, id);
+}
+
+/** The door into a change: the file page with the reader in diff mode for that task. */
+function diffRoute(repo, path, slug) {
+  return formatRoute({ level: "file", repo, id: path, query: { diff: slug } });
 }
 
 /**
@@ -1940,11 +1955,14 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
       );
     });
     const diff = c.diff ?? { files: [], filesChanged: 0, added: 0, deleted: 0, commits: 0 };
+    // With a landing merge the change itself is readable, so each file is a door into it; without
+    // one `/api/changes` has no range to read and the link stays the plain file.
+    const landed = Boolean(c.merge);
     const files = (diff.files ?? []).map((f) =>
       h(
         "li",
         { class: "done-file", dataset: { refs: f.path } },
-        entityLink("file", fileRoute(ctx.repo, f.path), f.path, { refs: f.path }),
+        entityLink("file", landed ? diffRoute(ctx.repo, f.path, t.slug) : fileRoute(ctx.repo, f.path), f.path, { refs: f.path, title: landed ? `Open what ${t.slug} changed in ${f.path}` : null }),
         h("span", { class: "done-file__stat" }, h("span", { class: "done-file__add" }, `+${f.added}`), " ", h("span", { class: "done-file__del" }, `−${f.deleted}`)),
       ),
     );
@@ -1967,7 +1985,12 @@ export function renderBoard(storyEl, mapEl, data = {}, deps = {}) {
             "div",
             {},
             h("ul", { class: "done-files" }, files),
-            h("p", { class: "hint" }, `${diff.filesChanged} ${diff.filesChanged === 1 ? "file" : "files"}, +${diff.added} −${diff.deleted}, across ${diff.commits} ${diff.commits === 1 ? "commit" : "commits"}. Reggie's own records are left out.`),
+            h(
+              "p",
+              { class: "hint" },
+              `${diff.filesChanged} ${diff.filesChanged === 1 ? "file" : "files"}, +${diff.added} −${diff.deleted}, across ${diff.commits} ${diff.commits === 1 ? "commit" : "commits"}. Reggie's own records are left out`,
+              landed ? [" of these counts; ", entityLink("task", taskRoute(ctx.repo, t.slug), "the task page", { title: `Open ${t.slug}: its "What changed" section lists the records too` }), " lists them with the rest of the change."] : ".",
+            ),
           )
         : h("p", { class: "para muted" }, "Git has no commits carrying this task's trailer, so no diff can be attributed to it."),
       h("h4", { class: "task-sub" }, `Journal (${(c.journal ?? []).length})`),
@@ -2650,6 +2673,100 @@ function blastControls(mapEl, ctx, blast) {
 // renderTaskPage (spec §3.7)
 // ---------------------------------------------------------------------------
 
+/** Mark a file link that becomes a door once `/api/changes` says the task changed that path. */
+function doorCandidate(link, path) {
+  link.dataset.changePath = path;
+  return link;
+}
+
+function changeRow(repo, slug, f) {
+  const [label, tone, tip] = CHANGE_STATUS[f.status] ?? [f.status, "mod", f.status];
+  const mode = f.oldMode && f.newMode && f.oldMode !== f.newMode ? chip(null, `mode ${f.oldMode} → ${f.newMode}`, { tone: "muted", tip: "The file's mode changed" }) : null;
+  return h(
+    "li",
+    { class: "change-file", dataset: { refs: f.path } },
+    h("span", { class: `badge badge--${tone} change-file__status`, title: tip }, label),
+    entityLink("file", diffRoute(repo, f.path, slug), f.path, { refs: f.path, title: `Open what ${slug} changed in ${f.path}` }),
+    f.from ? h("span", { class: "change-file__from faint", title: `Renamed from ${f.from}` }, `from ${f.from}`) : null,
+    mode,
+    f.binary
+      ? h("span", { class: "change-file__stat faint", title: "A binary file has no lines to count" }, "binary")
+      : h("span", { class: "change-file__stat", title: `${f.added} lines added, ${f.deleted} deleted` }, h("span", { class: "done-file__add" }, `+${f.added}`), " ", h("span", { class: "done-file__del" }, `−${f.deleted}`)),
+  );
+}
+
+/** "3 commits", "1 file": a count and its noun. */
+function countOf(n, one, many = `${one}s`) {
+  return `${Number(n).toLocaleString()} ${n === 1 ? one : many}`;
+}
+
+/** The sentence above the list: which two points the change is read between, and how big it is. */
+function changeSummary(c) {
+  const r = c.range;
+  const size = `${countOf(r.commits, "commit")}, ${countOf(c.totals.files, "file")}, +${c.totals.added} −${c.totals.deleted}`;
+  if (r.kind === "merge") {
+    return [`Read from the merge that landed it on `, h("code", {}, r.baseName), ` (`, h("code", { title: r.ref }, r.ref.slice(0, 7)), `), against the commit before it: ${size}. It reads as it landed, whatever `, h("code", {}, r.baseName), " has done since."];
+  }
+  return [h("code", {}, r.refName), " against ", h("code", {}, r.baseName), `, from the commit it branched at (`, h("code", { title: r.base }, r.base.slice(0, 7)), `): ${size}. This is what a merge would land.`];
+}
+
+/**
+ * The "What changed" section of a task page. It mounts with a skeleton and fills itself from
+ * `/api/changes`, then turns every marked file link on the page whose path the task changed into a
+ * door. `targetOf` is read late, because the section is built before the page is mounted.
+ */
+function changesSection(ctx, repo, slug, targetOf) {
+  const bodyEl = h("div", { class: "changes", "aria-live": "polite" }, skeleton());
+  const sec = section("changes", "What changed", bodyEl);
+  ctx
+    .fetchJson(`/api/changes?slug=${encodeURIComponent(slug)}`)
+    .then((c) => {
+      // The story container is shared by every task page, so an answer that arrives after the reader
+      // has moved on would otherwise rewrite the links of whichever task is on screen by then.
+      if (!bodyEl.isConnected) return;
+      if (!c?.available) {
+        mount(bodyEl, h("p", { class: "para muted changes__reason" }, c?.reason ?? "There is no change to read for this task."));
+        return;
+      }
+      const files = c.files ?? [];
+      const records = c.records ?? [];
+      const parts = [h("p", { class: "para para--fact changes__summary" }, changeSummary(c))];
+      if (files.length === 0 && records.length === 0) {
+        parts.push(
+          h(
+            "p",
+            { class: "para para--warn changes__none" },
+            c.range.commits > 0
+              ? `The ${countOf(c.range.commits, "commit")} on this branch left no net change against ${c.range.baseName}: whatever one of them changed, another changed back.`
+              : `The branch has no commits past ${c.range.baseName} yet, so nothing has changed.`,
+          ),
+        );
+      } else if (files.length === 0) {
+        parts.push(h("p", { class: "para muted changes__none" }, "Nothing outside Reggie's own records changed."));
+      } else {
+        parts.push(h("ul", { class: "change-files" }, files.map((f) => changeRow(repo, slug, f))));
+      }
+      if (records.length > 0) {
+        parts.push(
+          h("h4", { class: "task-sub" }, `Reggie's own records (${records.length})`),
+          h("p", { class: "hint" }, "The plan, the packet, the evidence and the journal this task wrote. They open the same way, and are left out of the counts above."),
+          h("ul", { class: "change-files change-files--records" }, records.map((f) => changeRow(repo, slug, f))),
+        );
+      }
+      mount(bodyEl, parts);
+      const listed = new Set([...files, ...records].map((f) => f.path));
+      for (const a of targetOf()?.querySelectorAll?.("a[data-change-path]") ?? []) {
+        if (!listed.has(a.dataset.changePath)) continue;
+        a.setAttribute("href", diffRoute(repo, a.dataset.changePath, slug));
+        a.title = `Open what ${slug} changed in ${a.dataset.changePath}`;
+      }
+    })
+    .catch((e) => {
+      if (bodyEl.isConnected) mount(bodyEl, h("p", { class: "para para--warn" }, `What this task changed could not be read: ${friendlyError(e)}`));
+    });
+  return sec;
+}
+
 /**
  * data = GET /api/task/<slug> payload plus `view` (GET /api/impact?slug=…), optional `people`.
  * deps = { repo, map, post, fetchJson, onDecide, depth, show, syncQuery }.
@@ -2746,6 +2863,12 @@ export function renderTaskPage(storyEl, mapEl, data = {}, deps = {}) {
       : null,
   );
 
+  // --- what changed: the door into the diff ------------------------------------------------
+  // Filled from /api/changes once the page is up. The list is the one source of doors: a "Files to
+  // touch" row or an "also changed" link whose path is in it opens the change instead of the file,
+  // which is how a done task, whose branch comparison is empty, gets doors too.
+  const changesSec = CHANGE_STATES.has(task.state) ? changesSection(ctx, repo, slug, () => target) : null;
+
   // --- a task before it has a plan: the story column is its explanation ---------------
   // Without a plan the ten plan sections would each say "no plan yet". The server's task story
   // instead says what was written, where it probably lives, what is known there and what is
@@ -2755,7 +2878,7 @@ export function renderTaskPage(storyEl, mapEl, data = {}, deps = {}) {
     const listen = listenControls({ repo, scope: "task", id: slug });
     head.querySelector(".task-head__actions")?.appendChild(listen);
     if (target) {
-      mount(target, head, h("div", { class: "task-story is-skeleton" }, skeleton()));
+      mount(target, head, h("div", { class: "task-story is-skeleton" }, skeleton()), changesSec);
       ctx
         .fetchJson(`/api/story?scope=task&id=${encodeURIComponent(slug)}`)
         .then((story) => {
@@ -2809,9 +2932,9 @@ export function renderTaskPage(storyEl, mapEl, data = {}, deps = {}) {
       if (f.exists === false && f.op !== "NEW" && f.op !== "DEL") tags.push(chip(null, "missing", { tone: "warn", tip: "This path is not in the repo" }));
       if (changed.has(f.path)) tags.push(chip(null, "changed on branch", { tone: "ok", tip: "This file has commits on the task branch" }));
       else if (untouched.has(f.path)) tags.push(chip(null, "not changed yet", { tone: "muted", tip: "Planned but no commit touches it yet" }));
-      return h("li", { class: "task-file", dataset: { refs: id } }, entityLink("file", fileRoute(repo, id), f.path, { refs: id }), tags);
+      return h("li", { class: "task-file", dataset: { refs: id } }, doorCandidate(entityLink("file", fileRoute(repo, id), f.path, { refs: id }), f.path), tags);
     });
-    const unplanned = (impact.touchedButUnplanned ?? []).map((p, i) => [i > 0 ? ", " : null, entityLink("file", fileRoute(repo, p), p, { refs: p })]);
+    const unplanned = (impact.touchedButUnplanned ?? []).map((p, i) => [i > 0 ? ", " : null, doorCandidate(entityLink("file", fileRoute(repo, p), p, { refs: p }), p)]);
     const collisions = (impact.collisions ?? []).map((c) => {
       const same = c.owner && task.owner && c.owner === task.owner;
       const clause = same ? `${c.owner} owns both.` : c.owner ? `${c.owner} owns the other${task.owner ? "" : "; this one has no owner"}.` : "the other has no owner yet.";
@@ -2835,6 +2958,8 @@ export function renderTaskPage(storyEl, mapEl, data = {}, deps = {}) {
         collisions,
       ),
     );
+
+    if (changesSec) planSections.push(changesSec);
 
     // criteria
     const packetCriteria = new Map((packet?.criteria ?? []).map((c) => [normCriterion(c.text), c]));

@@ -1,0 +1,13 @@
+$ TZ=UTC npx vitest run src/changes.test.ts test/serve.test.ts -t no change to read|says why there is nothing to read|fast-forward --reporter=verbose      (skipped tests left out of this capture)
+# git 2.55.0, node v22.22.2, 2026-09-17T10:38Z, commit 4571cfb
+ RUN  v4.1.11 <worktree>/packages/reggie
+ ✓ src/changes.test.ts > branch-level cases > says why there is nothing to read, in its own words 62ms
+ ✓ src/changes.test.ts > branch-level cases > a done task that landed by fast-forward with its branch kept is not reported as nothing changed 40ms
+ ✓ test/serve.test.ts > what a task changed > no change to read > a done task landed by fast-forward: 200 and a reason; its file route 404s with the same reason 906ms
+ ✓ test/serve.test.ts > what a task changed > no change to read > no task branch and no landing: 200 and a reason; unknown slug 404; unsafe slug 400 61ms
+ ✓ test/serve.test.ts > what a task changed > no change to read > a done task landed by fast-forward whose branch was kept: a reason, never 'no commits yet' 600ms
+ ✓ test/serve.test.ts > what a task changed > no change to read > a branch with no shared history: 200, unavailable, and a reason, never a 500 or an empty list 84ms
+ Test Files  2 passed (2)
+      Tests  6 passed | 182 skipped (188)
+   Start at  10:38:25
+   Duration  4.02s (transform 312ms, setup 0ms, import 448ms, tests 5.79s, environment 0ms)

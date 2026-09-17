@@ -1,4 +1,5 @@
-import { rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fullPlan, makeTempRepo, type TempRepo } from "../test/helpers.js";
@@ -600,5 +601,65 @@ describe("briefs shape a task before a plan does", () => {
       [shaped, "groomed"],
       [raw, "ungroomed"],
     ]);
+  });
+});
+
+describe("branchRef: the ref a task's branch is read from", () => {
+  let repo: TempRepo;
+  let remote: string;
+  beforeEach(() => {
+    repo = makeTempRepo();
+    onboard(repo.root);
+    repo.commitAll("onboard");
+    remote = mkdtempSync(path.join(os.tmpdir(), "reggie-branchref-origin-"));
+    git(["init", "-q", "--bare", remote], { cwd: remote });
+    git(["remote", "add", "origin", remote], { cwd: repo.root });
+    git(["push", "-q", "origin", "main"], { cwd: repo.root });
+  });
+  afterEach(() => {
+    repo.cleanup();
+    rmSync(remote, { recursive: true, force: true });
+  });
+
+  function branchWithCommit(name: string, file: string): void {
+    git(["switch", "-q", "-c", name], { cwd: repo.root });
+    repo.write(file, "export const x = 1;\n");
+    repo.commitAll(`work on ${name}`);
+    git(["switch", "-q", "main"], { cwd: repo.root });
+  }
+
+  it("names the local task branch, the remote-tracking one when that is all the clone has, and nothing otherwise", () => {
+    const paths = repoPaths(repo.root);
+    const config = loadConfig(paths);
+
+    branchWithCommit("task/local-one", "src/local.ts");
+    expect(getTask(paths, config, "local-one").branchRef).toBe("task/local-one");
+
+    // Pushed, then deleted locally: only refs/remotes/origin/task/remote-one is left in this clone.
+    branchWithCommit("task/remote-one", "src/remote.ts");
+    git(["push", "-q", "origin", "task/remote-one"], { cwd: repo.root });
+    git(["branch", "-q", "-D", "task/remote-one"], { cwd: repo.root });
+    git(["fetch", "-q", "origin"], { cwd: repo.root });
+    const remoteOnly = getTask(paths, config, "remote-one");
+    expect(remoteOnly.branch).toBe("task/remote-one");
+    expect(remoteOnly.branchRef).toBe("origin/task/remote-one");
+    expect(remoteOnly.changedFiles).toEqual(["src/remote.ts"]);
+
+    // A plan branch is a branch, and `branch` names it, but it is never the ref a change is read from.
+    branchWithCommit("plan/plan-only", `.reggie/tasks/plan-only/plan.md`);
+    const planOnly = getTask(paths, config, "plan-only");
+    expect(planOnly.branch).toBe("plan/plan-only");
+    expect(planOnly.branchRef).toBeNull();
+
+    const person = currentPerson(repo.root);
+    const none = capture(paths, { text: "Nothing has a branch here", person, source: "test" }).slug;
+    const bare = getTask(paths, config, none);
+    expect(bare.branch).toBeNull();
+    expect(bare.branchRef).toBeNull();
+
+    const listed = new Map(listTasks(paths, config, { includeDone: true }).map((t) => [t.slug, t.branchRef]));
+    expect(listed.get("local-one")).toBe("task/local-one");
+    expect(listed.get("remote-one")).toBe("origin/task/remote-one");
+    expect(listed.get("plan-only")).toBeNull();
   });
 });

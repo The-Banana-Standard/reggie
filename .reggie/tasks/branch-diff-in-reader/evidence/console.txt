@@ -1,0 +1,46 @@
+# AC30 and AC37: the browser console, Chrome driven over the DevTools protocol, 2026-09-17
+
+How it was read: list_console_messages of the chrome-devtools tool, which returns every console message since the page loaded, with
+messages preserved across the last three navigations included. Dialogs were counted by an init script that replaced alert, confirm and
+prompt before any page script ran, and window 'error' and 'unhandledrejection' events were collected the same way.
+
+## After: the build as committed
+
+Fixture server (port 4471). One page load of #/repo/reggie-diff-fSRia5/file/src/added.ts?diff=diff-cases, then, without reloading, by hash navigation: the 60,000 row file and one press of
+'Show the next 2 000 rows', src/long.ts in diff mode, the mode button pressed twice, four programmatic selections and one press of the note button,
+and src/added.ts again.
+
+  console messages of any level: none  (the tool's answer, verbatim: '<no console messages found>')
+  dialogs raised: []
+  window error and unhandledrejection events: []
+  error cards on the page: 0; toasts: []
+  /api/ requests the unmapped page made:
+    /api/status -> 200
+    /api/facts -> 200
+    /api/filediff?slug=diff-cases&path=src%2Fadded.ts -> 200
+
+  The changed line, as the DOM holds it:
+    textContent: export const html = "<img src=x onerror=alert(1)>";
+    innerHTML:   export const html = "&lt;img src=x onerror=alert(1)&gt;";
+    child elements inside the row's code element: 0; img elements in the reader: 0
+
+This repo (port 4472), a packet opened in diff mode, .reggie/tasks/intake-line-leaves-at-triage/packet.md?diff=intake-line-leaves-at-triage:
+  console messages: none; error cards: 0; toasts: none; /api/ requests: /api/status, /api/facts and one /api/filediff, all 200.
+
+## Before: the first working build, which did what the plan described
+
+The plan has the file page ask /api/story, /api/impact and /api/explain and treat their 404s as ordinary in diff mode. It did, and the page looked
+right, but Chrome logs a failed fetch itself, whatever the page does with it. The same unmapped page then read:
+
+  [error] Failed to load resource: the server responded with a status of 404 (Not Found)   [3 times]
+
+That is why /api/filediff now answers `mapped`, and why a file page in diff mode asks for the change first and skips the three requests when it is false.
+
+## After the review fixes (commit 4571cfb), the same browser, a fresh page
+
+Re-verification of CR1, CR2, CR3, CR5, CR6 and CR7 on the fixture server: the reviewer's send-back flow twice over, a held /api/changes answer,
+two pages of the 60,000-row file with the tip moved in between, selections on a mapped and an unmapped file, the mode button pressed four times,
+the reader closed and reopened, and a packet opened as a change at 390 wide.
+
+  console messages of any level, preserved across navigations: none  (the tool's answer, verbatim: '<no console messages found>')
+  /api/ requests the unmapped page made at 390 wide: /api/status, /api/facts and one /api/filediff, all 200

@@ -1,0 +1,93 @@
+diff --git a/packages/reggie/docs/ui-api-contract.md b/packages/reggie/docs/ui-api-contract.md
+index e29c606..b373021 100644
+--- a/packages/reggie/docs/ui-api-contract.md
++++ b/packages/reggie/docs/ui-api-contract.md
+@@ -145,11 +145,70 @@ interface Symbol { name: string; kind: 'function'|'class'|'const'|'let'|'var'|'t
+ ```
+ 400 for `..`/absolute paths; 404 when missing.
+ 
++## GET /api/changes?slug=<slug>
++What a task changed, as a list. One range of two full commit ids stands for the change: a task that is not done and whose branch is ahead of the integration branch is read from the merge base to the branch tip (what a merge would land, and still right when the branch merged the base back in); otherwise the merge that landed it, against that merge's first parent (`taskLanding`); otherwise a branch that still resolves, from its merge base.
++```ts
++interface TaskChanges {
++  slug: string;
++  available: boolean;            // false: there is no range to read, or git could not read it
++  reason: string | null;         // when !available: a sentence of Reggie's own, never git's output
++  range: ChangeRange | null;
++  files: ChangedFile[];          // everything outside .reggie/, in path order
++  records: ChangedFile[];        // Reggie's own records under .reggie/: listed and readable, never counted
++  totals: { files: number; added: number; deleted: number };   // `files` only
++}
++interface ChangeRange {
++  kind: 'branch' | 'merge';      // branch: merge base → tip. merge: the landing merge's first parent → the merge
++  base: string; ref: string;     // full 40-hex commit ids
++  baseName: string;              // the integration branch
++  refName: string;               // 'task/<slug>', 'origin/task/<slug>', or the merge's subject
++  commits: number;               // ahead of the base (branch), or brought in by the merge (merge)
++}
++interface ChangedFile {
++  path: string;                  // byte for byte as committed; the new path of a rename
++  status: 'added'|'deleted'|'modified'|'renamed'|'copied'|'typechange';
++  from?: string; similarity?: number;   // a rename or copy: the old path, and 0–100
++  oldMode: string | null;        // null for an added file
++  newMode: string | null;        // null for a deleted file; '120000' is a symlink
++  binary: boolean;               // counts are 0 and 0 when true
++  added: number; deleted: number;
++}
++```
++The list is read from `git diff --raw -z` and `--numstat -z`, never from a text form, so a name holding a space, a quote, a tab, non-ASCII letters, a leading dash, ` => ` or pathspec magic arrives exactly as committed and a file named `a => b` is never taken for a rename. A rename is one entry, under its new path. For a done task with a landing merge, `totals` equals `completion.diff.filesChanged`, `added` and `deleted` from `/api/task/<slug>`.
++
++Always 200 for a known task: a branch with no commits past the base, and one whose commits cancel out, answer `available: true` with empty lists (`range.commits` tells the two apart); a task with no task branch and no landing, a done task that landed without a merge commit (whether its branch is gone or was kept and now holds nothing past the base), a branch that shares no history with the base, and a git read that failed or timed out (10 s) answer `available: false` with the `reason`. A failed read is never flattened to an empty list. 400 `{error:"bad slug"}` for an unsafe slug; 404 for a slug nothing in the repo names. Nothing in the request ever becomes a git revision: only commit ids Reggie resolved from the safe slug reach git, after `--end-of-options`, with colour, external diff programs, textconv filters, the rename setting, the algorithm and quoting all pinned so a user's own git config changes nothing. Names are resolved by their full ref (`refs/heads/task/<slug>`, `refs/remotes/origin/task/<slug>`, `refs/heads/<base>`), so a tag that carries a branch's name cannot stand in for it. The integration branch's name comes from `.reggie/config.yaml`, a tracked file, and is treated as hostile: only the commit id it resolves to is handed on, to the landing lookup too, and a name that begins with a dash answers 200 `available: false` (404 on `/api/filediff`) for any safe slug before the task list is consulted or git is run.
++
++## GET /api/filediff?slug=<slug>&path=<file>&offset=<n>
++One file of that change, as the rows the reader draws. `path` must name a member of the task's change list (`files` or `records`). It is compared with the listed names exactly as it was sent, which is what finds a committed name that begins or ends with a space, and then as tidied (surrounding whitespace trimmed, one leading `./` dropped); nothing else is forgiven, so case, a trailing slash, a glob and pathspec magic all name nothing.
++```ts
++type FileDiff = ChangedFile & {
++  slug: string; range: ChangeRange;
++  card: { kind: 'binary'|'mode'|'renamed'|'empty'|'symlink'|'deleted'|'unreadable'; text: string; oldSize?: number|null; newSize?: number|null } | null;
++  rows: DiffRow[];               // at most 2,000, starting at `offset`
++  offset: number; totalRows: number; truncated: boolean;   // truncated: rows remain past the ones returned
++  changedSince: boolean | null;  // merge ranges only: the file at HEAD is no longer the one that landed
++  mapped: boolean;               // false exactly when /api/story?scope=file, /api/impact and /api/explain answer this path 404
++  editorUrl: string | null;
++};
++type DiffRow =
++  | { kind: 'ctx'; old: number; new: number; text: string; noeol?: true; cut?: true }
++  | { kind: 'add'; new: number; text: string; noeol?: true; cut?: true }
++  | { kind: 'del'; old: number; text: string; noeol?: true; cut?: true }
++  | { kind: 'gap'; count: number; new: number };   // unchanged lines not shown: how many, and the new-side number of the first
++```
++Rows are built on the server from a one-file patch whose hunks are read by the counts in their `@@` headers, so a deleted line reading `-- a/old.ts` is one `del` row and an added line reading `@@ -9,9 +9,9 @@` is one `add` row. `old` and `new` are real line numbers on each side. Three lines of context surround each change; every other unchanged stretch, before, between and after the hunks, is one `gap` row, so a change at line 1,500 is as reachable as one at line 5. `\ No newline at end of file` is never a row: the row before it carries `noeol: true`. A trailing carriage return is dropped from `text`. A row's `text` is cut at 2,000 characters with `cut: true`.
++
++`card` says what rows cannot: `binary` (both byte sizes; `null` on a side that does not exist) and no rows; `mode` for a mode change; `renamed` for a rename or copy, with no rows when nothing inside changed; `empty` for an empty file that was added; `symlink` above the one row holding its target; `deleted` above the removed lines; `unreadable`, with no rows rather than wrong or unaffordable ones, when the change would draw more than 100,000 rows, context and gap rows included (checked on git's own added-plus-deleted count before the patch is asked for, again as hunk lines are parsed, so parsing stops, and again on the built rows), when git failed or timed out or the patch is larger than the 16 MB that is read, when a hunk did not add up to its own header, or when the rows disagree with the counts `--numstat` gave. A rename is asked of git by both its paths, so an edited rename answers its edited lines and not the whole file as added.
++
++Paging: `offset` is the index of the first row wanted, `gap` rows included; the page size is fixed at 2,000. `offset` equal to or past `totalRows` answers no rows. A file's rows are built once and kept in a small bounded cache keyed by slug, the two commit ids and the path (at most 8 files, 200,000 rows and 32 MB of row text, least recently read out first), so a later page is a slice and not a second patch read; a read that failed is never kept. Every page carries `range`: a client that pages must compare it with the first page's and start again when the branch has moved, never append. `editorUrl` follows the text on screen: the copy under `.worktree/<slug>/` while the branch is live, this checkout's copy when it has `task/<slug>` checked out or the range is a merge and the file still exists, and `null` otherwise.
++
++400 `{error:"bad slug"}`; 400 `{error:"bad path"}` for an empty path, a NUL, a backslash, an absolute path or a `..` segment; 400 for an `offset` that is not an integer in 0–99999999; 404 for an unknown task; 404 carrying the `reason` when the task has no readable change; 404 `{error:"that path is not part of what <slug> changed"}` for a well-formed path that is not in the list, which is also what `--output=/tmp/x` and `:(exclude)src` get, since a path that is not a member never reaches git. Neither route puts git's stderr or an absolute path into an error body or an `available: false` answer. A 200 from `/api/filediff` does carry one, in `editorUrl`, exactly as `/api/file` does: that is the link's purpose, and it is `null` whenever there is no honest file to open.
++
+ ## GET /api/symbols?path=<file>
+ `{ path: string; symbols: Symbol[]; engine: 'regex'|'typescript'|'tree-sitter' }`.
+ 
+ ## GET /api/tasks?all=0|1
+-`TaskInfo[]` as today plus per task `stateDefinition: string`, `age: number|null` (days), `planFiles: string[]`, `changedFiles: string[]`, and the two fields the tasks page columns by:
++`TaskInfo[]` as today plus per task `stateDefinition: string`, `age: number|null` (days), `planFiles: string[]`, `changedFiles: string[]`, `branchRef: string|null` (the ref the task branch is read from: `task/<slug>` when it is local, `origin/task/<slug>` when only the remote-tracking ref exists, `null` with no task branch; never a `plan/` branch, which `branch` may name), and the two fields the tasks page columns by:
+ ```ts
+ brief: { exists: boolean; area: string; size: 'small'|'medium'|'large'|'unset'; priority: 'P1'|'P2'|'P3'|'unset'; problem: string } | null;
+ phase: TaskPhase;   // ungroomed→capture, groomed→shape, planned→plan, in-process→build, awaiting-decision→review, done→done
+@@ -172,6 +231,7 @@ interface Completion {
+   verdict: string|null; decidedBy: string|null; decidedAt: string|null;   // from the packet front matter
+   criteria: { text: string; pass: boolean|null; evidence: { path: string; route: string|null; exists: boolean }[] }[];
+   diff: { files: { path: string; added: number; deleted: number }[]; filesChanged: number; added: number; deleted: number; commits: number };
++  merge: CommitInfo | null;   // the merge that landed the task, when one did; the page opens each changed file's diff only when it is set
+   commits: CommitInfo[];      // the slug's commits: the `Task:` trailer in the history index, else `<base>..task/<slug>`
+   journal: JournalEntry[];    // every entry ever written for the slug (same list as `journal` above)
+ }
+@@ -327,7 +387,7 @@ Unchanged (`{ text }`).
+ `GET /` → `ui/index.html`. `GET /ui/<file>` → `packages/reggie/ui/<file>` (html, js, css, svg; `..` refused). `GET /vendor/<file>` → whitelisted `node_modules` files (`cytoscape.min.js`, `dagre.min.js`, `cytoscape-dagre.js`, `d3.min.js`), `cache-control: public, max-age=31536000, immutable`; 404 when the module is not installed.
+ 
+ ## Numeric query parameters
+-Every numeric parameter is validated, not clamped: a value that is not a plain base-10 integer inside its range is refused with 400 `{error:"<name> must be an integer between <min> and <max>"}`. Missing or empty falls back to the default. The ranges are `days` 1–730 on `/api/history`, `/api/story` and `/api/explain`; `days` 1–36500 on `/api/journal` (it filters a file rather than sizing an array); `depth` 1–3 on `/api/impact`; `depth` 1–99 on `/api/flow` and `/api/story?scope=flow`, then clamped to the tracer's 6 hops; `limit` 1–100 on `/api/search`. `/api/context`'s `maxLines` is fixed at 400 by the server and is not a query parameter. The bound matters because `commitsPerDay` allocates one object per day in the window, so an unbounded `days` let a single request size the response.
++Every numeric parameter is validated, not clamped: a value that is not a plain base-10 integer inside its range is refused with 400 `{error:"<name> must be an integer between <min> and <max>"}`. Missing or empty falls back to the default. The ranges are `days` 1–730 on `/api/history`, `/api/story` and `/api/explain`; `days` 1–36500 on `/api/journal` (it filters a file rather than sizing an array); `depth` 1–3 on `/api/impact`; `depth` 1–99 on `/api/flow` and `/api/story?scope=flow`, then clamped to the tracer's 6 hops; `limit` 1–100 on `/api/search`; `offset` 0–99999999 on `/api/filediff`. `/api/context`'s `maxLines` is fixed at 400 by the server and is not a query parameter. The bound matters because `commitsPerDay` allocates one object per day in the window, so an unbounded `days` let a single request size the response.
+ 
+ Every request, GET and POST alike, must carry a `Host` header naming a loopback host (`localhost`, `*.localhost`) or a bare IP literal; any other DNS name is 403 `{error:"host header does not name this server"}`. That is the DNS-rebinding guard: a rebound page reaches the server over a real loopback socket and controls both its own `Host` and `Origin`, so `Origin` is checked against the server's own loopback origin and never against `Host`.
+ 

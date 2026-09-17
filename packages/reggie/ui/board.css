@@ -320,6 +320,17 @@
 .evidence-missing { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-meta); color: var(--warn); }
 .evidence-missing .i { width: 12px; height: 12px; }
 
+/* What changed: one row per file a task changed, each a door into the reader's diff mode.
+   The path may be long and odd, so it wraps inside its row rather than pushing the counts off the page. */
+.change-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.change-file { display: flex; align-items: baseline; gap: var(--s-2); flex-wrap: wrap; font-size: var(--fs-label); }
+.change-file .link { font-family: var(--mono); font-size: var(--fs-meta); min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.change-file__status { flex: 0 0 auto; min-width: 5.5em; text-align: center; }
+.change-file__from { font-family: var(--mono); font-size: var(--fs-sub); overflow-wrap: anywhere; }
+.change-file__stat { margin-left: auto; font-family: var(--mono); font-size: var(--fs-meta); white-space: nowrap; }
+.badge--ren { background: var(--info); color: var(--bg); }
+.changes__summary code { overflow-wrap: anywhere; }
+
 /* Listen: the story column, spoken (ui/listen.js) */
 .listen { display: flex; flex-direction: column; gap: var(--s-2); width: 100%; }
 .listen__row { display: flex; gap: var(--s-2); align-items: center; flex-wrap: wrap; }

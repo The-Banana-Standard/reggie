@@ -1,0 +1,65 @@
+# AC31, AC32, AC33: the doors, read from the DOM of a real browser (Chrome, 1440 by 900), 2026-09-17
+# Raw captures beside this file: task-page-doors.json, completed-doors.json
+
+## AC31: the task page of the fixture's in-process task (served by ui/dev/make-diff-fixture.ts on port 4471)
+page: #/repo/reggie-diff-fSRia5/task/diff-cases
+summary line: task/diff-cases against main, from the commit it branched at (e96efca): 1 commit, 24 files, +22 −14. This is what a merge would land.
+
+What changed rows (badge | counts | href):
+  Added     +1 −0    "-leading-dash.ts"  ->  #/repo/reggie-diff-fSRia5/file/-leading-dash.ts?diff=diff-cases
+  Added     +1 −0    ":(top)magic.ts"  ->  #/repo/reggie-diff-fSRia5/file/:(top)magic.ts?diff=diff-cases
+  Modified  +2 −3    "patchy.md"  ->  #/repo/reggie-diff-fSRia5/file/patchy.md?diff=diff-cases
+  Added     +1 −0    "src/a => b.ts"  ->  #/repo/reggie-diff-fSRia5/file/src/a%20%3D%3E%20b.ts?diff=diff-cases
+  Added     +0 −0    "src/added-empty.txt"  ->  #/repo/reggie-diff-fSRia5/file/src/added-empty.txt?diff=diff-cases
+  Added     +2 −0    "src/added.ts"  ->  #/repo/reggie-diff-fSRia5/file/src/added.ts?diff=diff-cases
+  Modified  binary   "src/blob.bin"  ->  #/repo/reggie-diff-fSRia5/file/src/blob.bin?diff=diff-cases
+  Added     +1 −0    "src/caf\u00e9 \u00fc.ts"  ->  #/repo/reggie-diff-fSRia5/file/src/caf%C3%A9%20%C3%BC.ts?diff=diff-cases
+  Modified  +1 −1    "src/crlf.txt"  ->  #/repo/reggie-diff-fSRia5/file/src/crlf.txt?diff=diff-cases
+  Deleted   +0 −2    "src/deleted.ts"  ->  #/repo/reggie-diff-fSRia5/file/src/deleted.ts?diff=diff-cases
+  Modified  +1 −0    "src/empty-then-filled.txt"  ->  #/repo/reggie-diff-fSRia5/file/src/empty-then-filled.txt?diff=diff-cases
+  Modified  +0 −1    "src/filled-then-empty.txt"  ->  #/repo/reggie-diff-fSRia5/file/src/filled-then-empty.txt?diff=diff-cases
+  Modified  +1 −1    "src/gains-nonl.txt"  ->  #/repo/reggie-diff-fSRia5/file/src/gains-nonl.txt?diff=diff-cases
+  Modified  +2 −1    "src/keep.ts"  ->  #/repo/reggie-diff-fSRia5/file/src/keep.ts?diff=diff-cases
+  Added     +1 −0    "src/link-to-target"  ->  #/repo/reggie-diff-fSRia5/file/src/link-to-target?diff=diff-cases
+  Modified  +3 −3    "src/long.ts"  ->  #/repo/reggie-diff-fSRia5/file/src/long.ts?diff=diff-cases
+  Added     binary   "src/newblob.bin"  ->  #/repo/reggie-diff-fSRia5/file/src/newblob.bin?diff=diff-cases
+  Modified  +1 −1    "src/nonl.txt"  ->  #/repo/reggie-diff-fSRia5/file/src/nonl.txt?diff=diff-cases
+  Added     +1 −0    "src/quo\"te.ts"  ->  #/repo/reggie-diff-fSRia5/file/src/quo%22te.ts?diff=diff-cases
+  Renamed   +1 −1    "src/renamed-edit.ts"  ->  #/repo/reggie-diff-fSRia5/file/src/renamed-edit.ts?diff=diff-cases
+  Renamed   +0 −0    "src/renamed-pure.ts"  ->  #/repo/reggie-diff-fSRia5/file/src/renamed-pure.ts?diff=diff-cases
+  Modified  +0 −0    "src/script.sh"  ->  #/repo/reggie-diff-fSRia5/file/src/script.sh?diff=diff-cases
+  Added     +1 −0    "src/tab\there.ts"  ->  #/repo/reggie-diff-fSRia5/file/src/tab%09here.ts?diff=diff-cases
+  Modified  +1 −0    "src/with space.ts"  ->  #/repo/reggie-diff-fSRia5/file/src/with%20space.ts?diff=diff-cases
+
+Reggie's own records (1) (its own heading, same rows):
+  Added     +1 −0    ".reggie/tasks/diff-cases/evidence/tests.txt"  ->  #/repo/reggie-diff-fSRia5/file/.reggie/tasks/diff-cases/evidence/tests.txt?diff=diff-cases
+
+25 rows; rows whose href does not carry ?diff=diff-cases: 0
+
+## AC32: 'Files to touch' on the same page. The plan lists two files; one is in the change list and one is not.
+  src/keep.ts        in the change list: True   href: #/repo/reggie-diff-fSRia5/file/src/keep.ts?diff=diff-cases
+  src/untouched.ts   in the change list: False  href: #/repo/reggie-diff-fSRia5/file/src/untouched.ts
+
+'Also changed on the branch but not in the plan' on that page: 23 links, from impact.actual, which still reads git's text output.
+  20 became doors (?diff=diff-cases). 3 stayed plain, because impact.actual names them as git C-quoted them and that is not a path in the change list:
+    "src/caf\303\251 \303\274.ts"  ->  #/repo/reggie-diff-fSRia5/file/%22src/caf%5C303%5C251%20%5C303%5C274.ts%22
+    "src/quo\"te.ts"  ->  #/repo/reggie-diff-fSRia5/file/%22src/quo%5C%22te.ts%22
+    "src/tab\there.ts"  ->  #/repo/reggie-diff-fSRia5/file/%22src/tab%5Cthere.ts%22
+  That quoting is the planner's captured item changed-file-helpers-trust-git-quoting-and-config, named in the plan's Out of scope.
+  The same three files are doors in the What changed rows above, under their real names.
+
+## AC33: the Completed view of this repo (served from the task worktree on port 4472)
+view: #/repo/reggie/tasks?view=completed
+task: Remove the intake line at triage instead of at plan done, and report a scaffolded but unfilled brief as ungroomed
+Files changed links: 25, every one a door: True
+  #/repo/reggie/file/packages/reggie/src/triage.test.ts?diff=intake-line-leaves-at-triage
+  #/repo/reggie/file/packages/reggie/ui/board.js?diff=intake-line-leaves-at-triage
+  #/repo/reggie/file/packages/reggie/src/brief.test.ts?diff=intake-line-leaves-at-triage
+  #/repo/reggie/file/packages/reggie/src/capture.test.ts?diff=intake-line-leaves-at-triage
+  #/repo/reggie/file/packages/reggie/src/triage.ts?diff=intake-line-leaves-at-triage
+  ...
+records sentence: 25 files, +688 −133, across 6 commits. Reggie's own records are left out of these counts;  the task page  lists them with the rest of the change.
+its link: #/repo/reggie/task/intake-line-leaves-at-triage
+
+In the fixture, the done task that landed by fast-forward has no landing merge, and its one Files changed link stayed plain:
+  #/repo/reggie-diff-fSRia5/file/src/ff.ts   (read from the DOM during the build session; no ?diff=)

@@ -1,0 +1,25 @@
+# AC35: 390 by 844, mobile emulation with touch, device pixel ratio 2, Chrome. 2026-09-17. Raw capture: phone-overflow.json
+
+The question is whether the rows scroll sideways inside the reader without the page itself scrolling sideways.
+
+## #/repo/reggie/file/packages/reggie/src/git.ts?diff=branch-diff-in-reader   (a file whose story has no long chip)
+  overlay open with the reader in it: True
+  documentElement.scrollWidth 390 against clientWidth 390
+  reader body scrollWidth 1230 against clientWidth 390  (the rows are wider than the screen and scroll inside it)
+  after scrolling the reader body 300 px sideways: reader scrollLeft 300, window.scrollX 0, documentElement.scrollLeft 0
+
+## #/repo/reggie/file/packages/reggie/src/serve.ts?diff=branch-diff-in-reader   (the file the plan names)
+  overlay open with the reader in it: True
+  documentElement.scrollWidth 412 against clientWidth 390
+  reader body scrollWidth 1548 against clientWidth 413  (the rows are wider than the screen and scroll inside it)
+  after scrolling the reader body 300 px sideways: reader scrollLeft 300, window.scrollX 0, documentElement.scrollLeft 0
+
+Reading it honestly. On git.ts the page is exactly as wide as the screen, 390 and 390, and scrolling the rows moves the reader and not the page.
+On serve.ts the document measures 412 against 390, so that page CAN be scrolled 22 px sideways. That is not the reader: the plain file page for
+serve.ts, with no ?diff= at all, measures the same 412, and the element that does it is a chip in the story column reading
+'Task: a-task-worktree-has-no-node-modules-so-nothing-r', 378 px wide from a left edge of 35. It is captured as
+a-long-task-slug-in-a-story-chip-widens-the-phone-page and not fixed here. Scrolling the rows still leaves the page where it was (scrollX 0).
+
+The link back to the task: with the reader closed by its own close button the overlay closes with it, and 'Back to task branch-diff-in-reader'
+is in the story column's actions row, under the pinned Spotlight card, 936 px down the page at this width: reachable by scrolling, not on the first screen.
+Screenshots: reader-diff-phone.png (open), reader-diff-phone-closed.png (closed, scrolled to the actions row).

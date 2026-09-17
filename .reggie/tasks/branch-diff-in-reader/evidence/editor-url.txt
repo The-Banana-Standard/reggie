@@ -1,0 +1,9 @@
+$ TZ=UTC npx vitest run test/serve.test.ts -t editor link --reporter=verbose      (skipped tests left out of this capture)
+# git 2.55.0, node v22.22.2, 2026-09-17T10:38Z, commit 4571cfb
+ RUN  v4.1.11 <worktree>/packages/reggie
+ ✓ test/serve.test.ts > what a task changed > editor link > opens the worktree's copy for a live task, this checkout's for a landed one, and nothing otherwise 1144ms
+ ✓ test/serve.test.ts > what a task changed > editor link > opens this checkout's copy when this checkout is the one that has the task branch checked out 684ms
+ Test Files  1 passed (1)
+      Tests  2 passed | 132 skipped (134)
+   Start at  10:38:35
+   Duration  3.92s (transform 249ms, setup 0ms, import 313ms, tests 3.55s, environment 0ms)

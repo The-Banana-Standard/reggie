@@ -1,0 +1,51 @@
+# AC24 by hand, against this repo (served from the task worktree on port 4472), 2026-09-17, re-run after the review fixes at commit 4571cfb
+# task: intake-line-leaves-at-triage, a done task whose branch is gone; the plan expects 25 files
+
+$ curl -s 'http://127.0.0.1:4472/api/changes?slug=intake-line-leaves-at-triage'   (range, totals, list sizes)
+{
+  "available": true,
+  "range": {
+    "kind": "merge",
+    "base": "87bee3989e99321cefbcfdd671c8364c0b9fa1a3",
+    "ref": "12908c9f9c95d80b14a0143a331349a3eda81565",
+    "baseName": "repo-manager",
+    "refName": "merge: task/intake-line-leaves-at-triage \u2014 Remove the intake line at triage instead of at plan done, and report a scaffolded but unfilled brief as ungroomed",
+    "commits": 6
+  },
+  "totals": {
+    "files": 25,
+    "added": 688,
+    "deleted": 133
+  },
+  "files": 25,
+  "records": 39
+}
+
+$ curl -s 'http://127.0.0.1:4472/api/task/intake-line-leaves-at-triage'   (completion.merge.sha, completion.diff without its file list)
+{
+  "merge": "12908c9f9c95d80b14a0143a331349a3eda81565",
+  "diff": {
+    "files": 25,
+    "filesChanged": 25,
+    "added": 688,
+    "deleted": 133,
+    "commits": 6
+  }
+}
+
+MATCH   intake-line-leaves-at-triage: /api/changes totals {"files": 25, "added": 688, "deleted": 133} vs completion.diff {"filesChanged": 25, "added": 688, "deleted": 133}
+MATCH   note-form-on-repo-and-area: /api/changes totals {"files": 10, "added": 290, "deleted": 15} vs completion.diff {"filesChanged": 10, "added": 290, "deleted": 15}
+MATCH   graph-coverage-published: /api/changes totals {"files": 23, "added": 646, "deleted": 32} vs completion.diff {"filesChanged": 23, "added": 646, "deleted": 32}
+MATCH   false-tests-sentence: /api/changes totals {"files": 6, "added": 139, "deleted": 11} vs completion.diff {"filesChanged": 6, "added": 139, "deleted": 11}
+MATCH   docs-check-in-ci: /api/changes totals {"files": 3, "added": 10, "deleted": 6} vs completion.diff {"filesChanged": 3, "added": 10, "deleted": 6}
+MATCH   a-task-worktree-has-no-node-modules-so-nothing-r: /api/changes totals {"files": 11, "added": 778, "deleted": 24} vs completion.diff {"filesChanged": 11, "added": 778, "deleted": 24}
+MATCH   task-attribution-by-merge: /api/changes totals {"files": 11, "added": 765, "deleted": 105} vs completion.diff {"filesChanged": 11, "added": 765, "deleted": 105}
+MATCH   journal-files-conflict-on-merge-a-claim-in-the-m: /api/changes totals {"files": 6, "added": 201, "deleted": 14} vs completion.diff {"filesChanged": 6, "added": 201, "deleted": 14}
+MATCH   stale-dev-bin: /api/changes totals {"files": 7, "added": 306, "deleted": 64} vs completion.diff {"filesChanged": 7, "added": 306, "deleted": 64}
+MATCH   about-this-repo: /api/changes totals {"files": 8, "added": 71, "deleted": 17} vs completion.diff {"filesChanged": 8, "added": 71, "deleted": 17}
+MATCH   layout-modes: /api/changes totals {"files": 8, "added": 374, "deleted": 77} vs completion.diff {"filesChanged": 8, "added": 374, "deleted": 77}
+MATCH   mobile-ui: /api/changes totals {"files": 13, "added": 492, "deleted": 27} vs completion.diff {"filesChanged": 13, "added": 492, "deleted": 27}
+
+all twelve landed tasks match
+
+this task, live:  {"kind": "branch", "refName": "task/branch-diff-in-reader", "commits": 13, "totals": {"files": 19, "added": 3259, "deleted": 60}, "records": 73}

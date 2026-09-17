@@ -1,0 +1,8 @@
+$ TZ=UTC npx vitest run src/tasks.test.ts -t branchRef --reporter=verbose      (skipped tests left out of this capture)
+# git 2.55.0, node v22.22.2, 2026-09-17T10:37Z, commit 4571cfb
+ RUN  v4.1.11 <worktree>/packages/reggie
+ ✓ src/tasks.test.ts > branchRef: the ref a task's branch is read from > names the local task branch, the remote-tracking one when that is all the clone has, and nothing otherwise 1311ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 21 skipped (22)
+   Start at  10:37:49
+   Duration  1.50s (transform 94ms, setup 0ms, import 130ms, tests 1.31s, environment 0ms)

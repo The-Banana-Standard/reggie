@@ -17,3 +17,7 @@ A legacy backlog line never overrides git. Every branch, packet and pull-request
 ## decision · 2026-09-15 · Claude via jacobpress · medium
 A brief earns groomed by saying something, not by passing its contract. resolveTask's brief branch consults briefDraft, so only an unfilled scaffold holds the task at ungroomed; a brief missing a size or a priority stays groomed with the lint reason on the card. That is deliberately not symmetric with the plan rule, where a failing draft holds at groomed: planned means a builder can follow this, which a contract can test, while groomed means somebody has said what this is, which only emptiness can disprove. Card age falls back to the brief's created once triage has taken the intake line, after lastActivity and the intake date.
 
+## how · 2026-09-17 · Claude via jacobpress · high
+TaskInfo carries branchRef, the ref a task's branch is read from: the local task branch name, the origin name when the remote tracking ref is all the clone has, and null with no task branch. It is never a plan branch, which the older branch field may name, so anything that reads a task's change must use branchRef and not branch. It is read only plumbing: adding it changed the state, reason and changed files of none of the 79 tasks in this repo.
+sources: packages/reggie/src/tasks.ts, branch-diff-in-reader
+

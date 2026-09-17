@@ -8,7 +8,7 @@
 
 import { renderStory, renderSpotlight, renderSkeleton, sectionHeadingsFor, closeSpotlight, focusNoteForm } from "./story.js";
 import { createMap, SERVICE_NOUNS } from "./map.js";
-import { createReader } from "./reader.js";
+import { createReader, diffUrl } from "./reader.js";
 import { renderBoard, renderTaskPage, unmountBoard } from "./board.js";
 
 // ---------------------------------------------------------------------------
@@ -1403,6 +1403,14 @@ function symbolOf(route) {
   const parts = String(route.id ?? "").split("::");
   return parts.length > 1 ? parts.slice(1).join("::") : null;
 }
+/**
+ * The task whose change a file route asks the reader for: `?diff=<slug>`, on the file level only. A
+ * symbol route never carries it, so a symbol link clicked in diff mode lands on the plain file.
+ */
+export function diffOf(route) {
+  const slug = route?.level === "file" ? route.query?.diff : null;
+  return typeof slug === "string" && /^[a-z0-9][a-z0-9-]{0,79}$/.test(slug) ? slug : null;
+}
 
 // ---------------------------------------------------------------------------
 // The map and the reader (created once, kept for the life of the page)
@@ -1425,7 +1433,7 @@ export function ensureReader() {
   const container = $("reader");
   if (!container) return null;
   state.reader = createReader(container, {
-    fetchJson: (url) => api(url),
+    fetchJson: (url, opts) => api(url, opts),
     onNoteRequest: (prefill) => {
       setPaneOpen("story", true);
       if (!focusNoteForm(prefill)) toast("There is no note form on this page.", { tone: "warn" });
@@ -1433,6 +1441,8 @@ export function ensureReader() {
     editorScheme: state.facts?.editorScheme ?? "vscode://file",
     root: state.facts?.root ?? null,
     withRepo: (url) => withRepo(url),
+    // The mode lives in the address, so a reload and the back button both keep it.
+    onModeChange: (slug) => setQuery({ diff: slug }),
   });
   return state.reader;
 }
@@ -1762,14 +1772,37 @@ async function renderGraphLevel(route, token, scope) {
   if (mapUrl) mapCol?.classList.add("is-loading");
 
   const wrap = (p) => p.then((value) => ({ value }), (error) => ({ error }));
-  const [story, view] = await Promise.all([
-    storyUrl ? wrap(api(storyUrl)) : Promise.resolve({ value: null }),
-    mapUrl ? wrap(api(mapUrl)) : Promise.resolve({ value: null }),
-  ]);
+  // In diff mode the change is asked for first: its answer says whether the graph ever read this
+  // path, and when it did not, the story, the impact view and the Spotlight would each answer 404.
+  // Reggie's own records, branch-only files and deleted files are most of what a task changes, so
+  // those three failures are skipped rather than made and swallowed. The reader asks the same URL a
+  // moment later and is answered from the fetch cache.
+  // It is asked past the fetch cache every time, and handed to the reader, which compares the two
+  // commits it was read between with what it last drew: a branch that was sent back and fixed is the
+  // same path and the same slug, and only the range says the change on screen is the old one.
+  const diffSlug = diffOf(route);
+  let offMap = false;
+  let change = null;
+  if (diffSlug) {
+    const probe = await wrap(api(withRepo(diffUrl(fileOf(route), diffSlug)), { fresh: true }));
+    if (token !== state.renderToken) return;
+    change = probe.value ?? null;
+    offMap = change?.mapped === false;
+  }
+  const [story, view] = offMap
+    ? [{ value: null }, { value: null }]
+    : await Promise.all([storyUrl ? wrap(api(storyUrl)) : Promise.resolve({ value: null }), mapUrl ? wrap(api(mapUrl)) : Promise.resolve({ value: null })]);
   if (token !== state.renderToken) return;
 
   // --- story ------------------------------------------------------------------
-  if (story.error) {
+  // A 404 in diff mode is still the ordinary answer when the change itself could not say (a slug
+  // that names no change, say): the page explains in words and lets the reader carry what it can.
+  const unmapped = offMap || (Boolean(diffSlug) && story.error?.status === 404);
+  if (unmapped) {
+    state.story = null;
+    renderUnmappedChange(route, diffSlug);
+    addReaderButton(route);
+  } else if (story.error) {
     state.story = null;
     mount(sections, errorCard("/api/story", story.error.message, () => render(route)));
   } else if (story.value) {
@@ -1786,6 +1819,14 @@ async function renderGraphLevel(route, token, scope) {
   mapCol?.classList.remove("is-loading");
   if (!state.rendererOk) {
     $("map-footer").textContent = "map unavailable";
+  } else if (diffSlug && (offMap || view.error?.status === 404)) {
+    // No toast, and no graph left over from the page before: an empty view, with its own sentence.
+    try {
+      map?.show({ level: "impact", nodes: [], edges: [], empty: { text: "This file is not on the code map in this checkout, so there is nothing to draw around it.", hint: "The reader below shows what the task changed in it." } }, showOptsFor(route));
+    } catch (err) {
+      console.error("map.show failed", err);
+    }
+    $("map-footer").textContent = "";
   } else if (view.error) {
     toast(`\`${mapUrl.split("?")[0]}\` failed: ${view.error.message}`, { tone: "bad" });
     $("map-footer").textContent = "the map payload failed; the story is unaffected";
@@ -1801,12 +1842,39 @@ async function renderGraphLevel(route, token, scope) {
 
   // --- level extras -------------------------------------------------------------
   if (route.level === "file" || route.level === "symbol") {
-    pinSpotlight(fileOf(route)); // spec §2 Level 3: the Spotlight is pinned automatically
+    if (!offMap) pinSpotlight(fileOf(route)); // spec §2 Level 3: the Spotlight is pinned automatically
     const name = symbolOf(route);
+    const shown = state.reader?.current?.() ?? null;
     if (name) openReader(route, { highlight: name });
+    // A change is what the route asked for, so the reader opens without a click, on a phone too,
+    // where the reader opening brings up the map overlay it lives in.
+    else if (diffSlug) {
+      openReader(route, change ? { file: change } : {});
+      // A reader left open behind a closed overlay never flips `hidden`, so nothing else would raise it.
+      if (isPhone()) setMapOpen(true);
+    }
+    // The mode button dropped `diff` from the route while the reader was showing the change.
+    else if (shown?.open && shown.diff) openReader(route);
     else if (isDesktop() && state.panes.remembered.includes("code")) openReader(route);
   }
   return undefined;
+}
+
+/** The story column of a `?diff=` file page whose path the graph never read: words, not an error card. */
+function renderUnmappedChange(route, slug) {
+  const file = fileOf(route);
+  const why = file.startsWith(".reggie/")
+    ? "This file is one of Reggie's own records. The code map leaves those out, so there is no story, no imports and no history to show for it here."
+    : "This file is not on the code map in this checkout, so there is no story for it here. That is what happens to a file that exists only on a task's branch, to one that has since been deleted, and to a kind of file the map does not read.";
+  mount(
+    $("sections"),
+    section(
+      "unmapped",
+      "About this file",
+      h("p", { class: "para para--fact" }, why),
+      h("p", { class: "para para--gap" }, "The reader shows what ", entityLink("task", formatRoute({ level: "task", repo: route.repo, id: slug, query: {} }), slug), " changed in it, line by line."),
+    ),
+  );
 }
 
 /** File paths named by the story's "Where it starts" section, in the order it names them. */
@@ -1829,19 +1897,23 @@ function addReaderButton(route) {
   const sections = $("sections");
   if (!sections || sections.querySelector(".story__actions")) return;
   const path = fileOf(route);
+  const slug = diffOf(route);
   const btn = h(
     "button",
-    { class: "btn btn--primary", type: "button", title: `Open ${path} in the reader drawer`, on: { click: () => openReader(route) } },
+    { class: "btn btn--primary", type: "button", title: slug ? `Open what ${slug} changed in ${path} in the reader drawer` : `Open ${path} in the reader drawer`, on: { click: () => openReader(route) } },
     icon("file"),
-    h("span", {}, "Read the source"),
+    h("span", {}, slug ? "Read the change" : "Read the source"),
   );
-  sections.prepend(h("div", { class: "card__actions story__actions" }, btn));
+  // In diff mode the way back to the task is one tap away, which on a phone is once the reader is closed.
+  const back = slug ? h("a", { class: "btn story__back", href: formatRoute({ level: "task", repo: route.repo, id: slug, query: {} }), title: `Back to task ${slug}` }, icon("task"), h("span", {}, `Back to task ${slug}`)) : null;
+  sections.prepend(h("div", { class: "card__actions story__actions" }, btn, back));
 }
 
+/** Open the reader on the route's file, in the mode the route names: `?diff=<slug>` is that task's change. */
 function openReader(route, opts = {}) {
   const reader = ensureReader();
   if (!reader) return;
-  reader.open(fileOf(route), opts);
+  reader.open(fileOf(route), { diff: diffOf(route), ...opts });
 }
 
 /** Level 0 tile strip: five task-state counts and a coverage bar per repo (spec §2 Level 0). */
@@ -2389,6 +2461,8 @@ function wireStoryLinks() {
     if (!route || (route.level !== "file" && route.level !== "symbol")) return;
     const [file, ...rest] = String(target.id ?? "").split("::");
     if (file !== fileOf(route) || rest.length === 0) return;
+    // Symbol lines are this checkout's; the rows on screen are the branch's. Navigate instead.
+    if (diffOf(route)) return;
     ev.preventDefault();
     openReader(route, { highlight: rest.join("::") });
   });

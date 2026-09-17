@@ -1,0 +1,251 @@
+{
+    "slug": "diff-cases",
+    "available": true,
+    "reason": null,
+    "range": {
+        "kind": "branch",
+        "base": "e96efca9c9cf5b993d405d3b3a759e494d366009",
+        "ref": "acdc90aab7e0299c33457ce7d8e49fc84efc36a1",
+        "baseName": "main",
+        "refName": "task/diff-cases",
+        "commits": 1
+    },
+    "files": [
+        {
+            "path": "-leading-dash.ts",
+            "status": "added",
+            "oldMode": null,
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 0
+        },
+        {
+            "path": ":(top)magic.ts",
+            "status": "added",
+            "oldMode": null,
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 0
+        },
+        {
+            "path": "patchy.md",
+            "status": "modified",
+            "oldMode": "100644",
+            "newMode": "100644",
+            "binary": false,
+            "added": 2,
+            "deleted": 3
+        },
+        {
+            "path": "src/a => b.ts",
+            "status": "added",
+            "oldMode": null,
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 0
+        },
+        {
+            "path": "src/added-empty.txt",
+            "status": "added",
+            "oldMode": null,
+            "newMode": "100644",
+            "binary": false,
+            "added": 0,
+            "deleted": 0
+        },
+        {
+            "path": "src/added.ts",
+            "status": "added",
+            "oldMode": null,
+            "newMode": "100644",
+            "binary": false,
+            "added": 2,
+            "deleted": 0
+        },
+        {
+            "path": "src/blob.bin",
+            "status": "modified",
+            "oldMode": "100644",
+            "newMode": "100644",
+            "binary": true,
+            "added": 0,
+            "deleted": 0
+        },
+        {
+            "path": "src/caf\u00e9 \u00fc.ts",
+            "status": "added",
+            "oldMode": null,
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 0
+        },
+        {
+            "path": "src/crlf.txt",
+            "status": "modified",
+            "oldMode": "100644",
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 1
+        },
+        {
+            "path": "src/deleted.ts",
+            "status": "deleted",
+            "oldMode": "100644",
+            "newMode": null,
+            "binary": false,
+            "added": 0,
+            "deleted": 2
+        },
+        {
+            "path": "src/empty-then-filled.txt",
+            "status": "modified",
+            "oldMode": "100644",
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 0
+        },
+        {
+            "path": "src/filled-then-empty.txt",
+            "status": "modified",
+            "oldMode": "100644",
+            "newMode": "100644",
+            "binary": false,
+            "added": 0,
+            "deleted": 1
+        },
+        {
+            "path": "src/gains-nonl.txt",
+            "status": "modified",
+            "oldMode": "100644",
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 1
+        },
+        {
+            "path": "src/keep.ts",
+            "status": "modified",
+            "oldMode": "100644",
+            "newMode": "100644",
+            "binary": false,
+            "added": 2,
+            "deleted": 1
+        },
+        {
+            "path": "src/link-to-target",
+            "status": "added",
+            "oldMode": null,
+            "newMode": "120000",
+            "binary": false,
+            "added": 1,
+            "deleted": 0
+        },
+        {
+            "path": "src/long.ts",
+            "status": "modified",
+            "oldMode": "100644",
+            "newMode": "100644",
+            "binary": false,
+            "added": 3,
+            "deleted": 3
+        },
+        {
+            "path": "src/newblob.bin",
+            "status": "added",
+            "oldMode": null,
+            "newMode": "100644",
+            "binary": true,
+            "added": 0,
+            "deleted": 0
+        },
+        {
+            "path": "src/nonl.txt",
+            "status": "modified",
+            "oldMode": "100644",
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 1
+        },
+        {
+            "path": "src/quo\"te.ts",
+            "status": "added",
+            "oldMode": null,
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 0
+        },
+        {
+            "path": "src/renamed-edit.ts",
+            "status": "renamed",
+            "oldMode": "100644",
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 1,
+            "from": "src/rename-edit.ts",
+            "similarity": 85
+        },
+        {
+            "path": "src/renamed-pure.ts",
+            "status": "renamed",
+            "oldMode": "100644",
+            "newMode": "100644",
+            "binary": false,
+            "added": 0,
+            "deleted": 0,
+            "from": "src/rename-pure.ts",
+            "similarity": 100
+        },
+        {
+            "path": "src/script.sh",
+            "status": "modified",
+            "oldMode": "100644",
+            "newMode": "100755",
+            "binary": false,
+            "added": 0,
+            "deleted": 0
+        },
+        {
+            "path": "src/tab\there.ts",
+            "status": "added",
+            "oldMode": null,
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 0
+        },
+        {
+            "path": "src/with space.ts",
+            "status": "modified",
+            "oldMode": "100644",
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 0
+        }
+    ],
+    "records": [
+        {
+            "path": ".reggie/tasks/diff-cases/evidence/tests.txt",
+            "status": "added",
+            "oldMode": null,
+            "newMode": "100644",
+            "binary": false,
+            "added": 1,
+            "deleted": 0
+        }
+    ],
+    "totals": {
+        "files": 24,
+        "added": 22,
+        "deleted": 14
+    }
+}

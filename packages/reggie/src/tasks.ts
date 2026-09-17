@@ -219,6 +219,11 @@ export interface TaskInfo {
   /** Whole days since lastActivity, else since the intake line's date, else since the brief's `created`; null when none is known. */
   age: number | null;
   branch: string | null;
+  /**
+   * The ref the task branch is read from: `task/<slug>` when it is local, `origin/task/<slug>` when only
+   * the remote-tracking ref exists, null with no task branch. Never a `plan/` branch, which `branch` may name.
+   */
+  branchRef: string | null;
   pr: PullRequest | null;
   /** The brief triage wrote, when there is one. */
   brief: TaskBriefInfo | null;
@@ -637,6 +642,7 @@ function resolveTask(paths: RepoPaths, slug: string, snap: Snapshot): ResolvedTa
     lastActivity,
     age,
     branch: branch?.name ?? planBranch?.name ?? null,
+    branchRef: branch ? refFor(branch) : null,
     pr,
     brief,
     planExists: Boolean(planLocal || planOnDefault),

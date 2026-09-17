@@ -1,0 +1,6 @@
+$ npm run typecheck   (in packages/reggie of the task worktree, commit 7f32a21, after the review fixes)
+
+> reggie@3.0.0-alpha.1 typecheck
+> tsc -p tsconfig.json --noEmit
+
+exit: 0
