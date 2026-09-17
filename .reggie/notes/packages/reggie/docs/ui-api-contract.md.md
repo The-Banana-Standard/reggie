@@ -15,3 +15,7 @@ sources: packages/reggie/docs/ui-api-contract.md, note-form-on-repo-and-area
 The two change routes are documented with their row kinds, card kinds, caps and status codes, and the text says which conditions make a file unreadable. Those lists are copies of unions in the changes module; add a card kind or a status there and this file is wrong until the same commit edits it. The completion block now lists the landing merge, which the Completed view reads to decide whether a changed file is a door.
 sources: packages/reggie/docs/ui-api-contract.md, branch-diff-in-reader
 
+## gotcha · 2026-09-17 · Claude via jacobpress · medium
+The journal section documents the optional derived field on a journal entry, the handle on a claim, and, in the launch route's paragraph, the launch log beside the single launch record. The derived field's shape is a copy of DerivedMark in the journal module; change one and change the other in the same commit.
+sources: derive-the-journal
+

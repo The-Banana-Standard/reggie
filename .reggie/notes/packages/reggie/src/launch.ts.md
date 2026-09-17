@@ -26,3 +26,7 @@ sources: packages/reggie/src/launch.ts, a-task-worktree-has-no-node-modules-so-n
 ## how · 2026-09-15 · Claude via jacobpress · medium
 The shape prompt says triage also removes the intake line, and tells the session to fill in a brief that is already there rather than passing --force, because the scaffold's Problem is where the captured words live once the line is gone.
 
+## how · 2026-09-17 · Claude via jacobpress · high
+recordLaunch still writes the single latest record per slug, and now also appends the same object as one line to a log beside it, so a plan launch followed by a build launch keeps both session ids. A record written before the log existed is carried into the log before it is overwritten. readLaunches returns every launch oldest first, skips lines that do not parse or are not a launch for that slug, and validates the tool and goal, because the cache is a file anyone can edit. The record still names no person and a Codex launch still has no id; both are captured, not fixed.
+sources: derive-the-journal
+

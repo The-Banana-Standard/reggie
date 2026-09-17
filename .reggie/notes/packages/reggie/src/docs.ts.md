@@ -6,3 +6,7 @@ kind: file
 ## gotcha · 2026-09-15 · Claude via jacobpress · medium
 The generated block states the state rule, so it is the widest-travelling copy of it: every repo Reggie onboards gets the sentence in its CLAUDE.md and AGENTS.md. Change the rule in tasks.ts and change this sentence in the same commit, then run reggie docs refresh on a clean tree so the CI check stays green.
 
+## decision · 2026-09-17 · Claude via jacobpress · high
+The generated block still asks for one hand entry per step, reworded on 2026-09-17 to name reggie journal derive and to say what it adds and what it cannot: the commits and a launched session's closing words, not the reasons and not what is uncertain. Dropping the request would have emptied the journal, because no launch record exists and no claim carries a real session id on the owner's machine yet. When to stop asking is its own captured item.
+sources: derive-the-journal
+
