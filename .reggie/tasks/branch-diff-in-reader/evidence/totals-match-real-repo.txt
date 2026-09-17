@@ -1,4 +1,4 @@
-# AC24 by hand, against this repo (served from the task worktree on port 4472), 2026-09-17
+# AC24 by hand, against this repo (served from the task worktree on port 4472), 2026-09-17, re-run after the review fixes at commit 4571cfb
 # task: intake-line-leaves-at-triage, a done task whose branch is gone; the plan expects 25 files
 
 $ curl -s 'http://127.0.0.1:4472/api/changes?slug=intake-line-leaves-at-triage'   (range, totals, list sizes)
@@ -47,3 +47,5 @@ MATCH   layout-modes: /api/changes totals {"files": 8, "added": 374, "deleted": 
 MATCH   mobile-ui: /api/changes totals {"files": 13, "added": 492, "deleted": 27} vs completion.diff {"filesChanged": 13, "added": 492, "deleted": 27}
 
 all twelve landed tasks match
+
+this task, live:  {"kind": "branch", "refName": "task/branch-diff-in-reader", "commits": 13, "totals": {"files": 19, "added": 3259, "deleted": 60}, "records": 73}

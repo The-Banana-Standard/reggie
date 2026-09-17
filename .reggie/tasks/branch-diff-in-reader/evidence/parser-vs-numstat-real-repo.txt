@@ -1,9 +1,10 @@
-# Bail conditions 1 and 4 against this repo, 2026-09-17: the landing lookup for every done task, and the rows
+# Bail conditions 1 and 4 against this repo, re-run 2026-09-17 after the review fixes (the patch parser was rewritten to walk the text with a
+# cursor and stop at a row budget, so its agreement with git had to be measured again): the landing lookup for every done task, and the rows
 # fileDiff builds against git's own --numstat for every file of every landed merge and of this task's own branch.
 # Script: a throwaway tsx probe that calls taskRange, listChanges and fileDiff from src/changes.ts, paging every file to its end.
 
-repo: repo-manager/.worktree/branch-diff-in-reader  integration branch: repo-manager  tasks: 82
-- branch-diff-in-reader [in-process]: branch task/branch-diff-in-reader, 5 commits, 17 files +2671 -45, 17 records
+repo: repo-manager/.worktree/branch-diff-in-reader  integration branch: repo-manager  tasks: 88
+- branch-diff-in-reader [in-process]: branch task/branch-diff-in-reader, 11 commits, 19 files +2706 -53, 73 records
 - a-task-worktree-has-no-node-modules-so-nothing-r: merge cb46252 names the task in its subject: true; 11 files +778 -24, 18 records, 3 commits
 - about-this-repo: merge 56334b1 names the task in its subject: true; 8 files +71 -17, 8 records, 4 commits
 - docs-check-in-ci: merge 32dc1fa names the task in its subject: true; 3 files +10 -6, 13 records, 4 commits
@@ -17,4 +18,4 @@ repo: repo-manager/.worktree/branch-diff-in-reader  integration branch: repo-man
 - stale-dev-bin: merge 4f214fc names the task in its subject: true; 7 files +306 -64, 12 records, 4 commits
 - task-attribution-by-merge: merge 165283e names the task in its subject: true; 11 files +765 -105, 15 records, 5 commits
 
-landing merges read: 12; files read: 395 (394 with countable lines); rows built: 21318; unreadable: 0; rows disagreeing with git's numstat: 0
+landing merges read: 12; files read: 453 (430 with countable lines); rows built: 22492; unreadable: 0; rows disagreeing with git's numstat: 0

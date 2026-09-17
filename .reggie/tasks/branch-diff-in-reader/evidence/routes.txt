@@ -1,12 +1,12 @@
 $ TZ=UTC npx vitest run test/serve.test.ts -t what a task changed routes --reporter=verbose      (skipped tests left out of this capture)
-# git 2.55.0, node v22.22.2, 2026-09-17T09:34Z, commit 4a2b2d5
+# git 2.55.0, node v22.22.2, 2026-09-17T10:38Z, commit 4571cfb
  RUN  v4.1.11 <worktree>/packages/reggie
- ✓ test/serve.test.ts > what a task changed > routes > lists an in-process task's change: every field, records apart, totals over the files only 855ms
- ✓ test/serve.test.ts > what a task changed > routes > lists each awkward name byte for byte, and opens each one's own rows 474ms
- ✓ test/serve.test.ts > what a task changed > routes > adds branchRef to every task the list and the task page return 380ms
- ✓ test/serve.test.ts > what a task changed > routes > says whether the graph ever read the file, so a page can skip the routes that would 404 315ms
- ✓ test/serve.test.ts > what a task changed > routes > refuses POST on both routes 3ms
+ ✓ test/serve.test.ts > what a task changed > routes > lists an in-process task's change: every field, records apart, totals over the files only 896ms
+ ✓ test/serve.test.ts > what a task changed > routes > lists each awkward name byte for byte, and opens each one's own rows 458ms
+ ✓ test/serve.test.ts > what a task changed > routes > adds branchRef to every task the list and the task page return 462ms
+ ✓ test/serve.test.ts > what a task changed > routes > says whether the graph ever read the file, so a page can skip the routes that would 404 320ms
+ ✓ test/serve.test.ts > what a task changed > routes > refuses POST on both routes 2ms
  Test Files  1 passed (1)
-      Tests  5 passed | 123 skipped (128)
-   Start at  09:34:39
-   Duration  4.06s (transform 257ms, setup 0ms, import 321ms, tests 3.69s, environment 0ms)
+      Tests  5 passed | 129 skipped (134)
+   Start at  10:38:02
+   Duration  4.16s (transform 253ms, setup 0ms, import 316ms, tests 3.79s, environment 0ms)

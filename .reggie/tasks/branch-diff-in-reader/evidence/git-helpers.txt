@@ -1,12 +1,13 @@
 $ TZ=UTC npx vitest run src/changes.test.ts -t git diff helpers --reporter=verbose      (skipped tests left out of this capture)
-# git 2.55.0, node v22.22.2, 2026-09-17T09:34Z, commit 4a2b2d5
+# git 2.55.0, node v22.22.2, 2026-09-17T10:37Z, commit 4571cfb
  RUN  v4.1.11 <worktree>/packages/reggie
- ✓ src/changes.test.ts > git diff helpers > throw before git is spawned when a revision is not a full commit id 11ms
+ ✓ src/changes.test.ts > git diff helpers > throw before git is spawned when a revision is not a full commit id 8ms
  ✓ src/changes.test.ts > git diff helpers > hand git pinned flags, revisions after --end-of-options and paths after -- 1ms
- ✓ src/changes.test.ts > git diff helpers > answer null when git fails and an empty string when nothing changed, and never confuse the two 56ms
- ✓ src/changes.test.ts > git diff helpers > treat pathspec magic and globs as plain names 55ms
- ✓ src/changes.test.ts > git diff helpers > resolve names to commits, and read a blob id by path without the path touching the revision 63ms
+ ✓ src/changes.test.ts > git diff helpers > answer null when git fails and an empty string when nothing changed, and never confuse the two 44ms
+ ✓ src/changes.test.ts > git diff helpers > answer null for a patch larger than the caller is prepared to read, every time 82ms
+ ✓ src/changes.test.ts > git diff helpers > treat pathspec magic and globs as plain names 44ms
+ ✓ src/changes.test.ts > git diff helpers > resolve names to commits, and read a blob id by path without the path touching the revision 48ms
  Test Files  1 passed (1)
-      Tests  5 passed | 39 skipped (44)
-   Start at  09:34:28
-   Duration  2.03s (transform 95ms, setup 0ms, import 126ms, tests 1.83s, environment 0ms)
+      Tests  6 passed | 48 skipped (54)
+   Start at  10:37:51
+   Duration  2.15s (transform 96ms, setup 0ms, import 125ms, tests 1.97s, environment 0ms)

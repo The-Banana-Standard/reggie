@@ -1,12 +1,12 @@
 $ TZ=UTC npx vitest run   (in packages/reggie of the task worktree)
-# git 2.55.0, node v22.22.2, 2026-09-17T09:32Z, commit 7d6f095
-# baseline on repo-manager before this task, same command: 32 files, 687 passed, 1 skipped, 15.1 s
+# git 2.55.0, node v22.22.2, 2026-09-17T10:53Z, commit 7f32a21, after the review fixes
+# baseline on repo-manager before this task, same command: 32 files, 687 passed, 1 skipped, 15.1 s. Before the reviews: 761 passed, 1 skipped.
 
  RUN  v4.1.11 <worktree>/packages/reggie
 
 
  Test Files  33 passed (33)
-      Tests  761 passed | 1 skipped (762)
-   Start at  09:32:55
-   Duration  23.12s (transform 2.36s, setup 0ms, import 3.95s, tests 154.11s, environment 1ms)
+      Tests  777 passed | 1 skipped (778)
+   Start at  10:53:31
+   Duration  25.00s (transform 2.39s, setup 0ms, import 4.05s, tests 167.62s, environment 1ms)
 

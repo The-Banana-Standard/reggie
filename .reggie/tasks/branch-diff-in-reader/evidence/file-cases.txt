@@ -1,31 +1,35 @@
 $ TZ=UTC npx vitest run src/changes.test.ts test/serve.test.ts -t file-level cases --reporter=verbose      (skipped tests left out of this capture)
-# git 2.55.0, node v22.22.2, 2026-09-17T09:34Z, commit 4a2b2d5
+# git 2.55.0, node v22.22.2, 2026-09-17T10:38Z, commit 4571cfb
  RUN  v4.1.11 <worktree>/packages/reggie
  ✓ src/changes.test.ts > file-level cases > lists every changed file of the branch once, records apart, with counts over the files only 46ms
- ✓ src/changes.test.ts > file-level cases > agrees with git's own numstat on every file it draws rows for 380ms
- ✓ src/changes.test.ts > file-level cases > a deleted file: a card, and one del row per removed line with old numbers and no new one 47ms
- ✓ src/changes.test.ts > file-level cases > an added file: all add rows numbered from 1, no gap, and markup kept as text 53ms
- ✓ src/changes.test.ts > file-level cases > a rename without edits: listed once under its new path, a card and no rows 47ms
- ✓ src/changes.test.ts > file-level cases > a rename with one edited line: one add, one del and context, never the whole file as added 52ms
- ✓ src/changes.test.ts > file-level cases > a binary file: zero counts, both byte sizes, no rows; a new one has no old size 108ms
- ✓ src/changes.test.ts > file-level cases > a mode-only change: both modes, a card, no rows; a symlink: its mode, a card, one row holding the target 118ms
- ✓ src/changes.test.ts > file-level cases > the three empty-file cases 176ms
- ✓ src/changes.test.ts > file-level cases > the no-newline marker over a real file: two flagged rows, and none for a terminated line 123ms
+ ✓ src/changes.test.ts > file-level cases > agrees with git's own numstat on every file it draws rows for 341ms
+ ✓ src/changes.test.ts > file-level cases > a deleted file: a card, and one del row per removed line with old numbers and no new one 45ms
+ ✓ src/changes.test.ts > file-level cases > an added file: all add rows numbered from 1, no gap, and markup kept as text 51ms
+ ✓ src/changes.test.ts > file-level cases > a rename without edits: listed once under its new path, a card and no rows 51ms
+ ✓ src/changes.test.ts > file-level cases > a rename with one edited line: one add, one del and context, never the whole file as added 61ms
+ ✓ src/changes.test.ts > file-level cases > a binary file: zero counts, both byte sizes, no rows; a new one has no old size 115ms
+ ✓ src/changes.test.ts > file-level cases > a mode-only change: both modes, a card, no rows; a symlink: its mode, a card, one row holding the target 121ms
+ ✓ src/changes.test.ts > file-level cases > the three empty-file cases 171ms
+ ✓ src/changes.test.ts > file-level cases > the no-newline marker over a real file: two flagged rows, and none for a terminated line 117ms
+ ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > a deleted file: status, card, and del rows numbered on the old side only 1041ms
+ ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > an added file: all add rows from 1 and no gap, with markup kept as the text it is 65ms
  ✓ src/changes.test.ts > file-level cases > content that imitates diff syntax, read from git itself 57ms
- ✓ src/changes.test.ts > file-level cases > a CRLF file: no row text ends in a carriage return 59ms
- ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > a deleted file: status, card, and del rows numbered on the old side only 928ms
- ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > an added file: all add rows from 1 and no gap, with markup kept as the text it is 64ms
- ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > a rename without edits is listed once and answers a card and no rows 151ms
- ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > a rename with one edited line answers one add and one del, not the whole file 73ms
- ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > a binary file answers both byte sizes and no rows; an added one has no old size 131ms
- ✓ src/changes.test.ts > file-level cases > several hunks a long way apart: a gap before, between and after, and numbers that match the file 60ms
- ✓ src/changes.test.ts > file-level cases > each awkward name opens its own rows and nobody else's 431ms
- ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > a mode-only change and a symlink 128ms
- ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > the three empty-file cases 193ms
- ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > a CRLF file carries no carriage return into a row 64ms
- ✓ src/changes.test.ts > file-level cases > does not read the patch of a file whose changed lines pass the cap, and says so 57ms
- ✓ src/changes.test.ts > file-level cases > pages by offset and answers nothing past the end 186ms
+ ✓ src/changes.test.ts > file-level cases > a CRLF file: no row text ends in a carriage return 58ms
+ ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > a rename without edits is listed once and answers a card and no rows 140ms
+ ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > a rename with one edited line answers one add and one del, not the whole file 69ms
+ ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > a binary file answers both byte sizes and no rows; an added one has no old size 125ms
+ ✓ src/changes.test.ts > file-level cases > several hunks a long way apart: a gap before, between and after, and numbers that match the file 59ms
+ ✓ src/changes.test.ts > file-level cases > each awkward name opens its own rows and nobody else's 408ms
+ ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > a mode-only change and a symlink 125ms
+ ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > the three empty-file cases 186ms
+ ✓ test/serve.test.ts > what a task changed > file-level cases over HTTP > a CRLF file carries no carriage return into a row 60ms
+ ✓ src/changes.test.ts > file-level cases > does not read the patch of a file whose changed lines alone pass the row cap, and says so 58ms
+ ✓ src/changes.test.ts > file-level cases > caps the rows it builds, context and gaps included, and the patch bytes it reads 97ms
+ ✓ src/changes.test.ts > file-level cases > builds a file's rows once: a later page is a slice, with git never asked again 67ms
+ ✓ src/changes.test.ts > file-level cases > keeps the row cache small: by entries, and by the rows they hold 0ms
+ ✓ src/changes.test.ts > file-level cases > a name that begins or ends with a space is listed as committed and draws its own rows 113ms
+ ✓ src/changes.test.ts > file-level cases > pages by offset and answers nothing past the end 313ms
  Test Files  2 passed (2)
-      Tests  24 passed | 148 skipped (172)
-   Start at  09:34:43
-   Duration  3.83s (transform 356ms, setup 0ms, import 460ms, tests 7.04s, environment 0ms)
+      Tests  28 passed | 160 skipped (188)
+   Start at  10:38:07
+   Duration  4.48s (transform 367ms, setup 0ms, import 473ms, tests 7.90s, environment 0ms)

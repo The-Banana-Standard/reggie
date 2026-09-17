@@ -1,0 +1,26 @@
+$ TZ=UTC npx vitest run src/changes.test.ts test/serve.test.ts -t never cuts a row|pass the row cap|caps the rows it builds|builds a file's rows once|keeps the row cache small|pages by offset|fast-forward|origin/task|tag that carries|reads as an option|hostile integration branch|paging builds|begins or ends with a space|this checkout is the one|larger than the caller --reporter=verbose      (skipped tests left out of this capture)
+# git 2.55.0, node v22.22.2, 2026-09-17T10:38Z, commit 4571cfb
+ RUN  v4.1.11 <worktree>/packages/reggie
+ ✓ src/changes.test.ts > git diff helpers > answer null for a patch larger than the caller is prepared to read, every time 93ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > never cuts a row in the middle of a character 1ms
+ ✓ src/changes.test.ts > file-level cases > does not read the patch of a file whose changed lines alone pass the row cap, and says so 62ms
+ ✓ src/changes.test.ts > file-level cases > caps the rows it builds, context and gaps included, and the patch bytes it reads 94ms
+ ✓ src/changes.test.ts > file-level cases > builds a file's rows once: a later page is a slice, with git never asked again 58ms
+ ✓ src/changes.test.ts > file-level cases > keeps the row cache small: by entries, and by the rows they hold 0ms
+ ✓ src/changes.test.ts > file-level cases > a name that begins or ends with a space is listed as committed and draws its own rows 98ms
+ ✓ src/changes.test.ts > file-level cases > pages by offset and answers nothing past the end 342ms
+ ✓ src/changes.test.ts > branch-level cases > a done task that landed by fast-forward with its branch kept is not reported as nothing changed 46ms
+ ✓ src/changes.test.ts > branch-level cases > reads a branch this clone only has as origin/task/<slug> 124ms
+ ✓ src/changes.test.ts > branch-level cases > reads the branch and not a tag that carries the branch's name 193ms
+ ✓ src/changes.test.ts > branch-level cases > never hands git an integration branch name that reads as an option 148ms
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > a branch this clone only has as origin/task/<slug> is read from that ref 1551ms
+ ✓ test/serve.test.ts > what a task changed > no change to read > a done task landed by fast-forward: 200 and a reason; its file route 404s with the same reason 53ms
+ ✓ test/serve.test.ts > what a task changed > no change to read > a done task landed by fast-forward whose branch was kept: a reason, never 'no commits yet' 643ms
+ ✓ test/serve.test.ts > what a task changed > path validation > opens a committed name that begins or ends with a space, which a tidied path no longer matches 241ms
+ ✓ test/serve.test.ts > what a task changed > editor link > opens this checkout's copy when this checkout is the one that has the task branch checked out 713ms
+ ✓ test/serve.test.ts > what a task changed > paging builds a file's rows once > answers later pages of the 60,000-line file from the rows the first page built 177ms
+ ✓ test/serve.test.ts > what a task changed > a hostile integration branch name > is never handed to git by either route, and nothing is written 989ms
+ Test Files  2 passed (2)
+      Tests  19 passed | 169 skipped (188)
+   Start at  10:38:40
+   Duration  6.60s (transform 372ms, setup 0ms, import 477ms, tests 9.35s, environment 0ms)

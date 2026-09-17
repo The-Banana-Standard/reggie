@@ -1,5 +1,5 @@
 # AC43: the note chain for each of the seven files, as `reggie note path <file>` prints it, then what the task changed under .reggie/notes/
-# 2026-09-17, commit 4a2b2d5
+# 2026-09-17, commit 47c2176, after the review fixes
 
 ==================================================================
 $ reggie note path packages/reggie/src/changes.ts
@@ -25,7 +25,11 @@ $ reggie note path packages/reggie/src/changes.ts
   sources: packages/reggie/src/changes.ts, branch-diff-in-reader
 - **verify** 2026-09-17 Claude via jacobpress (high): The fixture repo in the test folder holds every awkward input as one in process branch plus one small branch per whole branch case, and both the unit tests and the route tests read it. A new degenerate case belongs there first, with a comment saying what git prints for it. The hostile config test writes a person's worst git settings into a fixture, proves an ordinary diff then runs the external program, and proves ours never does.
   sources: packages/reggie/test/diff-fixture.ts, branch-diff-in-reader
-- **gotcha** 2026-09-17 Claude via jacobpress (high): A fourth thing is answered as unreadable, and it is checked before git is asked for anything: a file whose added plus deleted count, as the list already knows it, passes a quarter of a million lines. Every row is an object in memory before a page is cut from it, so a committed file of a few million one character lines would otherwise cost hundreds of megabytes per request. The cap came out of the security pass, not the plan. Raise it only with the memory arithmetic in hand; the sixty thousand line case the plan requires is far below it.
+- **gotcha** 2026-09-17 Claude via jacobpress (high): A fourth thing is answered as unreadable: a change that would draw more than a hundred thousand rows, with context and gap rows counted. A cap on changed lines alone does not bound the rows, which the security review proved with a million line file changed at every eighth line: exactly a quarter of a million changed lines, over a million rows, half a second and 466 megabytes for one request. So the cap is applied three times, each cheaper than the work it prevents: on git's own added plus deleted count before the patch is asked for, on hunk lines as they are parsed, and on the built rows. The parser walks the text with a cursor rather than splitting it precisely so that it can stop at the budget instead of finishing, and the patch read is bounded at sixteen megabytes. A cut row's text is copied out of its line, because a slice of a five megabyte line keeps all five megabytes alive for as long as the row is cached.
+  sources: packages/reggie/src/changes.ts, branch-diff-in-reader
+- **gotcha** 2026-09-17 Claude via jacobpress (high): The range never hands git a name. Every name is resolved once, by its full ref, to a commit id, and that id is what the landing lookup is given as its base too. The first version handed the lookup the integration branch's name, which comes from a tracked config file and so is as hostile as the repo is: a name that reads as an output option, with a ref of exactly that name so that it resolves, made an ordinary request write a file of the attacker's choosing. Resolving by full ref also stops a tag that carries a branch's name from standing in for it. A done task whose kept branch holds nothing past the base was fast forwarded, and is answered as unavailable with that reason rather than as a branch with no commits yet.
+  sources: packages/reggie/src/changes.ts, branch-diff-in-reader
+- **how** 2026-09-17 Claude via jacobpress (high): Built rows are memoized: buildFileDiff does the expensive, immutable part (patch, parse, rows, card) and fileDiff cuts a page from it and adds the one thing that depends on this checkout's HEAD. The cache is keyed by slug, the two commit ids and the path, so an entry can never be stale, and is bounded by entries, by rows and by the text the rows carry, least recently read out first. An answer marked transient, which is a git read that failed or timed out, is never kept, so the next request asks again; every other answer, the over the cap ones included, is final.
   sources: packages/reggie/src/changes.ts, branch-diff-in-reader
 
 ==================================================================
@@ -47,6 +51,8 @@ $ reggie note path packages/reggie/src/git.ts
 - **gotcha** 2026-09-17 Claude via jacobpress (high): The three range readers and their small helpers take full forty character commit ids and throw before git is spawned for anything else, because a revision that begins with a dash is an option: handed an output flag, git tried to write that file. Names are resolved once, by resolveCommit, and only its answer goes on. Revisions sit after end of options and paths after the double dash, under literal pathspecs, so exclude magic and globs name files instead of matching them. No external diff and no textconv are part of the security posture, not only of correctness: a read route must not run a program the repo's config names. They return null for a failed or timed out read and an empty string for an empty diff; the older helpers beside them return an empty string for both, which is why they were not reused.
   sources: packages/reggie/src/git.ts, branch-diff-in-reader
 - **how** 2026-09-17 Claude via jacobpress (high): diffRangeArgs is the one place the diff arguments are built, exported so a test can read exactly what git is handed, the way the history log's arguments are. Everything a person's git settings could change is pinned there for all three shapes: colour, renames, the algorithm, quoting, blank context stripping, and for a patch the context width, the merging of nearby hunks and the two prefixes. Blob sizes and blob text are asked by blob id, and the blob a path holds at a commit is asked through ls-tree with the path after the double dash, so a path from a request is never spliced into a revision.
+  sources: packages/reggie/src/git.ts, branch-diff-in-reader
+- **gotcha** 2026-09-17 Claude via jacobpress (high): The shared runner treats any spawn error as a failure, not only a non zero status. Output that outgrows the buffer is reported by node as an error beside a status of zero whenever the child had already exited, measured at five runs in six for a small patch, so judging by status alone passed over limit output off as a clean read. patchFor takes a byte bound for exactly that reason: what is turned into row objects on a request must be bounded where it is read.
   sources: packages/reggie/src/git.ts, branch-diff-in-reader
 
 ==================================================================
@@ -73,6 +79,8 @@ $ reggie note path packages/reggie/ui/reader.js
   sources: packages/reggie/ui/reader.js, branch-diff-in-reader
 - **gotcha** 2026-09-17 Claude via jacobpress (medium): Nothing here has an automated test, which is why no arithmetic lives here: row kinds, line numbers, gaps, the no newline flag and the cut all arrive from the server. If a diff looks wrong, the bug is almost certainly in the changes module and has a test waiting to be written there. The banner's extra note is looked up by class and removed by the plain mode's code, so the landed file has changed since message deliberately uses the banner text class instead. In diff mode the editor link uses the payload's address alone and hides without one; falling back to the checkout root would open the unchanged file at the branch's line numbers.
   sources: packages/reggie/ui/reader.js, branch-diff-in-reader
+- **gotcha** 2026-09-17 Claude via jacobpress (high): In diff mode the reader's identity has a third part: the two commits the change was read between. Path and slug alone are the same before and after a task is sent back and fixed, and the first version kept what it had drawn, so the owner would have decided on the old change while the task page beside it showed the new counts. What is drawn is kept only when a fresh answer carries the same range; the page hands that answer in, and without one the reader asks for the first page again past the fetch cache. Paging compares every page's range with the first and starts over with a sentence in the banner rather than append rows of another change. Closing the reader forgets the way back to a change and redraws the button, because reopening the same plain file redraws nothing. Select to note is not offered on a file the page has no note form for.
+  sources: packages/reggie/ui/reader.js, branch-diff-in-reader
 
 ==================================================================
 $ reggie note path packages/reggie/src/serve.ts
@@ -98,6 +106,8 @@ $ reggie note path packages/reggie/src/serve.ts
   sources: packages/reggie/src/serve.ts:2260
 - **gotcha** 2026-09-15 Claude via jacobpress (medium): POST /api/intake answers 409 for a task that has a brief. addIntakeDetail writes a fresh line for a slug that has none, so an answer posted after triage would rebuild the very line triage removed and bring the card's age back with it. The task page hides the form in that case, so the refusal is not reached by an ordinary click. POST /api/triage reports takenFromIntake so the client knows which cards' lines really went.
 - **how** 2026-09-17 Claude via jacobpress (high): Two read routes return what a task changed. The list route answers 200 for any known task and says available false with a sentence of Reggie's own when there is no range to read; the file route answers 404 carrying the same sentence. The file route checks its path twice: a path that could not be a repo path is 400, and a well formed path that is not a member of the task's own change list is 404 and never reaches git, which is what an output flag or exclude magic gets. Membership is tried on the name exactly as asked and then as tidied, so a committed name with a leading space still opens. The range is resolved on every request because a branch tip moves without this checkout's HEAD moving; the list between two commit ids is kept per slug while the ids stay the same. The file answer adds mapped, which is exactly the condition under which the story, impact and explain routes answer that path 404, and editorUrl, which follows the text on screen.
+  sources: packages/reggie/src/serve.ts, branch-diff-in-reader
+- **gotcha** 2026-09-17 Claude via jacobpress (high): Both change routes ask for the integration branch's name before anything else and stop when it begins with a dash, answering unavailable without echoing the name and without building the task list. The order matters: building the task list hands that name to older helpers that put it in front of git bare, so a guard placed after the task lookup would still have let these routes reach them. The rest of the server is still exposed through the task route and the decide route; that is captured as its own high ranked item and is not something these routes can fix. The routes no longer build the history index at all, and they keep one bounded cache of built rows per repo so that paging slices.
   sources: packages/reggie/src/serve.ts, branch-diff-in-reader
 
 ==================================================================
@@ -153,6 +163,8 @@ $ reggie note path packages/reggie/ui/app.js
   sources: packages/reggie/ui/app.js, note-form-on-repo-and-area
 - **how** 2026-09-17 Claude via jacobpress (high): A file route may carry a diff query naming a task, read by diffOf on the file level only. With it set the page asks for the change first, because that answer says whether the graph ever read the path. When it did not, the story, impact and explain requests are skipped rather than made and swallowed, since each would answer 404 and log a failure: the story column gets one section in plain words, no toast is raised, and the canvas is cleared with an empty view that brings its own sentence. The reader is then opened without a click, on a phone too, where the overlay is raised explicitly because a reader left open behind a closed overlay never flips its hidden flag. A symbol link clicked in diff mode is left to navigate, and openReader always passes the route's mode, so the Read button and the code pane toggle follow it.
   sources: packages/reggie/ui/app.js, branch-diff-in-reader
+- **how** 2026-09-17 Claude via jacobpress (medium): On a file route with a diff query the change is asked for past the fetch cache on every render and the answer is passed to the reader as its file. That costs one server round trip per render of such a page and buys the guarantee that the reader and the task page never disagree about a branch that has moved. The reader's fetch dep forwards a fresh option to the same cached api function for the same reason.
+  sources: packages/reggie/ui/app.js, branch-diff-in-reader
 
 ==================================================================
 $ reggie note path packages/reggie/ui/board.js
@@ -178,22 +190,24 @@ $ reggie note path packages/reggie/ui/board.js
 - **gotcha** 2026-09-15 Claude via jacobpress (medium): The optimistic update after a triage POST leaves the card in Ungroomed and only clears its intake line. Triage writes a scaffold nobody has filled in, which is what the server reports on the next reconcile, so moving the card to Groomed here would flicker and snap back. FALLBACK_STATES, FALLBACK_TRANSITIONS and COLUMN_RULE are the client's hand-written copy of the server's state machine and have to be edited in the same commit as tasks.ts; each COLUMN_RULE string has to fit one rendered line at the narrowest column width.
 - **how** 2026-09-17 Claude via jacobpress (high): The task page has a What changed section for in process, awaiting decision and done tasks. It mounts as a skeleton and fills itself from the changes route: a summary of which two points the change is read between, a row per file with a status badge and counts, then Reggie's own records under their own heading with the same doors. That list is the one source of doors on the page. File links that may become doors are marked with a change path data attribute when they are drawn, and once the list arrives the marked links whose path is in it are pointed at the diff route; the rest keep the plain file link. That is how a done task, whose branch comparison is empty, gets doors too. In the Completed view a changed file is a door only when the completion carries a landing merge, because without one there is no range to read.
   sources: packages/reggie/ui/board.js, branch-diff-in-reader
+- **gotcha** 2026-09-17 Claude via jacobpress (high): The What changed section drops an answer that arrives after it has left the document. The story container is shared by every task page and the door rewriting reaches into all of it, so a late answer for one task used to rewrite the file links of whichever task was on screen by then, a planned task with no branch included. The check is safe because mounting is synchronous: by the time any answer can arrive, a section that is still wanted is attached.
+  sources: packages/reggie/ui/board.js, branch-diff-in-reader
 
 ==================================================================
 $ git diff --stat repo-manager...HEAD -- .reggie/notes/
 ==================================================================
- .../packages/reggie/docs/ui-api-contract.md.md     |  4 ++++
- .reggie/notes/packages/reggie/src/changes.ts.md    | 25 ++++++++++++++++++++++
- .reggie/notes/packages/reggie/src/git.ts.md        | 13 +++++++++++
- .reggie/notes/packages/reggie/src/serve.ts.md      |  4 ++++
- .reggie/notes/packages/reggie/src/tasks.ts.md      |  4 ++++
- .../notes/packages/reggie/test/diff-fixture.ts.md  |  9 ++++++++
- .../notes/packages/reggie/test/serve.test.ts.md    |  4 ++++
- .../notes/packages/reggie/ui/DOM-CONTRACT.md.md    |  4 ++++
- .reggie/notes/packages/reggie/ui/app.js.md         |  4 ++++
- .reggie/notes/packages/reggie/ui/board.js.md       |  4 ++++
- .../packages/reggie/ui/dev/make-diff-fixture.ts.md |  9 ++++++++
- .reggie/notes/packages/reggie/ui/map.js.md         |  4 ++++
- .reggie/notes/packages/reggie/ui/reader.css.md     |  9 ++++++++
- .reggie/notes/packages/reggie/ui/reader.js.md      | 13 +++++++++++
- 14 files changed, 110 insertions(+)
+ .../packages/reggie/docs/ui-api-contract.md.md     |  4 +++
+ .reggie/notes/packages/reggie/src/changes.ts.md    | 33 ++++++++++++++++++++++
+ .reggie/notes/packages/reggie/src/git.ts.md        | 17 +++++++++++
+ .reggie/notes/packages/reggie/src/serve.ts.md      |  8 ++++++
+ .reggie/notes/packages/reggie/src/tasks.ts.md      |  4 +++
+ .../notes/packages/reggie/test/diff-fixture.ts.md  | 17 +++++++++++
+ .../notes/packages/reggie/test/serve.test.ts.md    |  4 +++
+ .../notes/packages/reggie/ui/DOM-CONTRACT.md.md    |  4 +++
+ .reggie/notes/packages/reggie/ui/app.js.md         |  8 ++++++
+ .reggie/notes/packages/reggie/ui/board.js.md       |  8 ++++++
+ .../packages/reggie/ui/dev/make-diff-fixture.ts.md |  9 ++++++
+ .reggie/notes/packages/reggie/ui/map.js.md         |  4 +++
+ .reggie/notes/packages/reggie/ui/reader.css.md     |  9 ++++++
+ .reggie/notes/packages/reggie/ui/reader.js.md      | 17 +++++++++++
+ 14 files changed, 146 insertions(+)

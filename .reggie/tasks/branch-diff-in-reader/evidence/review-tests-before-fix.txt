@@ -1,0 +1,143 @@
+# The reviewers' server-side findings, as tests, run against the code the reviewers read (src at 101166b, only the tests and the fixture changed).
+# Each is expected to FAIL here. 2026-09-17T10:11Z, git 2.55.0, node v22.22.2
+$ TZ=UTC npx vitest run src/changes.test.ts
+#    M packages/reggie/src/changes.test.ts
+#    M packages/reggie/test/diff-fixture.ts
+#   ?? .reggie/tasks/branch-diff-in-reader/evidence/review-tests-before-fix.txt
+ RUN  v4.1.11 <worktree>/packages/reggie
+ ❯ src/changes.test.ts (53 tests | 9 failed) 8983ms
+     × never cuts a row in the middle of a character 3ms
+     × does not read the patch of a file whose changed lines alone pass the row cap, and says so 46ms
+     × caps the rows it builds, context and gaps included, and the patch bytes it reads 40ms
+     × builds a file's rows once: a later page is a slice, with git never asked again 40ms
+     × keeps the row cache small: by entries, and by the rows they hold 0ms
+     × pages by offset and answers nothing past the end 52ms
+     × a done task that landed by fast-forward with its branch kept is not reported as nothing changed 112ms
+     × reads the branch and not a tag that carries the branch's name 73ms
+     × never hands git an integration branch name that reads as an option 27ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/changes.test.ts > parsePatch and diffRows > never cuts a row in the middle of a character
+AssertionError: expected 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…' to be 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…' // Object.is equality
+Expected: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+Received: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx�"
+ ❯ src/changes.test.ts:290:22
+    288|     if (row?.kind !== "add") throw new Error("expected one add row");
+    289|     expect(row.cut).toBe(true);
+    290|     expect(row.text).toBe("x".repeat(1999));
+       |                      ^
+    291|     expect(/[\uD800-\uDBFF]$/.test(row.text)).toBe(false);
+    292|     // A pair that ends exactly on the cut is whole and stays.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+ FAIL  src/changes.test.ts > file-level cases > does not read the patch of a file whose changed lines alone pass the row cap, and says so
+AssertionError: expected 'This file\'s patch disagrees with the…' to contain '100,001 lines'
+Expected: "100,001 lines"
+Received: "This file's patch disagrees with the counts git reported for it, so it is not shown rather than shown wrong."
+ ❯ src/changes.test.ts:479:29
+    477|     const huge = fileDiff(fx.repo.root, fx.slugs.cases, range, { ...en…
+    478|     expect(huge.card?.kind).toBe("unreadable");
+    479|     expect(huge.card?.text).toContain("100,001 lines");
+       |                             ^
+    480|     expect([huge.rows, huge.totalRows, huge.truncated]).toEqual([[], 0…
+    481|     expect(fileDiff(fx.repo.root, fx.slugs.cases, range, entry).card).…
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+ FAIL  src/changes.test.ts > file-level cases > caps the rows it builds, context and gaps included, and the patch bytes it reads
+TypeError: buildFileDiff is not a function
+ ❯ src/changes.test.ts:489:12
+    487|     const entry = (listChanges(fx.repo.root, range) ?? []).find((e) =>…
+    488|     if (!entry) throw new Error("src/long.ts is not listed");
+    489|     expect(buildFileDiff(fx.repo.root, range, entry).rows).toHaveLengt…
+       |            ^
+    490|     const byRows = buildFileDiff(fx.repo.root, range, entry, { maxRows…
+    491|     expect([byRows.card?.kind, byRows.rows]).toEqual(["unreadable", []…
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+ FAIL  src/changes.test.ts > file-level cases > builds a file's rows once: a later page is a slice, with git never asked again
+TypeError: DiffRowCache is not a constructor
+ ❯ src/changes.test.ts:502:19
+    500|     const entry = (listChanges(fx.repo.root, range) ?? []).find((e) =>…
+    501|     if (!entry) throw new Error("src/long.ts is not listed");
+    502|     const cache = new DiffRowCache();
+       |                   ^
+    503|     const first = fileDiff(fx.repo.root, fx.slugs.cases, range, entry,…
+    504|     // A root that does not exist: every git call there fails, so an a…
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+ FAIL  src/changes.test.ts > file-level cases > keeps the row cache small: by entries, and by the rows they hold
+TypeError: DiffRowCache is not a constructor
+ ❯ src/changes.test.ts:517:21
+    515|   it("keeps the row cache small: by entries, and by the rows they hold…
+    516|     const rowsOf = (n: number): DiffRow[] => Array.from({ length: n },…
+    517|     const byCount = new DiffRowCache({ maxEntries: 2, maxRows: 1000 });
+       |                     ^
+    518|     for (const key of ["a", "b", "c"]) byCount.set(key, { rows: rowsOf…
+    519|     expect([byCount.get("a"), byCount.get("b")?.rows.length, byCount.g…
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+ FAIL  src/changes.test.ts > file-level cases > pages by offset and answers nothing past the end
+AssertionError: NaN: expected NaN to be +0 // Object.is equality
+- Expected
++ Received
+- 0
++ NaN
+ ❯ src/changes.test.ts:545:138
+    543|
+    544|   it("pages by offset and answers nothing past the end", () => {
+    545|     for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, -5]) expe…
+       |                                                                                                                                          ^
+    546|     const all = diffOf("src/long.ts");
+    547|     const tail = diffOf("src/long.ts", fx.slugs.cases, 10);
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+ FAIL  src/changes.test.ts > branch-level cases > a done task that landed by fast-forward with its branch kept is not reported as nothing changed
+AssertionError: expected [ Array(4) ] to deeply equal [ false, null, [], [] ]
+- Expected
++ Received
+  [
+-   false,
+-   null,
++   true,
++   {
++     "base": "65a1239ead87ce92d1d791699573c2e85b666167",
++     "baseName": "main",
++     "commits": 0,
++     "kind": "branch",
++     "ref": "65a1239ead87ce92d1d791699573c2e85b666167",
++     "refName": "task/ff-kept",
++   },
+    [],
+    [],
+  ]
+ ❯ src/changes.test.ts:663:68
+    661|     expect(task(fx.slugs.ffKept).state).toBe("done");
+    662|     const kept = taskChanges(fx.repo.root, task(fx.slugs.ffKept), "mai…
+    663|     expect([kept.available, kept.range, kept.files, kept.records]).toE…
+       |                                                                    ^
+    664|     expect(kept.reason).toMatch(/no merge commit on main landed it/);
+    665|     expect(kept.reason).toMatch(/fast-forward/);
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+ FAIL  src/changes.test.ts > branch-level cases > reads the branch and not a tag that carries the branch's name
+AssertionError: expected 'f5363c4eda1ac7ba5a7ed95c495b491ad4ef8…' to be 'aea11fbe1a4b3ead4a35ef18b2c1907cc4501…' // Object.is equality
+Expected: "aea11fbe1a4b3ead4a35ef18b2c1907cc45014e1"
+Received: "f5363c4eda1ac7ba5a7ed95c495b491ad4ef8741"
+ ❯ src/changes.test.ts:687:28
+    685|       expect(resolveCommit(fx.repo.root, `task/${slug}`)).toBe(resolve…
+    686|       const c = taskChanges(fx.repo.root, { slug, state: "in-process",…
+    687|       expect(c.range?.ref).toBe(branchTip);
+       |                            ^
+    688|       expect(c.files.map((f) => f.path)).toEqual(["src/a.ts"]);
+    689|     } finally {
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+ FAIL  src/changes.test.ts > branch-level cases > never hands git an integration branch name that reads as an option
+AssertionError: landed-task: expected true to be false // Object.is equality
+- Expected
++ Received
+- false
++ true
+ ❯ src/changes.test.ts:712:42
+    710|       for (const slug of [fx.slugs.landed, fx.slugs.cases, fx.slugs.ff…
+    711|         const c = taskChanges(fx.repo.root, task(slug), hostile);
+    712|         expect(existsSync(target), slug).toBe(false);
+       |                                          ^
+    713|         // The name is a real branch here, so the change is still read…
+    714|         if (slug === fx.slugs.landed) expect([c.available, c.range?.ki…
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+ Test Files  1 failed (1)
+      Tests  9 failed | 44 passed (53)
+   Start at  10:11:03
+   Duration  9.20s (transform 104ms, setup 0ms, import 148ms, tests 8.98s, environment 0ms)

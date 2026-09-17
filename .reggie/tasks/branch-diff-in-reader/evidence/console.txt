@@ -35,3 +35,12 @@ right, but Chrome logs a failed fetch itself, whatever the page does with it. Th
   [error] Failed to load resource: the server responded with a status of 404 (Not Found)   [3 times]
 
 That is why /api/filediff now answers `mapped`, and why a file page in diff mode asks for the change first and skips the three requests when it is false.
+
+## After the review fixes (commit 4571cfb), the same browser, a fresh page
+
+Re-verification of CR1, CR2, CR3, CR5, CR6 and CR7 on the fixture server: the reviewer's send-back flow twice over, a held /api/changes answer,
+two pages of the 60,000-row file with the tip moved in between, selections on a mapped and an unmapped file, the mode button pressed four times,
+the reader closed and reopened, and a packet opened as a change at 390 wide.
+
+  console messages of any level, preserved across navigations: none  (the tool's answer, verbatim: '<no console messages found>')
+  /api/ requests the unmapped page made at 390 wide: /api/status, /api/facts and one /api/filediff, all 200

@@ -1,11 +1,16 @@
-$ TZ=UTC npx vitest run src/changes.test.ts test/serve.test.ts -t large changes|pass the cap|cuts a long row --reporter=verbose      (skipped tests left out of this capture)
-# git 2.55.0, node v22.22.2, 2026-09-17T09:34Z, commit 4a2b2d5
+$ TZ=UTC npx vitest run src/changes.test.ts test/serve.test.ts -t large changes|pass the row cap|caps the rows it builds|builds a file's rows once|keeps the row cache small|paging builds|cuts a long row|never cuts a row --reporter=verbose      (skipped tests left out of this capture)
+# git 2.55.0, node v22.22.2, 2026-09-17T10:38Z, commit 4571cfb
  RUN  v4.1.11 <worktree>/packages/reggie
- ✓ src/changes.test.ts > parsePatch and diffRows > cuts a long row and flags it 1ms
- ✓ src/changes.test.ts > file-level cases > does not read the patch of a file whose changed lines pass the cap, and says so 65ms
- ✓ test/serve.test.ts > what a task changed > large changes > pages a 60,000-line file 2,000 rows at a time 1086ms
- ✓ test/serve.test.ts > what a task changed > large changes > cuts a 5 MB single line to 2,000 characters in a small response 78ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > never cuts a row in the middle of a character 1ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > cuts a long row and flags it 0ms
+ ✓ src/changes.test.ts > file-level cases > does not read the patch of a file whose changed lines alone pass the row cap, and says so 63ms
+ ✓ src/changes.test.ts > file-level cases > caps the rows it builds, context and gaps included, and the patch bytes it reads 94ms
+ ✓ src/changes.test.ts > file-level cases > builds a file's rows once: a later page is a slice, with git never asked again 60ms
+ ✓ src/changes.test.ts > file-level cases > keeps the row cache small: by entries, and by the rows they hold 0ms
+ ✓ test/serve.test.ts > what a task changed > large changes > pages a 60,000-line file 2,000 rows at a time 1070ms
+ ✓ test/serve.test.ts > what a task changed > large changes > cuts a 5 MB single line to 2,000 characters in a small response 68ms
+ ✓ test/serve.test.ts > what a task changed > paging builds a file's rows once > answers later pages of the 60,000-line file from the rows the first page built 96ms
  Test Files  2 passed (2)
-      Tests  4 passed | 168 skipped (172)
-   Start at  09:34:51
-   Duration  3.43s (transform 323ms, setup 0ms, import 429ms, tests 4.94s, environment 0ms)
+      Tests  9 passed | 179 skipped (188)
+   Start at  10:38:16
+   Duration  3.43s (transform 369ms, setup 0ms, import 472ms, tests 5.16s, environment 0ms)

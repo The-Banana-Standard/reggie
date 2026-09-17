@@ -1,5 +1,5 @@
 $ TZ=UTC npx vitest run src/changes.test.ts -t parsePatch and diffRows|parseRawZ, parseNumstatZ and joinNumstat --reporter=verbose      (skipped tests left out of this capture)
-# git 2.55.0, node v22.22.2, 2026-09-17T09:34Z, commit 4a2b2d5
+# git 2.55.0, node v22.22.2, 2026-09-17T10:38Z, commit 4571cfb
  RUN  v4.1.11 <worktree>/packages/reggie
  ✓ src/changes.test.ts > parseRawZ, parseNumstatZ and joinNumstat > read a rename as two paths and a name holding an arrow as one 1ms
  ✓ src/changes.test.ts > parseRawZ, parseNumstatZ and joinNumstat > split counts on the first two tabs only, and mark a binary file 0ms
@@ -13,9 +13,10 @@ $ TZ=UTC npx vitest run src/changes.test.ts -t parsePatch and diffRows|parseRawZ
  ✓ src/changes.test.ts > parsePatch and diffRows > drops a trailing carriage return and nothing else 0ms
  ✓ src/changes.test.ts > parsePatch and diffRows > takes an empty line inside a hunk for an empty context line 0ms
  ✓ src/changes.test.ts > parsePatch and diffRows > says so when a hunk does not add up, rather than guessing 0ms
+ ✓ src/changes.test.ts > parsePatch and diffRows > never cuts a row in the middle of a character 0ms
  ✓ src/changes.test.ts > parsePatch and diffRows > cuts a long row and flags it 0ms
  ✓ src/changes.test.ts > parsePatch and diffRows > counts lines the way git does 0ms
  Test Files  1 passed (1)
-      Tests  14 passed | 30 skipped (44)
-   Start at  09:34:37
-   Duration  1.71s (transform 89ms, setup 0ms, import 119ms, tests 1.53s, environment 0ms)
+      Tests  15 passed | 39 skipped (54)
+   Start at  10:38:00
+   Duration  1.95s (transform 96ms, setup 0ms, import 126ms, tests 1.77s, environment 0ms)

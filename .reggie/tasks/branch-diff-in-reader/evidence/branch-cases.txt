@@ -1,20 +1,25 @@
 $ TZ=UTC npx vitest run src/changes.test.ts test/serve.test.ts -t branch-level cases --reporter=verbose      (skipped tests left out of this capture)
-# git 2.55.0, node v22.22.2, 2026-09-17T09:34Z, commit 4a2b2d5
+# git 2.55.0, node v22.22.2, 2026-09-17T10:38Z, commit 4571cfb
  RUN  v4.1.11 <worktree>/packages/reggie
- ✓ src/changes.test.ts > branch-level cases > zero commits past the base: available, empty, and zero commits 53ms
- ✓ src/changes.test.ts > branch-level cases > only Reggie's own records: no files, the records listed, totals of zero 46ms
+ ✓ src/changes.test.ts > branch-level cases > zero commits past the base: available, empty, and zero commits 48ms
+ ✓ src/changes.test.ts > branch-level cases > only Reggie's own records: no files, the records listed, totals of zero 41ms
  ✓ src/changes.test.ts > branch-level cases > merged the base back in: only what the branch itself changed 41ms
- ✓ src/changes.test.ts > branch-level cases > changed a line and changed it back: two commits and no net change 45ms
+ ✓ src/changes.test.ts > branch-level cases > changed a line and changed it back: two commits and no net change 43ms
  ✓ src/changes.test.ts > branch-level cases > landed by a merge, branch gone: read from the merge against its first parent, verdict and all 131ms
- ✓ src/changes.test.ts > branch-level cases > the landing's rows and numbers survive the base moving on, and changedSince says which files moved 195ms
- ✓ src/changes.test.ts > branch-level cases > says why there is nothing to read, in its own words 57ms
- ✓ src/changes.test.ts > branch-level cases > resolves nothing but the two names a safe slug builds 24ms
- ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > an awaiting-decision task lists its file, and its packet among the records 1259ms
- ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > zero commits past the base 57ms
- ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > only Reggie's own records 114ms
- ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > merged the base back in: the base's own file is in neither list 87ms
- ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > changed a line and changed it back: nothing listed, two commits 51ms
+ ✓ src/changes.test.ts > branch-level cases > the landing's rows and numbers survive the base moving on, and changedSince says which files moved 180ms
+ ✓ src/changes.test.ts > branch-level cases > says why there is nothing to read, in its own words 55ms
+ ✓ src/changes.test.ts > branch-level cases > a done task that landed by fast-forward with its branch kept is not reported as nothing changed 37ms
+ ✓ src/changes.test.ts > branch-level cases > reads a branch this clone only has as origin/task/<slug> 110ms
+ ✓ src/changes.test.ts > branch-level cases > reads the branch and not a tag that carries the branch's name 201ms
+ ✓ src/changes.test.ts > branch-level cases > never hands git an integration branch name that reads as an option 155ms
+ ✓ src/changes.test.ts > branch-level cases > resolves nothing but the two names a safe slug builds 30ms
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > an awaiting-decision task lists its file, and its packet among the records 1499ms
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > a branch this clone only has as origin/task/<slug> is read from that ref 563ms
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > zero commits past the base 56ms
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > only Reggie's own records 110ms
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > merged the base back in: the base's own file is in neither list 89ms
+ ✓ test/serve.test.ts > what a task changed > branch-level cases over HTTP > changed a line and changed it back: nothing listed, two commits 49ms
  Test Files  2 passed (2)
-      Tests  13 passed | 159 skipped (172)
-   Start at  09:34:47
-   Duration  3.66s (transform 315ms, setup 0ms, import 457ms, tests 5.50s, environment 0ms)
+      Tests  18 passed | 170 skipped (188)
+   Start at  10:38:11
+   Duration  4.62s (transform 366ms, setup 0ms, import 471ms, tests 7.18s, environment 0ms)

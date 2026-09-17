@@ -1,0 +1,42 @@
+# M1: what one /api/filediff answer costs, before and after the review fix. 2026-09-17, node v22.22.2, git 2.55.0, Darwin arm64.
+# Measured with the security reviewer's own probe (probe4.mts) over the reviewer's own repo (h4): sparse.txt is 1,000,000 short lines with
+# every 8th changed, 125,000 added plus 125,000 deleted, which is exactly 250,000 changed lines and so NOT past the old cap (the check was >).
+# wide.txt is an added file of 240,000 lines of 255 characters, a patch of about 61 MB. Each line below is one fileDiff call in one process.
+
+## BEFORE: src/changes.ts as the reviewers read it (101166b). Cap: 250,000 changed lines; patch buffer 64 MB; nothing memoized.
+listChanges: 168 ms, 2 entries
+sparse.txt offset=0: 483 ms, card=null, totalRows=1125000, page=2000, body=0 MB, rss=385 MB, heapUsed=216 MB
+sparse.txt offset=2000: 440 ms, card=null, totalRows=1125000, page=2000, body=0 MB, rss=644 MB, heapUsed=466 MB
+wide.txt offset=0: 198 ms, card=null, totalRows=240000, page=2000, body=1 MB, rss=932 MB, heapUsed=619 MB
+wide.txt offset=2000: 183 ms, card=null, totalRows=240000, page=2000, body=1 MB, rss=908 MB, heapUsed=241 MB
+peak rss (maxRSS): 961 MB
+
+## AFTER: the fixed branch. Cap: 100,000 ROWS BUILT, context and gap rows included, checked three times (git's count before the patch is asked
+## for; hunk lines as they are parsed, so parsing stops; the built rows). Patch bytes read: 16 MB. Built rows memoized per slug, base, ref and path.
+listChanges: 160 ms, 2 entries
+sparse.txt offset=0: 7 ms, card=unreadable, totalRows=0, page=0, body=0 MB, rss=95 MB, heapUsed=9 MB
+sparse.txt offset=2000: 0 ms, card=unreadable, totalRows=0, page=0, body=0 MB, rss=95 MB, heapUsed=9 MB
+wide.txt offset=0: 0 ms, card=unreadable, totalRows=0, page=0, body=0 MB, rss=95 MB, heapUsed=9 MB
+wide.txt offset=2000: 0 ms, card=unreadable, totalRows=0, page=0, body=0 MB, rss=95 MB, heapUsed=9 MB
+peak rss (maxRSS): 95 MB
+
+## AFTER, the case the count check cannot catch: 400,000 lines with every 8th changed is 50,000 + 50,000 = 100,000 changed lines, not past the
+## cap, yet 450,000 rows once context and gaps are in. The parser stops at the row budget instead of finishing.
+numstat: 50000	50000	sparse.txt
+fileDiff: 126 ms, card=unreadable, totalRows=0, heapUsed=53 MB, rss=163 MB, peak rss=163 MB
+card: This file's change, with the unchanged lines shown around it, comes to more rows than Reggie draws (100,000). Read it in a terminal instead.
+
+## AFTER, a legitimate large file (the fixture's 60,000-line added file, which AC20 requires to page): what each page costs.
+no cache, offset 0: 42.0 ms
+no cache, offset 2000: 38.5 ms
+no cache, offset 58000: 41.1 ms
+with the row cache, offset 0: 41.2 ms
+with the row cache, offset 2000: 0.0 ms
+with the row cache, offset 58000: 0.0 ms
+
+## Reading it
+The reviewer's case: 483 ms, 1,125,000 rows, 466 MB of heap after the second call and 961 MB peak RSS, twice over because page two parsed it all again.
+After: refused in 7 ms and 0 ms with an unreadable card that says why, 9 MB of heap, 95 MB peak RSS (a bare tsx process). The under-the-count case costs
+about 125 ms and 53 MB, bounded by the 16 MB patch and the 100,000-line parse budget, where it would have cost in proportion to the file. Paging a file
+that is allowed costs one 41 ms parse and then nothing measurable per page. The route tests prove the last point over HTTP by taking the file's
+blob out from under git between two pages: review-route-tests-before-fix.txt shows that test failing on the old code.

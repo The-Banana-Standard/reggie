@@ -1,1 +1,12 @@
-{"page":"#/repo/reggie-diff-fSRia5/file/src/added.ts?diff=diff-cases","twoAddedRows":{"fromRow":"1 + new file","toRow":"2 + export const html = \"<img src=x onerror=alert(1)>\";","noteButtonShown":true,"noteButtonText":"Add a note about lines 1–2"}}
+{
+  "page": "#/repo/reggie-diff-ENQGQx/file/src/keep.ts?diff=diff-cases",
+  "codeUnderTest": "the branch after the review fixes",
+  "fileIsOnTheMap": true,
+  "fromRow": "7 + line7 added by a later commit",
+  "toRow": "8 + line8 added after the fix",
+  "bothRowsAreAdded": true,
+  "noteButtonShown": true,
+  "noteButtonText": "Add a note about lines 7–8",
+  "prefillAfterPressingTheButton": "(lines 7–8, as changed by task diff-cases) ",
+  "note": "Re-captured after the review fixes. The first capture of this file was made on src/added.ts, a file that exists only on the branch; the code review (CR5) showed the button there led to 'There is no note form on this page', so it is no longer offered on a file the map never read, and this capture is on a mapped file whose change has two adjacent added rows."
+}
