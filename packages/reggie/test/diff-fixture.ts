@@ -105,6 +105,13 @@ export function makeDiffFixture(opts: { large?: boolean } = {}): DiffFixture {
 
   // A developer's global autocrlf would turn the CRLF file into LF on the way in.
   run("config", "core.autocrlf", "false");
+  // Git runs maintenance in a detached process after a commit or a merge once a repo holds a hundred
+  // loose objects, and this one holds more. Measured here: it sometimes packed the objects during the
+  // build and sometimes did not, so a test that reaches for a loose object failed one run in four, and
+  // once a `git add` racing it failed with "unable to create temporary file". A fixture must not
+  // depend on when a background process finishes.
+  run("config", "maintenance.auto", "false");
+  run("config", "gc.auto", "0");
   ensureLayout(paths);
   appendFileSync(path.join(root, ".gitignore"), ".worktree/\n.reggie/.cache/\n");
 
