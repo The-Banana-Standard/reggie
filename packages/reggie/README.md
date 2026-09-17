@@ -38,6 +38,7 @@ npm link            # puts `reggie` on your PATH
 | `reggie note stale` | Entries whose code changed after they were written. |
 | `reggie journal add <text> [--slug] [--stage] [--evidence a,b] [--session s]` | Append a plain-English entry. |
 | `reggie journal show [--days n] [--slug] [--person]` | Recent entries, newest first. |
+| `reggie journal derive <slug> [--session <uuid>] [--dry-run] [--rewrite]` | Write an entry from the task's commits and the closing words of its launched Claude sessions. Appends only what is new, prints every character it wrote, and never commits. See "The derived journal" below. |
 | `reggie packet <slug> [--force]` | Scaffold the completion packet from the plan, the diff, and the evidence folder. Never overwrites an existing packet unless forced. |
 | `reggie decide <slug> approved\|needs-work [--comment t]` | Record a verdict in the packet (solo mode or no-PR review). |
 | `reggie pr <slug> [--draft]` | Push the task branch and open a PR whose body is the packet. Needs `gh`. |
@@ -108,6 +109,18 @@ legacy:
   tasks: docs/BACKLOG.md
   history: false
 ```
+
+## The derived journal
+
+`reggie journal derive <slug>` writes a journal entry from what is already on disk, for a task in flight or a finished one. It reads two things. The task's commits: `base..task/<slug>` while the branch lives, and after that the branch side of the merge that landed it (or, for a fast-forward, the commits whose body names the task). And the closing words of each Claude Code session it can tie to the task by a recorded session id: the launch log under `.reggie/.cache/launches/`, a UUID in the claim file, a journal day file named by a session, or `--session <uuid>`. It never guesses a session by directory or time, it names a Codex launch as unread, and it does not read subagent transcripts.
+
+What it reads from a transcript is one kind of record only: the assistant's closing message of a turn, from the main conversation, written while the session was working inside this repository (and inside the task's own worktree, once it has been there). The owner's prompts, tool calls and their results, reasoning, attachments, titles and the compaction summary are never read. Only the newest closing message since the last entry is quoted. It is flattened to one line, so it cannot forge an entry or a link; secret shapes, email addresses and local paths are replaced by `[withheld]` and counted; and it is cut to 800 characters. That filter is by kind first and by pattern second, and neither is a guarantee: an assistant can repeat something private in words no pattern knows. So the verb never commits and never pushes, prints every character it wrote, and has `--dry-run`. Read the entry, then commit it; until you do, `reggie decide` in that checkout refuses to merge, exactly as it does for a hand entry.
+
+Each derived entry ends with a line `derived: session=… through=… commits=… prose=…`. That line is the watermark: a second run tells only commits no entry has named and quotes only a closing message later than `through`, so running it again with nothing new writes nothing. A session's entry goes to `.reggie/journal/<date>/<person>-<session id>.md`; an entry drawn from commits alone goes to the file a hand entry would.
+
+`--rewrite` is off by default. It sends the entry's text, and nothing else, to the session's own tool (`claude -p` with no tools, no MCP servers and no saved session) for one rewrite per entry, and falls back to the template on any failure. As of 2026-09-17 that call has never been run, by a person or by the tests.
+
+Until a session records its real id in the claims and entries it writes (`session-name-reads-real-id`), only a session started through `reggie launch` can be found on its own. For any other, the entry is drawn from commits alone unless you name the session with `--session`.
 
 ## MCP server
 

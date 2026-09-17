@@ -115,7 +115,10 @@ export function buildContext(paths: RepoPaths, config: ReggieConfig, req: Contex
 
   out.push("## Working agreement");
   out.push("- Read the notes above before editing. After changing a file, add or correct its note.");
-  out.push("- Write one plain-English journal entry after each step. Capture unrelated problems; do not fix them here.");
+  // The entry is still asked for: derive fills in what git and a launched session's transcript hold, and nothing else.
+  out.push(
+    `- Write one plain-English journal entry after each step; \`reggie journal derive ${req.slug ?? "<slug>"}\` adds the commits and a launched session's closing words, not the reasons. Capture unrelated problems; do not fix them here.`,
+  );
   if (planTitle) out.push("- Deviating from the plan is allowed; record the deviation and why in the completion packet.");
   if (brief && brief.questions.length > 0) out.push("- Answer the open questions above with the user before planning; if the user is not available, answer them yourself under Assumptions and say so.");
 
