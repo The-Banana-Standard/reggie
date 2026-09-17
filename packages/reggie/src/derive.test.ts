@@ -510,7 +510,7 @@ describe("degenerate input", () => {
   });
 });
 
-describe("commits", () => {
+describe("which commits are told", () => {
   it("narrates exactly the branch's own commits, without merges or the claim, when the branch merged the base back in", () => {
     const s = setup();
     onBranch(s);
