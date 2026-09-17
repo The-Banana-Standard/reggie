@@ -1,0 +1,19 @@
+# AC52, in the task worktree, 2026-09-17. The bin on the PATH is the integration checkout's build, which does not hold this
+# branch's code, so both commands were run from the output `npm run build` had just written here, the way CI does. The check's
+# output was captured outside the repo, so the tree it ran on was clean.
+
+$ npm run build                                   (packages/reggie; exit 0, no output after the tsc line)
+$ git status --short | wc -l                      (before the refresh) -> 0
+$ node packages/reggie/dist/cli.js docs refresh
+updated: CLAUDE.md
+updated: AGENTS.md
+$ git commit                                      (the refresh: 0b37767 docs: refresh the generated block for the new modules and the reworded journal line)
+$ git status --short | wc -l                      (before the check) -> 0
+$ node packages/reggie/dist/cli.js docs check
+fresh: CLAUDE.md
+fresh: AGENTS.md
+exit: 0
+
+# For the record, the bin on the PATH, run in the same clean tree, says stale for both files and fails. That is expected and is not
+# this branch's state: that bin is the integration checkout's older build, which still renders the journal line without the sentence
+# about reggie journal derive. After this branch lands, the integration checkout needs `npm run build` before its own check is green.
