@@ -1433,7 +1433,7 @@ export function ensureReader() {
   const container = $("reader");
   if (!container) return null;
   state.reader = createReader(container, {
-    fetchJson: (url) => api(url),
+    fetchJson: (url, opts) => api(url, opts),
     onNoteRequest: (prefill) => {
       setPaneOpen("story", true);
       if (!focusNoteForm(prefill)) toast("There is no note form on this page.", { tone: "warn" });
@@ -1777,12 +1777,17 @@ async function renderGraphLevel(route, token, scope) {
   // Reggie's own records, branch-only files and deleted files are most of what a task changes, so
   // those three failures are skipped rather than made and swallowed. The reader asks the same URL a
   // moment later and is answered from the fetch cache.
+  // It is asked past the fetch cache every time, and handed to the reader, which compares the two
+  // commits it was read between with what it last drew: a branch that was sent back and fixed is the
+  // same path and the same slug, and only the range says the change on screen is the old one.
   const diffSlug = diffOf(route);
   let offMap = false;
+  let change = null;
   if (diffSlug) {
-    const probe = await wrap(api(withRepo(diffUrl(fileOf(route), diffSlug))));
+    const probe = await wrap(api(withRepo(diffUrl(fileOf(route), diffSlug)), { fresh: true }));
     if (token !== state.renderToken) return;
-    offMap = probe.value?.mapped === false;
+    change = probe.value ?? null;
+    offMap = change?.mapped === false;
   }
   const [story, view] = offMap
     ? [{ value: null }, { value: null }]
@@ -1844,7 +1849,7 @@ async function renderGraphLevel(route, token, scope) {
     // A change is what the route asked for, so the reader opens without a click, on a phone too,
     // where the reader opening brings up the map overlay it lives in.
     else if (diffSlug) {
-      openReader(route);
+      openReader(route, change ? { file: change } : {});
       // A reader left open behind a closed overlay never flips `hidden`, so nothing else would raise it.
       if (isPhone()) setMapOpen(true);
     }

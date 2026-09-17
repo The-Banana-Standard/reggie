@@ -2721,6 +2721,9 @@ function changesSection(ctx, repo, slug, targetOf) {
   ctx
     .fetchJson(`/api/changes?slug=${encodeURIComponent(slug)}`)
     .then((c) => {
+      // The story container is shared by every task page, so an answer that arrives after the reader
+      // has moved on would otherwise rewrite the links of whichever task is on screen by then.
+      if (!bodyEl.isConnected) return;
       if (!c?.available) {
         mount(bodyEl, h("p", { class: "para muted changes__reason" }, c?.reason ?? "There is no change to read for this task."));
         return;
@@ -2758,7 +2761,9 @@ function changesSection(ctx, repo, slug, targetOf) {
         a.title = `Open what ${slug} changed in ${a.dataset.changePath}`;
       }
     })
-    .catch((e) => mount(bodyEl, h("p", { class: "para para--warn" }, `What this task changed could not be read: ${friendlyError(e)}`)));
+    .catch((e) => {
+      if (bodyEl.isConnected) mount(bodyEl, h("p", { class: "para para--warn" }, `What this task changed could not be read: ${friendlyError(e)}`));
+    });
   return sec;
 }
 

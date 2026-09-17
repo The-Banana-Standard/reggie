@@ -5,8 +5,11 @@
  *   createReader(container, deps) → { open, close, scrollTo, isOpen, current }
  *
  * deps (all optional):
- *   fetchJson(url) → Promise<FilePayload>   JSON fetch; default is a same-origin fetch that throws
- *                                           an Error carrying `.status`. app.js passes its cached `api`.
+ *   fetchJson(url, { fresh }?) → Promise<FilePayload>
+ *                                           JSON fetch; default is a same-origin fetch that throws
+ *                                           an Error carrying `.status`. app.js passes its cached `api`;
+ *                                           `fresh: true` asks it to go past that cache, which the reader
+ *                                           does whenever it needs to know whether a branch has moved.
  *   onNoteRequest(prefillText, ctx)         Called from the floating "Add a note about lines a–b" button
  *                                           with `(lines a–b) ` and ctx = { path, from, to, text }.
  *                                           `onNotePrefill` is accepted as an alias (DOM contract name).
@@ -25,6 +28,9 @@
  *   numbers); this module only draws them. A row that has a new-side number keeps `data-line`, so
  *   scrollTo, the highlight and select-to-note mean the same thing in both modes; symbol marks are
  *   dropped, because they are computed from this checkout's text and the rows are the branch's.
+ *   A change is only the same change while it is read between the same two commits: what is already
+ *   drawn is kept when `file` (or, without one, a fresh first page) carries the same `range`, and is
+ *   drawn again when the branch has moved. A later page from another range is never appended.
  *   Resolves once the source is rendered (or the error card is shown).
  * scrollTo(line, endLine?) — highlights line..endLine with --panel-2 and scrolls the first line into
  *   view; queued when called before the file has loaded. In diff mode a line is a new-side number.
@@ -173,7 +179,8 @@ export function createReader(container, deps = {}) {
     byLine: new Map(), // diff mode: new-side line number → .reader__line
     shownRows: 0, // diff mode: rows drawn so far, the offset of the next page
     widest: 1, // diff mode: the largest line number drawn, which sizes the gutter
-    lastDiff: null, // { path, slug } of the last change shown, so the plain file can offer the way back
+    lastDiff: null, // { where, slug } of the last change shown, so the plain file can offer the way back
+    check: 0, // revalidation counter: a newer "has the branch moved?" question drops an older one's answer
   };
 
   // ---- DOM skeleton: handle, head, banner, body ---------------------------
@@ -348,6 +355,11 @@ export function createReader(container, deps = {}) {
   function close() {
     if (!st.open) return;
     st.open = false;
+    // The way back to a change is offered while the reader stays open on that file, and no longer:
+    // kept past a close, it would offer one repo's task on another repo's file of the same name.
+    // The button is redrawn here because reopening the same plain file redraws nothing.
+    st.lastDiff = null;
+    if (st.path) setModeButton(st.path);
     hideNoteButton();
     document.removeEventListener("selectionchange", onSelectionChange);
     if (container.contains(document.activeElement)) document.activeElement.blur();
@@ -405,7 +417,7 @@ export function createReader(container, deps = {}) {
 
   /** "Show the file" while a change is on screen; "Show the change" on the plain file a change was just left for. */
   function setModeButton(path) {
-    const back = !st.diff && st.lastDiff && st.lastDiff.path === path ? st.lastDiff.slug : null;
+    const back = !st.diff && st.lastDiff && st.lastDiff.where === fileUrl(path, null, 0) ? st.lastDiff.slug : null;
     modeBtn.hidden = !st.diff && !back;
     if (modeBtn.hidden) return;
     modeBtn.textContent = st.diff ? "Show the file" : "Show the change";
@@ -572,7 +584,7 @@ export function createReader(container, deps = {}) {
         "span",
         { class: "reader__ln" },
         el("span", { class: `reader__num${r.kind === "del" ? " reader__num--old" : ""}`, "aria-hidden": "true", title: r.kind === "del" ? `Line ${num} before this change` : null }, String(num)),
-        el("span", { class: "reader__sign", "aria-label": word, title: word }, SIGN[r.kind] ?? ""),
+        el("span", { class: "reader__sign", role: word ? "img" : null, "aria-label": word, title: word }, SIGN[r.kind] ?? ""),
       ),
       el("code", { class: "reader__src" }, r.text),
       r.cut ? el("span", { class: "reader__flag", title: "This line is longer than the 2 000 characters shown" }, "\u2026 cut") : null,
@@ -611,22 +623,45 @@ export function createReader(container, deps = {}) {
     banner.hidden = parts.length === 0;
   }
 
+  /** Two answers describe the same change exactly when they were read between the same two commits. */
+  function sameRange(a, b) {
+    return Boolean(a?.range && b?.range && a.range.base === b.range.base && a.range.ref === b.range.ref);
+  }
+
   async function loadMoreRows(button) {
     const token = st.token;
     const path = st.path;
+    const diff = st.diff;
+    // The button is replaced once the rows arrive, and a disabled button drops focus to <body>.
+    const hadFocus = document.activeElement === button;
     button.disabled = true;
     try {
-      const page = await fetchJson(fileUrl(path, st.diff, st.shownRows));
+      const page = await fetchJson(fileUrl(path, diff, st.shownRows), { fresh: true });
       if (token !== st.token) return;
+      if (!sameRange(page, st.file)) {
+        // The branch moved between two pages. Rows of one change are never appended under rows of
+        // another: the whole change is read again, from the top, and the banner says why.
+        await open(path, { diff, fresh: true });
+        if (st.path === path && st.diff === diff) bannerNote("The branch moved while you were reading, so this change was read again from the top.");
+        if (hadFocus) body.focus({ preventScroll: true });
+        return;
+      }
       const code = body.querySelector(".reader__code");
       if (!code || !Array.isArray(page?.rows)) return;
       const first = appendDiffRows(code, page.rows);
       st.file = { ...st.file, truncated: page.truncated === true, totalRows: page.totalRows ?? st.file.totalRows };
       setDiffBanner(st.file);
       if (first) animateScroll(Math.max(0, first.offsetTop - 36));
+      if (hadFocus) {
+        const next = banner.querySelector(".reader__more");
+        const target = next ?? first;
+        if (target && !next) target.tabIndex = -1;
+        target?.focus({ preventScroll: true });
+      }
     } catch (err) {
       if (token !== st.token) return;
       button.disabled = false;
+      if (hadFocus) button.focus({ preventScroll: true });
       bannerNote(`The next rows could not be read: ${err?.message || String(err)}`);
     }
   }
@@ -807,6 +842,9 @@ export function createReader(container, deps = {}) {
     const range = sel.getRangeAt(0);
     if (!body.contains(range.commonAncestorContainer)) return hideNoteButton();
     if (st.diff) {
+      // A note is written in the form on the file's page, and a file the map never read has no such
+      // page content: offering the button there only leads to "There is no note form on this page."
+      if (st.file?.mapped === false) return hideNoteButton();
       const picked = diffSelection(range);
       if (!picked || !picked.text.trim()) return hideNoteButton();
       st.selection = picked;
@@ -901,16 +939,34 @@ export function createReader(container, deps = {}) {
     reveal();
     const diff = typeof opts.diff === "string" && opts.diff ? opts.diff : null;
     // The reader's identity is the path plus the mode: the same path in the other mode is a reload.
-    const sameFile = st.path === path && st.diff === diff && st.file && !opts.file && !opts.fresh;
-    if (sameFile) {
+    const drawn = st.path === path && st.diff === diff && st.file && !opts.fresh;
+    const highlightOnly = () => {
       const hl = resolveHighlight(opts, Array.isArray(opts.symbols) ? opts.symbols : st.symbols);
       if (hl) scrollTo(hl.line, hl.endLine);
-      return;
+    };
+    if (drawn && !diff && !opts.file) return highlightOnly();
+    if (drawn && diff) {
+      // In diff mode the identity has a third part, the two commits the change was read between. A
+      // task that was sent back and fixed is the same path and the same slug with a new tip, and
+      // what is on screen must never be the change as it was before. The caller's fresh answer says
+      // which it is; without one the first page is asked for again, past the fetch cache.
+      let latest = opts.file ?? null;
+      if (!latest) {
+        const check = ++st.check;
+        try {
+          latest = await fetchJson(fileUrl(path, diff, 0), { fresh: true });
+        } catch {
+          latest = null;
+        }
+        if (check !== st.check || st.path !== path || st.diff !== diff || !st.file) return;
+      }
+      if (sameRange(latest, st.file)) return highlightOnly();
+      if (latest) opts = { ...opts, file: latest };
     }
     st.path = path;
     st.diff = diff;
-    if (diff) st.lastDiff = { path, slug: diff };
-    else if (st.lastDiff && st.lastDiff.path !== path) st.lastDiff = null;
+    if (diff) st.lastDiff = { where: fileUrl(path, null, 0), slug: diff };
+    else if (st.lastDiff && st.lastDiff.where !== fileUrl(path, null, 0)) st.lastDiff = null;
     st.file = null;
     st.lines = [];
     st.rows = [];
@@ -925,7 +981,7 @@ export function createReader(container, deps = {}) {
     let file = opts.file ?? null;
     if (!file) {
       try {
-        file = await fetchJson(fileUrl(path, diff, 0));
+        file = await fetchJson(fileUrl(path, diff, 0), opts.fresh ? { fresh: true } : undefined);
       } catch (err) {
         if (token !== st.token) return;
         showError(err?.message || String(err), () => open(path, { ...opts, fresh: true }));
