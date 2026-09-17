@@ -1,14 +1,18 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
+import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { claimTask } from "../src/claim.js";
 import { git } from "../src/git.js";
+import { clearHistoryCache } from "../src/history.js";
 import { briefFile, packetFile } from "../src/paths.js";
 import { startServer, type ServerHandle } from "../src/serve.js";
 import { TASK_STATES } from "../src/tasks.js";
 import { ensureLayout } from "../src/layout.js";
-import { loadConfig } from "../src/people.js";
+import { currentPerson, loadConfig, loadPeople } from "../src/people.js";
 import { repoPaths } from "../src/paths.js";
+import { makeDiffFixture, oddLine, XSS_LINE, type DiffFixture } from "./diff-fixture.js";
 import { makeFixtureRepo, type FixtureRepo } from "./fixtures.js";
 import { makeTempRepo, type TempRepo } from "./helpers.js";
 
@@ -1507,5 +1511,359 @@ describe("GET /api/services, /api/service, /api/flows and /api/flow", () => {
       expect(res.status, route).toBe(405);
       await res.text();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// What a task changed: GET /api/changes and GET /api/filediff
+// ---------------------------------------------------------------------------
+
+describe("what a task changed", () => {
+  let dfx: DiffFixture;
+  let diffServer: ServerHandle;
+  let at: string;
+  /** A task claimed into `.worktree/<slug>`, for the editor link. */
+  const WORKTREE_SLUG = "worktree-task";
+  /** Every body a refusal answered with, checked together for leaks at the end. */
+  const refusals: string[] = [];
+
+  beforeAll(async () => {
+    dfx = makeDiffFixture();
+    const person = currentPerson(dfx.repo.root, loadPeople(dfx.paths));
+    const worktree = claimTask(dfx.paths, dfx.config, WORKTREE_SLUG, { worktree: true, person, deps: "defer" }).worktree ?? "";
+    mkdirSync(path.join(worktree, "src"), { recursive: true });
+    writeFileSync(path.join(worktree, "src/in-worktree.ts"), "export const here = 1;\n", "utf8");
+    git(["add", "--", "src/in-worktree.ts"], { cwd: worktree });
+    git(["-c", "commit.gpgsign=false", "commit", "-q", "-m", "feat: work in the worktree", "-m", `Task: ${WORKTREE_SLUG}`], { cwd: worktree });
+    diffServer = await startServer(dfx.paths, dfx.config, { port: 0, host: "127.0.0.1", workspace: null });
+    at = `http://127.0.0.1:${diffServer.port}`;
+  }, 120_000);
+
+  afterAll(async () => {
+    await diffServer?.close();
+    git(["worktree", "remove", "--force", path.join(dfx.repo.root, ".worktree", WORKTREE_SLUG)], { cwd: dfx.repo.root, allowFailure: true });
+    clearHistoryCache(dfx.repo.root);
+    dfx?.repo.cleanup();
+  });
+
+  async function hit(route: string): Promise<{ status: number; body: any; text: string }> {
+    const res = await fetch(at + route);
+    const text = await res.text();
+    return { status: res.status, body: text ? JSON.parse(text) : null, text };
+  }
+  async function changes(slug: string): Promise<any> {
+    const { status, body } = await hit(`/api/changes?slug=${encodeURIComponent(slug)}`);
+    expect(status, JSON.stringify(body).slice(0, 200)).toBe(200);
+    return body;
+  }
+  async function filediff(slug: string, file: string, extra = ""): Promise<any> {
+    const { status, body } = await hit(`/api/filediff?slug=${encodeURIComponent(slug)}&path=${encodeURIComponent(file)}${extra}`);
+    expect(status, `${file} -> ${JSON.stringify(body).slice(0, 200)}`).toBe(200);
+    return body;
+  }
+  async function refused(route: string, status: number): Promise<any> {
+    const r = await hit(route);
+    expect(r.status, `${route} -> ${r.text.slice(0, 200)}`).toBe(status);
+    refusals.push(r.text);
+    return r.body;
+  }
+  const kindsOf = (rows: any[]): string => rows.map((r) => r.kind).join(" ");
+
+  describe("routes", () => {
+    it("lists an in-process task's change: every field, records apart, totals over the files only", async () => {
+      const body = await changes(dfx.slugs.cases);
+      expect(body.slug).toBe(dfx.slugs.cases);
+      expect(body.available).toBe(true);
+      expect(body.reason).toBeNull();
+      expect(body.range).toMatchObject({ kind: "branch", baseName: "main", refName: `task/${dfx.slugs.cases}`, commits: 1 });
+      expect(body.range.base).toMatch(/^[0-9a-f]{40}$/);
+      expect(body.range.ref).toMatch(/^[0-9a-f]{40}$/);
+      expect(body.files.length).toBeGreaterThan(20);
+      for (const f of [...body.files, ...body.records]) {
+        expect(Object.keys(f).filter((k) => k !== "from" && k !== "similarity").sort()).toEqual(["added", "binary", "deleted", "newMode", "oldMode", "path", "status"]);
+      }
+      expect(body.records.map((f: any) => f.path)).toEqual([`.reggie/tasks/${dfx.slugs.cases}/evidence/tests.txt`]);
+      expect(body.files.some((f: any) => f.path.startsWith(".reggie/"))).toBe(false);
+      const sum = (key: string): number => body.files.reduce((n: number, f: any) => n + f[key], 0);
+      expect(body.totals).toEqual({ files: body.files.length, added: sum("added"), deleted: sum("deleted") });
+      const byPath = new Map(body.files.map((f: any) => [f.path, f]));
+      expect(byPath.get("src/keep.ts")).toEqual({ path: "src/keep.ts", status: "modified", oldMode: "100644", newMode: "100644", binary: false, added: 2, deleted: 1 });
+      expect(byPath.get("src/deleted.ts")).toMatchObject({ status: "deleted", newMode: null, added: 0, deleted: 2 });
+      expect(byPath.get("src/added.ts")).toMatchObject({ status: "added", oldMode: null, added: 2, deleted: 0 });
+    });
+
+    it("lists each awkward name byte for byte, and opens each one's own rows", async () => {
+      const body = await changes(dfx.slugs.cases);
+      const listed = body.files.map((f: any) => f.path);
+      for (const name of dfx.oddNames) {
+        expect(listed, JSON.stringify(name)).toContain(name);
+        const d = await filediff(dfx.slugs.cases, name);
+        expect(d.path).toBe(name);
+        expect(d.rows.filter((r: any) => r.kind === "add").map((r: any) => r.text), JSON.stringify(name)).toEqual([oddLine(name)]);
+      }
+    });
+
+    it("adds branchRef to every task the list and the task page return", async () => {
+      const list = (await hit("/api/tasks?all=1")).body as any[];
+      expect(list.find((t) => t.slug === dfx.slugs.cases).branchRef).toBe(`task/${dfx.slugs.cases}`);
+      expect(list.find((t) => t.slug === dfx.slugs.noBranch).branchRef).toBeNull();
+      expect((await hit(`/api/task/${dfx.slugs.landed}`)).body.task.branchRef).toBeNull();
+    });
+
+    it("says whether the graph ever read the file, so a page can skip the routes that would 404", async () => {
+      expect((await filediff(dfx.slugs.cases, "src/keep.ts")).mapped).toBe(true);
+      expect((await filediff(dfx.slugs.cases, "src/deleted.ts")).mapped).toBe(true);
+      for (const [slug, file] of [[dfx.slugs.cases, "src/added.ts"], [dfx.slugs.cases, `.reggie/tasks/${dfx.slugs.cases}/evidence/tests.txt`], [dfx.slugs.landed, `.reggie/tasks/${dfx.slugs.landed}/packet.md`]] as const) {
+        expect((await filediff(slug, file)).mapped, file).toBe(false);
+        expect((await hit(`/api/story?scope=file&id=${encodeURIComponent(file)}`)).status, file).toBe(404);
+        expect((await hit(`/api/impact?id=${encodeURIComponent(file)}`)).status, file).toBe(404);
+        expect((await hit(`/api/explain?id=${encodeURIComponent(file)}`)).status, file).toBe(404);
+      }
+      for (const file of ["src/keep.ts", "src/deleted.ts"]) expect((await hit(`/api/story?scope=file&id=${encodeURIComponent(file)}`)).status, file).toBe(200);
+    });
+
+    it("refuses POST on both routes", async () => {
+      for (const route of ["/api/changes", "/api/filediff"]) {
+        const res = await fetch(at + route, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+        expect(res.status, route).toBe(405);
+        await res.text();
+      }
+    });
+  });
+
+  describe("file-level cases over HTTP", () => {
+    it("a deleted file: status, card, and del rows numbered on the old side only", async () => {
+      const d = await filediff(dfx.slugs.cases, "src/deleted.ts");
+      expect(d.status).toBe("deleted");
+      expect(d.card.kind).toBe("deleted");
+      expect(d.rows).toEqual([
+        { kind: "del", old: 1, text: "gone1" },
+        { kind: "del", old: 2, text: "gone2" },
+      ]);
+    });
+
+    it("an added file: all add rows from 1 and no gap, with markup kept as the text it is", async () => {
+      const d = await filediff(dfx.slugs.cases, "src/added.ts");
+      expect(d.status).toBe("added");
+      expect(kindsOf(d.rows)).toBe("add add");
+      expect(d.rows.map((r: any) => r.new)).toEqual([1, 2]);
+      expect(d.rows[1].text).toBe(XSS_LINE);
+    });
+
+    it("a rename without edits is listed once and answers a card and no rows", async () => {
+      const body = await changes(dfx.slugs.cases);
+      const hits = body.files.filter((f: any) => f.path === "src/renamed-pure.ts" || f.path === "src/rename-pure.ts");
+      expect(hits).toEqual([{ path: "src/renamed-pure.ts", status: "renamed", from: "src/rename-pure.ts", similarity: 100, oldMode: "100644", newMode: "100644", binary: false, added: 0, deleted: 0 }]);
+      const d = await filediff(dfx.slugs.cases, "src/renamed-pure.ts");
+      expect(d.card.kind).toBe("renamed");
+      expect(d.rows).toEqual([]);
+      // The old name is not a member of the list, so it is not a door.
+      await refused(`/api/filediff?slug=${dfx.slugs.cases}&path=${encodeURIComponent("src/rename-pure.ts")}`, 404);
+    });
+
+    it("a rename with one edited line answers one add and one del, not the whole file", async () => {
+      const d = await filediff(dfx.slugs.cases, "src/renamed-edit.ts");
+      expect(kindsOf(d.rows)).toBe("gap ctx ctx ctx del add ctx ctx ctx gap");
+      expect([d.added, d.deleted, d.from]).toEqual([1, 1, "src/rename-edit.ts"]);
+    });
+
+    it("a binary file answers both byte sizes and no rows; an added one has no old size", async () => {
+      const changed = await filediff(dfx.slugs.cases, "src/blob.bin");
+      expect([changed.binary, changed.added, changed.deleted, changed.rows]).toEqual([true, 0, 0, []]);
+      expect(changed.card).toMatchObject({ kind: "binary", oldSize: dfx.sizes.blobBefore, newSize: dfx.sizes.blobAfter });
+      const added = await filediff(dfx.slugs.cases, "src/newblob.bin");
+      expect(added.card).toMatchObject({ kind: "binary", oldSize: null, newSize: dfx.sizes.newBlob });
+    });
+
+    it("a mode-only change and a symlink", async () => {
+      const mode = await filediff(dfx.slugs.cases, "src/script.sh");
+      expect([mode.oldMode, mode.newMode, mode.card.kind, mode.rows]).toEqual(["100644", "100755", "mode", []]);
+      const link = await filediff(dfx.slugs.cases, "src/link-to-target");
+      expect([link.newMode, link.card.kind]).toEqual(["120000", "symlink"]);
+      expect(link.rows).toEqual([{ kind: "add", new: 1, text: "target.txt", noeol: true }]);
+    });
+
+    it("the three empty-file cases", async () => {
+      const empty = await filediff(dfx.slugs.cases, "src/added-empty.txt");
+      expect([empty.card.kind, empty.rows]).toEqual(["empty", []]);
+      expect(kindsOf((await filediff(dfx.slugs.cases, "src/filled-then-empty.txt")).rows)).toBe("del");
+      expect((await filediff(dfx.slugs.cases, "src/empty-then-filled.txt")).rows).toEqual([{ kind: "add", new: 1, text: "now filled" }]);
+    });
+
+    it("a CRLF file carries no carriage return into a row", async () => {
+      const d = await filediff(dfx.slugs.cases, "src/crlf.txt");
+      expect(d.rows.map((r: any) => r.text)).toEqual(["crlf one", "crlf two", "crlf two EDITED"]);
+    });
+  });
+
+  describe("branch-level cases over HTTP", () => {
+    it("an awaiting-decision task lists its file, and its packet among the records", async () => {
+      expect((await hit(`/api/task/${dfx.slugs.awaiting}`)).body.task.state).toBe("awaiting-decision");
+      const body = await changes(dfx.slugs.awaiting);
+      expect(body.files.map((f: any) => [f.path, f.added, f.deleted])).toEqual([["src/b.ts", 1, 0]]);
+      expect(body.records.map((f: any) => f.path)).toEqual([`.reggie/tasks/${dfx.slugs.awaiting}/packet.md`]);
+    });
+
+    it("zero commits past the base", async () => {
+      const body = await changes(dfx.slugs.zeroAhead);
+      expect([body.available, body.files, body.records, body.range.commits]).toEqual([true, [], [], 0]);
+    });
+
+    it("only Reggie's own records", async () => {
+      const body = await changes(dfx.slugs.recordsOnly);
+      expect(body.files).toEqual([]);
+      expect(body.records.map((f: any) => f.path)).toEqual([`.reggie/tasks/${dfx.slugs.recordsOnly}/claim.md`, `.reggie/tasks/${dfx.slugs.recordsOnly}/evidence/tests.txt`]);
+      expect(body.totals).toEqual({ files: 0, added: 0, deleted: 0 });
+      const claim = await filediff(dfx.slugs.recordsOnly, `.reggie/tasks/${dfx.slugs.recordsOnly}/claim.md`);
+      expect(claim.rows).toEqual([{ kind: "add", new: 1, text: "claim" }]);
+    });
+
+    it("merged the base back in: the base's own file is in neither list", async () => {
+      const body = await changes(dfx.slugs.mergedBack);
+      expect(body.files.map((f: any) => f.path)).toEqual(["src/a.ts"]);
+      expect([...body.files, ...body.records].some((f: any) => f.path === "src/b.ts")).toBe(false);
+      await refused(`/api/filediff?slug=${dfx.slugs.mergedBack}&path=src/b.ts`, 404);
+    });
+
+    it("changed a line and changed it back: nothing listed, two commits", async () => {
+      const body = await changes(dfx.slugs.netZero);
+      expect([body.available, body.files, body.records, body.range.commits]).toEqual([true, [], [], 2]);
+    });
+  });
+
+  describe("large changes", () => {
+    it("pages a 60,000-line file 2,000 rows at a time", async () => {
+      const first = await filediff(dfx.slugs.large, "src/big.ts");
+      expect([first.rows.length, first.totalRows, first.truncated, first.offset]).toEqual([2000, dfx.large.lines, true, 0]);
+      expect([first.rows[0].new, first.rows[1999].new]).toEqual([1, 2000]);
+      const last = await filediff(dfx.slugs.large, "src/big.ts", "&offset=58000");
+      expect([last.rows.length, last.truncated, last.offset]).toEqual([2000, false, 58000]);
+      expect([last.rows[0].new, last.rows[1999].new]).toEqual([58001, 60000]);
+      expect(last.rows[1999].text).toBe("const v60000 = 60000;");
+      const past = await filediff(dfx.slugs.large, "src/big.ts", "&offset=60000");
+      expect([past.rows, past.truncated, past.totalRows]).toEqual([[], false, dfx.large.lines]);
+      for (const bad of ["abc", "-1", "1.5", "1e3"]) await refused(`/api/filediff?slug=${dfx.slugs.large}&path=src/big.ts&offset=${bad}`, 400);
+    });
+
+    it("cuts a 5 MB single line to 2,000 characters in a small response", async () => {
+      const r = await hit(`/api/filediff?slug=${dfx.slugs.large}&path=src/oneline.txt`);
+      expect(r.status).toBe(200);
+      expect(Buffer.byteLength(r.text)).toBeLessThan(100 * 1024);
+      expect(r.body.rows).toHaveLength(1);
+      expect([r.body.rows[0].text.length, r.body.rows[0].cut, r.body.rows[0].noeol]).toEqual([2000, true, true]);
+    });
+  });
+
+  describe("landed tasks", () => {
+    it("reads a done task whose branch is gone through the merge that landed it", async () => {
+      expect(git(["branch", "--list", `task/${dfx.slugs.landed}`], { cwd: dfx.repo.root }).stdout.trim()).toBe("");
+      const body = await changes(dfx.slugs.landed);
+      expect(body.range.kind).toBe("merge");
+      const [merge, firstParent, secondParent] = git(["rev-list", "--parents", "-n", "1", body.range.ref], { cwd: dfx.repo.root }).stdout.trim().split(" ");
+      expect(secondParent).toMatch(/^[0-9a-f]{40}$/);
+      expect([body.range.ref, body.range.base]).toEqual([merge, firstParent]);
+      expect(body.range.refName).toContain(`task/${dfx.slugs.landed}`);
+      const packet = `.reggie/tasks/${dfx.slugs.landed}/packet.md`;
+      expect(body.records.map((f: any) => f.path)).toContain(packet);
+      const rows = (await filediff(dfx.slugs.landed, packet)).rows;
+      expect(rows.some((r: any) => r.kind === "add" && r.text === "verdict: approved")).toBe(true);
+      expect(rows.some((r: any) => r.text === "verdict: pending")).toBe(false);
+    });
+
+    it("keeps the landing's rows and numbers after the base moved on, and says which files moved", async () => {
+      // main now reads zero / one / two LANDED / three / later on main; the landing read one / two LANDED / three.
+      expect(readFileSync(path.join(dfx.repo.root, "src/a.ts"), "utf8").split("\n")[0]).toBe("zero");
+      const a = await filediff(dfx.slugs.landed, "src/a.ts");
+      expect(a.rows).toEqual([
+        { kind: "ctx", old: 1, new: 1, text: "one" },
+        { kind: "del", old: 2, text: "two" },
+        { kind: "add", new: 2, text: "two LANDED" },
+        { kind: "ctx", old: 3, new: 3, text: "three" },
+      ]);
+      expect(a.changedSince).toBe(true);
+      expect((await filediff(dfx.slugs.landed, "src/landed-only.ts")).changedSince).toBe(false);
+      expect((await filediff(dfx.slugs.cases, "src/keep.ts")).changedSince).toBeNull();
+    });
+
+    it("counts what the Completed view counts", async () => {
+      const body = await changes(dfx.slugs.landed);
+      const done = (await hit(`/api/task/${dfx.slugs.landed}`)).body.completion;
+      expect(done.merge.sha).toBe(body.range.ref);
+      expect(body.totals).toEqual({ files: done.diff.filesChanged, added: done.diff.added, deleted: done.diff.deleted });
+      expect(body.totals.files).toBe(2);
+    });
+  });
+
+  describe("no change to read", () => {
+    it("a done task landed by fast-forward: 200 and a reason; its file route 404s with the same reason", async () => {
+      const body = await changes(dfx.slugs.ffLanded);
+      expect([body.available, body.range, body.files, body.records]).toEqual([false, null, [], []]);
+      expect(body.reason).toMatch(/no merge commit on main landed it/);
+      refusals.push(JSON.stringify(body));
+      const denied = await refused(`/api/filediff?slug=${dfx.slugs.ffLanded}&path=src/ff.ts`, 404);
+      expect(denied.error).toBe(body.reason);
+    });
+
+    it("no task branch and no landing: 200 and a reason; unknown slug 404; unsafe slug 400", async () => {
+      const body = await changes(dfx.slugs.noBranch);
+      expect(body.available).toBe(false);
+      expect(body.reason).toMatch(/There is no task branch yet/);
+      refusals.push(JSON.stringify(body));
+      for (const route of ["/api/changes?slug=never-heard-of-it", "/api/filediff?slug=never-heard-of-it&path=src/a.ts"]) expect((await refused(route, 404)).error).toBe("unknown task: never-heard-of-it");
+      for (const slug of ["../x", "", "UPPER", "a/b", "-dash"]) {
+        await refused(`/api/changes?slug=${encodeURIComponent(slug)}`, 400);
+        await refused(`/api/filediff?slug=${encodeURIComponent(slug)}&path=src/a.ts`, 400);
+      }
+    });
+
+    it("a branch with no shared history: 200, unavailable, and a reason, never a 500 or an empty list", async () => {
+      const body = await changes(dfx.slugs.orphan);
+      expect(body.available).toBe(false);
+      expect(body.reason).toMatch(/shares no history with main/);
+      refusals.push(JSON.stringify(body));
+      await refused(`/api/filediff?slug=${dfx.slugs.orphan}&path=orphan.txt`, 404);
+    });
+  });
+
+  describe("path validation", () => {
+    it("400s a path that cannot be a repo path, 404s one that is not in the change list, and writes nothing", async () => {
+      const fresh = path.join(os.tmpdir(), `reggie-filediff-output-${process.pid}-${Date.now()}`);
+      const slug = dfx.slugs.cases;
+      for (const bad of ["", "   ", "src/a\0.ts", "/etc/passwd", "../outside.ts", "src/../../outside.ts", "src\\keep.ts"]) {
+        await refused(`/api/filediff?slug=${slug}&path=${encodeURIComponent(bad)}`, 400);
+      }
+      await refused(`/api/filediff?slug=${slug}`, 400);
+      for (const unlisted of [`--output=${fresh}`, ":(exclude)src", ":(top)src/keep.ts", "src/*.bin", "src/untouched.ts", "src", "src/keep.ts/", "SRC/KEEP.TS"]) {
+        const body = await refused(`/api/filediff?slug=${slug}&path=${encodeURIComponent(unlisted)}`, 404);
+        expect(body.error).toBe(`that path is not part of what ${slug} changed`);
+      }
+      expect(existsSync(fresh)).toBe(false);
+      // A forgiven `./` still lands on the list member, and on that member's rows.
+      expect((await filediff(slug, "./src/keep.ts")).path).toBe("src/keep.ts");
+    });
+
+    it("never answers a refusal with git's stderr or an absolute path", () => {
+      expect(refusals.length).toBeGreaterThan(30);
+      for (const text of refusals) {
+        expect(text).not.toContain("fatal:");
+        expect(text).not.toMatch(/\berror: /);
+        expect(text).not.toContain("usage: git");
+        expect(text).not.toContain(dfx.repo.root);
+        expect(text).not.toContain(realpathSync(dfx.repo.root));
+        expect(text).not.toContain(os.tmpdir());
+      }
+    });
+  });
+
+  describe("editor link", () => {
+    it("opens the worktree's copy for a live task, this checkout's for a landed one, and nothing otherwise", async () => {
+      const live = await filediff(WORKTREE_SLUG, "src/in-worktree.ts");
+      expect(live.editorUrl).toBe(`vscode://file${encodeURI(path.join(dfx.repo.root, ".worktree", WORKTREE_SLUG, "src/in-worktree.ts"))}`);
+      const landed = await filediff(dfx.slugs.landed, "src/a.ts");
+      expect(landed.editorUrl).toBe(`vscode://file${encodeURI(path.join(dfx.repo.root, "src/a.ts"))}`);
+      // A live branch with no worktree, not checked out here: the file on disk is the unchanged one.
+      expect((await filediff(dfx.slugs.cases, "src/keep.ts")).editorUrl).toBeNull();
+      expect((await filediff(dfx.slugs.cases, "src/deleted.ts")).editorUrl).toBeNull();
+    });
   });
 });
