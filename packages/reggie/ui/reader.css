@@ -127,11 +127,15 @@
 .reader__more { margin-left: auto; }
 .reader__banner-since { color: var(--warn); }
 
-/* Dense mode keeps the drawer usable at narrow widths: drop the chips first. In diff mode the chips
-   say whose change this is and how big, so they stay and take a row of their own instead. */
+/* In diff mode the chips say whose change this is and how big. A task slug runs to fifty characters and
+   a record's path to eighty, and the chips clip from the right, so beside the path the counts were the
+   first thing to go. They take a row of their own instead, at every width. */
+.reader.is-diff .reader__head { flex-wrap: wrap; row-gap: 2px; padding-bottom: var(--s-1); }
+.reader.is-diff .reader__path { flex: 1 1 0; }
+.reader.is-diff .reader__chips { order: 3; flex: 1 0 100%; }
+
+/* Dense mode keeps the drawer usable at narrow widths: drop the chips first. Not in diff mode. */
 @media (max-width: 1100px) {
   .reader__chips { display: none; }
-  .reader.is-diff .reader__head { flex-wrap: wrap; row-gap: 2px; padding-bottom: var(--s-1); }
-  .reader.is-diff .reader__path { flex: 1 1 0; }
-  .reader.is-diff .reader__chips { display: flex; order: 3; flex: 1 0 100%; }
+  .reader.is-diff .reader__chips { display: flex; }
 }

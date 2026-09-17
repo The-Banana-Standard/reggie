@@ -17,6 +17,13 @@ import { isSafeSlug } from "./util.js";
 export const DIFF_PAGE_ROWS = 2000;
 /** Characters of one row's text that are sent; a longer line is cut and flagged. */
 export const DIFF_ROW_CHARS = 2000;
+/**
+ * Changed lines past which a file's patch is not read at all. Every row is an object held in memory
+ * before a page is cut from it, so the count git already gave is checked first: a committed file of
+ * a few million one-character lines would otherwise cost this server hundreds of megabytes per request.
+ * A quarter of a million is 125 pages, far past anything a person reads row by row.
+ */
+export const DIFF_MAX_CHANGED_LINES = 250_000;
 
 // ---------------------------------------------------------------------------
 // The range
@@ -481,6 +488,8 @@ export function fileDiff(root: string, slug: string, range: ChangeRange, entry: 
   let card: DiffCard | null;
   if (entry.binary) {
     card = cardFor(entry, { oldSize: entry.oldBlob ? blobSize(root, entry.oldBlob) : null, newSize: entry.newBlob ? blobSize(root, entry.newBlob) : null }, 0, null);
+  } else if (entry.added + entry.deleted > DIFF_MAX_CHANGED_LINES) {
+    card = cardFor(entry, null, 0, `This file changed ${plural(entry.added + entry.deleted, "line")}, which is more than Reggie draws row by row (${DIFF_MAX_CHANGED_LINES.toLocaleString("en-US")}). Read it in a terminal instead.`);
   } else {
     const patch = patchFor(root, range.base, range.ref, entry.from ? [entry.from, entry.path] : [entry.path]);
     const parsed = patch === null ? null : parsePatch(patch);

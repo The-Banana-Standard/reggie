@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { hostileGitConfig, makeDiffFixture, oddLine, XSS_LINE, type DiffFixture } from "../test/diff-fixture.js";
-import { countLines, diffRows, fileDiff, joinNumstat, listChanges, parseNumstatZ, parsePatch, parseRawZ, taskChanges, taskRange, type ChangeEntry, type ChangeRange, type DiffRow, type FileDiff } from "./changes.js";
+import { countLines, DIFF_MAX_CHANGED_LINES, diffRows, fileDiff, joinNumstat, listChanges, parseNumstatZ, parsePatch, parseRawZ, taskChanges, taskRange, type ChangeEntry, type ChangeRange, type DiffRow, type FileDiff } from "./changes.js";
 import { blobAt, diffRangeArgs, diffRawRange, git, mergeBase, numstatRange, patchFor, resolveCommit } from "./git.js";
 import { clearHistoryCache } from "./history.js";
 import { listTasks, type TaskInfo } from "./tasks.js";
@@ -454,6 +454,18 @@ describe("file-level cases", () => {
       const added = d.rows.filter((r) => r.kind === "add");
       expect(added.map((r) => r.text), name).toEqual([oddLine(name)]);
     }
+  });
+
+  it("does not read the patch of a file whose changed lines pass the cap, and says so", () => {
+    const range = rangeOf(fx.slugs.cases);
+    const entry = (listChanges(fx.repo.root, range) ?? []).find((e) => e.path === "src/added.ts");
+    if (!entry) throw new Error("src/added.ts is not listed");
+    // The count is git's own, from the list; a doctored one stands in for a file nobody wants in a fixture.
+    const huge = fileDiff(fx.repo.root, fx.slugs.cases, range, { ...entry, added: DIFF_MAX_CHANGED_LINES, deleted: 1 });
+    expect(huge.card?.kind).toBe("unreadable");
+    expect(huge.card?.text).toContain("250,001 lines");
+    expect([huge.rows, huge.totalRows, huge.truncated]).toEqual([[], 0, false]);
+    expect(fileDiff(fx.repo.root, fx.slugs.cases, range, entry).card).toBeNull();
   });
 
   it("pages by offset and answers nothing past the end", () => {
