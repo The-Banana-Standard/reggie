@@ -1,0 +1,29 @@
+A mechanical check that no text from a real transcript is in this branch. 2026-09-17. COUNTS AND FILE NAMES ONLY.
+
+How: a scratch script outside the repository read every Claude transcript on the owner's machine with this branch's own reader
+(so only closing assistant messages, the one kind of text the verb can ever take), and for each of the 1,561 closing messages took
+every 60-character run, 20 characters apart, in two forms: as written, and as this branch's cleaner would have written it. It then
+asked whether each run appears anywhere in `git diff repo-manager..task/derive-the-journal`. It printed numbers and the names of
+diff files, never a run, and kept nothing.
+
+Result:
+  diff size                         349,124 characters (whitespace squashed)
+  closing messages checked          1,561, from 235 transcripts
+  runs checked                      335,910
+  runs found in the diff            22, from 3 messages
+  of those, already on the base     22   (the same run is in a commit message or a tracked file of repo-manager)
+  of those, not on the base         0
+
+Where the 22 fall, by diff file: CLAUDE.md 17, AGENTS.md 17, docs/repo-manager-vision.md 5, evidence/wording.diff 5 (a run can fall in
+more than one file). All four are files whose diff carries unchanged lines of the generated instruction block or of the vision document
+as context. So the matches run the other way round: three past sessions once quoted sentences of those documents in their closing
+messages, and those sentences were in the repository before this branch. No run falls in a journal file, a test, a fixture, a note,
+or any other evidence file.
+
+What else backs the statement:
+  - no .jsonl file is added (evidence/no-real-home.txt); every fixture transcript is built in code from invented text
+  - the one derived entry committed on this branch is for a task with no recorded session: the run read 0 sessions and 0 records
+    (evidence/real-landed-task.txt), and its text is five commit subjects and Reggie's own sentences
+  - the one real run that did read a transcript was a dry run whose output was cut to its last line by the pipe before anything
+    saw it (evidence/real-session-summary.txt); it wrote nothing
+  - the three measuring probes print counts only (evidence/real-transcripts-measured.txt)
