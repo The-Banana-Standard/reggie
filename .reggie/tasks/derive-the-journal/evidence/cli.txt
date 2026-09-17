@@ -1,0 +1,38 @@
+$ npx tsx src/cli.ts journal derive --help
+Usage: reggie journal derive [options] <slug>
+
+Write a journal entry from a task's commits and the closing words of its
+launched Claude sessions; appends what is new, prints all of it, and never
+commits
+
+Options:
+  --session <uuid>  also read this Claude session's transcript; it must have
+                    worked inside this repository
+  --dry-run         print the entry and the summary, write nothing
+  --rewrite         off by default: send the entry's text, and nothing else, to
+                    the session's own tool (claude -p) for one rewrite per
+                    entry; any failure keeps the template
+  -h, --help        display help for command
+exit: 0
+
+$ npx tsx src/cli.ts -C <task worktree> journal derive no-such-task
+reggie: unknown task: no-such-task. Nothing in this repository names it.
+exit: 1
+
+$ npx tsx src/cli.ts -C <task worktree> journal derive ../etc
+reggie: "../etc" is not a valid slug. Use lowercase letters, digits, and hyphens.
+exit: 1
+
+$ npx tsx src/cli.ts -C <task worktree> journal derive derive-the-journal --session not-a-uuid --dry-run
+reggie: --session takes a Claude session id, which is a UUID. Nothing was read and nothing was written.
+exit: 1
+
+$ TZ=UTC npx vitest run src/derive.test.ts -t "the verb" --reporter=verbose   # skipped cases left out
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > attribution > goes to the claim's handle when the task has a claim, in the file name too, and to whoever runs the verb otherwise 285ms
+ ✓ src/derive.test.ts > the verb > lists its three options, with --rewrite described as off by default and as sending the entry text to the session's own tool 375ms
+ ✓ src/derive.test.ts > the verb > exits 1 with a sentence for an unknown slug and for a slug that is not a slug 665ms
+ Test Files  1 passed (1)
+      Tests  3 passed | 69 skipped (72)
+   Start at  12:06:41
+   Duration  1.55s (transform 122ms, setup 0ms, import 161ms, tests 1.33s, environment 0ms)

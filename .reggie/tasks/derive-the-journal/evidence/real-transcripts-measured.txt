@@ -1,0 +1,17 @@
+Measurements over the real Claude transcripts on the owner's machine, 2026-09-17. COUNTS ONLY.
+Each probe is a scratch script outside the repository that calls this branch's own reader and redactor and prints numbers. No transcript text was printed, saved, or copied anywhere; the scripts keep no text past the line that measures it.
+
+1. Bail condition: the bounded read of the largest real transcript must stay under 5,000 ms and must not hold the file in memory.
+   readTranscript over the three largest files (bytes, line counts, oversized and unparseable lines, closing records, longest closing message in characters, milliseconds, resident MB):
+   {"bytes":39110348,"lines":3118,"oversized":2,"unparseable":0,"records":3116,"closingRecords":17,"longestClosingChars":2625,"ms":97,"rssMB":119}
+   {"bytes":33278813,"lines":2435,"oversized":0,"unparseable":0,"records":2435,"closingRecords":25,"longestClosingChars":2220,"ms":82,"rssMB":141}
+   {"bytes":24378239,"lines":1665,"oversized":5,"unparseable":0,"records":1660,"closingRecords":39,"longestClosingChars":5234,"ms":46,"rssMB":153}
+
+2. Bail condition: the redaction pass must not withhold something from most real closing messages.
+   cleanText over every closing message in every transcript:
+   {"files":235,"closingMessages":1561,"messagesWithSomethingWithheld":109,"share":0.07,"passagesWithheld":172,"cutToLimit":1216,"emptyAfterCleaning":0,"ms":1863}
+
+3. A plan assumption checked: the plan gave the median closing message as 146 characters and the 95th percentile as 3,082.
+   Length of every real closing message, raw and after blocks are dropped, secrets withheld and the text flattened:
+   {"n":1561,"raw":{"p50":2111,"p90":4222,"p95":5469},"flat":{"p50":1751,"p90":3533,"p95":4336},"over800":1216}
+   So about four in five quotations are cut at the 800 character limit. Captured as derived-quotations-are-cut-in-four-cases-of-five.

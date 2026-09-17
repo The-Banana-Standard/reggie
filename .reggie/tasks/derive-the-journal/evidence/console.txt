@@ -1,0 +1,25 @@
+Browser check of the journal view, 2026-09-17, Chrome through the DevTools protocol, window asked for 1440 by 900 (the viewport the browser gave was 1440 by 725).
+Two servers, both started by the build session from the task worktree's source (npx tsx src/cli.ts -C <dir> serve --port <n> --no-workspace), neither on port 4462.
+Both were stopped afterwards through the background-task handle they were started under; a shell kill by process id was refused by the permission system and was not retried another way. Checked after stopping: no listener on 4473, none on 4474, no serve process of this session alive, and the listener on 4462 (not this session's) still there.
+
+1. Port 4473, serving the task worktree itself.
+   Page: http://127.0.0.1:4473/#/repo/reggie/task/intake-line-leaves-at-triage
+   Screenshot: journal-view.png
+   Read from the DOM of the section headed "Journal for this task" (9 entry cards):
+     the derived entry's chips: "Person: jacobpress", "Tool: reggie", "Stage: commits", "Date: 15 Sep 23:35",
+       then its evidence: .reggie/tasks/intake-line-leaves-at-triage/packet.md as plain code, and eight links to files under evidence/
+     its text starts "Reggie wrote this entry from the task's commits alone."
+     the text "derived:" appears nowhere in that card, and "derived: session=" appears nowhere on the page
+   Console since navigation: 1 message, 0 errors.
+     [warn] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes">
+     (that warning is about the page's existing head and is on every page of the app; this task did not touch the UI)
+
+2. Port 4474, serving a throwaway repo built in code with a synthetic Claude home (invented text only): two launched sessions, three commits.
+   Page: http://127.0.0.1:4474/#/repo/derive-fixture/task/cap-retries
+   Screenshot: journal-view-synthetic.png
+   Read from the DOM (3 entry cards, all derived):
+     "Person: test", "Tool: reggie", "Stage: commits", "Date: 15 Sep 16:00"
+     "Person: test", "Tool: claude", "Stage: execute", "Date: 15 Sep 14:00"
+     "Person: test", "Tool: claude", "Stage: plan", "Date: 15 Sep 10:00"
+     no card holds the text "derived:"; no entry body holds a link, and the quotation's forged [[task/other|a forged link]] is drawn as the plain text "[ [task/other|a forged link] ]"
+   Console since navigation: the same single deprecation warning, 0 errors.

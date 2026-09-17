@@ -1,0 +1,13 @@
+$ TZ=UTC npx vitest run src/derive.test.ts -t degenerate input --reporter=verbose   # skipped cases left out of this capture
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > degenerate input > derives from the lines before a cut-off last line, and quotes that line on a later run once it is whole 777ms
+ ✓ src/derive.test.ts > degenerate input > writes valid UTF-8 with no NUL, no other control character and no bidirectional control, whatever the transcript holds 197ms
+ ✓ src/derive.test.ts > degenerate input > quotes the message after a compaction boundary and nothing from the summary, across two tool versions 186ms
+ ✓ src/derive.test.ts > degenerate input > with no closing record at all: an entry with the sentence for it when there are commits, and nothing without them 393ms
+ ✓ src/derive.test.ts > degenerate input > with a newest turn that ends on tool calls: an entry with the sentence for it when there are commits, and nothing without them 409ms
+ ✓ src/derive.test.ts > degenerate input > does not count a turn that ends on a stop sequence as closing words 219ms
+ Test Files  1 passed (1)
+      Tests  6 passed | 66 skipped (72)
+   Start at  12:05:55
+   Duration  2.39s (transform 115ms, setup 0ms, import 150ms, tests 2.18s, environment 0ms)
+

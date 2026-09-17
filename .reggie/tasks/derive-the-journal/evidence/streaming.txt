@@ -1,0 +1,16 @@
+$ grep -n -E 'readFileSync|readText|readFile' packages/reggie/src/transcript.ts   # no output means no match
+(grep exit 1)
+
+$ grep -n -E '^import' packages/reggie/src/transcript.ts
+1:import { closeSync, openSync, readdirSync, readSync, realpathSync, statSync } from "node:fs";
+2:import os from "node:os";
+3:import path from "node:path";
+
+$ TZ=UTC npx vitest run src/derive.test.ts -t streaming --reporter=verbose   # skipped cases left out of this capture
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > streaming > derives from a transcript of more than 8 MB that holds one 3 MB line, without reading it whole 827ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 71 skipped (72)
+   Start at  12:06:25
+   Duration  1.05s (transform 118ms, setup 0ms, import 157ms, tests 828ms, environment 0ms)
+

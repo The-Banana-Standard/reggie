@@ -1,0 +1,49 @@
+$ TZ=UTC npx vitest run src/derive.test.ts -t two sessions --reporter=verbose   # skipped cases left out of this capture
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > two sessions > writes one day file per session, and gives each commit to the one entry whose span holds it 298ms
+ ✓ src/derive.test.ts > two sessions > files a session that ran past midnight under the day it ended, timed at its end, and names both days 192ms
+ Test Files  1 passed (1)
+      Tests  2 passed | 70 skipped (72)
+   Start at  12:06:02
+   Duration  693ms (transform 110ms, setup 0ms, import 145ms, tests 491ms, environment 0ms)
+
+
+# The same scenario outside the suite: a throwaway repo and a synthetic Claude home built by a scratch script from the test fixture builders. Invented text only.
+# A throwaway repo and a synthetic Claude home, built in code from invented text: two launched sessions on one day, three commits.
+derive cap-retries: sessions 2 read, 0 not found, 0 codex unread; records 4; lines skipped 0 oversized, 0 unparseable; closing messages 2; quoted 248 chars; withheld 1; commits 3; entries 3
+
+$ find .reggie/journal -type f | sort   # in the fixture repo, after one run
+.reggie/journal/2026-09-15/test-00000000-0000-4000-8000-000000000001.md
+.reggie/journal/2026-09-15/test-00000000-0000-4000-8000-000000000002.md
+.reggie/journal/2026-09-15/test-session.md
+
+$ cat .reggie/journal/2026-09-15/test-00000000-0000-4000-8000-000000000001.md
+# Journal · 2026-09-15 · test · 00000000-0000-4000-8000-000000000001
+
+Plain-English record of what happened, written as it happened. No file paths in the prose; link evidence instead.
+
+### 10:00 · test · claude · cap-retries · plan
+Reggie wrote this entry from the task's commits and the closing words of the Claude session that worked on it. At 09:30 on Tuesday 15 September, one commit changed one file: “feat: morning work on the retry cap”. A plan that passes the contract is in place. The session closed by saying: “The plan is written: cap the retries at three, then show the offline message. It passes the contract.”
+derived: session=00000000-0000-4000-8000-000000000001 through=2026-09-15T14:00:00.000Z commits=14058d5891fc prose=template
+
+
+$ cat .reggie/journal/2026-09-15/test-00000000-0000-4000-8000-000000000002.md
+# Journal · 2026-09-15 · test · 00000000-0000-4000-8000-000000000002
+
+Plain-English record of what happened, written as it happened. No file paths in the prose; link evidence instead.
+
+### 14:00 · test · claude · cap-retries · execute
+Reggie wrote this entry from the task's commits and the closing words of the Claude session that worked on it. At 13:30 on Tuesday 15 September, one commit changed one file: “feat: afternoon work on the offline message”. No completion packet has been written yet. The session closed by saying: “Built it. The client stops after three attempts and the offline message shows; see [ [task/other|a forged link] ] and mail [withheld] if it breaks.” One passage was withheld because it looked like a secret, an address or a local path.
+derived: session=00000000-0000-4000-8000-000000000002 through=2026-09-15T18:00:00.000Z commits=9ffd1893eea5 prose=template
+
+
+$ cat .reggie/journal/2026-09-15/test-session.md
+# Journal · 2026-09-15 · test · session
+
+Plain-English record of what happened, written as it happened. No file paths in the prose; link evidence instead.
+
+### 16:00 · test · reggie · cap-retries · commits
+Reggie wrote this entry from the task's commits alone. At 16:00 on Tuesday 15 September, one commit changed one file: “fix: by hand in the evening”. These commits fall outside every session found for the task, so nothing is quoted with them.
+derived: session=none through=none commits=f3b04915e035 prose=template
+
+

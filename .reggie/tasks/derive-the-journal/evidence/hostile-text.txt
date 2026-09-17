@@ -1,0 +1,17 @@
+$ TZ=UTC npx vitest run src/derive.test.ts -t hostile text --reporter=verbose   # skipped cases left out of this capture
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > hostile text > cannot forge an entry, a trailer, a link or a fence from inside the quotation 662ms
+ ✓ src/derive.test.ts > hostile text > cleans a commit subject the same way, since a subject is somebody's free text too 214ms
+ Test Files  1 passed (1)
+      Tests  2 passed | 70 skipped (72)
+   Start at  12:06:08
+   Duration  1.08s (transform 112ms, setup 0ms, import 147ms, tests 877ms, environment 0ms)
+
+$ TZ=UTC npx vitest run src/derive.test.ts -t what reaches the journal --reporter=verbose   # skipped cases left out of this capture
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > what reaches the journal > holds no absolute path, no Claude home, no transcript file name, and no commit id outside the derived line 733ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 71 skipped (72)
+   Start at  12:06:10
+   Duration  936ms (transform 112ms, setup 0ms, import 147ms, tests 734ms, environment 0ms)
+

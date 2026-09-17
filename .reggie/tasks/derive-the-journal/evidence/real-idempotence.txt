@@ -1,0 +1,10 @@
+$ npx tsx src/cli.ts -C <task worktree> journal derive intake-line-leaves-at-triage   # second run, same worktree, entry committed
+Nothing new for intake-line-leaves-at-triage: every commit and every closing message Reggie can read is already in a derived entry.
+derive intake-line-leaves-at-triage: sessions 0 read, 0 not found, 0 codex unread; records 0; lines skipped 0 oversized, 0 unparseable; closing messages 0; quoted 0 chars; withheld 0; commits 0; entries 0; 134 ms
+exit: 0
+
+$ git status --porcelain -- .reggie/journal   # empty means the second run wrote nothing
+(end of status)
+
+$ git status --porcelain   # the whole tree; the only untracked thing is this evidence folder, not yet committed when this was captured
+?? .reggie/tasks/derive-the-journal/evidence/

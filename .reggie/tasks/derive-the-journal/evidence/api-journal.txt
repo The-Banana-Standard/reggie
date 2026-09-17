@@ -1,0 +1,16 @@
+$ TZ=UTC npx vitest run test/serve.test.ts -t a derived journal entry over HTTP --reporter=verbose   # skipped cases left out of this capture
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ test/serve.test.ts > a derived journal entry over HTTP > comes back from both journal routes with its derived object, and with the mark kept out of the text 282ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 134 skipped (135)
+   Start at  12:06:22
+   Duration  1.29s (transform 266ms, setup 0ms, import 336ms, tests 897ms, environment 0ms)
+
+$ TZ=UTC npx vitest run src/journal.test.ts -t writes a derived entry --reporter=verbose   # skipped cases left out of this capture
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/journal.test.ts > journal > writes a derived entry's mark as its last line and reads it back, with the text free of it 72ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 5 skipped (6)
+   Start at  12:06:23
+   Duration  184ms (transform 38ms, setup 0ms, import 50ms, tests 73ms, environment 0ms)
+

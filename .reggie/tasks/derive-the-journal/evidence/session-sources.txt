@@ -1,0 +1,28 @@
+$ TZ=UTC npx vitest run src/derive.test.ts -t session sources --reporter=verbose   # skipped cases left out of this capture
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > session sources > a launch record whose session is "../x" contributes no session and builds no path 262ms
+ ✓ src/derive.test.ts > session sources > a launch record whose session is "session" contributes no session and builds no path 250ms
+ ✓ src/derive.test.ts > session sources > a launch record whose session is "" contributes no session and builds no path 249ms
+ ✓ src/derive.test.ts > session sources > a launch record whose session is "00000000-0000-4000-8000-000000000001/" contributes no session and builds no path 240ms
+ ✓ src/derive.test.ts > session sources > a claim whose session is "../x" contributes no session and builds no path 219ms
+ ✓ src/derive.test.ts > session sources > a claim whose session is "session" contributes no session and builds no path 212ms
+ ✓ src/derive.test.ts > session sources > a claim whose session is "" contributes no session and builds no path 212ms
+ ✓ src/derive.test.ts > session sources > a claim whose session is "00000000-0000-4000-8000-000000000001/" contributes no session and builds no path 207ms
+ ✓ src/derive.test.ts > session sources > a journal file named <person>-session.md contributes no session and builds no path 218ms
+ ✓ src/derive.test.ts > session sources > a journal file named <person>-.md contributes no session and builds no path 221ms
+ ✓ src/derive.test.ts > session sources > a journal file named <person>-00000000-0000-4000-8000-000000000001x.md contributes no session and builds no path 244ms
+ ✓ src/derive.test.ts > session sources > a journal file named <person>-00000000-0000-4000-8000-00000000000.md contributes no session and builds no path 222ms
+ ✓ src/derive.test.ts > session sources > --session "../x" is refused before anything is read, and nothing is written 159ms
+ ✓ src/derive.test.ts > session sources > --session "session" is refused before anything is read, and nothing is written 161ms
+ ✓ src/derive.test.ts > session sources > --session "" is refused before anything is read, and nothing is written 155ms
+ ✓ src/derive.test.ts > session sources > --session "00000000-0000-4000-8000-000000000001/" is refused before anything is read, and nothing is written 153ms
+ ✓ src/derive.test.ts > session sources > takes the union of the launch log, the claim, the journal's file names and the flag, each id once 200ms
+ ✓ src/derive.test.ts > session sources > a claim whose session is the word session contributes none 847ms
+ ✓ src/derive.test.ts > session sources > reports a Codex launch as unread, says so in the entry, and guesses no session by directory or time 678ms
+ ✓ src/derive.test.ts > session sources > says the session ran elsewhere when the claim names another machine and the recorded transcript is missing 240ms
+ ✓ src/derive.test.ts > session sources > says no transcript was found when a recorded id has none on this machine 280ms
+ Test Files  1 passed (1)
+      Tests  21 passed | 51 skipped (72)
+   Start at  12:05:47
+   Duration  5.83s (transform 112ms, setup 0ms, import 147ms, tests 5.63s, environment 0ms)
+

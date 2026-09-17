@@ -1,0 +1,23 @@
+$ cd packages/reggie && npx tsx src/cli.ts -C <task worktree> journal derive intake-line-leaves-at-triage   # run 2026-09-17 in the task worktree, on task/derive-the-journal
+### 23:35 · jacobpress · reggie · intake-line-leaves-at-triage · commits
+Reggie wrote this entry from the task's commits alone. Between 23:13 and 23:35 on Tuesday 15 September, five commits changed 63 files: “feat(triage): the intake line leaves at triage, and an unfilled brief reads as ungroomed”, “chore(intake): sweep the twelve lines that outlived their briefs”, “fix(intake): remove by what parseIntake parsed, and stop assuming Ungroomed holds one kind of work”, “docs: refresh the generated block for the new state rule”, “packet: intake-line-leaves-at-triage — triage takes the line, and an unfilled brief reads as ungroomed”. No session was recorded for this task, so this entry is drawn from the commits alone.
+evidence: .reggie/tasks/intake-line-leaves-at-triage/packet.md, .reggie/tasks/intake-line-leaves-at-triage/evidence/api-intake-409.txt, .reggie/tasks/intake-line-leaves-at-triage/evidence/board-after.json, .reggie/tasks/intake-line-leaves-at-triage/evidence/board-before.json, .reggie/tasks/intake-line-leaves-at-triage/evidence/board-diff-command.txt, .reggie/tasks/intake-line-leaves-at-triage/evidence/board-diff.txt, .reggie/tasks/intake-line-leaves-at-triage/evidence/brief-draft.txt, .reggie/tasks/intake-line-leaves-at-triage/evidence/degenerate-cases.txt, .reggie/tasks/intake-line-leaves-at-triage/evidence/docs-check.txt
+derived: session=none through=none commits=5c085e35bdec,4ec91a0388e3,d0c2a025cf8f,6de4d1c645b4,3615afe2cd52 prose=template
+
+Appended to .reggie/journal/2026-09-15/jacobpress-session.md, which is uncommitted: read it, then commit it. Until you do, the next `reggie decide` in this checkout refuses to merge, as it does for any hand entry.
+
+derive intake-line-leaves-at-triage: sessions 0 read, 0 not found, 0 codex unread; records 0; lines skipped 0 oversized, 0 unparseable; closing messages 0; quoted 0 chars; withheld 0; commits 5; entries 1; 117 ms
+exit: 0
+
+$ git show --stat HEAD   # the commit that records the entry
+83be836 journal: the first derived entry, for intake-line-leaves-at-triage, drawn from its five commits alone
+
+Written by reggie journal derive in this worktree on 2026-09-17. No session was recorded for that task, so no transcript was read: the entry holds the five commit subjects from the branch side of its landing merge and Reggie's own sentences, and nothing from any conversation.
+
+Task: derive-the-journal
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+
+
+ .reggie/journal/2026-09-15/jacobpress-session.md | 5 +++++
+ 1 file changed, 5 insertions(+)

@@ -1,0 +1,53 @@
+$ TZ=UTC npx vitest run src/redact.test.ts --reporter=verbose   # skipped cases left out of this capture
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/redact.test.ts > redactText > withholds 'an sk- key' 1ms
+ ✓ src/redact.test.ts > redactText > withholds 'a ghp_ token' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'a github_pat_ token' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'an xox token' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'an AKIA key id' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'an AIza key' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'a PEM block' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'a JWT-shaped triple' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'a Bearer value' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'an API_KEY assignment' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'a password field' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'a 48-character mixed run' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'an email address' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'a /Users path' 0ms
+ ✓ src/redact.test.ts > redactText > withholds 'a home-relative path' 0ms
+ ✓ src/redact.test.ts > redactText > takes the login, the query and the fragment off a URL, and counts it once 0ms
+ ✓ src/redact.test.ts > redactText > leaves a plain URL alone and counts nothing 0ms
+ ✓ src/redact.test.ts > redactText > withholds a file URL whole, because it is a local path 0ms
+ ✓ src/redact.test.ts > redactText > does not withhold a 40-character lowercase hex string 0ms
+ ✓ src/redact.test.ts > redactText > does not withhold the word token, or secret, used in a sentence without a value 0ms
+ ✓ src/redact.test.ts > redactText > does not take a route, a relative path or a long hyphenated slug for a secret or a local path 0ms
+ ✓ src/redact.test.ts > redactText > takes an unclosed PEM block to the end of the text 0ms
+ ✓ src/redact.test.ts > redactText > counts every passage 0ms
+ ✓ src/redact.test.ts > dropBlocks > removes fenced code and table rows whole, and an unclosed fence takes the rest 0ms
+ ✓ src/redact.test.ts > flattenText > makes one line of plain prose out of Markdown 1ms
+ ✓ src/redact.test.ts > flattenText > removes control, zero-width and bidirectional characters, and the replacement character 0ms
+ ✓ src/redact.test.ts > flattenText > cannot leave a line that starts like an entry header, a heading or a trailer 0ms
+ ✓ src/redact.test.ts > breakLinks > pulls [[ and ]] apart so the web view's link syntax cannot be forged 0ms
+ ✓ src/redact.test.ts > capText > leaves a short message alone 0ms
+ ✓ src/redact.test.ts > capText > cuts a long message after the last sentence end inside the limit 0ms
+ ✓ src/redact.test.ts > capText > cuts at a space and ends with an ellipsis when there is no sentence end 0ms
+ ✓ src/redact.test.ts > capText > counts characters and not code units, and never splits one 0ms
+ ✓ src/redact.test.ts > capText > sees a sentence that ends exactly on the limit 0ms
+ ✓ src/redact.test.ts > cleanText > redacts before it flattens, so Markdown around a secret cannot hide it 0ms
+ ✓ src/redact.test.ts > cleanText > does not make a [[ out of a bracket and a withheld word 0ms
+ ✓ src/redact.test.ts > cleanText > drops what is inside a fence before anything else looks at it 0ms
+ Test Files  1 passed (1)
+      Tests  36 passed (36)
+   Start at  12:06:20
+   Duration  100ms (transform 24ms, setup 0ms, import 33ms, tests 7ms, environment 0ms)
+
+$ TZ=UTC npx vitest run src/derive.test.ts -t redaction in an entry --reporter=verbose   # skipped cases left out of this capture
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > redaction in an entry > leaves none of the listed shapes in the journal file, ends the entry with the count, and prints the same count 581ms
+ ✓ src/derive.test.ts > redaction in an entry > does not withhold a 40-character hex string or the bare word token 232ms
+ ✓ src/derive.test.ts > redaction in an entry > quotes at most 800 characters ending on a sentence, says the message was cut, and counts the closing messages it did not quote 242ms
+ Test Files  1 passed (1)
+      Tests  3 passed | 69 skipped (72)
+   Start at  12:06:20
+   Duration  1.28s (transform 124ms, setup 0ms, import 165ms, tests 1.06s, environment 0ms)
+

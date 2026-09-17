@@ -1,0 +1,57 @@
+$ grep -n "homedir" packages/reggie/src/derive.ts packages/reggie/src/transcript.ts
+packages/reggie/src/transcript.ts:52:  return configured ? path.resolve(configured) : path.join(os.homedir(), ".claude");
+
+$ sed -n '/^export function defaultClaudeHome/,/^}/p' packages/reggie/src/transcript.ts   # the one function that names it; only cli.ts calls it
+export function defaultClaudeHome(env: NodeJS.ProcessEnv = process.env): string {
+  const configured = env.CLAUDE_CONFIG_DIR?.trim();
+  return configured ? path.resolve(configured) : path.join(os.homedir(), ".claude");
+}
+
+$ grep -rn "defaultClaudeHome" packages/reggie/src --include=*.ts | grep -v '\.test\.'
+packages/reggie/src/cli.ts:25:import { defaultClaudeHome } from "./transcript.js";
+packages/reggie/src/cli.ts:588:    const input: DeriveInput = { slug: requireSlug(slug), claudeHome: defaultClaudeHome(), person: c.person };
+packages/reggie/src/transcript.ts:50:export function defaultClaudeHome(env: NodeJS.ProcessEnv = process.env): string {
+
+$ sed -n '/^export interface DeriveInput/,/^}/p' packages/reggie/src/derive.ts   # claudeHome is required: no default
+export interface DeriveInput {
+  slug: string;
+  /** Where Claude Code keeps its state. Required: the CLI supplies the default, a test supplies a temp directory. */
+  claudeHome: string;
+  /** Whoever is running the verb; the entry is theirs when the task has no claim. */
+  person: Person;
+  /** `--session`: one more session id to read, which must have worked inside this repository. */
+  session?: string;
+  dryRun?: boolean;
+  rewrite?: boolean;
+  runner?: RewriteRunner;
+  /** This machine's name, compared with the claim's; default `os.hostname()`. */
+  host?: string;
+  env?: NodeJS.ProcessEnv;
+}
+
+$ grep -n "^export function deriveJournal" packages/reggie/src/derive.ts
+501:export function deriveJournal(paths: RepoPaths, config: ReggieConfig, input: DeriveInput): DeriveResult {
+
+$ grep -n "claudeHome\|CLAUDE_CONFIG_DIR" packages/reggie/src/derive.test.ts   # every derive in the suite passes the fixture home; the CLI cases set it in the child's environment
+128:  return deriveJournal(paths, s.config, { slug: SLUG, claudeHome: s.home.home, person: s.person, host: "this-host", env: {}, ...extra });
+133:  const r = spawnSync(TSX, [CLI, "--root", s.root, ...args], { cwd: s.root, encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: s.home.home } });
+
+$ git diff --stat --diff-filter=A repo-manager -- '*.jsonl'   # no output: no transcript file was added
+(end)
+
+$ git ls-files | grep -c '\.jsonl$'
+0
+
+$ sed -n '5,16p' packages/reggie/test/transcript-fixture.ts   # the fixture builder's header comment
+/*
+ * A synthetic Claude home for tests.
+ *
+ * Nothing here is copied from a real transcript, and no transcript file is kept in the repository:
+ * every record is built in code, one at a time, from text invented for the test that asks for it.
+ * Only the shape follows what was measured on a real machine: a flat `<session id>.jsonl` under a
+ * project folder named by the directory the session started in (every character that is not a letter
+ * or a digit turned into a dash), one JSON object per line, one content block per assistant record
+ * with the API's `stop_reason` beside it, `cwd`, `timestamp` and `isSidechain` on the conversation
+ * records, the rarer record types that hold the owner's words, and the `<session id>/workflows/`
+ * folder a session leaves in the project folder of any directory it later changed into.
+ */
