@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -12,7 +12,7 @@ import { TASK_STATES } from "../src/tasks.js";
 import { ensureLayout } from "../src/layout.js";
 import { currentPerson, loadConfig, loadPeople } from "../src/people.js";
 import { repoPaths } from "../src/paths.js";
-import { makeDiffFixture, oddLine, XSS_LINE, type DiffFixture } from "./diff-fixture.js";
+import { makeDiffFixture, oddLine, SPACED_NAMES, XSS_LINE, type DiffFixture } from "./diff-fixture.js";
 import { makeFixtureRepo, type FixtureRepo } from "./fixtures.js";
 import { makeTempRepo, type TempRepo } from "./helpers.js";
 
@@ -1704,6 +1704,14 @@ describe("what a task changed", () => {
       expect(body.records.map((f: any) => f.path)).toEqual([`.reggie/tasks/${dfx.slugs.awaiting}/packet.md`]);
     });
 
+    it("a branch this clone only has as origin/task/<slug> is read from that ref", async () => {
+      expect((await hit(`/api/task/${dfx.slugs.remoteOnly}`)).body.task.branchRef).toBe(`origin/task/${dfx.slugs.remoteOnly}`);
+      const body = await changes(dfx.slugs.remoteOnly);
+      expect(body.range).toMatchObject({ kind: "branch", refName: `origin/task/${dfx.slugs.remoteOnly}`, commits: 1 });
+      expect(body.files.map((f: any) => f.path)).toEqual(["src/from-origin.ts"]);
+      expect((await filediff(dfx.slugs.remoteOnly, "src/from-origin.ts")).rows).toEqual([{ kind: "add", new: 1, text: "export const fromOrigin = 1;" }]);
+    });
+
     it("zero commits past the base", async () => {
       const body = await changes(dfx.slugs.zeroAhead);
       expect([body.available, body.files, body.records, body.range.commits]).toEqual([true, [], [], 0]);
@@ -1816,6 +1824,16 @@ describe("what a task changed", () => {
       }
     });
 
+    it("a done task landed by fast-forward whose branch was kept: a reason, never 'no commits yet'", async () => {
+      expect((await hit(`/api/task/${dfx.slugs.ffKept}`)).body.task).toMatchObject({ state: "done", branchRef: `task/${dfx.slugs.ffKept}` });
+      const body = await changes(dfx.slugs.ffKept);
+      expect([body.available, body.range, body.files, body.records]).toEqual([false, null, [], []]);
+      expect(body.reason).toMatch(/no merge commit on main landed it/);
+      expect(body.reason).toMatch(/fast-forwarded/);
+      refusals.push(JSON.stringify(body));
+      expect((await refused(`/api/filediff?slug=${dfx.slugs.ffKept}&path=src/ff-kept.ts`, 404)).error).toBe(body.reason);
+    });
+
     it("a branch with no shared history: 200, unavailable, and a reason, never a 500 or an empty list", async () => {
       const body = await changes(dfx.slugs.orphan);
       expect(body.available).toBe(false);
@@ -1840,6 +1858,19 @@ describe("what a task changed", () => {
       expect(existsSync(fresh)).toBe(false);
       // A forgiven `./` still lands on the list member, and on that member's rows.
       expect((await filediff(slug, "./src/keep.ts")).path).toBe("src/keep.ts");
+    });
+
+    it("opens a committed name that begins or ends with a space, which a tidied path no longer matches", async () => {
+      const listed = (await changes(dfx.slugs.spaced)).files.map((f: any) => f.path);
+      expect(listed).toEqual(SPACED_NAMES);
+      for (const name of SPACED_NAMES) {
+        const d = await filediff(dfx.slugs.spaced, name);
+        expect(d.path, JSON.stringify(name)).toBe(name);
+        expect(d.rows).toEqual([{ kind: "add", new: 1, text: oddLine(name) }]);
+      }
+      // The tidied spelling names no member of the list, so it is not quietly answered with the other file.
+      await refused(`/api/filediff?slug=${dfx.slugs.spaced}&path=lead.ts`, 404);
+      await refused(`/api/filediff?slug=${dfx.slugs.spaced}&path=${encodeURIComponent("src/trail.ts")}`, 404);
     });
 
     it("never answers a refusal with git's stderr or an absolute path", () => {
@@ -1867,5 +1898,94 @@ describe("what a task changed", () => {
       expect((await filediff(dfx.slugs.cases, "src/keep.ts")).editorUrl).toBeNull();
       expect((await filediff(dfx.slugs.cases, "src/deleted.ts")).editorUrl).toBeNull();
     });
+
+    it("opens this checkout's copy when this checkout is the one that has the task branch checked out", async () => {
+      // An in-place claim: no worktree, the serving checkout itself is on task/<slug>.
+      const repo = makeTempRepo("reggie-inplace-");
+      const paths = repoPaths(repo.root);
+      ensureLayout(paths);
+      repo.write("src/here.ts", "export const here = 0;\n");
+      repo.commitAll("base");
+      git(["checkout", "-q", "-b", "task/in-place"], { cwd: repo.root });
+      repo.write("src/here.ts", "export const here = 1;\n");
+      repo.write("src/gone.ts", "");
+      repo.commitAll("feat: work in place");
+      git(["rm", "-q", "src/gone.ts"], { cwd: repo.root });
+      repo.commitAll("feat: and a file that is not here any more");
+      const inPlace = await startServer(paths, loadConfig(paths), { port: 0, host: "127.0.0.1", workspace: null });
+      try {
+        const res = await fetch(`http://127.0.0.1:${inPlace.port}/api/filediff?slug=in-place&path=src/here.ts`);
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as any;
+        expect(body.range.refName).toBe("task/in-place");
+        expect(body.editorUrl).toBe(`vscode://file${encodeURI(path.join(repo.root, "src/here.ts"))}`);
+      } finally {
+        await inPlace.close();
+        clearHistoryCache(repo.root);
+        repo.cleanup();
+      }
+    });
+  });
+
+  describe("paging builds a file's rows once", () => {
+    it("answers later pages of the 60,000-line file from the rows the first page built", async () => {
+      const first = await filediff(dfx.slugs.large, "src/big.ts");
+      // Take the file's blob out from under git: refs still resolve, but its patch can no longer be
+      // produced, so a later page can only come from rows that were already built.
+      const blob = git(["rev-parse", `refs/heads/task/${dfx.slugs.large}:src/big.ts`], { cwd: dfx.repo.root }).stdout.trim();
+      const object = path.join(dfx.repo.root, ".git", "objects", blob.slice(0, 2), blob.slice(2));
+      expect(existsSync(object)).toBe(true);
+      renameSync(object, `${object}.aside`);
+      try {
+        expect(git(["cat-file", "-e", blob], { cwd: dfx.repo.root, allowFailure: true }).ok).toBe(false);
+        const later = await filediff(dfx.slugs.large, "src/big.ts", "&offset=30000");
+        expect(later.card).toBeNull();
+        expect([later.offset, later.rows.length, later.totalRows]).toEqual([30000, 2000, first.totalRows]);
+        expect(later.rows[0]).toEqual({ kind: "add", new: 30001, text: "const v30001 = 30001;" });
+      } finally {
+        renameSync(`${object}.aside`, object);
+      }
+    });
+  });
+
+  describe("a hostile integration branch name", () => {
+    it("is never handed to git by either route, and nothing is written", async () => {
+      // What a clone of a hostile repo holds: a tracked config naming an option as the default branch,
+      // and a ref of exactly that name, so the name resolves. `git log <name> --` would write the file.
+      const hostile = makeDiffFixture({ large: false });
+      const target = path.join(os.tmpdir(), `reggie-hostile-http-${process.pid}-${Date.now()}`);
+      const name = `--output=${target}`;
+      git(["update-ref", `refs/heads/${name}`, "refs/heads/main"], { cwd: hostile.repo.root });
+      writeFileSync(hostile.paths.config, `defaultBranch: ${JSON.stringify(name)}\n`, "utf8");
+      const config = loadConfig(hostile.paths);
+      expect(config.defaultBranch).toBe(name);
+      const evil = await startServer(hostile.paths, config, { port: 0, host: "127.0.0.1", workspace: null });
+      const before = new Set(readdirSync(os.tmpdir()));
+      try {
+        const answers: { slug: string; list: number; body: any; file: number; error: string }[] = [];
+        for (const slug of [hostile.slugs.landed, hostile.slugs.cases, hostile.slugs.ffLanded, "never-heard-of-it"]) {
+          const list = await fetch(`http://127.0.0.1:${evil.port}/api/changes?slug=${slug}`);
+          const body = (await list.json()) as any;
+          const file = await fetch(`http://127.0.0.1:${evil.port}/api/filediff?slug=${slug}&path=src/a.ts`);
+          answers.push({ slug, list: list.status, body, file: file.status, error: ((await file.json()) as any).error });
+        }
+        // First, the thing that matters: eight requests later, git has written nothing.
+        expect(existsSync(target), "git wrote the file the integration branch's name asked for").toBe(false);
+        // Nothing appeared beside it either: the older helpers append `..task/<slug>` to the name.
+        const appeared = readdirSync(os.tmpdir()).filter((f) => !before.has(f) && f.startsWith(path.basename(target)));
+        expect(appeared).toEqual([]);
+        for (const a of answers) {
+          expect([a.list, a.body.available, a.body.files, a.body.records], a.slug).toEqual([200, false, [], []]);
+          expect(a.body.reason).toMatch(/begins with a dash/);
+          expect(a.body.reason).not.toContain(target);
+          expect([a.file, a.error], a.slug).toEqual([404, a.body.reason]);
+        }
+      } finally {
+        await evil.close();
+        rmSync(target, { force: true });
+        clearHistoryCache(hostile.repo.root);
+        hostile.repo.cleanup();
+      }
+    }, 60_000);
   });
 });

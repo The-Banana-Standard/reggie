@@ -1,5 +1,5 @@
 import { blobAt, blobSize, blobText, commitCount, diffRawRange, isFullSha, mergeBase, numstatRange, patchFor, resolveCommit } from "./git.js";
-import { emptyHistoryIndex, taskLanding, type HistoryIndex } from "./history.js";
+import { emptyHistoryIndex, taskLanding } from "./history.js";
 import { REGGIE_DIR } from "./paths.js";
 import { isSafeSlug } from "./util.js";
 
@@ -18,12 +18,25 @@ export const DIFF_PAGE_ROWS = 2000;
 /** Characters of one row's text that are sent; a longer line is cut and flagged. */
 export const DIFF_ROW_CHARS = 2000;
 /**
- * Changed lines past which a file's patch is not read at all. Every row is an object held in memory
- * before a page is cut from it, so the count git already gave is checked first: a committed file of
- * a few million one-character lines would otherwise cost this server hundreds of megabytes per request.
- * A quarter of a million is 125 pages, far past anything a person reads row by row.
+ * Rows built for one file, context and gap rows included. Every row is an object held in memory
+ * before a page is cut from it, and a cap on changed lines alone does not bound them: a million-line
+ * file with every eighth line changed is 250,000 changed lines and 1,125,000 rows, measured at half a
+ * second and 466 MB of heap for one request. The cap is applied three times, each cheaper than the
+ * work it prevents: on git's own added-plus-deleted count before the patch is asked for, on the hunk
+ * lines as they are parsed, so parsing stops rather than finishing, and on the rows once gaps are in.
+ * 100,000 rows is fifty pages, past anything a person reads row by row; the largest real change in
+ * this repo's history is under 600.
  */
-export const DIFF_MAX_CHANGED_LINES = 250_000;
+export const DIFF_MAX_ROWS = 100_000;
+/** Bytes of one file's patch that are read; git is stopped past this rather than allowed the default 64 MB. */
+export const DIFF_MAX_PATCH_BYTES = 16 * 1024 * 1024;
+
+export interface DiffLimits {
+  maxRows: number;
+  maxPatchBytes: number;
+}
+
+const DEFAULT_LIMITS: DiffLimits = { maxRows: DIFF_MAX_ROWS, maxPatchBytes: DIFF_MAX_PATCH_BYTES };
 
 // ---------------------------------------------------------------------------
 // The range
@@ -53,41 +66,52 @@ export interface RangeTask {
   branchRef: string | null;
 }
 
-export interface RangeOptions {
-  /** An index already read, handed to `taskLanding` so it reads nothing twice. */
-  index?: HistoryIndex;
-}
-
 /**
  * The range a task's change is read over, in this order: a task that is not done and whose branch is
  * ahead of the base reads from the merge base to the tip, which is what a merge would land and stays
  * right when the branch merged the base back in; otherwise the merge that landed it, against its first
- * parent; otherwise a branch that still resolves, from its merge base. Every name is resolved once to
- * a full commit id here, and nothing but those ids goes on to the diff readers.
+ * parent; otherwise a branch that still resolves, from its merge base.
+ *
+ * Every name is resolved once to a full commit id here, by its full ref name, and nothing but those
+ * ids goes on to git: not to the diff readers, and not to the landing lookup either. The integration
+ * branch's name comes from a config file a clone carries, so it is as hostile as the repo is: handed
+ * to `git log` as a bare argument, a name like `--output=<file>` that also exists as a ref made git
+ * write that file. A short name would also let a tag called `task/<slug>` stand in for the branch.
  */
-export function taskRange(root: string, task: RangeTask, baseName: string, opts: RangeOptions = {}): RangeResult {
+export function taskRange(root: string, task: RangeTask, baseName: string): RangeResult {
   if (!isSafeSlug(task.slug)) return { ok: false, reason: "That is not a task slug." };
-  const base = resolveCommit(root, baseName) ?? resolveCommit(root, `origin/${baseName}`);
-  if (!base) return { ok: false, reason: `The integration branch ${baseName} does not resolve to a commit in this clone, so there is nothing to measure a change against.` };
+  const base = resolveCommit(root, `refs/heads/${baseName}`) ?? resolveCommit(root, `refs/remotes/origin/${baseName}`);
+  if (!base) return { ok: false, reason: "The integration branch this repo names does not resolve to a branch in this clone, so there is nothing to measure a change against." };
 
   // Only the two names tasks.ts builds from a safe slug are ever resolved; anything else is no branch.
   const branchRef = task.branchRef === `task/${task.slug}` || task.branchRef === `origin/task/${task.slug}` ? task.branchRef : null;
-  const tip = branchRef ? resolveCommit(root, branchRef) : null;
+  const tip = branchRef ? resolveCommit(root, branchRef.startsWith("origin/") ? `refs/remotes/${branchRef}` : `refs/heads/${branchRef}`) : null;
   const fork = tip ? mergeBase(root, base, tip) : null;
   const ahead = tip ? (commitCount(root, base, tip) ?? 0) : 0;
   const live: ChangeRange | null = tip && fork ? { kind: "branch", base: fork, ref: tip, baseName, refName: branchRef ?? "", commits: ahead } : null;
 
   if (task.state !== "done" && live && ahead > 0) return { ok: true, range: live };
 
-  const landing = taskLanding(root, task.slug, { base: baseName, index: opts.index ?? emptyHistoryIndex() });
+  // The lookup uses its base only as a revision, so it is handed the commit id, never the name. It
+  // wants an index only for a fallback this does not read, so it is given an empty one and the full
+  // history index is never built for a request that asks what a task changed.
+  const landing = taskLanding(root, task.slug, { base, index: emptyHistoryIndex() });
   const [first, second] = landing.merge?.parents ?? [];
   if (landing.merge && first && second && isFullSha(first) && isFullSha(landing.merge.sha)) {
     return { ok: true, range: { kind: "merge", base: first, ref: landing.merge.sha, baseName, refName: landing.merge.subject, commits: landing.commits.length } };
   }
 
-  if (live) return { ok: true, range: live };
-  if (tip) return { ok: false, reason: `${branchRef} shares no history with ${baseName}, so there is no point to measure its change from.` };
-  if (task.state === "done") {
+  const done = task.state === "done";
+  // A done task whose kept branch has nothing past the base was fast-forwarded: "no commits yet" would be false.
+  if (live && !(done && ahead === 0)) return { ok: true, range: live };
+  if (tip && !fork) return { ok: false, reason: `${branchRef} shares no history with ${baseName}, so there is no point to measure its change from.` };
+  if (done && tip) {
+    return {
+      ok: false,
+      reason: `This task is done, but no merge commit on ${baseName} landed it: ${branchRef} was fast-forwarded, so it holds nothing ${baseName} does not, and its commits cannot be told apart from the rest.`,
+    };
+  }
+  if (done) {
     return {
       ok: false,
       reason: `This task is done, but no merge commit on ${baseName} landed it and its branch is gone, so its commits cannot be told apart from the rest. It was probably fast-forwarded or squashed.`,
@@ -277,8 +301,8 @@ export function changesPayload(slug: string, range: RangeResult, entries: readon
 }
 
 /** A task's change list in one call: the range, the list, the payload. */
-export function taskChanges(root: string, task: RangeTask, baseName: string, opts: RangeOptions = {}): TaskChanges {
-  const range = taskRange(root, task, baseName, opts);
+export function taskChanges(root: string, task: RangeTask, baseName: string): TaskChanges {
+  const range = taskRange(root, task, baseName);
   return changesPayload(task.slug, range, range.ok ? listChanges(root, range.range) : []);
 }
 
@@ -306,6 +330,8 @@ export interface ParsedPatch {
   hunks: PatchHunk[];
   /** A hunk ended before its header's counts were met, or a line carried no sign: the patch cannot be trusted. */
   malformed: boolean;
+  /** Parsing stopped because the hunk lines passed `maxLines`; what was read so far is not the whole patch. */
+  overflow?: true;
 }
 
 const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
@@ -316,16 +342,25 @@ const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
  * header's counts say how many old and new lines follow, and only the first character of a line is
  * its sign: `--- a/old.ts` there is a deleted line reading `-- a/old.ts`, and `+@@ -9,9 +9,9 @@` is
  * an added line. `\ No newline at end of file` flags the line before it and is never a line itself.
- * A type change prints two sections for one path; both sets of hunks are read. Pure.
+ * A type change prints two sections for one path; both sets of hunks are read.
+ *
+ * The text is walked with a cursor rather than split, and `maxLines` stops the walk once that many
+ * hunk lines have been read, so a patch of millions of lines costs what the cap allows and no more. Pure.
  */
-export function parsePatch(text: string): ParsedPatch {
-  const lines = text.split("\n");
+export function parsePatch(text: string, maxLines = Number.POSITIVE_INFINITY): ParsedPatch {
   const hunks: PatchHunk[] = [];
   let malformed = false;
-  let i = 0;
-  while (i < lines.length) {
-    const m = HUNK_HEADER.exec(lines[i] ?? "");
-    i += 1;
+  let read = 0;
+  let pos = 0;
+  /** The line at the cursor, whether a newline ended it, and the cursor after it. Past the end: null. */
+  const peek = (): { raw: string; terminated: boolean; next: number } | null => {
+    if (pos > text.length) return null;
+    const end = text.indexOf("\n", pos);
+    return end < 0 ? { raw: text.slice(pos), terminated: false, next: text.length + 1 } : { raw: text.slice(pos, end), terminated: true, next: end + 1 };
+  };
+  for (let line = peek(); line !== null; line = peek()) {
+    pos = line.next;
+    const m = HUNK_HEADER.exec(line.raw);
     if (!m) continue;
     const hunk: PatchHunk = {
       oldStart: Number.parseInt(m[1] ?? "0", 10),
@@ -336,27 +371,29 @@ export function parsePatch(text: string): ParsedPatch {
     };
     let oldLeft = hunk.oldCount;
     let newLeft = hunk.newCount;
-    while (i < lines.length) {
-      const raw = lines[i] ?? "";
+    for (let body = peek(); body !== null; body = peek()) {
+      const raw = body.raw;
       const sign = raw.charAt(0);
       if (sign === "\\") {
         const last = hunk.lines[hunk.lines.length - 1];
         if (last) last.noeol = true;
-        i += 1;
+        pos = body.next;
         continue;
       }
       if (oldLeft === 0 && newLeft === 0) break;
-      // An empty line is an empty context line under `diff.suppressBlankEmpty`; the last one is the end of the text.
-      const kind = sign === "+" ? "add" : sign === "-" ? "del" : sign === " " || (raw === "" && i < lines.length - 1) ? "ctx" : null;
+      if (read >= maxLines) return { hunks, malformed: false, overflow: true };
+      // An empty line a newline ended is an empty context line under `diff.suppressBlankEmpty`; the one after the last newline is the end of the text.
+      const kind = sign === "+" ? "add" : sign === "-" ? "del" : sign === " " || (raw === "" && body.terminated) ? "ctx" : null;
       if (kind === null || (kind !== "add" && oldLeft === 0) || (kind !== "del" && newLeft === 0)) {
         malformed = true;
         break;
       }
-      const body = raw.slice(1);
-      hunk.lines.push({ kind, text: body.endsWith("\r") ? body.slice(0, -1) : body });
+      const text1 = raw.slice(1);
+      hunk.lines.push({ kind, text: text1.endsWith("\r") ? text1.slice(0, -1) : text1 });
       if (kind !== "add") oldLeft -= 1;
       if (kind !== "del") newLeft -= 1;
-      i += 1;
+      read += 1;
+      pos = body.next;
     }
     if (oldLeft !== 0 || newLeft !== 0) malformed = true;
     hunks.push(hunk);
@@ -398,7 +435,7 @@ export function diffRows(hunks: readonly PatchHunk[], newLineCount: number | nul
     let n = h.newStart;
     for (const line of h.lines) {
       const cut = line.text.length > DIFF_ROW_CHARS;
-      const extra = { text: cut ? line.text.slice(0, DIFF_ROW_CHARS) : line.text, ...(line.noeol ? { noeol: true as const } : {}), ...(cut ? { cut: true as const } : {}) };
+      const extra = { text: cut ? cutText(line.text) : line.text, ...(line.noeol ? { noeol: true as const } : {}), ...(cut ? { cut: true as const } : {}) };
       if (line.kind === "ctx") rows.push({ kind: "ctx", old: o++, new: n++, ...extra });
       else if (line.kind === "add") rows.push({ kind: "add", new: n++, ...extra });
       else rows.push({ kind: "del", old: o++, ...extra });
@@ -407,6 +444,17 @@ export function diffRows(hunks: readonly PatchHunk[], newLineCount: number | nul
   }
   if (hunks.length > 0 && newLineCount !== null) gap(newLineCount);
   return rows;
+}
+
+/**
+ * The first `DIFF_ROW_CHARS` of a long line, never ending on half a character: a cut that lands
+ * between the two halves of a surrogate pair gives the first half back too. The result is copied out
+ * of the line, because a slice of a 5 MB line keeps all 5 MB alive for as long as the row is kept.
+ */
+function cutText(text: string): string {
+  const last = text.charCodeAt(DIFF_ROW_CHARS - 1);
+  const end = last >= 0xd800 && last <= 0xdbff ? DIFF_ROW_CHARS - 1 : DIFF_ROW_CHARS;
+  return Buffer.from(text.slice(0, end), "utf8").toString("utf8");
 }
 
 /** Lines in a text the way git counts them: a last line with no newline still counts. */
@@ -477,36 +525,128 @@ function cardFor(entry: ChangeEntry, sizes: { oldSize: number | null; newSize: n
   return null;
 }
 
+/** The part of a file's answer that two commit ids and a path fix for ever: its rows and its card. */
+export interface BuiltDiff {
+  rows: DiffRow[];
+  card: DiffCard | null;
+  /** Git failed or timed out: the next request should ask again, so this answer is never kept. */
+  transient?: true;
+}
+
 /**
  * One listed file's change as rows. The entry must come from `listChanges` for the same range: the
  * paths handed to git are the entry's own, never a caller's string. A failed or oversized patch, a
- * patch whose hunks do not add up, and a patch that disagrees with the counts git itself reported are
- * all answered with an `unreadable` card rather than with rows that might be wrong.
+ * change with more rows than the cap, a patch whose hunks do not add up, and a patch that disagrees
+ * with the counts git itself reported are all answered with an `unreadable` card rather than with
+ * rows that might be wrong or that the server cannot afford.
  */
-export function fileDiff(root: string, slug: string, range: ChangeRange, entry: ChangeEntry, offset = 0): FileDiff {
-  let rows: DiffRow[] = [];
-  let card: DiffCard | null;
+export function buildFileDiff(root: string, range: ChangeRange, entry: ChangeEntry, limits: DiffLimits = DEFAULT_LIMITS): BuiltDiff {
   if (entry.binary) {
-    card = cardFor(entry, { oldSize: entry.oldBlob ? blobSize(root, entry.oldBlob) : null, newSize: entry.newBlob ? blobSize(root, entry.newBlob) : null }, 0, null);
-  } else if (entry.added + entry.deleted > DIFF_MAX_CHANGED_LINES) {
-    card = cardFor(entry, null, 0, `This file changed ${plural(entry.added + entry.deleted, "line")}, which is more than Reggie draws row by row (${DIFF_MAX_CHANGED_LINES.toLocaleString("en-US")}). Read it in a terminal instead.`);
-  } else {
-    const patch = patchFor(root, range.base, range.ref, entry.from ? [entry.from, entry.path] : [entry.path]);
-    const parsed = patch === null ? null : parsePatch(patch);
-    let unreadable: string | null = null;
-    if (parsed === null) unreadable = "Git could not produce this file's patch: it failed, timed out, or the patch is larger than Reggie reads. Read it in a terminal instead.";
-    else if (parsed.malformed) unreadable = "This file's patch did not add up to the line counts in its own headers, so it is not shown rather than shown wrong.";
-    else {
-      const all = parsed.hunks.flatMap((h) => h.lines);
-      const added = all.filter((l) => l.kind === "add").length;
-      const deleted = all.filter((l) => l.kind === "del").length;
-      if (added !== entry.added || deleted !== entry.deleted) unreadable = "This file's patch disagrees with the counts git reported for it, so it is not shown rather than shown wrong.";
+    return { rows: [], card: cardFor(entry, { oldSize: entry.oldBlob ? blobSize(root, entry.oldBlob) : null, newSize: entry.newBlob ? blobSize(root, entry.newBlob) : null }, 0, null) };
+  }
+  const tooMany = (what: string): BuiltDiff => ({
+    rows: [],
+    card: cardFor(entry, null, 0, `${what} more rows than Reggie draws (${limits.maxRows.toLocaleString("en-US")}). Read it in a terminal instead.`),
+  });
+  const withContext = "This file's change, with the unchanged lines shown around it, comes to";
+  // Git's own count, known from the list before the patch is asked for.
+  if (entry.added + entry.deleted > limits.maxRows) return tooMany(`This file changed ${plural(entry.added + entry.deleted, "line")}, which is`);
+
+  const patch = patchFor(root, range.base, range.ref, entry.from ? [entry.from, entry.path] : [entry.path], limits.maxPatchBytes);
+  if (patch === null) {
+    return { rows: [], transient: true, card: cardFor(entry, null, 0, "Git could not produce this file's patch: it failed, timed out, or the patch is larger than Reggie reads. Read it in a terminal instead.") };
+  }
+  const parsed = parsePatch(patch, limits.maxRows);
+  if (parsed.overflow) return tooMany(withContext);
+  let unreadable: string | null = null;
+  if (parsed.malformed) unreadable = "This file's patch did not add up to the line counts in its own headers, so it is not shown rather than shown wrong.";
+  else {
+    let added = 0;
+    let deleted = 0;
+    for (const h of parsed.hunks) for (const l of h.lines) if (l.kind === "add") added += 1; else if (l.kind === "del") deleted += 1;
+    if (added !== entry.added || deleted !== entry.deleted) unreadable = "This file's patch disagrees with the counts git reported for it, so it is not shown rather than shown wrong.";
+  }
+  if (unreadable) return { rows: [], card: cardFor(entry, null, 0, unreadable) };
+
+  const newText = parsed.hunks.length > 0 && entry.newBlob ? blobText(root, entry.newBlob) : null;
+  const rows = diffRows(parsed.hunks, newText === null ? (entry.newBlob ? null : 0) : countLines(newText));
+  if (rows.length > limits.maxRows) return tooMany(withContext);
+  return { rows, card: cardFor(entry, null, parsed.hunks.length, null) };
+}
+
+export interface DiffRowCacheOptions {
+  maxEntries?: number;
+  /** Rows held across every entry. */
+  maxRows?: number;
+  /** Characters of row text held across every entry. */
+  maxChars?: number;
+}
+
+/**
+ * Built rows, kept so that paging slices an array instead of asking git for the patch and parsing
+ * it again on every page. What two commit ids and a path produce can never change, so an entry is
+ * never stale; the only question is how much to hold, and the answer is small: a handful of files,
+ * bounded by entries, by rows and by the text those rows carry, least recently read out first.
+ */
+export class DiffRowCache {
+  private readonly entries = new Map<string, { built: BuiltDiff; chars: number }>();
+  private readonly maxEntries: number;
+  private readonly maxRows: number;
+  private readonly maxChars: number;
+  private rows = 0;
+  private chars = 0;
+
+  constructor(opts: DiffRowCacheOptions = {}) {
+    this.maxEntries = opts.maxEntries ?? 8;
+    this.maxRows = opts.maxRows ?? 2 * DIFF_MAX_ROWS;
+    this.maxChars = opts.maxChars ?? 32 * 1024 * 1024;
+  }
+
+  static key(slug: string, range: ChangeRange, entry: ChangeEntry): string {
+    return [slug, range.base, range.ref, entry.from ?? "", entry.path].join("\0");
+  }
+
+  get(key: string): BuiltDiff | undefined {
+    const hit = this.entries.get(key);
+    if (!hit) return undefined;
+    this.entries.delete(key);
+    this.entries.set(key, hit);
+    return hit.built;
+  }
+
+  set(key: string, built: BuiltDiff): void {
+    this.drop(key);
+    let chars = 0;
+    for (const r of built.rows) if (r.kind !== "gap") chars += r.text.length;
+    if (built.rows.length > this.maxRows || chars > this.maxChars) return;
+    this.entries.set(key, { built, chars });
+    this.rows += built.rows.length;
+    this.chars += chars;
+    for (const oldest of this.entries.keys()) {
+      if (this.entries.size <= this.maxEntries && this.rows <= this.maxRows && this.chars <= this.maxChars) break;
+      this.drop(oldest);
     }
-    if (parsed && !unreadable) {
-      const newText = parsed.hunks.length > 0 && entry.newBlob ? blobText(root, entry.newBlob) : null;
-      rows = diffRows(parsed.hunks, newText === null ? (entry.newBlob ? null : 0) : countLines(newText));
-    }
-    card = cardFor(entry, null, unreadable ? 0 : (parsed?.hunks.length ?? 0), unreadable);
+  }
+
+  private drop(key: string): void {
+    const gone = this.entries.get(key);
+    if (!gone) return;
+    this.entries.delete(key);
+    this.rows -= gone.built.rows.length;
+    this.chars -= gone.chars;
+  }
+}
+
+/**
+ * One page of one listed file's answer. The rows come from `cache` when it has them; what depends
+ * on this checkout's HEAD, `changedSince`, is asked every time and never kept.
+ */
+export function fileDiff(root: string, slug: string, range: ChangeRange, entry: ChangeEntry, offset = 0, cache?: DiffRowCache): FileDiff {
+  const key = DiffRowCache.key(slug, range, entry);
+  let built = cache?.get(key);
+  if (!built) {
+    built = buildFileDiff(root, range, entry);
+    if (!built.transient) cache?.set(key, built);
   }
 
   let changedSince: boolean | null = null;
@@ -516,7 +656,7 @@ export function fileDiff(root: string, slug: string, range: ChangeRange, entry: 
     changedSince = now !== entry.newBlob;
   }
 
-  const start = Math.max(0, Math.floor(offset));
-  const page = rows.slice(start, start + DIFF_PAGE_ROWS);
-  return { ...publicFile(entry), slug, range, card, rows: page, offset: start, totalRows: rows.length, truncated: start + page.length < rows.length, changedSince };
+  const start = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+  const page = built.rows.slice(start, start + DIFF_PAGE_ROWS);
+  return { ...publicFile(entry), slug, range, card: built.card, rows: page, offset: start, totalRows: built.rows.length, truncated: start + page.length < built.rows.length, changedSince };
 }

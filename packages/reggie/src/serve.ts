@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { addIntakeDetail, capture } from "./capture.js";
-import { changesPayload, fileDiff, listChanges, taskRange, type ChangeEntry, type RangeResult, type TaskChanges } from "./changes.js";
+import { changesPayload, DiffRowCache, fileDiff, listChanges, taskRange, type ChangeEntry, type RangeResult, type TaskChanges } from "./changes.js";
 import { buildContext } from "./context.js";
 import { collectFacts, type RepoFacts } from "./facts.js";
 import { listEpisodes, makeEpisode, readEpisode, renderFeed } from "./episode.js";
@@ -1375,19 +1375,32 @@ interface ResolvedChanges {
 }
 
 /**
+ * The integration branch's name, or why it cannot be used. The name comes from `.reggie/config.yaml`,
+ * a tracked file a clone carries, so it is as hostile as the repo is, and a name that begins with a
+ * dash is an option to every git command it is handed to bare. No branch can have such a name, so
+ * these routes stop here for one: before the task list, which hands the name to git, is ever built.
+ */
+function changeBase(c: RepoCtx): { ok: true; name: string } | { ok: false; reason: string } {
+  let name: string;
+  try {
+    name = defaultBranch(c.root, c.config.defaultBranch);
+  } catch {
+    return { ok: false, reason: "This repo has no integration branch Reggie can name, so there is nothing to measure a change against. Set defaultBranch in .reggie/config.yaml." };
+  }
+  if (name.startsWith("-")) {
+    return { ok: false, reason: "This repo's config names an integration branch that begins with a dash, which git would read as an option, so Reggie will not read a change against it. Correct defaultBranch in .reggie/config.yaml." };
+  }
+  return { ok: true, name };
+}
+
+/**
  * A task's range and its change list. The range is resolved on every request, because a branch tip
  * moves without this checkout's HEAD moving; the list between two commit ids can never change, so
- * it is kept per slug for as long as the ids stay the same, which is what makes paging through a
- * large file cost one patch read per page rather than three git reads.
+ * it is kept per slug for as long as the ids stay the same. The history index is never built here:
+ * the range needs the landing merge's two parents and nothing the index holds.
  */
-function changesOf(c: RepoCtx, task: TaskInfo): ResolvedChanges {
-  let baseName: string;
-  try {
-    baseName = defaultBranch(c.root, c.config.defaultBranch);
-  } catch {
-    return { range: { ok: false, reason: "This repo has no integration branch Reggie can name, so there is nothing to measure a change against. Set defaultBranch in .reggie/config.yaml." }, entries: [] };
-  }
-  const range = taskRange(c.root, task, baseName, { index: historyOf(c) });
+function changesOf(c: RepoCtx, task: TaskInfo, baseName: string): ResolvedChanges {
+  const range = taskRange(c.root, task, baseName);
   if (!range.ok) return { range, entries: [] };
   const slot = c.cached<{ key: string; entries: ChangeEntry[] | null }>(`changes:${task.slug}`, () => ({ key: "", entries: null }), { sha: false });
   const key = `${range.range.base}..${range.range.ref}`;
@@ -1396,6 +1409,11 @@ function changesOf(c: RepoCtx, task: TaskInfo): ResolvedChanges {
     slot.key = key;
   }
   return { range, entries: slot.entries };
+}
+
+/** Rows already built for this repo's files, so a later page of the same file is a slice and not a second parse. */
+function diffRowsOf(c: RepoCtx): DiffRowCache {
+  return c.cached("diffRows", () => new DiffRowCache(), { sha: false });
 }
 
 /** The task a change route names: 400 for a slug that is not one, 404 for one nothing in the repo names. */
@@ -1411,9 +1429,13 @@ function changeTask(res: ServerResponse, c: RepoCtx, url: URL): TaskInfo | null 
 }
 
 function changesRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
+  const slug = url.searchParams.get("slug") ?? "";
+  if (!isSafeSlug(slug)) return json(res, 400, { error: "bad slug" });
+  const base = changeBase(c);
+  if (!base.ok) return json(res, 200, changesPayload(slug, { ok: false, reason: base.reason }, []));
   const task = changeTask(res, c, url);
   if (!task) return;
-  const { range, entries } = changesOf(c, task);
+  const { range, entries } = changesOf(c, task, base.name);
   const payload: TaskChanges = changesPayload(task.slug, range, entries);
   return json(res, 200, payload);
 }
@@ -1442,16 +1464,19 @@ function fileDiffRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
   const rel = safeRepoPath(url.searchParams.get("path") ?? "");
   if (rel === null) return json(res, 400, { error: "bad path" });
   const offset = qInt(url, "offset", 0, 0, MAX_DIFF_OFFSET);
+  if (!isSafeSlug(url.searchParams.get("slug") ?? "")) return json(res, 400, { error: "bad slug" });
+  const base = changeBase(c);
+  if (!base.ok) return json(res, 404, { error: base.reason });
   const task = changeTask(res, c, url);
   if (!task) return;
-  const { range, entries } = changesOf(c, task);
+  const { range, entries } = changesOf(c, task, base.name);
   if (!range.ok || entries === null) return json(res, 404, { error: changesPayload(task.slug, range, entries).reason ?? "no change to read" });
   // Membership is by the name exactly as it was asked for, then as `safeRepoPath` tidied it: the
   // first finds a committed name that begins or ends with a space, the second forgives a `./`.
   const asked = url.searchParams.get("path") ?? "";
   const entry = entries.find((e) => e.path === asked) ?? entries.find((e) => e.path === rel) ?? null;
   if (!entry) return json(res, 404, { error: `that path is not part of what ${task.slug} changed` });
-  const diff = fileDiff(c.root, task.slug, range.range, entry, offset);
+  const diff = fileDiff(c.root, task.slug, range.range, entry, offset, diffRowsOf(c));
   // `mapped` is exactly the condition under which the story, impact and explain routes answer this
   // path with a 404, so a file page in diff mode can skip asking them instead of logging three failures.
   const mapped = nodeIndexOf(c).get(entry.path)?.kind === "file";

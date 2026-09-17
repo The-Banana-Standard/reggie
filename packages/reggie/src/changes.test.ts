@@ -2,8 +2,8 @@ import { existsSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { hostileGitConfig, makeDiffFixture, oddLine, XSS_LINE, type DiffFixture } from "../test/diff-fixture.js";
-import { countLines, DIFF_MAX_CHANGED_LINES, diffRows, fileDiff, joinNumstat, listChanges, parseNumstatZ, parsePatch, parseRawZ, taskChanges, taskRange, type ChangeEntry, type ChangeRange, type DiffRow, type FileDiff } from "./changes.js";
+import { hostileGitConfig, makeDiffFixture, oddLine, SPACED_NAMES, XSS_LINE, type DiffFixture } from "../test/diff-fixture.js";
+import { buildFileDiff, countLines, DIFF_MAX_ROWS, DiffRowCache, diffRows, fileDiff, joinNumstat, listChanges, parseNumstatZ, parsePatch, parseRawZ, taskChanges, taskRange, type ChangeEntry, type ChangeRange, type DiffRow, type FileDiff } from "./changes.js";
 import { blobAt, diffRangeArgs, diffRawRange, git, mergeBase, numstatRange, patchFor, resolveCommit } from "./git.js";
 import { clearHistoryCache } from "./history.js";
 import { listTasks, type TaskInfo } from "./tasks.js";
@@ -98,6 +98,13 @@ describe("git diff helpers", () => {
     expect(numstatRange(fx.repo.root, head, head)).toBe("");
     expect(patchFor(fx.repo.root, head, head, ["src/keep.ts"])).toBe("");
     expect(() => patchFor(fx.repo.root, head, head, [])).toThrow(/at least one path/);
+  });
+
+  it("answer null for a patch larger than the caller is prepared to read, every time", () => {
+    // When the child has already exited, node reports ENOBUFS beside a status of 0; that must still be a failure.
+    const range = rangeOf(fx.slugs.cases);
+    for (let i = 0; i < 8; i += 1) expect(patchFor(fx.repo.root, range.base, range.ref, ["src/long.ts"], 200), `run ${i}`).toBeNull();
+    expect(patchFor(fx.repo.root, range.base, range.ref, ["src/long.ts"], 1 << 20)).toContain("@@ -9,7 +9,7 @@");
   });
 
   it("treat pathspec magic and globs as plain names", () => {
@@ -281,6 +288,19 @@ describe("parsePatch and diffRows", () => {
     expect(parsePatch("@@ -1 +1 @@\n a\n a\n").hunks[0]?.lines).toHaveLength(1);
   });
 
+  it("never cuts a row in the middle of a character", () => {
+    // The 2,000th code unit is the first half of a surrogate pair.
+    const rows = diffRows(parsePatch(`@@ -0,0 +1 @@\n+${"x".repeat(1999)}\u{1F600}tail\n`).hunks, 1);
+    const row = rows[0];
+    if (row?.kind !== "add") throw new Error("expected one add row");
+    expect(row.cut).toBe(true);
+    expect(row.text).toBe("x".repeat(1999));
+    expect(/[\uD800-\uDBFF]$/.test(row.text)).toBe(false);
+    // A pair that ends exactly on the cut is whole and stays.
+    const whole = diffRows(parsePatch(`@@ -0,0 +1 @@\n+${"x".repeat(1998)}\u{1F600}tail\n`).hunks, 1)[0];
+    expect(whole?.kind === "add" && whole.text === `${"x".repeat(1998)}\u{1F600}`).toBe(true);
+  });
+
   it("cuts a long row and flags it", () => {
     const rows = diffRows(parsePatch(`@@ -0,0 +1 @@\n+${"x".repeat(5000)}\n`).hunks, 1);
     expect(rows).toHaveLength(1);
@@ -456,19 +476,80 @@ describe("file-level cases", () => {
     }
   });
 
-  it("does not read the patch of a file whose changed lines pass the cap, and says so", () => {
+  it("does not read the patch of a file whose changed lines alone pass the row cap, and says so", () => {
     const range = rangeOf(fx.slugs.cases);
     const entry = (listChanges(fx.repo.root, range) ?? []).find((e) => e.path === "src/added.ts");
     if (!entry) throw new Error("src/added.ts is not listed");
     // The count is git's own, from the list; a doctored one stands in for a file nobody wants in a fixture.
-    const huge = fileDiff(fx.repo.root, fx.slugs.cases, range, { ...entry, added: DIFF_MAX_CHANGED_LINES, deleted: 1 });
+    const huge = fileDiff(fx.repo.root, fx.slugs.cases, range, { ...entry, added: DIFF_MAX_ROWS, deleted: 1 });
     expect(huge.card?.kind).toBe("unreadable");
-    expect(huge.card?.text).toContain("250,001 lines");
+    expect(huge.card?.text).toContain("100,001 lines");
     expect([huge.rows, huge.totalRows, huge.truncated]).toEqual([[], 0, false]);
     expect(fileDiff(fx.repo.root, fx.slugs.cases, range, entry).card).toBeNull();
   });
 
+  it("caps the rows it builds, context and gaps included, and the patch bytes it reads", () => {
+    // src/long.ts changes 6 lines and draws 28 rows: a cap on changed lines alone would let it through.
+    const range = rangeOf(fx.slugs.cases);
+    const entry = (listChanges(fx.repo.root, range) ?? []).find((e) => e.path === "src/long.ts");
+    if (!entry) throw new Error("src/long.ts is not listed");
+    expect(buildFileDiff(fx.repo.root, range, entry).rows).toHaveLength(28);
+    const byRows = buildFileDiff(fx.repo.root, range, entry, { maxRows: 27, maxPatchBytes: 1 << 20 });
+    expect([byRows.card?.kind, byRows.rows]).toEqual(["unreadable", []]);
+    expect(byRows.card?.text).toMatch(/more rows than Reggie draws/);
+    expect(buildFileDiff(fx.repo.root, range, entry, { maxRows: 28, maxPatchBytes: 1 << 20 }).card).toBeNull();
+    const byBytes = buildFileDiff(fx.repo.root, range, entry, { maxRows: 1000, maxPatchBytes: 200 });
+    expect([byBytes.card?.kind, byBytes.rows]).toEqual(["unreadable", []]);
+  });
+
+  it("builds a file's rows once: a later page is a slice, with git never asked again", () => {
+    const range = rangeOf(fx.slugs.cases);
+    const entry = (listChanges(fx.repo.root, range) ?? []).find((e) => e.path === "src/long.ts");
+    if (!entry) throw new Error("src/long.ts is not listed");
+    const cache = new DiffRowCache();
+    const first = fileDiff(fx.repo.root, fx.slugs.cases, range, entry, 0, cache);
+    // A root that does not exist: every git call there fails, so an answer can only come from the cache.
+    const nowhere = path.join(os.tmpdir(), `reggie-no-such-repo-${process.pid}`);
+    const later = fileDiff(nowhere, fx.slugs.cases, range, entry, 10, cache);
+    expect(later.card).toBeNull();
+    expect(later.rows).toEqual(first.rows.slice(10));
+    expect(later.totalRows).toBe(first.totalRows);
+    expect(fileDiff(nowhere, fx.slugs.cases, range, entry, 10).card?.kind).toBe("unreadable");
+    // Another range is another key, even for the same slug and path.
+    expect(fileDiff(nowhere, fx.slugs.cases, { ...range, ref: SHA_A }, entry, 0, cache).card?.kind).toBe("unreadable");
+  });
+
+  it("keeps the row cache small: by entries, and by the rows they hold", () => {
+    const rowsOf = (n: number): DiffRow[] => Array.from({ length: n }, (_, i) => ({ kind: "add", new: i + 1, text: "x" }));
+    const byCount = new DiffRowCache({ maxEntries: 2, maxRows: 1000 });
+    for (const key of ["a", "b", "c"]) byCount.set(key, { rows: rowsOf(1), card: null });
+    expect([byCount.get("a"), byCount.get("b")?.rows.length, byCount.get("c")?.rows.length]).toEqual([undefined, 1, 1]);
+    const byRows = new DiffRowCache({ maxEntries: 10, maxRows: 100 });
+    byRows.set("a", { rows: rowsOf(60), card: null });
+    byRows.set("b", { rows: rowsOf(60), card: null });
+    expect([byRows.get("a"), byRows.get("b")?.rows.length]).toEqual([undefined, 60]);
+    // Reading an entry makes it the newest, so the other one is what goes.
+    const lru = new DiffRowCache({ maxEntries: 2, maxRows: 1000 });
+    lru.set("a", { rows: rowsOf(1), card: null });
+    lru.set("b", { rows: rowsOf(1), card: null });
+    lru.get("a");
+    lru.set("c", { rows: rowsOf(1), card: null });
+    expect([lru.get("a")?.rows.length, lru.get("b")]).toEqual([1, undefined]);
+    // Something larger than the whole budget is simply not kept.
+    byRows.set("huge", { rows: rowsOf(101), card: null });
+    expect(byRows.get("huge")).toBeUndefined();
+  });
+
+  it("a name that begins or ends with a space is listed as committed and draws its own rows", () => {
+    for (const name of SPACED_NAMES) {
+      const d = diffOf(name, fx.slugs.spaced);
+      expect(d.path).toBe(name);
+      expect(d.rows).toEqual([{ kind: "add", new: 1, text: oddLine(name) }]);
+    }
+  });
+
   it("pages by offset and answers nothing past the end", () => {
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, -5]) expect(diffOf("src/long.ts", fx.slugs.cases, bad).offset, String(bad)).toBe(0);
     const all = diffOf("src/long.ts");
     const tail = diffOf("src/long.ts", fx.slugs.cases, 10);
     expect(tail.offset).toBe(10);
@@ -579,6 +660,74 @@ describe("branch-level cases", () => {
       expect(c.reason).not.toContain("fatal:");
       expect(c.reason).not.toContain(fx.repo.root);
       expect([c.files, c.records, c.totals]).toEqual([[], [], { files: 0, added: 0, deleted: 0 }]);
+    }
+  });
+
+  it("a done task that landed by fast-forward with its branch kept is not reported as nothing changed", () => {
+    expect(resolveCommit(fx.repo.root, `refs/heads/task/${fx.slugs.ffKept}`)).not.toBeNull();
+    expect(task(fx.slugs.ffKept).state).toBe("done");
+    const kept = taskChanges(fx.repo.root, task(fx.slugs.ffKept), "main");
+    expect([kept.available, kept.range, kept.files, kept.records]).toEqual([false, null, [], []]);
+    expect(kept.reason).toMatch(/no merge commit on main landed it/);
+    expect(kept.reason).toMatch(/fast-forward/);
+  });
+
+  it("reads a branch this clone only has as origin/task/<slug>", () => {
+    expect(task(fx.slugs.remoteOnly).branchRef).toBe(`origin/task/${fx.slugs.remoteOnly}`);
+    expect(resolveCommit(fx.repo.root, `refs/heads/task/${fx.slugs.remoteOnly}`)).toBeNull();
+    const c = taskChanges(fx.repo.root, task(fx.slugs.remoteOnly), "main");
+    expect(c.available).toBe(true);
+    expect(c.range).toMatchObject({ kind: "branch", refName: `origin/task/${fx.slugs.remoteOnly}`, commits: 1 });
+    expect(c.range?.ref).toBe(resolveCommit(fx.repo.root, `refs/remotes/origin/task/${fx.slugs.remoteOnly}`));
+    expect(c.files.map((f) => [f.path, f.added])).toEqual([["src/from-origin.ts", 1]]);
+    expect(diffOf("src/from-origin.ts", fx.slugs.remoteOnly).rows).toEqual([{ kind: "add", new: 1, text: "export const fromOrigin = 1;" }]);
+  });
+
+  it("reads the branch and not a tag that carries the branch's name", () => {
+    const slug = fx.slugs.mergedBack;
+    const branchTip = resolveCommit(fx.repo.root, `refs/heads/task/${slug}`);
+    git(["tag", `task/${slug}`, "main"], { cwd: fx.repo.root });
+    try {
+      // Asked by its short name, git now answers with the tag.
+      expect(resolveCommit(fx.repo.root, `task/${slug}`)).toBe(resolveCommit(fx.repo.root, "refs/heads/main"));
+      const c = taskChanges(fx.repo.root, { slug, state: "in-process", branchRef: `task/${slug}` }, "main");
+      expect(c.range?.ref).toBe(branchTip);
+      expect(c.files.map((f) => f.path)).toEqual(["src/a.ts"]);
+    } finally {
+      git(["tag", "-d", `task/${slug}`], { cwd: fx.repo.root });
+    }
+    // The same for the base: a tag named main must not move the point the change is measured from.
+    const honest = taskChanges(fx.repo.root, task(fx.slugs.cases), "main");
+    git(["tag", "main", `refs/heads/task/${fx.slugs.orphan}`], { cwd: fx.repo.root });
+    try {
+      expect(taskChanges(fx.repo.root, task(fx.slugs.cases), "main")).toEqual(honest);
+    } finally {
+      git(["tag", "-d", "main"], { cwd: fx.repo.root });
+    }
+  });
+
+  it("never hands git an integration branch name that reads as an option", () => {
+    // What a clone of a hostile repo would hold: a config naming `--output=<file>` as the default
+    // branch, and a ref of exactly that name, so the name resolves. Handed to `git log` as a bare
+    // argument, git writes that file.
+    const target = path.join(os.tmpdir(), `reggie-hostile-base-${process.pid}-${Date.now()}`);
+    const hostile = `--output=${target}`;
+    git(["update-ref", `refs/heads/${hostile}`, "refs/heads/main"], { cwd: fx.repo.root });
+    try {
+      for (const slug of [fx.slugs.landed, fx.slugs.cases, fx.slugs.ffLanded, fx.slugs.noBranch]) {
+        const c = taskChanges(fx.repo.root, task(slug), hostile);
+        expect(existsSync(target), slug).toBe(false);
+        // The name is a real branch here, so the change is still read, from commit ids alone.
+        if (slug === fx.slugs.landed) expect([c.available, c.range?.kind, c.files.map((f) => f.path)]).toEqual([true, "merge", ["src/a.ts", "src/landed-only.ts"]]);
+        if (slug === fx.slugs.cases) expect([c.available, c.range?.kind]).toEqual([true, "branch"]);
+      }
+      // A name that resolves to nothing is refused before anything else is asked.
+      const nothing = `--output=${target}-unresolved`;
+      expect(taskChanges(fx.repo.root, task(fx.slugs.landed), nothing).available).toBe(false);
+      expect(existsSync(`${target}-unresolved`)).toBe(false);
+    } finally {
+      git(["update-ref", "-d", `refs/heads/${hostile}`], { cwd: fx.repo.root });
+      rmSync(target, { force: true });
     }
   });
 

@@ -39,6 +39,12 @@ export interface DiffFixture {
     landed: string;
     /** Done: landed by fast-forward, so there is no merge commit and no branch. */
     ffLanded: string;
+    /** Done: landed by fast-forward, and the branch was kept, so it resolves and has nothing past the base. */
+    ffKept: string;
+    /** In process: two files whose names begin and end with a space, which a tidied path no longer matches. */
+    spaced: string;
+    /** In process, but the only ref this clone has is `origin/task/<slug>`, as after a fetch of someone else's branch. */
+    remoteOnly: string;
     /** Planned: a plan on the base and no branch. */
     noBranch: string;
     /** A task branch that shares no history with the base. */
@@ -58,6 +64,9 @@ export const ODD_NAMES = ["src/with space.ts", 'src/quo"te.ts', "src/tab\there.t
 export function oddLine(name: string): string {
   return `// this is ${name}`;
 }
+
+/** A name that begins with a space and one that ends with one: `safeRepoPath` trims both away. */
+export const SPACED_NAMES = [" lead.ts", "src/trail.ts "];
 
 export const LARGE_LINES = 60_000;
 export const ONE_LINE_CHARS = 5_000_000;
@@ -109,6 +118,9 @@ export function makeDiffFixture(opts: { large?: boolean } = {}): DiffFixture {
     large: "large-change",
     landed: "landed-task",
     ffLanded: "ff-landed",
+    ffKept: "ff-kept",
+    spaced: "spaced-names",
+    remoteOnly: "remote-only",
     noBranch: "no-branch",
     orphan: "orphan-branch",
   };
@@ -213,6 +225,21 @@ export function makeDiffFixture(opts: { large?: boolean } = {}): DiffFixture {
     toMain();
   }
 
+  // --- names that begin and end with a space ------------------------------------------------
+  branch(slugs.spaced);
+  for (const name of SPACED_NAMES) bytes(name, `${oddLine(name)}\n`);
+  commit("feat: two names a trim would break", slugs.spaced);
+  toMain();
+
+  // --- a branch this clone only has as a remote-tracking ref. No push and no remote: the ref is
+  //     written where a fetch would have put it, and the local branch it was made from is deleted. ----
+  branch(slugs.remoteOnly);
+  bytes("src/from-origin.ts", "export const fromOrigin = 1;\n");
+  commit("feat: someone else's work", slugs.remoteOnly);
+  toMain();
+  run("update-ref", `refs/remotes/origin/task/${slugs.remoteOnly}`, `refs/heads/task/${slugs.remoteOnly}`);
+  run("branch", "-q", "-D", `task/${slugs.remoteOnly}`);
+
   // --- unrelated history: `fatal: … no merge base`, exit 128 --------------------------------
   run("checkout", "-q", "--orphan", `task/${slugs.orphan}`);
   run("rm", "-rfq", ".");
@@ -228,6 +255,14 @@ export function makeDiffFixture(opts: { large?: boolean } = {}): DiffFixture {
   toMain();
   run("merge", "-q", "--ff-only", `task/${slugs.ffLanded}`);
   run("branch", "-q", "-D", `task/${slugs.ffLanded}`);
+
+  // --- done by fast-forward with the branch kept: it resolves, and has nothing past main ---------
+  branch(slugs.ffKept);
+  bytes("src/ff-kept.ts", "kept\n");
+  writeText(packetFile(paths, slugs.ffKept), packet(slugs.ffKept, "approved"));
+  commit("feat: ff work, branch kept", slugs.ffKept);
+  toMain();
+  run("merge", "-q", "--ff-only", `task/${slugs.ffKept}`);
 
   // --- done the way Reggie lands it: the verdict is written inside the merge, the branch released,
   //     and then the base changes one of the two landed files again ---------------------------------

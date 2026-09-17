@@ -18,6 +18,12 @@ export interface ExecOptions {
    * wrong for anything that can block on a user (an OS consent dialog, an editor, a pager).
    */
   timeoutMs?: number;
+  /**
+   * Bytes of output to accept before the child is killed and the call reported as failed. Unset is
+   * the 64 MB default, which is right for a listing and far too much to parse into objects on a
+   * request: a caller that turns output into rows says how much it is prepared to read.
+   */
+  maxBufferBytes?: number;
 }
 
 /** Run a command synchronously. Throws on non-zero exit unless allowFailure is set. */
@@ -25,7 +31,7 @@ export function run(cmd: string, args: string[], opts: ExecOptions = {}): ExecRe
   const spawnOpts: SpawnSyncOptionsWithStringEncoding = {
     encoding: "utf8",
     env: process.env,
-    maxBuffer: 64 * 1024 * 1024,
+    maxBuffer: opts.maxBufferBytes ?? 64 * 1024 * 1024,
   };
   if (opts.cwd) spawnOpts.cwd = opts.cwd;
   if (opts.input !== undefined) spawnOpts.input = opts.input;
@@ -35,7 +41,10 @@ export function run(cmd: string, args: string[], opts: ExecOptions = {}): ExecRe
   const stderr = res.stderr ?? "";
   // A timeout kills the child and reports status null with an ETIMEDOUT error.
   const timedOut = res.error !== undefined && (res.error as NodeJS.ErrnoException).code === "ETIMEDOUT";
-  const ok = res.status === 0 && !timedOut;
+  // Output past `maxBuffer` is an ENOBUFS error, and when the child had already exited the status
+  // beside it is still 0 (measured: five runs in six for a small patch), so a status of 0 alone would
+  // pass truncated or over-limit output off as a clean read. Any spawn error is a failure.
+  const ok = res.status === 0 && res.error === undefined;
   if (!ok && !opts.allowFailure) {
     const detail = timedOut ? `timed out after ${opts.timeoutMs}ms` : (stderr || stdout).trim();
     throw new Error(`${cmd} ${args.join(" ")} failed (exit ${res.status ?? "?"})${detail ? `: ${detail}` : ""}`);
@@ -271,8 +280,8 @@ export function diffRangeArgs(shape: DiffShape, base: string, ref: string, paths
 }
 
 /** Null when git failed, timed out or outgrew the buffer; "" when nothing changed. Never confused. */
-function readDiff(root: string, args: string[]): string | null {
-  const r = git(args, { cwd: root, allowFailure: true, timeoutMs: DIFF_TIMEOUT_MS });
+function readDiff(root: string, args: string[], maxBufferBytes?: number): string | null {
+  const r = git(args, { cwd: root, allowFailure: true, timeoutMs: DIFF_TIMEOUT_MS, ...(maxBufferBytes !== undefined ? { maxBufferBytes } : {}) });
   return r.ok ? r.stdout : null;
 }
 
@@ -288,11 +297,13 @@ export function numstatRange(root: string, base: string, ref: string): string | 
 
 /**
  * One file's patch between two commits. A rename is asked for by both of its paths, old first:
- * asked for by its new path alone, git reports the same file as wholly added.
+ * asked for by its new path alone, git reports the same file as wholly added. `maxBytes` bounds what
+ * is read: a patch larger than that is answered as null, the same as a failed read, and git is
+ * stopped rather than allowed to fill the default buffer.
  */
-export function patchFor(root: string, base: string, ref: string, paths: readonly string[]): string | null {
+export function patchFor(root: string, base: string, ref: string, paths: readonly string[], maxBytes?: number): string | null {
   if (paths.length === 0) throw new Error("patchFor needs at least one path");
-  return readDiff(root, diffRangeArgs("patch", base, ref, paths));
+  return readDiff(root, diffRangeArgs("patch", base, ref, paths), maxBytes);
 }
 
 /** Size of a blob in bytes, by blob id; null when there is no such object. */
