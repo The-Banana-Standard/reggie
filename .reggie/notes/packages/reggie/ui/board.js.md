@@ -13,3 +13,7 @@ The optimistic update after a triage POST leaves the card in Ungroomed and only 
 The task page has a What changed section for in process, awaiting decision and done tasks. It mounts as a skeleton and fills itself from the changes route: a summary of which two points the change is read between, a row per file with a status badge and counts, then Reggie's own records under their own heading with the same doors. That list is the one source of doors on the page. File links that may become doors are marked with a change path data attribute when they are drawn, and once the list arrives the marked links whose path is in it are pointed at the diff route; the rest keep the plain file link. That is how a done task, whose branch comparison is empty, gets doors too. In the Completed view a changed file is a door only when the completion carries a landing merge, because without one there is no range to read.
 sources: packages/reggie/ui/board.js, branch-diff-in-reader
 
+## gotcha · 2026-09-17 · Claude via jacobpress · high
+The What changed section drops an answer that arrives after it has left the document. The story container is shared by every task page and the door rewriting reaches into all of it, so a late answer for one task used to rewrite the file links of whichever task was on screen by then, a planned task with no branch included. The check is safe because mounting is synchronous: by the time any answer can arrive, a section that is still wanted is attached.
+sources: packages/reggie/ui/board.js, branch-diff-in-reader
+

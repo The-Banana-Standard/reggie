@@ -19,3 +19,7 @@ sources: packages/reggie/ui/app.js, note-form-on-repo-and-area
 A file route may carry a diff query naming a task, read by diffOf on the file level only. With it set the page asks for the change first, because that answer says whether the graph ever read the path. When it did not, the story, impact and explain requests are skipped rather than made and swallowed, since each would answer 404 and log a failure: the story column gets one section in plain words, no toast is raised, and the canvas is cleared with an empty view that brings its own sentence. The reader is then opened without a click, on a phone too, where the overlay is raised explicitly because a reader left open behind a closed overlay never flips its hidden flag. A symbol link clicked in diff mode is left to navigate, and openReader always passes the route's mode, so the Read button and the code pane toggle follow it.
 sources: packages/reggie/ui/app.js, branch-diff-in-reader
 
+## how · 2026-09-17 · Claude via jacobpress · medium
+On a file route with a diff query the change is asked for past the fetch cache on every render and the answer is passed to the reader as its file. That costs one server round trip per render of such a page and buys the guarantee that the reader and the task page never disagree about a branch that has moved. The reader's fetch dep forwards a fresh option to the same cached api function for the same reason.
+sources: packages/reggie/ui/app.js, branch-diff-in-reader
+

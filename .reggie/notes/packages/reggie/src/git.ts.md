@@ -11,3 +11,7 @@ sources: packages/reggie/src/git.ts, branch-diff-in-reader
 diffRangeArgs is the one place the diff arguments are built, exported so a test can read exactly what git is handed, the way the history log's arguments are. Everything a person's git settings could change is pinned there for all three shapes: colour, renames, the algorithm, quoting, blank context stripping, and for a patch the context width, the merging of nearby hunks and the two prefixes. Blob sizes and blob text are asked by blob id, and the blob a path holds at a commit is asked through ls-tree with the path after the double dash, so a path from a request is never spliced into a revision.
 sources: packages/reggie/src/git.ts, branch-diff-in-reader
 
+## gotcha · 2026-09-17 · Claude via jacobpress · high
+The shared runner treats any spawn error as a failure, not only a non zero status. Output that outgrows the buffer is reported by node as an error beside a status of zero whenever the child had already exited, measured at five runs in six for a small patch, so judging by status alone passed over limit output off as a clean read. patchFor takes a byte bound for exactly that reason: what is turned into row objects on a request must be bounded where it is read.
+sources: packages/reggie/src/git.ts, branch-diff-in-reader
+
