@@ -18,6 +18,7 @@ import {
   getTaskDetail,
   intakeDate,
   listTasks,
+  parseClaim,
   parseIntake,
   parsePacketCriteria,
   parsePlanFileEntries,
@@ -311,6 +312,8 @@ describe("state machine and task detail", () => {
     expect(detail.task.age).toBe(0);
     expect(detail.claim?.person).toBe("Test Person");
     expect(detail.claim?.email).toBe("test@example.com");
+    // The handle is what a derived journal entry is attributed to, so the claim has to give it back.
+    expect(detail.claim?.handle).toBe(person.handle);
     expect(detail.claim?.date).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(detail.task.changedFiles).toEqual(["src/auth/login.ts", "src/other.ts"]);
     expect(detail.impact.actual).toEqual(["src/auth/login.ts", "src/other.ts"]);
@@ -402,6 +405,14 @@ describe("state machine and task detail", () => {
     ]);
     expect(detail.impact.actual).toEqual(["src/auth/fresh.ts"]);
     expect(detail.impact.plannedButUntouched).toEqual(["src/auth/login.ts"]);
+  });
+});
+
+describe("parseClaim", () => {
+  it("returns the claim's handle beside the person, and an empty one for a claim written before the field existed", () => {
+    const claim = ["---", "person: Casey Example", "handle: casey", "email: casey@example.com", "machine: a-laptop", "tool: claude", "session: 00000000-0000-4000-8000-000000000001", "date: 2026-09-15T09:00:00.000Z", "---", "Claim record."].join("\n");
+    expect(parseClaim(claim)).toEqual({ person: "Casey Example", handle: "casey", email: "casey@example.com", machine: "a-laptop", tool: "claude", session: "00000000-0000-4000-8000-000000000001", date: "2026-09-15T09:00:00.000Z" });
+    expect(parseClaim("---\nperson: Old Claim\nemail: old@example.com\n---\n").handle).toBe("");
   });
 });
 
