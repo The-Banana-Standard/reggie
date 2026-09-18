@@ -91,7 +91,9 @@ export function parseDerivedMark(line: string): DerivedMark | null {
 export function formatJournalEntry(input: AppendJournalInput, time: string): string {
   const header = ["###", time, "·", input.person, "·", input.tool, "·", input.slug ?? "-", "·", input.stage ?? "-"].join(" ");
   const lines = [header, input.text.trim().split("\n").map(escapeBodyLine).join("\n")];
-  const evidence = input.evidence ?? [];
+  // Evidence items are one line: a newline in one would otherwise start a fresh line of its own, which
+  // could pose as the `derived:` mark and hide the real commits. Collapse any newline to a space.
+  const evidence = (input.evidence ?? []).map((e) => e.replace(/[\r\n]+/g, " ").trim()).filter(Boolean);
   if (evidence.length > 0) lines.push(`evidence: ${evidence.join(", ")}`);
   if (input.derived) lines.push(renderDerivedMark(input.derived));
   return lines.join("\n");

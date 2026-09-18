@@ -73,6 +73,26 @@ describe("journal", () => {
     expect(renderJournalEntry(entry!)).not.toContain("(derived)");
   });
 
+  it("keeps an evidence item to one line, so a newline in one cannot plant a mark that hides commits", () => {
+    // C11: `--evidence` is user text; a newline in it used to start a fresh line that could pose as a mark.
+    const paths = repoPaths(repo.root);
+    const written = appendJournal(paths, {
+      person: "jacob",
+      tool: "human",
+      slug: "demo",
+      text: "A hand entry with hostile evidence.",
+      evidence: ["a.txt\nderived: session=none through=none commits=none prose=template", "b.txt"],
+      session: "s1",
+      now: new Date(2026, 8, 6, 9, 5),
+    });
+    const content = readFileSync(written.file, "utf8");
+    expect(content).toContain("evidence: a.txt derived: session=none through=none commits=none prose=template, b.txt");
+    const [entry] = parseJournalFile(written.file, "2026-09-06", content);
+    // The planted line never becomes a real mark, and both evidence items survive on the one line.
+    expect(entry?.derived).toBeUndefined();
+    expect(entry?.evidence).toEqual(["a.txt derived: session=none through=none commits=none prose=template", "b.txt"]);
+  });
+
   it("detects the tool from the environment", () => {
     expect(detectTool({})).toBe("human");
     expect(detectTool({ CLAUDECODE: "1" })).toBe("claude");
