@@ -1,0 +1,79 @@
+# AC38, AC2: the task list and parsePlan's criteria, by a build of the base commit and by this branch's, over one working tree
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:46:05Z
+
+base commit: 5993e8d1b1784c0d0f3147afa77af87e85275777 (git archive of packages/reggie, compiled with tsc into the scratch directory)
+branch build: npm run build in the task worktree, at 0b3c594b9ee2
+
+==== the probe (probe-board.mjs)
+// Read-only probe (AC38, AC2): the task list of one working tree, as two builds derive it. Run once
+// with DIST pointing at a dist compiled from the base commit and once at this branch's own; both
+// read the same tree (REGGIE_TREE), and nothing is written to it. With PLANS=1 it prints, instead,
+// parsePlan(...).criteria for every plan under .reggie/tasks/ in that tree.
+// Refuses to start unless its own working directory is under the OS temp directory (AC50).
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+const here = process.cwd();
+if (!/^\/(private\/)?(tmp|var\/folders)\//.test(here)) {
+  console.error(`refusing to run in ${here}: not under the OS temp directory`);
+  process.exit(98);
+}
+const DIST = process.env.DIST ?? "";
+const TREE = process.env.REGGIE_TREE ?? "";
+if (!DIST || !TREE) throw new Error("set DIST (a compiled dist/) and REGGIE_TREE (the working tree to read)");
+const { repoPaths } = await import(path.join(DIST, "paths.js"));
+const { loadConfig } = await import(path.join(DIST, "people.js"));
+if (process.env.PLANS === "1") {
+  const { parsePlan } = await import(path.join(DIST, "plan.js"));
+  const tasks = path.join(TREE, ".reggie/tasks");
+  for (const slug of readdirSync(tasks).sort()) {
+    const file = path.join(tasks, slug, "plan.md");
+    if (!existsSync(file)) continue;
+    const criteria = parsePlan(readFileSync(file, "utf8")).criteria;
+    console.log(`${slug}\t${criteria.length}\t${createHash("sha256").update(JSON.stringify(criteria)).digest("hex").slice(0, 16)}`);
+  }
+} else {
+  const { listTasks } = await import(path.join(DIST, "tasks.js"));
+  const paths = repoPaths(TREE);
+  for (const t of listTasks(paths, loadConfig(paths), { includeDone: true })) console.log([t.slug, t.state, t.reason, t.risk].join("\t"));
+}
+
+$ wc -l board-base.tsv board-branch.tsv
+     128 board-base.tsv
+     128 board-branch.tsv
+     256 total
+$ diff board-base.tsv board-branch.tsv   # slug, state, reason, risk of every task
+exit 0 (0 means identical)
+$ cut -f2 board-branch.tsv | sort | uniq -c
+  15 done
+   1 groomed
+   1 in-process
+ 111 ungroomed
+
+$ diff plans-base.tsv plans-branch.tsv   # slug, number of criteria, hash of parsePlan(...).criteria, for every plan under .reggie/tasks/
+exit 0 (0 means identical)
+a-task-worktree-has-no-node-modules-so-nothing-r	15	5cea3794da238c03
+about-this-repo	8	d4c35ecc7929d1f9
+branch-diff-in-reader	47	78945cecba2e1cd1
+derive-the-journal	52	a4492c6bba61677f
+docs-check-in-ci	8	312bec2bb74941ab
+false-tests-sentence	15	004685d26baaa41d
+graph-coverage-published	22	58615b2f3d70d075
+idea-from-every-page	31	e0aeaba8c09758e2
+intake-line-leaves-at-triage	28	b84e0c63a29c54c5
+journal-files-conflict-on-merge-a-claim-in-the-m	12	2dceb31c785c65c9
+layout-modes	12	3ed15135bd0186f8
+low-risk-auto-approval	54	321e8126938e562e
+mobile-ui	10	ca9e677953db3269
+note-form-on-repo-and-area	23	a63f0326a1715396
+stale-dev-bin	11	4cbb93e59e61f3f7
+task-attribution-by-merge	15	44f8eaa081222f23
+
+$ git diff repo-manager -- packages/reggie/src/tasks.ts | grep -c STATE_MACHINE
+0
+(0: STATE_MACHINE is untouched)
+$ grep -rn 'policy\.plans\|policy.plans' packages/reggie/src --include=*.ts | grep -v test
+/Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie/src/cli.ts:814:    out(`policy: plans ${c.config.policy.plans} (${from("plans")}), completions ${c.config.policy.completions} (${from("completions")}). This checkout's copy; the policy report reads the integration branch's committed copy.`);
+/Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie/src/policy.ts:273:    plans: config.policy.plans,
+/Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie/src/policy.ts:481:    lines.push(`policy (${report.policy.mode} mode): completions ${report.policy.completions} (${said(report.policy.source.completions)}); plans ${report.policy.plans} (${said(report.policy.source.plans)}; nothing reads it in this version)`);
+(only the config parser, the report and reggie people read it; no state rule does)

@@ -1,0 +1,14 @@
+# AC52: the whole suite
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:47:09Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+
+
+ Test Files  41 passed (41)
+      Tests  1199 passed | 1 skipped (1200)
+   Start at  13:47:09
+   Duration  47.64s (transform 3.11s, setup 0ms, import 5.51s, tests 319.73s, environment 2ms)
+
+exit 0

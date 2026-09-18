@@ -1,0 +1,29 @@
+# AC9, AC10: the generated checklist, refreshed in place; a packet with no markers left alone
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:44:43Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/packet.test.ts -t "ticks a criterion only when|changes only the bytes between the markers|leaves a packet with no markers" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/packet.test.ts > the generated checklist > ticks a criterion only when its latest record passes, cites that record's paths and nothing else, and pairs no file with a criterion no record names 100ms
+ ✓ src/packet.test.ts > the generated checklist > changes only the bytes between the markers after one more record, says current when nothing is new, and still rewrites the whole packet under --force 860ms
+ ✓ src/packet.test.ts > the generated checklist > leaves a packet with no markers byte-identical and says it predates check records 272ms
+ Test Files  1 passed (1)
+      Tests  3 passed | 34 skipped (37)
+   Start at  13:44:43
+   Duration  1.75s (transform 100ms, setup 0ms, import 134ms, tests 1.56s, environment 0ms)
+exit 0
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/tasks.test.ts -t "assembles plan, packet, claim, journal" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/tasks.test.ts > state machine and task detail > assembles plan, packet, claim, journal, and impact as a task moves 1754ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 22 skipped (23)
+   Start at  13:44:45
+   Duration  1.95s (transform 102ms, setup 0ms, import 136ms, tests 1.75s, environment 0ms)
+exit 0
+
+$ grep -n -c 'reggie-packet-pairs-evidence-files-with-acceptan\|the-packet-scaffold-pairs-each-acceptance-criter' .reggie/intake.md
+0
+exit 1 (grep exits 1 when it counts no line: both intake lines are gone)
+$ git log --oneline repo-manager..HEAD -- .reggie/intake.md
+0b3c594 capture: six findings from building low-risk-auto-approval
+c7938e0 chore(reggie): this repo's policy block, and three intake lines the generated checklist retires

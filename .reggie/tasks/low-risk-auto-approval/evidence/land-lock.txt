@@ -1,0 +1,16 @@
+# AC29, AC30: the landing lock, and a merge already in progress
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:45:18Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/land.test.ts -t "one landing at a time" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/land.test.ts > one landing at a time > keeps its lock under the git directory every worktree shares 415ms
+ ✓ src/land.test.ts > one landing at a time > refuses while a lock names a live pid, naming the other slug, the pid and the start, and changes nothing 777ms
+ ✓ src/land.test.ts > one landing at a time > replaces a lock whose pid is dead, and one older than ten minutes, and lands 1227ms
+ ✓ src/land.test.ts > one landing at a time > leaves no lock behind after a landing, a refusal, a conflict, and a throw while the approval is being recorded 2162ms
+ ✓ src/land.test.ts > one landing at a time > refuses before running git merge when a merge is already in progress, and leaves that merge exactly as it was 511ms
+ Test Files  1 passed (1)
+      Tests  5 passed | 19 skipped (24)
+   Start at  13:45:18
+   Duration  5.29s (transform 107ms, setup 0ms, import 141ms, tests 5.09s, environment 0ms)
+exit 0
+

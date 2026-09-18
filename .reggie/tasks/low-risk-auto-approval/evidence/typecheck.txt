@@ -1,0 +1,9 @@
+# AC53: npm run typecheck
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:47:07Z
+
+$ cd packages/reggie && npm run typecheck
+
+> reggie@3.0.0-alpha.1 typecheck
+> tsc -p tsconfig.json --noEmit
+
+exit 0

@@ -1,0 +1,12 @@
+# AC28: not evaluated
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:45:15Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "AC28" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/policy.test.ts > not evaluated (AC28) > says so, each in its own sentence and with exit 1, for no branch, no packet, and a task already approved on the base 2218ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 43 skipped (44)
+   Start at  13:45:16
+   Duration  2.48s (transform 125ms, setup 0ms, import 164ms, tests 2.25s, environment 0ms)
+exit 0
+

@@ -1,0 +1,41 @@
+# AC13: the packet contract, one row per fault, and PASS for the passing fixture
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:44:50Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/packet.test.ts -t "the packet contract" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/packet.test.ts > the packet contract > passes the packet of the passing fixture, from the function and from the CLI 290ms
+ ✓ src/packet.test.ts > the packet contract > names 'a missing slug' 1ms
+ ✓ src/packet.test.ts > the packet contract > names 'a different slug' 0ms
+ ✓ src/packet.test.ts > the packet contract > names 'a verdict outside the three' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Acceptance criteria missing' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Evidence missing' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Changes missing' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Reviews missing' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Deviations from plan missing' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Discovered issues missing' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Open risks missing' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Acceptance criteria empty' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Evidence empty' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Changes empty' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Reviews empty' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Deviations from plan empty' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Discovered issues empty' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Open risks empty' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Acceptance criteria still holding …' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Evidence still holding a stand-in' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Changes still holding a stand-in' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Reviews still holding a stand-in' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Deviations from plan still holding…' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Discovered issues still holding a …' 0ms
+ ✓ src/packet.test.ts > the packet contract > names '## Open risks still holding a stand-in' 0ms
+ ✓ src/packet.test.ts > the packet contract > names 'no generated checklist' 0ms
+ ✓ src/packet.test.ts > the packet contract > names 'a checklist that differs from what th…' 0ms
+ ✓ src/packet.test.ts > the packet contract > names 'a box ticked by hand' 0ms
+ ✓ src/packet.test.ts > the packet contract > names 'a malformed citation' 0ms
+ ✓ src/packet.test.ts > the packet contract > exits 1 from the CLI naming each fault, and writes nothing 288ms
+ Test Files  1 passed (1)
+      Tests  30 passed | 7 skipped (37)
+   Start at  13:44:51
+   Duration  1.20s (transform 102ms, setup 0ms, import 135ms, tests 1.00s, environment 0ms)
+exit 0
+

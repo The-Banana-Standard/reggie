@@ -1,0 +1,25 @@
+# AC20: one tampering per row
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:44:56Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "AC20" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > starts from a task that would pass 173ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > refuses 'its own plan\'s risk lowered', naming it 222ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > refuses 'a criterion deleted from its own plan', naming it 216ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > refuses 'a criterion reworded in its own plan', naming it 216ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > refuses 'the config widened to completions: hi…', naming it 204ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > refuses 'the people file changed', naming it 198ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > refuses 'another task\'s plan changed', naming it 202ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > refuses '.mcp.json changed', naming it 198ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > refuses '.gitattributes changed', naming it 200ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > refuses 'a file under .claude/ added', naming it 201ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > refuses 'a packet that already says approved', naming it 197ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > refuses 'a packet that says needs-work', naming it 205ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > refuses 'a packet whose slug names another task', naming it 198ms
+ ✓ src/policy.test.ts > what the branch may not change (AC20) > names every control file, in any letter case, and nothing else 30ms
+ Test Files  1 passed (1)
+      Tests  14 passed | 30 skipped (44)
+   Start at  13:44:57
+   Duration  3.33s (transform 126ms, setup 0ms, import 165ms, tests 3.10s, environment 0ms)
+exit 0
+

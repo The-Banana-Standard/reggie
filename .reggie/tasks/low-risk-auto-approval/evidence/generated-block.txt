@@ -1,0 +1,24 @@
+# AC42: the generated block
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:47:06Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/docs.test.ts --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/docs.test.ts > generated blocks > appends when no markers exist and replaces when they do 90ms
+ ✓ src/docs.test.ts > generated blocks > collects facts and renders both blocks 91ms
+ ✓ src/docs.test.ts > generated blocks > still asks for a hand entry per step, and says what the derive verb adds and what it cannot 101ms
+ ✓ src/docs.test.ts > generated blocks > says that verified criteria are recorded with reggie check and that the packet's checklist is built from those records 93ms
+ ✓ src/docs.test.ts > generated blocks > onboard creates files; check reports fresh, then stale after code changes 199ms
+ ✓ src/docs.test.ts > generated blocks > mirrors CLAUDE.md's curated sections into AGENTS.md, because Codex never reads CLAUDE.md 120ms
+ ✓ src/docs.test.ts > generated blocks > curatedSections takes everything from the first heading to the block, and nothing after 83ms
+ ✓ src/docs.test.ts > generated blocks > curatedSections returns nothing when CLAUDE.md has no curated headings yet 82ms
+ ✓ src/docs.test.ts > generated blocks > docs check sees AGENTS.md drift even when its generated block is current 119ms
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  13:47:06
+   Duration  1.12s (transform 53ms, setup 0ms, import 76ms, tests 979ms, environment 0ms)
+exit 0
+
+$ git diff repo-manager -- CLAUDE.md AGENTS.md
+$ grep -c 'Verified criteria are recorded with' CLAUDE.md AGENTS.md
+CLAUDE.md:0
+AGENTS.md:0

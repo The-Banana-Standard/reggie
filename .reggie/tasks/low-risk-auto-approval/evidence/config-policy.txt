@@ -1,0 +1,54 @@
+# AC36, AC37: the policy block in the config
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:46:57Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/people.test.ts --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'no config at all' 1ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'a solo config with no policy block' 2ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'a team config with no policy block' 1ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'explicit values' 1ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'explicit values in team mode' 0ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'one key given, one absent' 0ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'completions: yes' 0ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'plans: 3' 0ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'a list where a class belongs' 0ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'a wrong letter case' 0ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'a policy that is not a block' 0ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'an unreadable value in team mode fall…' 0ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > keeps every other key as it was read before the block existed 1ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads back what saveConfig wrote, comment included, and writes the block into every config Reggie creates 118ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > prints the policy, and whether each key came from the file or the default, in reggie people 584ms
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  13:46:57
+   Duration  825ms (transform 33ms, setup 0ms, import 54ms, tests 711ms, environment 0ms)
+exit 0
+
+$ git diff repo-manager -- .reggie/config.yaml
+diff --git a/.reggie/config.yaml b/.reggie/config.yaml
+index 26bf98c..6225536 100644
+--- a/.reggie/config.yaml
++++ b/.reggie/config.yaml
+@@ -36,3 +36,17 @@ risk:
+     - api
+     - model
+     - store
++# policy: the highest risk class that passes without a person, one class per kind of packet.
++#   plans: for a plan. With high, every plan that passes the plan contract counts as planned, which
++#     is what solo mode has always done; narrowing it is not enforced yet.
++#   completions: for a finished task. With low, only a task whose effective risk class is low could
++#     pass; the class is the highest of the plan's risk line, its file list, and the files the branch
++#     really changed.
++#   Values: none, low, medium, high. none means nothing passes without a person.
++# Reggie reads this block from the integration branch's committed copy, never from a task branch,
++# so a task cannot widen the policy it is judged by. In this version the verdict is reported
++# (`reggie check <slug>`, and on the task page) and nothing acts on it: a person still decides every
++# task with `reggie decide`. Acting on the verdict is the item `policy-acts-on-its-verdict`.
++policy:
++  plans: high
++  completions: low
+$ git diff repo-manager -- .reggie/config.yaml | grep -c '^-[^-]'   # removed lines
+0
+$ reggie people   # this branch's build, in the task worktree
+mode: solo
+policy: plans high (from .reggie/config.yaml), completions low (from .reggie/config.yaml). This checkout's copy; the policy report reads the integration branch's committed copy.

@@ -1,0 +1,13 @@
+# AC27: the merges-cleanly gate
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:45:13Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "AC27" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/policy.test.ts > the merges-cleanly gate (AC27) > refuses naming the intake file when the base and the branch each appended a line, and touches neither checkout 691ms
+ ✓ src/policy.test.ts > the merges-cleanly gate (AC27) > reads not checked, and leaves the verdict alone, when this git does not know merge-tree --write-tree 541ms
+ Test Files  1 passed (1)
+      Tests  2 passed | 42 skipped (44)
+   Start at  13:45:14
+   Duration  1.49s (transform 123ms, setup 0ms, import 162ms, tests 1.26s, environment 0ms)
+exit 0
+

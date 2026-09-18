@@ -1,0 +1,119 @@
+# AC50: every script and probe refuses to run outside the OS temp directory, and says where it ran
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:44:08Z
+
+==== head -n 12 e2e.sh
+#!/bin/bash
+# End to end in a throwaway repo (AC46, AC47, AC48, AC49). usage: e2e.sh <new dir under the OS temp dir> <pass|medium|tampered>
+set -euo pipefail
+FIX="${1:?a directory under the OS temp directory that does not exist yet}"; VARIANT="${2:?pass, medium or tampered}"
+# AC50 guard: judged on the string before anything is created, then on the real path and on git's toplevel.
+case "$FIX" in /private/tmp/*|/private/var/folders/*) ;; *) echo "refusing $FIX: not under the OS temp directory" >&2; exit 98 ;; esac
+case "$FIX" in *..*) echo "refusing $FIX: holds '..'" >&2; exit 98 ;; esac
+[ -e "$FIX" ] && { echo "refusing $FIX: it already exists" >&2; exit 98; }
+mkdir -p "$FIX"; cd "$FIX" || exit 97
+HERE="$(pwd -P)"; TOP="$(git rev-parse --show-toplevel 2>/dev/null || echo "$HERE")"
+case "$HERE|$TOP" in /private/tmp/*\|/private/tmp/*|/private/var/folders/*\|/private/var/folders/*) ;; *) echo "refusing to run in $HERE (git toplevel $TOP)" >&2; exit 98 ;; esac
+echo "running in $HERE"
+
+==== head -n 12 two-at-once.sh
+#!/bin/bash
+# AC31: two `reggie decide approved` calls started together in one throwaway repo, ten rounds. usage: two-at-once.sh <new dir under the OS temp dir> [rounds]
+set -uo pipefail
+BASE="${1:?a directory under the OS temp directory that does not exist yet}"; ROUNDS="${2:-10}"
+# AC50 guard: judged on the string before anything is created, then on the real path and on git's toplevel.
+case "$BASE" in /private/tmp/*|/private/var/folders/*) ;; *) echo "refusing $BASE: not under the OS temp directory" >&2; exit 98 ;; esac
+case "$BASE" in *..*) echo "refusing $BASE: holds '..'" >&2; exit 98 ;; esac
+[ -e "$BASE" ] && { echo "refusing $BASE: it already exists" >&2; exit 98; }
+mkdir -p "$BASE"; cd "$BASE" || exit 97
+HERE="$(pwd -P)"; TOP="$(git rev-parse --show-toplevel 2>/dev/null || echo "$HERE")"
+case "$HERE|$TOP" in /private/tmp/*\|/private/tmp/*|/private/var/folders/*\|/private/var/folders/*) ;; *) echo "refusing to run in $HERE (git toplevel $TOP)" >&2; exit 98 ;; esac
+echo "running in $HERE"
+
+==== head -n 14 probe-citations.mts
+// Read-only probe over this repository's landed loop tasks (AC14). It runs only `git log`,
+// `git rev-parse`, `git show` and `git ls-tree` against the repository, writes nothing there, and
+// refuses to start unless its own working directory is under the OS temp directory (AC50).
+//
+// For each landing merge on the integration branch it reads the packet at the branch tip that was
+// merged (the merge's second parent) and compares today's evidence reader with this branch's, then
+// resolves every citation on that tip with this branch's resolver.
+import path from "node:path";
+const here = process.cwd();
+if (!/^\/(private\/)?(tmp|var\/folders)\//.test(here)) {
+  console.error(`refusing to run in ${here}: not under the OS temp directory`);
+  process.exit(98);
+}
+console.log(`running in ${here}`);
+
+==== head -n 14 probe-risk.mts
+// Read-only probe over this repository's landed loop merges (AC26): the three risk classes the
+// policy report computes, for each task as it stood when it was merged. It runs only `git log`,
+// `git rev-parse`, `git merge-base`, `git ls-tree`, `git cat-file` and `git diff --name-only` against
+// the repository, writes nothing there, and refuses to start unless its own working directory is
+// under the OS temp directory (AC50).
+//
+// For each landing merge: the base is the merge's first parent and the branch tip its second. The
+// config (the risk rules) and the plan are read from the base, as the report reads them; when the
+// plan was not on the base the branch's copy is used and the row says so.
+import path from "node:path";
+const here = process.cwd();
+if (!/^\/(private\/)?(tmp|var\/folders)\//.test(here)) {
+  console.error(`refusing to run in ${here}: not under the OS temp directory`);
+  process.exit(98);
+
+==== head -n 14 probe-board.mjs
+// Read-only probe (AC38, AC2): the task list of one working tree, as two builds derive it. Run once
+// with DIST pointing at a dist compiled from the base commit and once at this branch's own; both
+// read the same tree (REGGIE_TREE), and nothing is written to it. With PLANS=1 it prints, instead,
+// parsePlan(...).criteria for every plan under .reggie/tasks/ in that tree.
+// Refuses to start unless its own working directory is under the OS temp directory (AC50).
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+const here = process.cwd();
+if (!/^\/(private\/)?(tmp|var\/folders)\//.test(here)) {
+  console.error(`refusing to run in ${here}: not under the OS temp directory`);
+  process.exit(98);
+}
+const DIST = process.env.DIST ?? "";
+
+==== head -n 14 serve-fixtures.mts
+// Browser checks (AC17, AC40): three throwaway repos built by the branch's own test fixture, each
+// served by the branch's own server on a port nothing else holds. Refuses to start unless its own
+// working directory is under the OS temp directory (AC50). Runs until it is stopped.
+import path from "node:path";
+const here = process.cwd();
+if (!/^\/(private\/)?(tmp|var\/folders)\//.test(here)) {
+  console.error(`refusing to run in ${here}: not under the OS temp directory`);
+  process.exit(98);
+}
+console.log(`running in ${here}`);
+const PKG = process.env.REGGIE_PKG ?? "";
+if (!PKG) throw new Error("set REGGIE_PKG to the packages/reggie of the branch under test");
+const { makePolicyFixture } = await import(path.join(PKG, "test/policy-fixture.ts"));
+const { startServer } = await import(path.join(PKG, "src/serve.ts"));
+
+==== grep -n 'running in' of each saved output
+e2e-pass.txt:145:running in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval/e2e-pass
+e2e-medium.txt:145:running in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval/e2e-medium
+e2e-tampered.txt:145:running in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval/e2e-tampered
+two-at-once.txt:83:running in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval/two-at-once
+
+==== each script handed a real checkout, a dot-dot path and an existing directory: refused before anything is created
+refusing /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager: not under the OS temp directory
+   -> e2e.sh exit 98
+refusing /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager: not under the OS temp directory
+   -> two-at-once.sh exit 98
+refusing /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval/../../../../../Users: holds '..'
+   -> e2e.sh exit 98
+refusing /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval/../../../../../Users: holds '..'
+   -> two-at-once.sh exit 98
+refusing /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval: it already exists
+   -> e2e.sh exit 98
+refusing /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval: it already exists
+   -> two-at-once.sh exit 98
+$ git -C <integration checkout> status --short   # after all of it
+(empty: nothing was created there)
+
+test/policy-fixture.ts, which every vitest fixture and the browser fixtures come from, makes the same refusal in code:
+136:  if (!root.startsWith(`${tmp}${path.sep}`)) throw new Error(`refusing to build a policy fixture in ${root}: not under the OS temp directory`);

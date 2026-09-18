@@ -1,0 +1,15 @@
+# AC41: the build prompt
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:45:38Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/launch.test.ts -t "a build records checks as data" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/launch.test.ts > launchCommand > a build records checks as data, after the code they prove is committed, and knows what an approval captures 1ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 38 skipped (39)
+   Start at  13:45:38
+   Duration  198ms (transform 99ms, setup 0ms, import 133ms, tests 2ms, environment 0ms)
+exit 0
+
+$ the build prompt itself, for claude (print-prompt.mts)
+Implement `demo`. You are in the task's worktree on branch `task/demo`, which Reggie has already claimed for you; work here and commit here. Before you add or change any dependency, check whether `node_modules` here is a symlink: if it is, it points into the checkout Reggie serves from, so remove the link with `unlink` and run the install command first, because installing through it would change every other worktree and `rm -r` through it would delete their dependencies. Run `reggie context demo` first and read all of it. Execute the plan. You may deviate, but record every deviation and its reason for the packet. Produce the evidence named under Verification strategy and save it under `.reggie/tasks/demo/evidence/`; never claim a test passed without its output saved. Reviews by risk class, from the plan's front matter: low, run the repo's own checks; medium, also run `/code-review`; high, also run `/security-review` and have a second pass execute the tests. Run `/simplify` when the diff is large. Resolve findings before continuing. After each file change, add or correct the note for that file. After each step, write one journal entry with `--stage execute`. Capture unrelated problems with `reggie capture` instead of fixing them. Record each criterion you verified with `reggie check demo <criterion> pass --evidence <file>` (or the `reggie_check` tool), and each review with `--review <name>`. Record a check after the code it proves is committed, and after your last commit that changes code or docs: a pass goes stale once anything outside `.reggie/` changes after it. The evidence must be a non-empty file saved directly inside the task's evidence folder, and it must be committed, because a packet that cites a file nobody committed is refused. List every unrelated problem under the packet's Discovered issues as well, or write "none": an approval captures the discovered issues you did not. Finish with `reggie packet demo`, which builds the checklist from those records; fill every other section honestly, run `reggie packet demo` again until it says the checklist is current, check it with `reggie packet demo --lint`, and commit with a line `Task: demo` in the commit message body. Read `reggie check demo` for what a decider will see. Then ask me to decide (`reggie decide demo`) or open a PR whose body is the packet (`reggie pr demo`).
+exit 0

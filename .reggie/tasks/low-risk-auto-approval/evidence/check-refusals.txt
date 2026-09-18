@@ -1,0 +1,21 @@
+# AC3, AC4: every refusal of the verb leaves checks.jsonl byte-identical
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:44:34Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/checks.test.ts -t "exits 1 with a sentence|refuses a slug with no plan|refuses every bad evidence path|records a fail with no evidence" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/checks.test.ts > recordCheck and reggie check > exits 1 with a sentence and leaves the checks file byte-identical for 'a number past the last criterion' 280ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > exits 1 with a sentence and leaves the checks file byte-identical for 'an unknown key' 268ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > exits 1 with a sentence and leaves the checks file byte-identical for 'a label two criteria share' 272ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > exits 1 with a sentence and leaves the checks file byte-identical for 'an outcome that is neither pass nor f…' 275ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > exits 1 with a sentence and leaves the checks file byte-identical for 'a criterion pass with no evidence' 266ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > exits 1 with a sentence and leaves the checks file byte-identical for 'a checkout that is not on the task br…' 265ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > exits 1 with a sentence and leaves the checks file byte-identical for 'a pass while a tracked file outside .…' 281ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > refuses a slug with no plan 265ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > records a fail with no evidence, even while a tracked file is modified 24ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > refuses every bad evidence path, appending nothing, each with a sentence that says which 68ms
+ Test Files  1 passed (1)
+      Tests  10 passed | 7 skipped (17)
+   Start at  13:44:34
+   Duration  2.77s (transform 100ms, setup 0ms, import 134ms, tests 2.58s, environment 0ms)
+exit 0
+

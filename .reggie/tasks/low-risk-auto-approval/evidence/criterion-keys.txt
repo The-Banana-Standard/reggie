@@ -1,0 +1,19 @@
+# AC2: criterion keys, and parsePlan unchanged for every plan in this repo
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:46:11Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/plan.test.ts -t "criterion keys" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/plan.test.ts > criterion keys > gives each criterion its number, its one-line text and a key of c: and twelve hex characters 1ms
+ ✓ src/plan.test.ts > criterion keys > keeps a key through reordering, renumbering, a ticked box and changed indentation 0ms
+ ✓ src/plan.test.ts > criterion keys > makes a new key when one word changes on the first line, and again when one changes on a continuation line 0ms
+ ✓ src/plan.test.ts > criterion keys > tells identical criteria apart with #2 and #3, in the order they appear 0ms
+ ✓ src/plan.test.ts > criterion keys > returns from parsePlan exactly the criteria the line filter it replaced returned 2ms
+ Test Files  1 passed (1)
+      Tests  5 passed | 6 skipped (11)
+   Start at  13:46:11
+   Duration  121ms (transform 35ms, setup 0ms, import 57ms, tests 4ms, environment 0ms)
+exit 0
+
+parsePlan(...).criteria for every plan under .reggie/tasks/, by a build of the base commit and by this branch's: identical, see evidence/board-before-after.txt.
+$ diff plans-base.tsv plans-branch.tsv
+exit 0

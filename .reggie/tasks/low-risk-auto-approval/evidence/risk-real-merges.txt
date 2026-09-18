@@ -1,0 +1,169 @@
+# AC26: the three-class computation, read-only, over the fifteen landed loop merges
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:46:04Z
+
+==== the probe (probe-risk.mts)
+// Read-only probe over this repository's landed loop merges (AC26): the three risk classes the
+// policy report computes, for each task as it stood when it was merged. It runs only `git log`,
+// `git rev-parse`, `git merge-base`, `git ls-tree`, `git cat-file` and `git diff --name-only` against
+// the repository, writes nothing there, and refuses to start unless its own working directory is
+// under the OS temp directory (AC50).
+//
+// For each landing merge: the base is the merge's first parent and the branch tip its second. The
+// config (the risk rules) and the plan are read from the base, as the report reads them; when the
+// plan was not on the base the branch's copy is used and the row says so.
+import path from "node:path";
+const here = process.cwd();
+if (!/^\/(private\/)?(tmp|var\/folders)\//.test(here)) {
+  console.error(`refusing to run in ${here}: not under the OS temp directory`);
+  process.exit(98);
+}
+console.log(`running in ${here}`);
+const SRC = process.env.REGGIE_SRC ?? "";
+const ROOT = process.env.REGGIE_READ_ROOT ?? "";
+if (!SRC || !ROOT) throw new Error("set REGGIE_SRC (this branch's packages/reggie/src) and REGGIE_READ_ROOT (the repository to read)");
+const { git, fileAtCommit, mergeBase, changedPathsNoRenames } = await import(path.join(SRC, "git.ts"));
+const { parseConfig } = await import(path.join(SRC, "people.ts"));
+const { parsePlan, riskFromFiles } = await import(path.join(SRC, "plan.ts"));
+const { controlFileReason } = await import(path.join(SRC, "policy.ts"));
+
+const RANK: Record<string, number> = { low: 0, medium: 1, high: 2, unset: 2 };
+const NAMES = ["low", "medium", "high"];
+const covers = (entry: string, file: string): boolean => entry === file || (entry.endsWith("/") && file.startsWith(entry));
+const sha = (rev: string): string | null => {
+  const out = git(["rev-parse", "--verify", "--quiet", `${rev}^{commit}`], { cwd: ROOT, allowFailure: true }).stdout.trim();
+  return /^[0-9a-f]{40}$/.test(out) ? out : null;
+};
+
+const branch = process.env.REGGIE_READ_BRANCH ?? "repo-manager";
+const merges = git(["log", "--first-parent", "--merges", "--format=%H%x1f%s", branch], { cwd: ROOT }).stdout.trim().split("\n");
+const rows: Record<string, unknown>[] = [];
+const detail: string[] = [];
+let unplannedCode = 0, raised = 0, control = 0;
+for (const line of merges) {
+  const [merge = "", subject = ""] = line.split("\x1f");
+  const slug = /task\/([a-z0-9-]+)/.exec(subject)?.[1];
+  if (!slug) continue;
+  const base = sha(`${merge}^1`);
+  const tip = sha(`${merge}^2`);
+  if (!base || !tip) continue;
+  const planOnBase = fileAtCommit(ROOT, base, `.reggie/tasks/${slug}/plan.md`);
+  const planText = planOnBase ?? fileAtCommit(ROOT, tip, `.reggie/tasks/${slug}/plan.md`);
+  if (planText === null) continue;
+  const plan = parsePlan(planText);
+  const rules = parseConfig(fileAtCommit(ROOT, base, ".reggie/config.yaml")).risk;
+  const fork = mergeBase(ROOT, base, tip);
+  const changedAll: string[] = fork ? changedPathsNoRenames(ROOT, fork, tip) ?? [] : [];
+  const counted = changedAll.filter((f) => !f.startsWith(`.reggie/tasks/${slug}/`) && !f.startsWith(".reggie/journal/"));
+  const planned = plan.files.map((f: string) => f.replace(/^\.\/+/, ""));
+  const unplanned = counted.filter((f) => !planned.some((p: string) => covers(p, f)));
+  const code = unplanned.filter((f) => !f.startsWith(".reggie/"));
+  const planLine: string = plan.meta.risk;
+  const planFiles: string = riskFromFiles(planned, rules);
+  const changed: string = riskFromFiles(counted, rules);
+  const effective = NAMES[Math.max(RANK[planLine] ?? 2, RANK[planFiles] ?? 2, RANK[changed] ?? 2)];
+  const controls = changedAll.filter((f) => controlFileReason(slug, f) !== null);
+  if (code.length > 0) unplannedCode += 1;
+  if ((RANK[effective ?? "high"] ?? 2) > (RANK[planLine] ?? 2)) raised += 1;
+  if (controls.length > 0) control += 1;
+  rows.push({ slug: slug.slice(0, 34), planOnBase: planOnBase !== null, planLine, planFiles, changed, effective, counted: counted.length, unplanned: unplanned.length, unplannedCode: code.length, controlFiles: controls.length });
+  detail.push(`${slug}\n   unplanned code: ${code.join(", ") || "none"}\n   unplanned records: ${unplanned.filter((f) => f.startsWith(".reggie/")).length} under .reggie/ (notes and the intake file, mostly)\n   control files changed: ${controls.join(", ") || "none"}`);
+}
+console.table(rows);
+console.log(`landed merges read: ${rows.length}`);
+console.log(`tasks with a code file the plan never named: ${unplannedCode}`);
+console.log(`tasks whose effective class is higher than the plan's line: ${raised}`);
+for (const r of rows) if ((RANK[String(r.effective)] ?? 2) > (RANK[String(r.planLine)] ?? 2)) console.log(`   raised: ${r.slug} from ${r.planLine} to ${r.effective} (${r.counted} files counted)`);
+console.log(`tasks that changed a control file, and so would always go to a person: ${control}`);
+console.log("");
+for (const d of detail) console.log(d);
+
+==== its output
+running in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval
+┌─────────┬──────────────────────────────────────┬────────────┬──────────┬───────────┬──────────┬───────────┬─────────┬───────────┬───────────────┬──────────────┐
+│ (index) │ slug                                 │ planOnBase │ planLine │ planFiles │ changed  │ effective │ counted │ unplanned │ unplannedCode │ controlFiles │
+├─────────┼──────────────────────────────────────┼────────────┼──────────┼───────────┼──────────┼───────────┼─────────┼───────────┼───────────────┼──────────────┤
+│ 0       │ 'idea-from-every-page'               │ true       │ 'medium' │ 'medium'  │ 'medium' │ 'medium'  │ 43      │ 9         │ 2             │ 0            │
+│ 1       │ 'derive-the-journal'                 │ true       │ 'medium' │ 'medium'  │ 'medium' │ 'medium'  │ 40      │ 6         │ 0             │ 0            │
+│ 2       │ 'branch-diff-in-reader'              │ true       │ 'medium' │ 'medium'  │ 'medium' │ 'medium'  │ 34      │ 9         │ 1             │ 0            │
+│ 3       │ 'intake-line-leaves-at-triage'       │ true       │ 'medium' │ 'medium'  │ 'medium' │ 'medium'  │ 38      │ 9         │ 2             │ 0            │
+│ 4       │ 'note-form-on-repo-and-area'         │ true       │ 'medium' │ 'medium'  │ 'medium' │ 'medium'  │ 19      │ 10        │ 1             │ 0            │
+│ 5       │ 'graph-coverage-published'           │ true       │ 'medium' │ 'medium'  │ 'medium' │ 'medium'  │ 37      │ 17        │ 3             │ 1            │
+│ 6       │ 'false-tests-sentence'               │ true       │ 'low'    │ 'low'     │ 'low'    │ 'low'     │ 12      │ 6         │ 0             │ 0            │
+│ 7       │ 'docs-check-in-ci'                   │ true       │ 'low'    │ 'low'     │ 'low'    │ 'low'     │ 7       │ 4         │ 0             │ 0            │
+│ 8       │ 'a-task-worktree-has-no-node-module' │ true       │ 'medium' │ 'medium'  │ 'medium' │ 'medium'  │ 20      │ 5         │ 0             │ 1            │
+│ 9       │ 'task-attribution-by-merge'          │ true       │ 'low'    │ 'low'     │ 'medium' │ 'medium'  │ 18      │ 8         │ 1             │ 0            │
+│ 10      │ 'journal-files-conflict-on-merge-a-' │ true       │ 'low'    │ 'low'     │ 'low'    │ 'low'     │ 10      │ 1         │ 0             │ 2            │
+│ 11      │ 'stale-dev-bin'                      │ true       │ 'low'    │ 'low'     │ 'low'    │ 'low'     │ 11      │ 1         │ 0             │ 0            │
+│ 12      │ 'about-this-repo'                    │ true       │ 'low'    │ 'low'     │ 'low'    │ 'low'     │ 10      │ 2         │ 1             │ 0            │
+│ 13      │ 'layout-modes'                       │ true       │ 'low'    │ 'low'     │ 'low'    │ 'low'     │ 11      │ 4         │ 1             │ 0            │
+│ 14      │ 'mobile-ui'                          │ true       │ 'medium' │ 'medium'  │ 'medium' │ 'medium'  │ 21      │ 10        │ 2             │ 0            │
+└─────────┴──────────────────────────────────────┴────────────┴──────────┴───────────┴──────────┴───────────┴─────────┴───────────┴───────────────┴──────────────┘
+landed merges read: 15
+tasks with a code file the plan never named: 9
+tasks whose effective class is higher than the plan's line: 1
+   raised: task-attribution-by-merge from low to medium (18 files counted)
+tasks that changed a control file, and so would always go to a person: 3
+
+idea-from-every-page
+   unplanned code: packages/reggie/src/capture-race.test.ts, packages/reggie/test/serve-idea-fixture.ts
+   unplanned records: 7 under .reggie/ (notes and the intake file, mostly)
+   control files changed: none
+derive-the-journal
+   unplanned code: none
+   unplanned records: 6 under .reggie/ (notes and the intake file, mostly)
+   control files changed: none
+branch-diff-in-reader
+   unplanned code: packages/reggie/ui/map.js
+   unplanned records: 8 under .reggie/ (notes and the intake file, mostly)
+   control files changed: none
+intake-line-leaves-at-triage
+   unplanned code: packages/reggie/test/serve.test.ts, packages/reggie/ui/app.js
+   unplanned records: 7 under .reggie/ (notes and the intake file, mostly)
+   control files changed: none
+note-form-on-repo-and-area
+   unplanned code: packages/reggie/ui/dev/sample-story-file.json
+   unplanned records: 9 under .reggie/ (notes and the intake file, mostly)
+   control files changed: none
+graph-coverage-published
+   unplanned code: packages/reggie/src/facts.test.ts, packages/reggie/ui/dev/map-harness.html, packages/reggie/ui/dev/sample-story-empty.json
+   unplanned records: 14 under .reggie/ (notes and the intake file, mostly)
+   control files changed: .reggie/tasks/graph-coverage-published/plan.md
+false-tests-sentence
+   unplanned code: none
+   unplanned records: 6 under .reggie/ (notes and the intake file, mostly)
+   control files changed: none
+docs-check-in-ci
+   unplanned code: none
+   unplanned records: 4 under .reggie/ (notes and the intake file, mostly)
+   control files changed: none
+a-task-worktree-has-no-node-modules-so-nothing-r
+   unplanned code: none
+   unplanned records: 5 under .reggie/ (notes and the intake file, mostly)
+   control files changed: .reggie/config.yaml
+task-attribution-by-merge
+   unplanned code: packages/reggie/src/claim.ts
+   unplanned records: 7 under .reggie/ (notes and the intake file, mostly)
+   control files changed: none
+journal-files-conflict-on-merge-a-claim-in-the-m
+   unplanned code: none
+   unplanned records: 1 under .reggie/ (notes and the intake file, mostly)
+   control files changed: .gitattributes, .reggie/tasks/journal-files-conflict-on-merge-a-claim-in-the-m/plan.md
+stale-dev-bin
+   unplanned code: none
+   unplanned records: 1 under .reggie/ (notes and the intake file, mostly)
+   control files changed: none
+about-this-repo
+   unplanned code: packages/reggie/test/fixtures.ts
+   unplanned records: 1 under .reggie/ (notes and the intake file, mostly)
+   control files changed: none
+layout-modes
+   unplanned code: packages/reggie/ui/map.js
+   unplanned records: 3 under .reggie/ (notes and the intake file, mostly)
+   control files changed: none
+mobile-ui
+   unplanned code: .gitignore, packages/reggie/ui/board.js
+   unplanned records: 8 under .reggie/ (notes and the intake file, mostly)
+   control files changed: none
+exit 0
+
+Measured while planning: nine tasks with an unplanned code file, one class raised (task-attribution-by-merge, low to medium), three tasks that would always go to a person. Reproduced above.

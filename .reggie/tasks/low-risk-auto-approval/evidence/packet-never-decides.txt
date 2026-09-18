@@ -1,0 +1,13 @@
+# AC11, AC12: reggie packet never decides, and refuses outside the task's checkout
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:44:47Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/packet.test.ts -t "never decides|refuses in a checkout that is not on the task branch" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/packet.test.ts > the generated checklist > never decides: after a scaffolding, a refreshing, a --force and a --lint run both branch ids and the verdict are what they were, and the last line says so 1600ms
+ ✓ src/packet.test.ts > the generated checklist > refuses in a checkout that is not on the task branch while that branch exists, names the worktree, and writes no file 870ms
+ Test Files  1 passed (1)
+      Tests  2 passed | 35 skipped (37)
+   Start at  13:44:47
+   Duration  2.98s (transform 101ms, setup 0ms, import 135ms, tests 2.79s, environment 0ms)
+exit 0
+

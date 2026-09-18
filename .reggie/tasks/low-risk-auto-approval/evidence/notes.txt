@@ -1,0 +1,90 @@
+# AC45: entity notes
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:46:58Z
+
+$ reggie note path packages/reggie/src/checks.ts | grep -c low-risk-auto-approval
+3
+$ reggie note path packages/reggie/src/policy.ts | grep -c low-risk-auto-approval
+4
+$ reggie note path packages/reggie/src/packet.ts | grep -c low-risk-auto-approval
+4
+$ reggie note path packages/reggie/src/plan.ts | grep -c low-risk-auto-approval
+1
+$ reggie note path packages/reggie/src/paths.ts | grep -c low-risk-auto-approval
+1
+$ reggie note path packages/reggie/src/land.ts | grep -c low-risk-auto-approval
+3
+$ reggie note path packages/reggie/src/capture.ts | grep -c low-risk-auto-approval
+1
+$ reggie note path packages/reggie/src/people.ts | grep -c low-risk-auto-approval
+2
+$ reggie note path packages/reggie/src/git.ts | grep -c low-risk-auto-approval
+1
+$ reggie note path packages/reggie/src/tasks.ts | grep -c low-risk-auto-approval
+1
+$ reggie note path packages/reggie/src/cli.ts | grep -c low-risk-auto-approval
+1
+$ reggie note path packages/reggie/src/mcp.ts | grep -c low-risk-auto-approval
+1
+$ reggie note path packages/reggie/src/serve.ts | grep -c low-risk-auto-approval
+1
+$ reggie note path packages/reggie/src/launch.ts | grep -c low-risk-auto-approval
+1
+$ reggie note path packages/reggie/src/docs.ts | grep -c low-risk-auto-approval
+1
+$ reggie note path packages/reggie/src/layout.ts | grep -c low-risk-auto-approval
+1
+$ reggie note path packages/reggie/ui/board.js | grep -c low-risk-auto-approval
+1
+$ reggie note path packages/reggie/docs/ui-api-contract.md | grep -c low-risk-auto-approval
+1
+
+$ git diff --stat repo-manager -- .reggie/notes/
+ .reggie/notes/.reggie/config.yaml.md                |  9 +++++++++
+ .../packages/reggie/docs/ui-api-contract.md.md      |  4 ++++
+ .reggie/notes/packages/reggie/src/capture.ts.md     |  4 ++++
+ .reggie/notes/packages/reggie/src/checks.ts.md      | 17 +++++++++++++++++
+ .reggie/notes/packages/reggie/src/cli.ts.md         |  4 ++++
+ .reggie/notes/packages/reggie/src/docs.ts.md        |  4 ++++
+ .reggie/notes/packages/reggie/src/git.ts.md         |  4 ++++
+ .reggie/notes/packages/reggie/src/land.test.ts.md   |  9 +++++++++
+ .reggie/notes/packages/reggie/src/land.ts.md        | 12 ++++++++++++
+ .reggie/notes/packages/reggie/src/launch.ts.md      |  4 ++++
+ .reggie/notes/packages/reggie/src/layout.ts.md      |  4 ++++
+ .reggie/notes/packages/reggie/src/mcp.ts.md         |  4 ++++
+ .reggie/notes/packages/reggie/src/packet.ts.md      | 21 +++++++++++++++++++++
+ .reggie/notes/packages/reggie/src/paths.ts.md       |  9 +++++++++
+ .reggie/notes/packages/reggie/src/people.ts.md      |  8 ++++++++
+ .reggie/notes/packages/reggie/src/plan.ts.md        |  9 +++++++++
+ .reggie/notes/packages/reggie/src/policy.ts.md      | 21 +++++++++++++++++++++
+ .reggie/notes/packages/reggie/src/serve.ts.md       |  4 ++++
+ .reggie/notes/packages/reggie/src/tasks.ts.md       |  4 ++++
+ .../notes/packages/reggie/test/diff-fixture.ts.md   |  4 ++++
+ .reggie/notes/packages/reggie/test/fixtures.ts.md   |  4 ++++
+ .../notes/packages/reggie/test/policy-fixture.ts.md |  9 +++++++++
+ .reggie/notes/packages/reggie/ui/DOM-CONTRACT.md.md |  4 ++++
+ .reggie/notes/packages/reggie/ui/board.css.md       |  4 ++++
+ .reggie/notes/packages/reggie/ui/board.js.md        |  4 ++++
+ 25 files changed, 184 insertions(+)
+
+$ reggie note path packages/reggie/src/policy.ts
+### _repo (repo)
+- **why** 2026-09-14 jacobpress (high): Reggie helps a repo's owner keep understanding a codebase that AI engineering builds faster than anyone can read it. Code arrives from Claude Code and Codex sessions in hours, and the person responsible for the repo needs a way to keep up: to see how the pieces fit together, to review what changed recently and why, and to notice where the knowledge is thin. Reggie draws that picture from git and from notes kept in the repo, and serves it as a web view that explains the code and the work. Once the owner understands enough to want something changed, they capture a task here, groom it into a brief, and plan it in Claude or Codex. As those sessions produce work, Reggie tracks each task from idea to plan to branch to decision, so the owner always knows what is in flight, what is waiting on them, and what landed. The loop from understanding to improvement stays inside the repo.
+  sources: docs/repo-manager-vision.md, CLAUDE.md
+- **how** 2026-09-14 jacobpress (high): The product is the TypeScript CLI, MCP server and web UI in packages/reggie. Build and test inside packages/reggie with npm run build and npm test, or from the repo root, which delegates there. Start the web view with reggie serve.
+  sources: packages/reggie/package.json, packages/reggie/src/cli.ts
+
+### packages/reggie/ (dir)
+- **how** 2026-09-06 Claude via jacobpress (high): One module per concern under src: paths and git for repo access, layout and people for the .reggie tree, facts and docs for the generated CLAUDE and AGENTS blocks, notes and journal for knowledge, plan and tasks and packet for the task loop, context for the pack agents read first, claim and capture for branches and intake, onboard for setup, mcp and cli as the two front ends. Tests sit beside modules; test/helpers.ts builds throwaway git repos.
+  sources: packages/reggie/src/cli.ts
+- **how** 2026-09-10 Claude via jacobpress (high): The whole product lives here: src holds the CLI, the MCP server, the graph and story derivation, and the HTTP server; ui holds the web client as vanilla ES modules with no bundler; docs holds the UI spec and API contract. Install with npm install --legacy-peer-deps.
+  sources: packages/reggie/package.json
+
+### packages/reggie/src/policy.ts (file)
+- **how** 2026-09-18 Claude via jacobpress (high): What is read from which commit. From the base commit, the tip of the integration branch: .reggie/config.yaml (the mode, the policy block, the risk rules) and the task's plan.md (the criteria, the risk line, the file list). From the branch tip: packet.md, checks.jsonl, the evidence files, and the list of changed files since the merge base, listed with rename detection off. Both are resolved once to full ids by resolveCommit and never named again. No working tree is read, so the report is byte-identical from the integration checkout and from the task worktree whatever is uncommitted in either. The one thing taken from a disk is the integration branch's name, from the integration checkout's config, which is found by structure: a Reggie worktree is always the integration checkout's .worktree/<slug>, confirmed by git worktree list naming the parent on a branch that is not a task or plan branch. A name that begins with a dash or holds anything outside letters, digits, dot, underscore, slash and hyphen is refused before it reaches git.
+  sources: low-risk-auto-approval
+- **decision** 2026-09-18 Claude via jacobpress (high): The control files a branch may not change, fixed in controlFileReason and taking no configuration: its own plan.md, .reggie/config.yaml, .reggie/people.yaml, any path under another task's folder, .mcp.json, .gitattributes, and anything under .claude/. They are compared without regard to letter case. Reading the policy from the base protects this merge and not the next one, so a branch that changes what Reggie or the next session obeys always goes to a person. For its own plan the gate also says which field moved. CLAUDE.md and AGENTS.md are deliberately not on the list, because every task refreshes their generated block; that is a known limit left to the risk rules. Measured over the fifteen landed loop tasks, three would have gone to a person this way.
+  sources: low-risk-auto-approval
+- **how** 2026-09-18 Claude via jacobpress (high): The gates, in order: policy, plan, controls, packet, criteria, evidence, risk, merge. Would pass means no gate fails; the merge gate may read not-checked on a git older than 2.38 and that changes no verdict. The effective risk class is the highest of the plan's line, riskFromFiles over its file list, and riskFromFiles over every changed path outside the task's own folder and the journal. A pass counts only with evidence that resolves and only while its head is an ancestor of the tip with no file outside .reggie/ changed since. Not evaluated, each with its sentence and no throw: a base that cannot be named, a config that does not parse on disk or on the base commit, team mode, a task already approved on the base, no task branch, no packet on it. evaluationStats counts calls so a test can prove the task list never evaluates. In this version nothing acts on the verdict; the second slice, policy-acts-on-its-verdict, does.
+  sources: low-risk-auto-approval
+- **verify** 2026-09-18 Claude via jacobpress (medium): policy.test.ts holds one row per tampering and per gate, and its gates were mutation checked on 2026-09-18: with the control list emptied ten tests fail, with staleness switched off two, with the class taken from the plan's line alone two, and with the plan read from the branch instead of the base six. If a change here leaves every test green, break the gate on purpose once before trusting that.
+  sources: low-risk-auto-approval

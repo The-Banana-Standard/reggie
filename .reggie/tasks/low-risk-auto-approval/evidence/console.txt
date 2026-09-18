@@ -1,0 +1,62 @@
+# AC17, AC40: the browser check, 2026-09-18, against throwaway repos only
+# branch task/low-risk-auto-approval, the working tree that became commit 3045c65 (board.js as committed there)
+
+How it was served
+  serve-fixtures.mts (scratch directory; it refuses to start unless its working directory is under the OS
+  temp directory) built three repos with test/policy-fixture.ts and started this branch's own server,
+  from the task worktree's source, on three ports that `lsof -nP -iTCP -sTCP:LISTEN` showed nothing held:
+    two-not-one      http://127.0.0.1:4391   a task that would pass                (/private/var/folders/.../T/reggie-policy-E9XLgg)
+    shared-constant  http://127.0.0.1:4392   a task the policy refuses              (/private/var/folders/.../T/reggie-policy-cepEr5)
+    cites-a-ghost    http://127.0.0.1:4393   a packet citing a file nobody saved    (/private/var/folders/.../T/reggie-policy-tQljFU)
+  One process, pid 7591, stopped through the task tool afterwards; all three ports were free again and the
+  three repos were removed. No other listener on the machine was touched. Browser: Chrome through the
+  DevTools MCP, one tab of its own, closed afterwards.
+
+AC40, the would-pass page at 1440 wide (report-pass.png, report-pass-form.png), read from the DOM:
+  .policy present, data-verdict "would-pass", and it precedes .form--decide in document order: true
+  hint:    "A report, not a decision. Nothing here approves or merges; a person decides, below."
+  summary: "would pass: every gate holds for task/two-not-one at 9ae71073371c against main at b0281136a0b0."
+  criteria rows: "1. AC1 ... pass · test (fixture) · 18 Sep 09:30" (title 2026-09-18T13:30:21.185Z)
+                 "2. AC2 ... pass · test (fixture) · 18 Sep 09:30" (title 2026-09-18T13:30:21.204Z)
+  gate rows: policy pass, plan pass, controls pass, packet pass, criteria pass, evidence pass, risk pass, merge pass
+  decide form present, buttons "Approve" and "Needs work"
+  documentElement.scrollWidth - clientWidth = 0
+
+AC40, the refused page at 1440 wide (report-refused.png):
+  data-verdict "refused"; summary "refused: 2 gates failed (criteria, risk)."
+  facts: "... completions pass up to low (from the base commit's policy block) · effective risk high"
+         "Changed but never named by the plan: src/auth/token.ts"
+  criteria rows: 1 and 2 "stale · test (fixture) · ... · 1 file outside .reggie/ changed after it was recorded (src/auth/token.ts); record it again on the code as it stands"
+                 3 "fail · test (claude) · ... · its latest check failed"; review code-review "fail · test (claude)"
+  failing gates, in words:
+    criteria: "the latest check failed for criterion 3." / "the pass for criterion 1, 2 is stale: code changed after it was recorded." / "the review code-review failed its latest check."
+    risk:     "the effective risk class is high, and the policy on main lets a completion pass without a person only up to low (...)"
+  decide form still present; horizontal overflow 0
+
+AC40, both pages at 390 by 844, device scale 2, mobile and touch emulated (report-phone.png is the refused page):
+  refused page:    window 390x844, documentElement overflow 0, body overflow 0, .policy 366 wide, elements past the right edge: none, decide form present
+  would-pass page: window 390x844, documentElement overflow 0, body overflow 0, elements of .policy and .form--decide past the right edge: none, decide form present
+
+AC40, console while the two pages were only viewed (list_console_messages, preserved across navigations): no error.
+  [warn]  <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated ...     (the shell's own, on every page; captured)
+  [issue] A form field element should have an id or name attribute (count: 1)            (the shell's own; captured)
+
+AC17, approving cites-a-ghost, whose packet cites evidence/offline-message.png (decide-refusal-citation.png):
+  form error: "refusing to merge task/cites-a-ghost: its packet cites evidence that does not resolve on task/cites-a-ghost (827a65648c11): evidence/offline-message.png is not on the commit 827a65648c11; save it and commit it on the task branch. Fix the citation or commit the file on the branch, then decide again; nothing was recorded."
+  toast:      "Could not record the decision on cites-a-ghost: " followed by the same sentence
+  either one says "No completion packet exists": false
+  the report above the form already said so: data-verdict "refused", the evidence gate failing with the same path
+
+AC17, approving two-not-one while its base checkout had an uncommitted edit to README.md (decide-refusal-dirty.png):
+  form error: "refusing to merge task/two-not-one: main has uncommitted changes (README.md). Commit or stash them first; an aborted merge cannot promise to restore them."
+  toast:      "Could not record the decision on two-not-one: " followed by the same sentence
+  either one says "No completion packet exists": false
+  the policy report on the same page still read would-pass: it judges two commits, not the working tree
+
+What the screenshots do not show
+  The toast. It lasts four seconds and the screenshot tool takes longer than that to fire, in three attempts.
+  Its text above was read from #toasts in the same script that clicked Approve, not from the picture. The page
+  was not altered to keep it on screen. Captured: the-toast-for-a-refused-decision-lasts-four-seco.
+
+Console during the two refusals: the only lines at level error are Chrome's own record of the refused requests,
+  "Failed to load resource: the server responded with a status of 409 (Conflict)", once per click. No script error.

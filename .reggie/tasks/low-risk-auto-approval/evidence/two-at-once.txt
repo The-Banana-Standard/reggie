@@ -1,0 +1,135 @@
+# AC31: two reggie decide approved calls started together, ten rounds
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:43:40Z
+
+==== two-at-once.sh
+#!/bin/bash
+# AC31: two `reggie decide approved` calls started together in one throwaway repo, ten rounds. usage: two-at-once.sh <new dir under the OS temp dir> [rounds]
+set -uo pipefail
+BASE="${1:?a directory under the OS temp directory that does not exist yet}"; ROUNDS="${2:-10}"
+# AC50 guard: judged on the string before anything is created, then on the real path and on git's toplevel.
+case "$BASE" in /private/tmp/*|/private/var/folders/*) ;; *) echo "refusing $BASE: not under the OS temp directory" >&2; exit 98 ;; esac
+case "$BASE" in *..*) echo "refusing $BASE: holds '..'" >&2; exit 98 ;; esac
+[ -e "$BASE" ] && { echo "refusing $BASE: it already exists" >&2; exit 98; }
+mkdir -p "$BASE"; cd "$BASE" || exit 97
+HERE="$(pwd -P)"; TOP="$(git rev-parse --show-toplevel 2>/dev/null || echo "$HERE")"
+case "$HERE|$TOP" in /private/tmp/*\|/private/tmp/*|/private/var/folders/*\|/private/var/folders/*) ;; *) echo "refusing to run in $HERE (git toplevel $TOP)" >&2; exit 98 ;; esac
+echo "running in $HERE"
+
+: "${REGGIE_PKG:?set REGGIE_PKG to the packages/reggie of the branch under test}"
+# This branch's own CLI, always told which checkout to act on; never the `reggie` on PATH, never the cwd.
+R() { local dir="$1"; shift; "$REGGIE_PKG/node_modules/.bin/tsx" "$REGGIE_PKG/src/cli.ts" -C "$dir" "$@"; }
+inside() { case "$(git -C "$1" rev-parse --show-toplevel)" in "$HERE"/*) ;; *) echo "refusing: $1 is not inside $HERE" >&2; exit 98 ;; esac; }
+
+plan() { # plan <slug> <file>
+  mkdir -p ".reggie/tasks/$1"
+  printf -- '---\nslug: %s\ntitle: Change one constant\nrisk: low\ndeciders: []\nauthor: owner\ncreated: 2026-09-18\n---\n# Change one constant\n\n## Problem\nThe constant in the file is one and it should be two, which the owner saw by reading it.\n\n## Approach\nEdit the one line. Rejected: a config value, because nothing else reads it.\n\n## Files to touch\n- %s (MOD)\n\n## Acceptance criteria\n- [ ] The constant exported from the file equals two after the change\n\n## Verification strategy\n- Print the file and save it to evidence/value.txt\n\n## Assumptions\n- none\n\n## Out of scope\n- Every other file\n\n## Bail conditions\n- If another module reads the constant, stop and re-plan\n' "$1" "$2" > ".reggie/tasks/$1/plan.md"
+}
+build() { # build <repo> <slug> <file>: a claimed worktree with one commit and a committed packet
+  R "$1" claim "$2" --worktree >/dev/null; inside "$1/.worktree/$2"
+  printf 'export const v = 2;\n' > "$1/.worktree/$2/$3"
+  git -C "$1/.worktree/$2" add -A; git -C "$1/.worktree/$2" commit -q -m "feat: two" -m "Task: $2"
+  R "$1/.worktree/$2" packet "$2" >/dev/null
+  git -C "$1/.worktree/$2" add -A; git -C "$1/.worktree/$2" commit -q -m "packet: $2" -m "Task: $2"
+}
+
+FAILED=0; LANDED=0; REFUSED=0
+for round in $(seq 1 "$ROUNDS"); do
+  FIX="$HERE/round-$round"; mkdir -p "$FIX/src"; cd "$FIX" || exit 97
+  git init -q -b main; git config user.name "Fixture Owner"; git config user.email "owner@example.com"; git config commit.gpgsign false; git config gc.auto 0
+  printf 'export const v = 1;\n' > src/a.ts; printf 'export const v = 1;\n' > src/b.ts; printf '# fixture\n' > README.md
+  git add -A; git commit -q -m "init"
+  R "$FIX" onboard >/dev/null; printf '.worktree/\n' >> .gitignore
+  plan one src/a.ts; plan two src/b.ts
+  git add -A; git commit -q -m "chore: onboard, and two plans"
+  build "$FIX" one src/a.ts; build "$FIX" two src/b.ts
+  inside "$FIX/.worktree/one"
+  # The two approvals, started together, each told which checkout to act on.
+  R "$FIX" decide one approved > "$FIX.one.out" 2>&1 & P1=$!
+  R "$FIX" decide two approved > "$FIX.two.out" 2>&1 & P2=$!
+  wait $P1; E1=$?; wait $P2; E2=$?
+  MERGES="$(git -C "$FIX" log --merges --format=%s main | wc -l | tr -d ' ')"
+  ZEROS=$(( (E1 == 0 ? 1 : 0) + (E2 == 0 ? 1 : 0) ))
+  STATUS="$(git -C "$FIX" status --porcelain | tr '\n' ';')"
+  MH="$([ -f "$FIX/.git/MERGE_HEAD" ] && echo present || echo none)"; LOCK="$([ -f "$FIX/.git/reggie-land.lock" ] && echo present || echo none)"
+  # Every packet that reads approved on main belongs to a merge commit that names its task.
+  APPROVED=0; ORPHANS=0
+  for slug in one two; do
+    if git -C "$FIX" show "main:.reggie/tasks/$slug/packet.md" 2>/dev/null | grep -q '^verdict: approved$'; then
+      APPROVED=$((APPROVED + 1))
+      git -C "$FIX" log --merges --format=%B main | grep -q "^Task: $slug$" || ORPHANS=$((ORPHANS + 1))
+    fi
+  done
+  OK=yes
+  for pair in "$E1:$FIX.one.out" "$E2:$FIX.two.out"; do
+    code="${pair%%:*}"; file="${pair#*:}"
+    if [ "$code" != "0" ] && ! grep -q "another landing is in progress" "$file"; then OK="no (a call exited $code without the lock's sentence)"; fi
+  done
+  [ -z "$STATUS" ] || OK="no (status: $STATUS)"; [ "$MH" = "none" ] || OK="no (MERGE_HEAD present)"; [ "$LOCK" = "none" ] || OK="no (lock left behind)"
+  [ "$MERGES" = "$ZEROS" ] || OK="no ($MERGES merge commits for $ZEROS calls that exited 0)"; [ "$ORPHANS" = "0" ] || OK="no ($ORPHANS approved packets with no merge)"
+  [ "$APPROVED" = "$MERGES" ] || OK="no ($APPROVED approved packets, $MERGES merges)"
+  LANDED=$((LANDED + ZEROS)); REFUSED=$((REFUSED + 2 - ZEROS)); [ "$OK" = "yes" ] || FAILED=$((FAILED + 1))
+  echo "round $round: exit one=$E1 two=$E2 · merges on main=$MERGES · approved packets=$APPROVED · status='$STATUS' · MERGE_HEAD=$MH · lock=$LOCK · ok=$OK"
+  for f in "$FIX.one.out" "$FIX.two.out"; do head -1 "$f" | cut -c1-250 | sed "s|^|   $(basename "$f"): |"; done
+  # The call that was refused lands on a second try, once the first has finished: the refusal lost nothing.
+  for slug in one two; do
+    if git -C "$FIX" show-ref --verify --quiet "refs/heads/task/$slug"; then R "$FIX" decide "$slug" approved 2>&1 | head -1 | cut -c1-120 | sed 's/^/   retry: /'; fi
+  done
+  echo "   after the retry: merges on main=$(git -C "$FIX" log --merges --format=%s main | wc -l | tr -d ' '), status='$(git -C "$FIX" status --porcelain | tr '\n' ';')', src/a.ts=$(tr -d '\n' < "$FIX/src/a.ts") src/b.ts=$(tr -d '\n' < "$FIX/src/b.ts")"
+done
+echo "rounds: $ROUNDS · calls that landed: $LANDED · calls refused with the lock's sentence: $REFUSED · rounds that broke a rule: $FAILED"
+exit "$FAILED"
+
+==== $ REGGIE_PKG=<task worktree>/packages/reggie bash two-at-once.sh <scratch>/two-at-once 10
+running in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval/two-at-once
+round 1: exit one=0 two=1 · merges on main=1 · approved packets=1 · status='' · MERGE_HEAD=none · lock=none · ok=yes
+   round-1.one.out: Approved one: merged task/one into main as 9df3fb7.
+   round-1.two.out: reggie: another landing is in progress: task/one (pid 37177, started 2026-09-18T13:43:42.858Z). One task lands at a time; decide again when it has finished. Nothing was recorded.
+   retry: Approved two: merged task/two into main as c598a66.
+   after the retry: merges on main=2, status='', src/a.ts=export const v = 2; src/b.ts=export const v = 2;
+round 2: exit one=0 two=1 · merges on main=1 · approved packets=1 · status='' · MERGE_HEAD=none · lock=none · ok=yes
+   round-2.one.out: Approved one: merged task/one into main as f29c197.
+   round-2.two.out: reggie: another landing is in progress: task/one (pid 38342, started 2026-09-18T13:43:45.580Z). One task lands at a time; decide again when it has finished. Nothing was recorded.
+   retry: Approved two: merged task/two into main as e83e4cd.
+   after the retry: merges on main=2, status='', src/a.ts=export const v = 2; src/b.ts=export const v = 2;
+round 3: exit one=1 two=0 · merges on main=1 · approved packets=1 · status='' · MERGE_HEAD=none · lock=none · ok=yes
+   round-3.one.out: reggie: another landing is in progress: task/two (pid 39510, started 2026-09-18T13:43:48.304Z). One task lands at a time; decide again when it has finished. Nothing was recorded.
+   round-3.two.out: Approved two: merged task/two into main as af8cbe3.
+   retry: Approved one: merged task/one into main as 394c0c3.
+   after the retry: merges on main=2, status='', src/a.ts=export const v = 2; src/b.ts=export const v = 2;
+round 4: exit one=0 two=1 · merges on main=1 · approved packets=1 · status='' · MERGE_HEAD=none · lock=none · ok=yes
+   round-4.one.out: Approved one: merged task/one into main as 5fefd80.
+   round-4.two.out: reggie: another landing is in progress: task/one (pid 40680, started 2026-09-18T13:43:51.010Z). One task lands at a time; decide again when it has finished. Nothing was recorded.
+   retry: Approved two: merged task/two into main as c9e447b.
+   after the retry: merges on main=2, status='', src/a.ts=export const v = 2; src/b.ts=export const v = 2;
+round 5: exit one=1 two=0 · merges on main=1 · approved packets=1 · status='' · MERGE_HEAD=none · lock=none · ok=yes
+   round-5.one.out: reggie: another landing is in progress: task/two (pid 41885, started 2026-09-18T13:43:53.751Z). One task lands at a time; decide again when it has finished. Nothing was recorded.
+   round-5.two.out: Approved two: merged task/two into main as 0089e7f.
+   retry: Approved one: merged task/one into main as bb412be.
+   after the retry: merges on main=2, status='', src/a.ts=export const v = 2; src/b.ts=export const v = 2;
+round 6: exit one=0 two=1 · merges on main=1 · approved packets=1 · status='' · MERGE_HEAD=none · lock=none · ok=yes
+   round-6.one.out: Approved one: merged task/one into main as d409bc4.
+   round-6.two.out: reggie: another landing is in progress: task/one (pid 43061, started 2026-09-18T13:43:56.484Z). One task lands at a time; decide again when it has finished. Nothing was recorded.
+   retry: Approved two: merged task/two into main as 6e2ec1f.
+   after the retry: merges on main=2, status='', src/a.ts=export const v = 2; src/b.ts=export const v = 2;
+round 7: exit one=1 two=0 · merges on main=1 · approved packets=1 · status='' · MERGE_HEAD=none · lock=none · ok=yes
+   round-7.one.out: reggie: another landing is in progress: task/two (pid 44221, started 2026-09-18T13:43:59.229Z). One task lands at a time; decide again when it has finished. Nothing was recorded.
+   round-7.two.out: Approved two: merged task/two into main as 3d55add.
+   retry: Approved one: merged task/one into main as abeb615.
+   after the retry: merges on main=2, status='', src/a.ts=export const v = 2; src/b.ts=export const v = 2;
+round 8: exit one=1 two=0 · merges on main=1 · approved packets=1 · status='' · MERGE_HEAD=none · lock=none · ok=yes
+   round-8.one.out: reggie: another landing is in progress: task/two (pid 45426, started 2026-09-18T13:44:01.963Z). One task lands at a time; decide again when it has finished. Nothing was recorded.
+   round-8.two.out: Approved two: merged task/two into main as 7ba6642.
+   retry: Approved one: merged task/one into main as 5d0c56d.
+   after the retry: merges on main=2, status='', src/a.ts=export const v = 2; src/b.ts=export const v = 2;
+round 9: exit one=1 two=0 · merges on main=1 · approved packets=1 · status='' · MERGE_HEAD=none · lock=none · ok=yes
+   round-9.one.out: reggie: another landing is in progress: task/two (pid 46605, started 2026-09-18T13:44:04.703Z). One task lands at a time; decide again when it has finished. Nothing was recorded.
+   round-9.two.out: Approved two: merged task/two into main as 33c3150.
+   retry: Approved one: merged task/one into main as 20c595f.
+   after the retry: merges on main=2, status='', src/a.ts=export const v = 2; src/b.ts=export const v = 2;
+round 10: exit one=1 two=0 · merges on main=1 · approved packets=1 · status='' · MERGE_HEAD=none · lock=none · ok=yes
+   round-10.one.out: reggie: another landing is in progress: task/two (pid 47811, started 2026-09-18T13:44:07.446Z). One task lands at a time; decide again when it has finished. Nothing was recorded.
+   round-10.two.out: Approved two: merged task/two into main as 5464c8c.
+   retry: Approved one: merged task/one into main as f95db23.
+   after the retry: merges on main=2, status='', src/a.ts=export const v = 2; src/b.ts=export const v = 2;
+rounds: 10 · calls that landed: 10 · calls refused with the lock's sentence: 10 · rounds that broke a rule: 0
+script exit 0

@@ -1,0 +1,24 @@
+# AC15: the resolver's refusals, the git arguments it uses, and what --lint says of an uncommitted file
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:44:52Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "the evidence resolver" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/policy.test.ts > the evidence resolver (AC15) > passes a regular non-empty file and refuses everything else, each in its own words, listing the folder once 10ms
+ ✓ src/policy.test.ts > the evidence resolver (AC15) > reads no working tree: a file saved and never committed is missing, and a committed file deleted from disk still resolves 25ms
+ ✓ src/policy.test.ts > the evidence resolver (AC15) > says of a cited file that is in the task worktree and not in HEAD that it is on disk but not committed 394ms
+ Test Files  1 passed (1)
+      Tests  3 passed | 41 skipped (44)
+   Start at  13:44:52
+   Duration  1.03s (transform 125ms, setup 0ms, import 165ms, tests 802ms, environment 0ms)
+exit 0
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/packet.test.ts -t "the one reader of evidence references" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/packet.test.ts > the one reader of evidence references > takes the leading token of each comma- or semicolon-separated piece, and still returns what the older reader returned 1ms
+ ✓ src/packet.test.ts > the one reader of evidence references > reads structured lines only, and calls a reference a citation only when it names the task's own evidence folder 1ms
+ Test Files  1 passed (1)
+      Tests  2 passed | 35 skipped (37)
+   Start at  13:44:54
+   Duration  202ms (transform 105ms, setup 0ms, import 140ms, tests 3ms, environment 0ms)
+exit 0
+

@@ -1,0 +1,217 @@
+# AC46 to AC49, variant medium: the script, then its whole output
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:43:29Z
+
+==== e2e.sh
+#!/bin/bash
+# End to end in a throwaway repo (AC46, AC47, AC48, AC49). usage: e2e.sh <new dir under the OS temp dir> <pass|medium|tampered>
+set -euo pipefail
+FIX="${1:?a directory under the OS temp directory that does not exist yet}"; VARIANT="${2:?pass, medium or tampered}"
+# AC50 guard: judged on the string before anything is created, then on the real path and on git's toplevel.
+case "$FIX" in /private/tmp/*|/private/var/folders/*) ;; *) echo "refusing $FIX: not under the OS temp directory" >&2; exit 98 ;; esac
+case "$FIX" in *..*) echo "refusing $FIX: holds '..'" >&2; exit 98 ;; esac
+[ -e "$FIX" ] && { echo "refusing $FIX: it already exists" >&2; exit 98; }
+mkdir -p "$FIX"; cd "$FIX" || exit 97
+HERE="$(pwd -P)"; TOP="$(git rev-parse --show-toplevel 2>/dev/null || echo "$HERE")"
+case "$HERE|$TOP" in /private/tmp/*\|/private/tmp/*|/private/var/folders/*\|/private/var/folders/*) ;; *) echo "refusing to run in $HERE (git toplevel $TOP)" >&2; exit 98 ;; esac
+echo "running in $HERE"
+
+: "${REGGIE_PKG:?set REGGIE_PKG to the packages/reggie of the branch under test}"
+SLUG="two-not-one"; WT="$HERE/.worktree/$SLUG"
+# This branch's own CLI, always told which checkout to act on; never the `reggie` on PATH, never the cwd.
+R() { local dir="$1"; shift; "$REGGIE_PKG/node_modules/.bin/tsx" "$REGGIE_PKG/src/cli.ts" -C "$dir" "$@"; }
+under_fixture() { case "$(git -C "$1" rev-parse --show-toplevel)" in "$HERE"|"$HERE"/*) ;; *) echo "refusing: $1 is not inside the fixture" >&2; exit 98 ;; esac; }
+snap() { for d in "$HERE" "$WT"; do [ -d "$d" ] || continue; echo "refs:$(git -C "$d" for-each-ref --format='%(refname)=%(objectname:short)' | tr '\n' ' ')"; echo "tracked+index($(basename "$d")):$(git -C "$d" status --porcelain --untracked-files=no | tr '\n' ';')|$(git -C "$d" diff --cached --name-only | tr '\n' ';')"; done; }
+# Run one reggie check or reggie packet call and prove it moved no ref, no index entry and no tracked file in either checkout.
+watched() { local before after code=0; before="$(snap)"; "$@" || code=$?; after="$(snap)"; if [ "$before" = "$after" ]; then echo "   [AC49] unchanged by: reggie ${*:3} (exit $code)" >&2; else echo "   [AC49] CHANGED by: reggie ${*:3}" >&2; diff <(echo "$before") <(echo "$after") >&2 || true; exit 1; fi; return $code; }
+
+# The medium and tampered variants plan a file the risk rules call medium (`shared`), so that lowering the risk on the branch is a real lowering.
+FILE="src/a.ts"; [ "$VARIANT" = "pass" ] || FILE="src/shared/util.ts"
+git init -q -b main; git config user.name "Fixture Owner"; git config user.email "owner@example.com"; git config commit.gpgsign false
+mkdir -p src/shared; printf 'export const a = 1;\n' > src/a.ts; printf 'export const u = 1;\n' > src/shared/util.ts; printf '# fixture\n' > README.md
+git add -A; git commit -q -m "init"
+R "$HERE" onboard >/dev/null; printf '.worktree/\n' >> .gitignore; git add -A; git commit -q -m "chore: onboard reggie"
+echo "== the policy block onboard wrote"; grep -A3 '^policy:' .reggie/config.yaml
+mkdir -p ".reggie/tasks/$SLUG"
+cat > ".reggie/tasks/$SLUG/plan.md" <<EOF
+---
+slug: $SLUG
+title: Change the constant in one file
+risk: unset
+deciders: []
+author: owner
+created: 2026-09-18
+---
+# Change the constant in one file
+
+## Problem
+The constant is one and it should be two, which the fixture owner noticed by reading the file.
+
+## Approach
+Edit the one line. Rejected: a config value, because nothing else reads it.
+
+## Files to touch
+- $FILE (MOD)
+
+## Acceptance criteria
+- [ ] AC1 The constant exported from the file equals two after the change
+- [ ] AC2 A saved command output shows the new value in the file
+
+## Verification strategy
+- AC1: print the file and save it to evidence/value.txt
+- AC2: grep the file for the value and save the output and its exit status to evidence/run.txt
+
+## Assumptions
+- none
+
+## Out of scope
+- Every other file in the fixture
+
+## Bail conditions
+- If the constant is read by another module, stop and re-plan
+EOF
+R "$HERE" plan risk "$SLUG"; R "$HERE" plan lint "$SLUG" | head -1
+git add -A; git commit -q -m "plan: $SLUG"
+R "$HERE" claim "$SLUG" --worktree | head -1; under_fixture "$WT"
+printf 'export const a = 2;\n' > "$WT/$FILE"; git -C "$WT" add -A; git -C "$WT" commit -q -m "feat: two" -m "Task: $SLUG"
+mkdir -p "$WT/.reggie/tasks/$SLUG/evidence"
+{ echo "\$ cat $FILE"; cat "$WT/$FILE"; echo "exit 0"; } > "$WT/.reggie/tasks/$SLUG/evidence/value.txt"
+{ echo "\$ grep -c '= 2' $FILE"; grep -c '= 2' "$WT/$FILE"; echo "exit $?"; } > "$WT/.reggie/tasks/$SLUG/evidence/run.txt"
+
+echo "== a check for every criterion, then the packet"
+watched R "$WT" check "$SLUG" AC1 pass --evidence value.txt
+watched R "$WT" check "$SLUG" 2 pass --evidence evidence/run.txt --note "grep counted one line"
+watched R "$WT" packet "$SLUG"
+python3 - "$WT/.reggie/tasks/$SLUG/packet.md" <<'PY'
+import re, sys
+p = sys.argv[1]; s = open(p).read()
+s = re.sub(r"^- \(which review commands ran.*\)$", "- none ran: a one-line change in a fixture", s, flags=re.M)
+s = re.sub(r"^- \(what was done differently.*\)$", "- none", s, flags=re.M)
+s = re.sub(r"^- \(unrelated problems found.*\)$", "- The fixture has no test runner at all, so nothing proves the constant is ever read", s, flags=re.M)
+s = re.sub(r"^- \(what could still be wrong.*\)$", "- none known", s, flags=re.M)
+open(p, "w").write(s)
+PY
+watched R "$WT" packet "$SLUG"
+watched R "$WT" packet "$SLUG" --lint || true
+git -C "$WT" add -A; git -C "$WT" commit -q -m "packet: $SLUG" -m "Task: $SLUG"
+echo "== the same lint once the evidence is committed"; watched R "$WT" packet "$SLUG" --lint
+
+if [ "$VARIANT" = "tampered" ]; then
+  echo "== the branch rewrites what it is judged by: lowers its plan's risk, deletes a criterion, widens the policy, approves itself"
+  python3 - "$WT" "$SLUG" <<'PY'
+import re, sys
+wt, slug = sys.argv[1], sys.argv[2]
+plan = f"{wt}/.reggie/tasks/{slug}/plan.md"; s = open(plan).read()
+assert "risk: medium" in s
+s = s.replace("risk: medium", "risk: low", 1)
+s = re.sub(r"^- \[ \] AC2.*\n", "", s, flags=re.M); open(plan, "w").write(s)
+cfg = f"{wt}/.reggie/config.yaml"; c = open(cfg).read().replace("completions: low", "completions: high"); open(cfg, "w").write(c)
+pk = f"{wt}/.reggie/tasks/{slug}/packet.md"; k = open(pk).read().replace("verdict: pending", "verdict: approved"); open(pk, "w").write(k)
+PY
+  git -C "$WT" add -A; git -C "$WT" commit -q -m "chore: tidy the task folder" -m "Task: $SLUG"
+fi
+
+echo "== reggie check $SLUG, from the integration checkout and from the task worktree"
+MAIN_BEFORE="$(git -C "$HERE" rev-parse main)"; TASK_BEFORE="$(git -C "$HERE" rev-parse "task/$SLUG")"
+set +e
+watched R "$HERE" check "$SLUG"; CODE_BASE=$?
+watched R "$WT" check "$SLUG" --json > "$HERE/../$(basename "$HERE")-wt.json"; CODE_WT=$?
+watched R "$HERE" check "$SLUG" --json > "$HERE/../$(basename "$HERE")-base.json"
+set -e
+echo "exit codes: integration checkout $CODE_BASE, task worktree $CODE_WT"
+cmp "$HERE/../$(basename "$HERE")-wt.json" "$HERE/../$(basename "$HERE")-base.json" && echo "--json is byte-identical from both checkouts"
+echo "failing gates: $(python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); print([g["id"] for g in r["gates"] if g["status"]=="fail"], r["verdict"])' "$HERE/../$(basename "$HERE")-base.json")"
+[ "$MAIN_BEFORE" = "$(git -C "$HERE" rev-parse main)" ] && [ "$TASK_BEFORE" = "$(git -C "$HERE" rev-parse "task/$SLUG")" ] && echo "both branch ids are unchanged: main $MAIN_BEFORE, task/$SLUG $TASK_BEFORE"
+
+if [ "$VARIANT" = "pass" ]; then
+  echo "== a person decides: reggie decide $SLUG approved, typed in the integration checkout"
+  under_fixture "$HERE"
+  R "$HERE" decide "$SLUG" approved --comment "Evidence matches the criteria"
+  echo "-- the merge commit"; git -C "$HERE" show --stat --format='%H%n%s%n%b' -m --first-parent HEAD | sed 's/^/   /'
+  echo "-- it holds the records:"; git -C "$HERE" show "HEAD:.reggie/tasks/$SLUG/checks.jsonl" | cut -c1-150 | sed 's/^/   /'
+  echo "-- the person's verdict:"; git -C "$HERE" show "HEAD:.reggie/tasks/$SLUG/packet.md" | grep -E '^(verdict|decided_by|decided_at):' | sed 's/^/   /'
+  echo "-- and the captured discovered issue:"; git -C "$HERE" show HEAD:.reggie/intake.md | grep -A1 'packet,' | sed 's/^/   /'
+  echo "-- afterwards: status '$(git -C "$HERE" status --porcelain)', MERGE_HEAD $([ -f "$HERE/.git/MERGE_HEAD" ] && echo present || echo none), lock $([ -f "$HERE/.git/reggie-land.lock" ] && echo present || echo none)"
+fi
+if [ "$VARIANT" = "medium" ]; then
+  echo "== the report refused it, and a person may still approve it: the human door binds only the evidence gate and the lock"
+  under_fixture "$HERE"
+  R "$HERE" decide "$SLUG" approved --comment "Medium risk, read by a person"
+  git -C "$HERE" show "HEAD:.reggie/tasks/$SLUG/packet.md" | grep -E '^(verdict|decided_by):' | sed 's/^/   /'
+  echo "-- afterwards: merges on main $(git -C "$HERE" log --merges --format=%s main | wc -l | tr -d ' '), status '$(git -C "$HERE" status --porcelain)'"
+fi
+echo "done: $VARIANT"
+
+==== $ REGGIE_PKG=<task worktree>/packages/reggie bash e2e.sh <scratch>/e2e-medium medium
+running in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval/e2e-medium
+== the policy block onboard wrote
+policy:
+  plans: high
+  completions: low
+two-not-one: risk medium (1 files)
+PASS
+Claimed two-not-one on task/two-not-one in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval/e2e-medium/.worktree/two-not-one
+== a check for every criterion, then the packet
+Recorded pass for criterion 1 (c:7bb17e37a355) in .reggie/tasks/two-not-one/checks.jsonl. It is not committed; run `reggie packet two-not-one` to refresh the checklist, then commit both.
+   [AC49] unchanged by: reggie check two-not-one AC1 pass --evidence value.txt (exit 0)
+Recorded pass for criterion 2 (c:90af6d29b93d) in .reggie/tasks/two-not-one/checks.jsonl. It is not committed; run `reggie packet two-not-one` to refresh the checklist, then commit both.
+   [AC49] unchanged by: reggie check two-not-one 2 pass --evidence evidence/run.txt --note grep counted one line (exit 0)
+Created .reggie/tasks/two-not-one/packet.md. Its checklist is built from the check records: record each criterion with `reggie check two-not-one <criterion> pass --evidence <file>`, run this again, fill every other section honestly, and commit.
+Nothing was decided: in this version the policy's verdict is a report (`reggie check <slug>`), and a person decides with `reggie decide`.
+   [AC49] unchanged by: reggie packet two-not-one (exit 0)
+The checklist in .reggie/tasks/two-not-one/packet.md is current; nothing was written.
+Nothing was decided: in this version the policy's verdict is a report (`reggie check <slug>`), and a person decides with `reggie decide`.
+   [AC49] unchanged by: reggie packet two-not-one (exit 0)
+FAIL: .reggie/tasks/two-not-one/packet.md does not satisfy the packet contract.
+error: .reggie/tasks/two-not-one/evidence/value.txt is on disk but not committed; commit it on the task branch
+error: .reggie/tasks/two-not-one/evidence/run.txt is on disk but not committed; commit it on the task branch
+Nothing was decided: in this version the policy's verdict is a report (`reggie check <slug>`), and a person decides with `reggie decide`.
+   [AC49] unchanged by: reggie packet two-not-one --lint (exit 1)
+== the same lint once the evidence is committed
+PASS: .reggie/tasks/two-not-one/packet.md satisfies the packet contract, and every citation resolves on HEAD.
+Nothing was decided: in this version the policy's verdict is a report (`reggie check <slug>`), and a person decides with `reggie decide`.
+   [AC49] unchanged by: reggie packet two-not-one --lint (exit 0)
+== reggie check two-not-one, from the integration checkout and from the task worktree
+This is a report, not a decision: it says what the policy would say, and a person decides with `reggie decide`.
+task: two-not-one
+base: main @ 275998eca9d4
+branch: task/two-not-one @ c08fbbb63f35
+policy (solo mode): completions low (from the base commit's policy block); plans high (from the base commit's policy block; nothing reads it in this version)
+risk: the plan's line medium · the plan's file list medium · the 1 changed file medium → effective medium
+criteria:
+   1. pass        AC1 The constant exported from the file equals two after the change — pass by fixture (claude) at 2026-09-18T13:43:31.070Z
+   2. pass        AC2 A saved command output shows the new value in the file — pass by fixture (claude) at 2026-09-18T13:43:31.439Z
+gates:
+  pass        policy: the policy lets a completion pass without a person
+               completions: low (the policy block on main).
+  pass        plan: the plan is committed on the base and passes its contract
+               2 criteria read from the plan on main.
+  pass        controls: the branch changes no file Reggie or the next session obeys
+               none of the control files is among the files the branch changed.
+  pass        packet: the packet is pending and satisfies the packet contract
+               pending, every section filled, and the checklist is what the records render.
+  pass        criteria: every criterion has a passing check and no check fails
+               2 of 2 criteria passed, and no check of any kind fails.
+  pass        evidence: every cited evidence file resolves on the branch tip
+               2 cited files resolved on c08fbbb63f35.
+  fail        risk: the risk class is within the policy
+               the effective risk class is medium, and the policy on main lets a completion pass without a person only up to low (the plan's line says medium, its file list computes medium, the 1 file the branch changed computes medium).
+  pass        merge: the branch merges into the base without a conflict
+               merged in memory with no conflict; no checkout was touched.
+verdict: refused: 1 gate failed (risk).
+   [AC49] unchanged by: reggie check two-not-one (exit 1)
+   [AC49] unchanged by: reggie check two-not-one --json (exit 1)
+   [AC49] unchanged by: reggie check two-not-one --json (exit 1)
+exit codes: integration checkout 1, task worktree 1
+--json is byte-identical from both checkouts
+failing gates: ['risk'] refused
+both branch ids are unchanged: main 275998eca9d461b2caf5b62fc473b8ad6f6d75a1, task/two-not-one c08fbbb63f3536c9e864d7451c89fec924597e78
+== the report refused it, and a person may still approve it: the human door binds only the evidence gate and the lock
+Approved two-not-one: merged task/two-not-one into main as aeb0336.
+  removed worktree /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval/e2e-medium/.worktree/two-not-one
+  deleted local task/two-not-one
+  captured from the packet's discovered issues, in the same commit: the-fixture-has-no-test-runner-at-all-so-nothing
+   verdict: approved
+   decided_by: fixture
+-- afterwards: merges on main 1, status ''
+done: medium
+script exit 0

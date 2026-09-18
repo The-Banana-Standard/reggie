@@ -1,0 +1,15 @@
+# AC21: where the policy comes from
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:45:00Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "AC21" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/policy.test.ts > where the policy comes from (AC21) > refuses a base whose policy says completions: none, as not allowed on that branch 552ms
+ ✓ src/policy.test.ts > where the policy comes from (AC21) > reports the solo defaults, and says they are defaults, for a base config with no policy block 539ms
+ ✓ src/policy.test.ts > where the policy comes from (AC21) > does not evaluate a base in team mode, or one whose config does not parse, and says why without throwing 1119ms
+ ✓ src/policy.test.ts > where the policy comes from (AC21) > refuses an integration branch name that begins with a dash before it reaches git 276ms
+ Test Files  1 passed (1)
+      Tests  4 passed | 40 skipped (44)
+   Start at  13:45:00
+   Duration  2.78s (transform 124ms, setup 0ms, import 163ms, tests 2.55s, environment 0ms)
+exit 0
+
