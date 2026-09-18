@@ -259,15 +259,16 @@ button { cursor: pointer; }
 }
 
 /* ---------- The idea action (idea.js; decision of 2026-09-15) ----------
-   The header is full at 1440px: measured there with the label showing, the repo page's title keeps
-   its full width with 2px to spare (workspace mode, four-item nav, every tool), and one pixel less
-   would come out of the breadcrumb, which already ellipsises on deep paths. So the label shows from
-   1440px and the trigger is the 36px icon alone below that; either way the breadcrumb pays the way
-   it already pays for the pane toggles. The popover is one fixed card under the trigger on a desktop
-   and a full-width strip under the header on a phone; the phone rule is at the end of the file with
-   the rest of the phone layout. */
+   The header is full at 1440px: with the repo named forge-reggie (workspace mode, four-item nav,
+   every tool) the title crumb keeps 126px of 126 without the trigger, 99px with the icon alone and
+   67px with the label beside it, so the label shows only from 1500px and the trigger is the 36px
+   icon below that; the breadcrumb pays those 36px the way it already pays for the pane toggles.
+   (A 7-character name fits with the label at 1440, which is how an earlier build measured it;
+   every real repo name here is longer.) The popover is one fixed card under the trigger on a
+   desktop and a full-width strip under the header on a phone; the phone rule is at the end of the
+   file with the rest of the phone layout. */
 .idea-trigger { padding: 0 8px; }
-@media (max-width: 1439px) { .idea-trigger span { display: none; } }
+@media (max-width: 1499px) { .idea-trigger span { display: none; } }
 .idea {
   position: fixed; z-index: 45;
   width: min(460px, calc(100vw - 16px));

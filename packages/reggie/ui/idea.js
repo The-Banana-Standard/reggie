@@ -17,11 +17,16 @@ import { commandField, friendlyError, LAUNCH_TOOLS, makeLauncher, rememberedTool
 /** How long a launch may run before the command is handed over to run by hand, as the board does. */
 const SLOW_MS = 6000;
 
+/** A symbol name the capture resolver accepts; the same rule the server applies (`CAPTURE_SYMBOL_RE`). */
+const SYMBOL_NAME = /^[A-Za-z_$][A-Za-z0-9_$]{0,199}$/;
+
 /**
  * The origin a page posts: the folder for an area, the file for a file, the file and the name for a
  * symbol, the task for a task page, nothing for the repo-level pages (the overview, the board, the
  * services and flow pages, people and time), and null where there is no single repo to capture into.
- * Only these three keys ever reach the capture body.
+ * Only these three keys ever reach the capture body. A symbol page is the file level by the brief,
+ * so a name the resolver would refuse (the code map names a star re-export `*`) posts the file alone
+ * rather than a symbol the server answers 400 to.
  */
 export function originFor(route) {
   switch (route?.level) {
@@ -30,7 +35,8 @@ export function originFor(route) {
       return { path: String(route.id ?? "") };
     case "symbol": {
       const [file, ...rest] = String(route.id ?? "").split("::");
-      return rest.length > 0 ? { path: file, symbol: rest.join("::") } : { path: file };
+      const name = rest.join("::");
+      return rest.length > 0 && SYMBOL_NAME.test(name) ? { path: file, symbol: name } : { path: file };
     }
     case "task":
       return { task: String(route.id ?? "") };
@@ -116,11 +122,16 @@ function placeIdea(el, anchor) {
 /**
  * Open the popover for a target: `{ repo, origin, level, opener }`. `origin` is what `originFor`
  * gave (`{}` for a repo-wide idea, never null here) and `opener` is the control focus returns to.
+ * While a submit is in flight the target is not replaced: the popover is shown again as it is, with
+ * its sentence and its coming result, because the launch that follows the capture reads the target
+ * and must read the page the line was captured from.
  */
 function openIdea(target) {
   if (!popover) popover = buildPopover();
-  popover.setTarget(target);
-  popover.routeKey = routeKey(currentRoute());
+  if (!popover.isBusy()) {
+    popover.setTarget(target);
+    popover.routeKey = routeKey(currentRoute());
+  }
   popover.opener = target.opener ?? null;
   popover.opener?.setAttribute?.("aria-expanded", "true");
   popover.el.hidden = false;
@@ -188,14 +199,16 @@ function buildPopover() {
     target.launcher = makeLauncher(target.ctx);
     mount(where, whereSentence(t.repo, t.origin, t.level), close);
     err.textContent = "";
-    clearResult();
+    // The last submit's result (the link, the reason, the command) stays until the next submit
+    // clears it: a reader who closed the popover or moved on must still be able to find the
+    // command the toast said is here.
     mount(main, label(rememberedTool()));
     closeMenu();
   }
 
   /** The link to the new task, first in the result so the reader always has somewhere to go. */
-  function taskLink(slug) {
-    return h("p", { class: "idea__task" }, "Captured as ", entityLink("task", formatRoute({ level: "task", repo: target.repo, id: slug, query: {} }), slug), ".");
+  function taskLink(repo, slug) {
+    return h("p", { class: "idea__task" }, "Captured as ", entityLink("task", formatRoute({ level: "task", repo, id: slug, query: {} }), slug), ".");
   }
 
   /**
@@ -215,13 +228,16 @@ function buildPopover() {
       input.focus();
       return;
     }
+    // The page this submit belongs to, taken once: everything after an await reads these and never
+    // the shared target, so the launch cannot be built for a page the reader moved to meanwhile.
+    const { repo, origin, ctx, launcher } = target;
     closeMenu();
     if (tool !== rememberedTool()) rememberTool(tool);
     setBusy(true);
     clearResult();
     let captured;
     try {
-      captured = await target.ctx.post("/api/capture", { text, ...target.origin });
+      captured = await ctx.post("/api/capture", { text, ...origin });
     } catch (e) {
       err.textContent = friendlyError(e);
       setBusy(false);
@@ -235,11 +251,12 @@ function buildPopover() {
     // The level redraws so the new item shows where it belongs (the board, the task counts) while
     // the launch runs; the popover lives outside the columns, so the redraw does not touch it.
     render(currentRoute());
-    mount(result, taskLink(slug));
+    mount(result, taskLink(repo, slug));
     mount(main, "Starting…");
 
-    const paths = packPathsOf(target.origin);
+    const paths = packPathsOf(origin);
     let commandShown = false;
+    let settled = false;
     const onCommand = (command, why) => {
       commandShown = true;
       showCommand(command, why);
@@ -247,17 +264,21 @@ function buildPopover() {
     // The description is asked for before the launch is, because the launch holds the server (one
     // request at a time, and an unanswered Terminal prompt holds it for the whole eight seconds):
     // asked at six seconds it would queue behind the very request it is meant to explain. The
-    // board gets the same answer from its tooltip prefetch; here nothing has been hovered.
-    const described = target.launcher.describe([slug], tool, "discuss", paths).catch(() => null);
+    // board gets the same answer from its tooltip prefetch; here nothing has been hovered. And
+    // when it still arrives after the launch has answered, it is dropped: the server's reason is
+    // the answer, and a "still waiting" sentence over it would be a lie on a re-enabled form.
+    const described = launcher.describe([slug], tool, "discuss", paths).catch(() => null);
     const slow = setTimeout(() => {
       described.then((plan) => {
-        if (plan?.command) onCommand(plan.command, `Still waiting for ${TOOL_LABEL[tool]} to open. If no window appeared, macOS may be holding it behind a permission prompt — run it yourself instead:`);
+        if (settled || !plan?.command) return;
+        onCommand(plan.command, `Still waiting for ${TOOL_LABEL[tool]} to open. If no window appeared, macOS may be holding it behind a permission prompt — run it yourself instead:`);
       });
     }, SLOW_MS);
     let res = null;
     try {
-      res = await target.launcher.run([slug], tool, "discuss", { paths, onCommand, where: "below" });
+      res = await launcher.run([slug], tool, "discuss", { paths, onCommand, where: "below" });
     } finally {
+      settled = true;
       clearTimeout(slow);
       setBusy(false);
     }
@@ -338,7 +359,7 @@ function buildPopover() {
   window.addEventListener("resize", () => {
     if (!el.hidden) placeIdea(el, currentOpener());
   });
-  return { el, input, setTarget, opener: null, routeKey: "" };
+  return { el, input, setTarget, isBusy: () => busy, opener: null, routeKey: "" };
 }
 
 /**
@@ -353,12 +374,14 @@ export function mountIdeaTrigger() {
     const repo = route?.repo ?? state.facts?.facts?.name ?? null;
     btn.hidden = origin === null || !repo;
     // Leaving the page the popover was opened on closes it: its sentence names that page. The
-    // redraw after a capture emits the same route and leaves it open with its result.
-    if (popover && !popover.el.hidden && popover.routeKey !== routeKey(route)) closeIdea();
+    // redraw after a capture emits the same route and leaves it open with its result, and a
+    // submit in flight keeps it open wherever the reader goes, so its result has somewhere to land.
+    if (popover && !popover.el.hidden && !popover.isBusy() && popover.routeKey !== routeKey(route)) closeIdea();
   };
   btn.addEventListener("click", () => {
     if (popover && !popover.el.hidden && popover.opener === btn) {
-      closeIdea();
+      // A second click closes it, except while a submit is in flight: the answer is on its way here.
+      if (!popover.isBusy()) closeIdea();
       return;
     }
     const route = currentRoute();
@@ -395,7 +418,7 @@ export function ideaButtonFor(repo) {
     ev.preventDefault();
     ev.stopPropagation();
     if (popover && !popover.el.hidden && popover.opener?.dataset?.ideaRepo === repo) {
-      closeIdea();
+      if (!popover.isBusy()) closeIdea();
       return;
     }
     openIdea({ repo, origin: {}, level: "repo", opener: btn });
