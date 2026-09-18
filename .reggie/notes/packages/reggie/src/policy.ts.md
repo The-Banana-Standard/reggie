@@ -19,3 +19,7 @@ sources: low-risk-auto-approval
 policy.test.ts holds one row per tampering and per gate, and its gates were mutation checked on 2026-09-18: with the control list emptied ten tests fail, with staleness switched off two, with the class taken from the plan's line alone two, and with the plan read from the branch instead of the base six. If a change here leaves every test green, break the gate on purpose once before trusting that.
 sources: low-risk-auto-approval
 
+## gotcha · 2026-09-18 · Claude via jacobpress · high
+evaluateCompletion wraps its whole body: anything it throws comes back as a not-evaluated report whose sentence carries the message with the checkout's own path replaced by a dot. It runs on every load of a task page, so a git failure nobody foresaw must be a sentence on the page and never a 500. Keep new reads inside evaluate, not beside it.
+sources: low-risk-auto-approval
+
