@@ -1,0 +1,23 @@
+# AC31 — after npm run build in packages/reggie (exit 0: no errors) on a clean tree
+
+## git status --porcelain before the refresh (empty = clean):
+?? .reggie/tasks/idea-from-every-page/evidence/docs-check.txt
+
+## reggie docs refresh (the reggie on PATH is the integration checkout's build; the docs generator is unchanged by this task)
+updated: CLAUDE.md
+updated: AGENTS.md
+
+## npx tsx src/cli.ts docs check, from packages/reggie (the branch's own code)
+fresh: CLAUDE.md
+fresh: AGENTS.md
+exit 0
+
+## Again on a clean tree after committing the refresh and this file (git status --porcelain empty):
+ M .reggie/tasks/idea-from-every-page/evidence/docs-check.txt
+unchanged: CLAUDE.md
+unchanged: AGENTS.md
+fresh: CLAUDE.md
+fresh: AGENTS.md
+exit 0
+## git status --porcelain after (empty = the refresh changed nothing):
+ M .reggie/tasks/idea-from-every-page/evidence/docs-check.txt
