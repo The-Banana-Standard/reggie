@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { capture } from "./capture.js";
+import { capture, resolveCaptureOrigin } from "./capture.js";
 import { buildContext } from "./context.js";
 import { briefFile } from "./paths.js";
 import { currentPerson } from "./people.js";
@@ -112,10 +112,14 @@ describe("the pack for a fresh slug, by the origin it was captured from", () => 
     // The tasks whose plans overlap the folder: both fixture plans touch src/big/a01.ts.
     expect(folder).toContain("## Related tasks touching the same files");
     expect(folder).toContain(`- ${fx.slugs.inProcess}`);
-    // A symbol page is the file level with the file that holds the symbol as the path.
+    // A symbol page is the file level with the file that holds the symbol as the path: the pack is
+    // built from the origin's path field, which a symbol origin carries beside its name.
+    const origin = resolveCaptureOrigin(fx.paths, { path: "./src/types/shape.ts", symbol: "emptyShape" });
+    expect(origin).toEqual({ kind: "symbol", path: "src/types/shape.ts", symbol: "emptyShape" });
     const file = buildContext(fx.paths, fx.config, { slug: fresh, paths: ["src/types/shape.ts"] });
-    const symbol = buildContext(fx.paths, fx.config, { slug: fresh, paths: ["src/types/shape.ts"] });
+    const symbol = buildContext(fx.paths, fx.config, { slug: fresh, paths: [origin.path ?? ""] });
     expect(symbol).toBe(file);
+    expect(symbol).not.toContain("emptyShape");
   });
 
   it("holds the repo note and the working agreement and no files in scope for a task origin or none", () => {

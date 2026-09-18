@@ -3,7 +3,7 @@ import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { makeFixtureRepo, type FixtureRepo } from "../test/fixtures.js";
 import { fullPlan, makeTempRepo, type TempRepo } from "../test/helpers.js";
-import { addIntakeDetail, capture, originLine, removeFromIntake, resolveCaptureOrigin, type CaptureOrigin } from "./capture.js";
+import { addIntakeDetail, capture, INVISIBLE_CHARS, originLine, removeFromIntake, resolveCaptureOrigin, resolvePackPaths, type CaptureOrigin } from "./capture.js";
 import { run } from "./git.js";
 import { ensureLayout } from "./layout.js";
 import { addNote } from "./notes.js";
@@ -28,6 +28,8 @@ function seedOrigins(repo: TempRepo): void {
   repo.write("src/a b.ts", "export const ab = 1;\n");
   repo.write("src/café ü/uni.ts", "export const uni = 1;\n");
   repo.write("src/gone.ts", "export const gone = 1;\n");
+  // A real file whose name holds a zero-width space: git lists it, and the resolver must still refuse it.
+  repo.write("src/zero\u200bwidth.ts", "export const zw = 1;\n");
   repo.write("docs/README.md", "# docs\n");
   symlinkSync("../src/serve.ts", path.join(repo.root, "docs", "inside"));
   symlinkSync("/etc/hosts", path.join(repo.root, "docs", "outside"));
@@ -186,6 +188,16 @@ describe("resolveCaptureOrigin", () => {
       ["src/serve.ts\0", /control character/],
       ["src/serve\n.ts", /control character/],
       ["src/serve\t.ts", /control character/],
+      // A trailing newline or tab is refused, not trimmed away: the check runs on the value as given.
+      ["src/serve.ts\n", /control character/],
+      ["\tsrc/serve.ts", /control character/],
+      // C1 controls, the line and paragraph separators, and the zero-width marks are invisible inside backticks.
+      ["src/serve\u0085.ts", /control character/],
+      ["src/\u2028serve.ts", /control character/],
+      ["src/\u2029serve.ts", /control character/],
+      ["src/\u200bserve.ts", /control character/],
+      ["src/\ufeffserve.ts", /control character/],
+      ["src/zero\u200bwidth.ts", /control character/],
       ["src/`serve`.ts", /backtick/],
       ["src/[serve].ts", /square bracket/],
       ["src/serve|ts", /pipe/],
@@ -209,6 +221,29 @@ describe("resolveCaptureOrigin", () => {
       expect(message, JSON.stringify(raw)).not.toMatch(/(^|[^`])\/(Users|private|var|tmp|etc)\//);
       expect(readFileSync(paths.intake, "utf8"), JSON.stringify(raw)).toBe(before);
     }
+  });
+
+  it("repeats at most two hundred characters of a refused path, and never an absolute one", () => {
+    const long = `src/${"a".repeat(5000)}.ts`;
+    let message = "";
+    try {
+      resolveCaptureOrigin(paths, { path: long });
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+    expect(message).toMatch(/is not a file or folder in this repo/);
+    expect(message).toContain("…");
+    expect(message.length).toBeLessThan(300);
+    expect(INVISIBLE_CHARS.test("src/plain.ts")).toBe(false);
+  });
+
+  it("resolves a launch's pack paths through the same door, deduplicated by what they resolved to and capped after that", () => {
+    const nineSpellings = ["src/lib", "src/lib/", "./src/lib", "./src/lib/", "src/serve.ts", "./src/serve.ts", "src/serve.ts/", " src/lib ", "src/serve.ts"];
+    expect(resolvePackPaths(paths, nineSpellings, 8)).toEqual(["src/lib", "src/serve.ts"]);
+    expect(resolvePackPaths(paths, [], 8)).toEqual([]);
+    expect(() => resolvePackPaths(paths, ["src/lib", "src/gone.ts"], 8)).toThrow(/listed by git but is not on disk/);
+    expect(() => resolvePackPaths(paths, ["src/lib", " "], 8)).toThrow(/repo itself is not an origin/);
+    expect(() => resolvePackPaths(paths, ["src/lib", "src/serve.ts", "src/a b.ts"], 2)).toThrow(/at most 2 paths/);
   });
 
   it("takes a symbol only with a file, as an identifier, and a task only alone, as a known slug", () => {

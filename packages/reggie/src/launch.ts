@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { INVISIBLE_CHARS } from "./capture.js";
 import { buildContext, type ContextRequest } from "./context.js";
 import { run } from "./git.js";
 import type { RepoPaths } from "./paths.js";
@@ -151,7 +152,7 @@ function assertPaths(paths: readonly string[] | undefined): string[] {
   if (list.length > MAX_LAUNCH_PATHS) throw new Error(`a launch names at most ${MAX_LAUNCH_PATHS} paths, got ${list.length}.`);
   for (const p of list) {
     if (typeof p !== "string" || p.trim() === "") throw new Error("a pack path cannot be empty.");
-    if (/[\u0000-\u001f\u007f]/.test(p)) throw new Error("a pack path cannot hold a control character.");
+    if (INVISIBLE_CHARS.test(p)) throw new Error("a pack path cannot hold a control character.");
     if (p.length > MAX_PATH_CHARS) throw new Error(`a pack path is longer than ${MAX_PATH_CHARS} characters.`);
   }
   return [...list];

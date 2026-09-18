@@ -2089,7 +2089,7 @@ describe("the idea action: origins on capture and paths on launch", () => {
       [{ paths: ["src/*.ts"] }, /not a file or folder in this repo/],
       [{ paths: ["docs/outside"] }, /points outside the repo/],
       [{ path: "." }, /repo itself is not an origin/],
-      [{ paths: Array.from({ length: 9 }, (_, i) => `src/big/a0${i}.ts`) }, /at most 8 paths/],
+      [{ paths: Array.from({ length: 9 }, (_, i) => `src/big/a${String(i + 1).padStart(2, "0")}.ts`) }, /at most 8 paths/],
     ];
     for (const [extra, why] of cases) {
       const { status, body } = await ipost("/api/launch", { slugs: [ifx.slugs.ungroomed], tool: "claude", mode: "discuss", ...extra });
@@ -2104,6 +2104,28 @@ describe("the idea action: origins on capture and paths on launch", () => {
     const described = await iget(`/api/launch?slug=${ifx.slugs.ungroomed}&tool=claude&mode=discuss&path=${encodeURIComponent(gone)}`);
     expect(described.status).toBe(400);
     expect(described.body.error).toMatch(/listed by git but is not on disk/);
+  });
+
+  it("refuses a path field of the wrong shape or a blank path, and counts the cap after resolution", async () => {
+    const base = { slugs: [ifx.slugs.ungroomed], tool: "claude", mode: "discuss" };
+    const shapes: [Record<string, unknown>, RegExp][] = [
+      [{ paths: "src/big" }, /paths must be a list of strings/],
+      [{ paths: ["src/big", 5] }, /paths must be a list of strings/],
+      [{ path: 5 }, /path must be a string/],
+      [{ path: " " }, /repo itself is not an origin/],
+      [{ paths: ["src/big", ""] }, /repo itself is not an origin/],
+    ];
+    for (const [extra, why] of shapes) {
+      const { status, body } = await ipost("/api/launch", { ...base, ...extra });
+      expect(status, JSON.stringify(extra)).toBe(400);
+      expect(body.error, JSON.stringify(extra)).toMatch(why);
+    }
+    expect(existsSync(launchesDir())).toBe(false);
+    // Nine spellings of two paths are two paths, not nine.
+    const nine = ["src/big", "src/big/", "./src/big", "./src/big/", "src/types/shape.ts", "./src/types/shape.ts", "src/types/shape.ts/", " src/big ", "src/types/shape.ts"];
+    const described = await iget(`/api/launch?slug=${ifx.slugs.ungroomed}&tool=claude&mode=discuss${nine.map((p) => `&path=${encodeURIComponent(p)}`).join("")}`);
+    expect(described.status, JSON.stringify(described.body)).toBe(200);
+    expect(described.body.command).toContain("The pack was also built around `src/big` and `src/types/shape.ts`:");
   });
 
   it("describes a launch whose pack is built around a folder, and runs it: the pack holds the chain, the scope, the commits and the related tasks", async () => {
@@ -2254,11 +2276,11 @@ describe("the idea action: origins on capture and paths on launch", () => {
     expect(record.session).toBe(launched.body.session);
   });
 
-  it("refuses a keyed capture in team mode over a network socket, writing nothing", async () => {
+  // No non-internal interface means no non-loopback socket to test over; the unit tests on checkKey
+  // cover the layer, and this case is the end-to-end refusal when the machine allows it. Skipped
+  // visibly rather than passing in silence.
+  it.skipIf(lanAddresses("0.0.0.0").length === 0)("refuses a keyed capture in team mode over a network socket, writing nothing", async () => {
     const lan = lanAddresses("0.0.0.0");
-    // No non-internal interface means no non-loopback socket to test over; the unit tests on
-    // checkKey cover the layer, and this case is the end-to-end refusal when the machine allows it.
-    if (lan.length === 0) return;
     const repo = makeTempRepo("reggie-team-");
     const paths = repoPaths(repo.root);
     ensureLayout(paths);

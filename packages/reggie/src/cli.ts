@@ -4,7 +4,7 @@ import path from "node:path";
 import { Command } from "commander";
 import { lintBrief, parseBrief, PRIORITIES, SIZES, type Priority, type Size } from "./brief.js";
 import { buildState, checkBuild, packageRoot } from "./build-state.js";
-import { capture, removeFromIntake, resolveCaptureOrigin } from "./capture.js";
+import { capture, removeFromIntake, resolveCaptureOrigin, resolvePackPaths } from "./capture.js";
 import { claimTask, releaseTask } from "./claim.js";
 import { pendingSetup, type DepsOutcome } from "./deps.js";
 import { buildContext } from "./context.js";
@@ -16,7 +16,7 @@ import { buildGraph, type RepoGraph } from "./graph.js";
 import { createIssue, createPullRequest, ghAvailable } from "./gh.js";
 import { currentBranch, defaultBranch, git } from "./git.js";
 import { appendJournal, detectTool, readJournal, renderJournalEntry } from "./journal.js";
-import { contextFileRel, isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, mintSession, recordLaunch, resolveGoal, writeContextPacks, type LaunchGoal, type LaunchInput, type LaunchTask } from "./launch.js";
+import { contextFileRel, isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, MAX_LAUNCH_PATHS, mintSession, recordLaunch, resolveGoal, writeContextPacks, type LaunchGoal, type LaunchInput, type LaunchTask } from "./launch.js";
 import { startMcpServer } from "./mcp.js";
 import { startServer } from "./serve.js";
 import { detectServices, type ServiceNode } from "./services.js";
@@ -436,14 +436,11 @@ program
       return fail(err instanceof Error ? err.message : "cannot launch");
     }
     // Each path is resolved to the file or folder it is before a command is printed or a pack built.
-    const packPaths: string[] = [];
-    for (const p of opts.path ?? []) {
-      try {
-        const origin = resolveCaptureOrigin(c.paths, { path: p });
-        if (origin.path && !packPaths.includes(origin.path)) packPaths.push(origin.path);
-      } catch (err) {
-        return fail(err instanceof Error ? err.message : "bad path");
-      }
+    let packPaths: string[] = [];
+    try {
+      packPaths = resolvePackPaths(c.paths, opts.path ?? [], MAX_LAUNCH_PATHS);
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : "bad path");
     }
     const base: LaunchInput = { repo: c.root, tool: opts.tool, mode: opts.mode, tasks };
     if (opts.note) base.note = opts.note;

@@ -41,7 +41,21 @@ export const CAPTURE_SYMBOL_RE = /^[A-Za-z_$][A-Za-z0-9_$]{0,199}$/;
  * escaping serves both; a path holding one of these is refused rather than written.
  */
 const MARKUP_CHARS = /[`[\]|]/;
-const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
+/**
+ * Characters that would sit invisibly inside the backticks of a detail line or the single-quoted
+ * prompt: the C0 and C1 controls (NEL among them), the line and paragraph separators, and the
+ * zero-width and byte-order marks. Checked on the value as given, before it is trimmed, so a path
+ * that ends in a newline or a tab is refused rather than tidied.
+ */
+export const INVISIBLE_CHARS = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028\u2029\u2060\ufeff]/;
+
+/** How much of a refused path a sentence repeats: enough to recognise it, never the whole request. */
+const ECHO_CHARS = 200;
+
+/** A path as a refusal sentence names it: in backticks, cut at ECHO_CHARS with an ellipsis. */
+function echo(value: string): string {
+  return `\`${value.length > ECHO_CHARS ? `${value.slice(0, ECHO_CHARS)}…` : value}\``;
+}
 
 /**
  * The only place a page path is accepted. Every door (the capture route, both launch routes, the
@@ -74,8 +88,8 @@ export function resolveCaptureOrigin(paths: RepoPaths, raw: RawCaptureOrigin, op
 }
 
 function resolvePath(root: string, raw: string): { kind: "file" | "folder"; path: string } {
+  if (INVISIBLE_CHARS.test(raw)) throw new Error("a path may not hold a control character.");
   const value = raw.trim();
-  if (CONTROL_CHARS.test(value)) throw new Error("a path may not hold a control character.");
   if (value.includes("\\")) throw new Error("a path uses forward slashes; a backslash is not allowed.");
   const stripped = value.replace(/^\.\//, "");
   if (path.posix.isAbsolute(stripped) || path.isAbsolute(stripped)) throw new Error("a path is relative to the repo, never absolute.");
@@ -86,16 +100,41 @@ function resolvePath(root: string, raw: string): { kind: "file" | "folder"; path
   const listed = listRepoFiles(root);
   const exact = listed.includes(clean);
   const folder = !exact && listed.some((f) => f.startsWith(`${clean}/`));
-  if (!exact && !folder) throw new Error(`\`${clean}\` is not a file or folder in this repo (git does not list it, or it is ignored).`);
+  if (!exact && !folder) throw new Error(`${echo(clean)} is not a file or folder in this repo (git does not list it, or it is ignored).`);
   const full = path.join(root, clean);
-  if (!existsSync(full)) throw new Error(`\`${clean}\` is listed by git but is not on disk.`);
+  const gone = new Error(`${echo(clean)} is listed by git but is not on disk.`);
+  if (!existsSync(full)) throw gone;
   // `realpathSync` follows every link: a tracked symlink whose target is outside the repo is not an
-  // entity of the repo, and nothing downstream should be handed a path that reads through it.
+  // entity of the repo, and nothing downstream should be handed a path that reads through it. The
+  // two calls are guarded because an entry that vanishes between the listing and here would
+  // otherwise answer with Node's own message, which carries the absolute path.
+  let real: string;
+  let isDir: boolean;
+  try {
+    real = realpathSync(full);
+    isDir = statSync(full).isDirectory();
+  } catch {
+    throw gone;
+  }
   const rootReal = realpathSync(root);
-  const real = realpathSync(full);
-  if (real !== rootReal && !real.startsWith(`${rootReal}${path.sep}`)) throw new Error(`\`${clean}\` points outside the repo.`);
-  const kind = folder || statSync(full).isDirectory() ? "folder" : "file";
-  return { kind, path: clean };
+  if (real !== rootReal && !real.startsWith(`${rootReal}${path.sep}`)) throw new Error(`${echo(clean)} points outside the repo.`);
+  return { kind: folder || isDir ? "folder" : "file", path: clean };
+}
+
+/**
+ * The pack paths a launch names, each resolved to the file or folder it is, deduplicated by what it
+ * resolved to, and bounded at `MAX_LAUNCH_PATHS` after resolution so that nine spellings of two
+ * paths are two. The first refusal is the answer, in the resolver's words; `POST /api/launch`,
+ * `GET /api/launch` and `reggie launch --path` all come through here so the three cannot drift.
+ */
+export function resolvePackPaths(paths: RepoPaths, raw: readonly string[], max: number): string[] {
+  const out: string[] = [];
+  for (const p of raw) {
+    const origin = resolveCaptureOrigin(paths, { path: p });
+    if (origin.path && !out.includes(origin.path)) out.push(origin.path);
+    if (out.length > max) throw new Error(`a launch names at most ${max} paths.`);
+  }
+  return out;
 }
 
 /** The one detail line an origin becomes, in the shape every reader of the intake already takes. */

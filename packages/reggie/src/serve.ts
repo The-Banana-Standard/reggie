@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
-import { addIntakeDetail, capture, resolveCaptureOrigin, type CaptureOrigin } from "./capture.js";
+import { addIntakeDetail, capture, resolveCaptureOrigin, resolvePackPaths, type CaptureOrigin } from "./capture.js";
 import { changesPayload, DiffRowCache, fileDiff, listChanges, taskRange, type ChangeEntry, type RangeResult, type TaskChanges } from "./changes.js";
 import { buildContext } from "./context.js";
 import { collectFacts, type RepoFacts } from "./facts.js";
@@ -1699,9 +1699,9 @@ function parseLaunch(rawSlugs: readonly string[], rawTool: string | null, rawMod
   if (slugs.some((s) => !isSafeSlug(s))) return { ok: false, error: "bad slug" };
   const note = (rawNote ?? "").trim();
   if (note.length > MAX_NOTE_CHARS) return { ok: false, error: `note is longer than ${MAX_NOTE_CHARS} characters` };
-  // Bounded here, before the resolver runs `git ls-files` once per entry.
-  const paths = uniq(rawPaths.map((p) => p.trim()).filter((p) => p !== ""));
-  if (paths.length > MAX_LAUNCH_PATHS) return { ok: false, error: `a launch names at most ${MAX_LAUNCH_PATHS} paths` };
+  // Kept as spelled, empties included: the resolver refuses a blank the way the capture route does,
+  // and the cap is counted after resolution so that nine spellings of two paths are two.
+  const paths = uniq(rawPaths);
   const value: LaunchRequest = { tool, mode, slugs, paths };
   if (note) value.note = note;
   return { ok: true, value };
@@ -1716,19 +1716,31 @@ function launchTasks(c: RepoCtx, slugs: readonly string[]): { ok: true; tasks: L
 }
 
 /**
- * The pack paths a launch names, each resolved to the file or folder of the repo it is, through
- * the same resolver the capture route uses. The first refusal is the answer, in the resolver's
- * words; nothing has been written, minted or recorded by then.
+ * The pack paths a launch names, resolved through the same function the CLI uses. The first
+ * refusal is the answer, in the resolver's words; nothing has been written, minted or recorded by then.
  */
 function launchPaths(c: RepoCtx, paths: readonly string[]): { ok: true; paths: string[] } | { ok: false; error: string } {
+  try {
+    return { ok: true, paths: resolvePackPaths(c.paths, paths, MAX_LAUNCH_PATHS) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "bad path" };
+  }
+}
+
+/**
+ * The pack paths of a launch body as spelled: `paths` (a list of strings) and the singular `path`.
+ * A field of the wrong shape is a refusal rather than a silent drop, so a client that sent a path
+ * and got a pack without it is never left guessing.
+ */
+function launchPathFields(body: Record<string, unknown>): { ok: true; paths: string[] } | { ok: false; error: string } {
   const out: string[] = [];
-  for (const p of paths) {
-    try {
-      const origin = resolveCaptureOrigin(c.paths, { path: p });
-      if (origin.path && !out.includes(origin.path)) out.push(origin.path);
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : "bad path" };
-    }
+  if ("path" in body && body.path !== null && body.path !== undefined) {
+    if (typeof body.path !== "string") return { ok: false, error: "path must be a string" };
+    out.push(body.path);
+  }
+  if ("paths" in body && body.paths !== null && body.paths !== undefined) {
+    if (!Array.isArray(body.paths) || body.paths.some((p) => typeof p !== "string")) return { ok: false, error: "paths must be a list of strings" };
+    out.push(...(body.paths as string[]));
   }
   return { ok: true, paths: out };
 }
@@ -2249,10 +2261,13 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       }
       // The page the idea came from. Resolved before the file is touched, so a refused origin
       // writes nothing; the detail line is then built from the resolver's output, never the body.
+      // The task list is built only for a task origin: after the previous capture's invalidate it
+      // is a full listTasks, which a path origin has no use for.
       const rawOrigin = originFields(body.value);
       if (rawOrigin) {
         try {
-          input.origin = resolveCaptureOrigin(c.paths, rawOrigin, { knownTasks: new Set(tasksOf(c).map((t) => t.slug)) });
+          const opts = typeof rawOrigin.task === "string" ? { knownTasks: new Set(tasksOf(c).map((t) => t.slug)) } : {};
+          input.origin = resolveCaptureOrigin(c.paths, rawOrigin, opts);
         } catch (err) {
           return json(res, 400, { error: err instanceof Error ? err.message : "bad origin" });
         }
@@ -2422,9 +2437,9 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       // is built as an argument vector by launch.ts and never interpolated into a shell.
       const raw = strList(body.value, "slugs");
       const single = str(body.value, "slug");
-      const rawPaths = strList(body.value, "paths");
-      const singlePath = str(body.value, "path");
-      const parsed = parseLaunch(single ? [single, ...raw] : raw, str(body.value, "tool"), str(body.value, "mode"), str(body.value, "note"), singlePath ? [singlePath, ...rawPaths] : rawPaths);
+      const pathFields = launchPathFields(body.value);
+      if (!pathFields.ok) return json(res, 400, { error: pathFields.error });
+      const parsed = parseLaunch(single ? [single, ...raw] : raw, str(body.value, "tool"), str(body.value, "mode"), str(body.value, "note"), pathFields.paths);
       if (!parsed.ok) return json(res, 400, { error: parsed.error });
       const found = launchTasks(c, parsed.value.slugs);
       if (!found.ok) return json(res, 404, { error: `unknown task: ${found.missing.join(", ")}` });
