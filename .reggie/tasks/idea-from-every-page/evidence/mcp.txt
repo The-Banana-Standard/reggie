@@ -2,13 +2,13 @@
  RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/idea-from-every-page/packages/reggie
 
  ↓ test/mcp.test.ts > mcp server > exposes the tools and captures through them
- ✓ test/mcp.test.ts > mcp server > captures with the file or folder the idea came from, and refuses a path that is not one without writing 501ms
+ ✓ test/mcp.test.ts > mcp server > captures with the file or folder the idea came from, and refuses a path that is not one without writing 509ms
  ↓ test/mcp.test.ts > mcp server on a stale build > refuses every tool call with an error naming the build, and writes nothing
  ↓ test/mcp.test.ts > mcp server on a stale build > tells the session to restart when dist was rebuilt after the server loaded it
  ↓ test/mcp.test.ts > mcp server on a stale build > runs tools normally when the escape hatch is set
 
  Test Files  1 passed (1)
       Tests  1 passed | 4 skipped (5)
-   Start at  10:52:45
-   Duration  765ms (transform 87ms, setup 0ms, import 206ms, tests 502ms, environment 0ms)
+   Start at  10:58:22
+   Duration  766ms (transform 86ms, setup 0ms, import 199ms, tests 510ms, environment 0ms)
 

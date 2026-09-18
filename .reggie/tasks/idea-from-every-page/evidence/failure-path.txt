@@ -141,11 +141,11 @@
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > captures with a file, a symbol or a task origin and echoes it; without one it echoes null and writes the old line
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > answers 400 with the resolver's sentence for every refused origin and writes nothing; a big body is still 413
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > refuses a capture carrying a path from a foreign origin or a cross-site page, writing nothing
- ✓ test/serve.test.ts > the idea action: origins on capture and paths on launch > launches the slug a capture just minted, in the same second, with the file's own note and commits in the pack 784ms
+ ✓ test/serve.test.ts > the idea action: origins on capture and paths on launch > launches the slug a capture just minted, in the same second, with the file's own note and commits in the pack 781ms
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > refuses a keyed capture in team mode over a network socket, writing nothing
 
  Test Files  1 passed (1)
       Tests  1 passed | 141 skipped (142)
-   Start at  10:52:40
-   Duration  2.36s (transform 277ms, setup 0ms, import 346ms, tests 1.95s, environment 0ms)
+   Start at  10:58:18
+   Duration  2.28s (transform 262ms, setup 0ms, import 329ms, tests 1.89s, environment 0ms)
 

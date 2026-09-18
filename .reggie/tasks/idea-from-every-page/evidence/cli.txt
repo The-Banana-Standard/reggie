@@ -13,13 +13,13 @@
  ↓ src/capture.test.ts > capture with an origin > writes one added detail line, last, in the four shapes, and leaves the intake line itself unchanged
  ↓ src/capture.test.ts > capture with an origin > writes the person's detail first and the origin last, and every reader takes both
  ↓ src/capture.test.ts > a task origin in every state > names the origin task for each of the six states, mints the new slug from the text, and moves nothing
- ✓ src/capture.test.ts > reggie capture --path > writes the folder and file origin lines with source cli, the detail first 918ms
- ✓ src/capture.test.ts > reggie capture --path > exits 1 with the resolver's sentence and writes nothing for a missing file, the repo itself and an empty path 762ms
+ ✓ src/capture.test.ts > reggie capture --path > writes the folder and file origin lines with source cli, the detail first 837ms
+ ✓ src/capture.test.ts > reggie capture --path > exits 1 with the resolver's sentence and writes nothing for a missing file, the repo itself and an empty path 767ms
 
  Test Files  1 passed (1)
       Tests  2 passed | 12 skipped (14)
-   Start at  10:52:29
-   Duration  1.97s (transform 101ms, setup 0ms, import 132ms, tests 1.78s, environment 0ms)
+   Start at  10:58:06
+   Duration  1.89s (transform 96ms, setup 0ms, import 126ms, tests 1.70s, environment 0ms)
 
 
  RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/idea-from-every-page/packages/reggie
@@ -52,8 +52,8 @@
  ↓ src/launch.test.ts > context files and launch records > keeps every launch for a slug in a log, while the single record still holds the latest
  ↓ src/launch.test.ts > context files and launch records > skips a line of the log that does not parse, or is not a launch for this slug
  ↓ src/launch.test.ts > context files and launch records > still reads a cache that holds only the old single record and no log
- ✓ src/launch.test.ts > writeContextPacks and reggie launch --path > builds each task's pack around the paths it was given, in the directory it was told 117ms
- ✓ src/launch.test.ts > writeContextPacks and reggie launch --path > prints a command whose prompt names both paths, and exits 1 before printing one for a path that is not there 1206ms
+ ✓ src/launch.test.ts > writeContextPacks and reggie launch --path > builds each task's pack around the paths it was given, in the directory it was told 113ms
+ ✓ src/launch.test.ts > writeContextPacks and reggie launch --path > prints a command whose prompt names both paths, and exits 1 before printing one for a path that is not there 1193ms
  ↓ src/launch.test.ts > shellQuote > round-trips every nasty string through a real shell unchanged
  ↓ src/launch.test.ts > shellQuote > leaves plain words bare so commands stay readable
  ↓ src/launch.test.ts > shellQuote > quotes anything else, including the empty string
@@ -65,6 +65,6 @@
 
  Test Files  1 passed (1)
       Tests  2 passed | 36 skipped (38)
-   Start at  10:52:31
-   Duration  1.66s (transform 93ms, setup 0ms, import 125ms, tests 1.47s, environment 0ms)
+   Start at  10:58:08
+   Duration  1.63s (transform 88ms, setup 0ms, import 118ms, tests 1.45s, environment 0ms)
 

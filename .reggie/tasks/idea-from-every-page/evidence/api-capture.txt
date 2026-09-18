@@ -138,14 +138,14 @@
  ↓ test/serve.test.ts > a derived journal entry over HTTP > comes back from both journal routes with its derived object, and with the mark kept out of the text
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > refuses a launch path that is not an entity of the repo before any pack, session or record exists
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > describes a launch whose pack is built around a folder, and runs it: the pack holds the chain, the scope, the commits and the related tasks
- ✓ test/serve.test.ts > the idea action: origins on capture and paths on launch > captures with a file, a symbol or a task origin and echoes it; without one it echoes null and writes the old line 1444ms
- ✓ test/serve.test.ts > the idea action: origins on capture and paths on launch > answers 400 with the resolver's sentence for every refused origin and writes nothing; a big body is still 413 477ms
+ ✓ test/serve.test.ts > the idea action: origins on capture and paths on launch > captures with a file, a symbol or a task origin and echoes it; without one it echoes null and writes the old line 1483ms
+ ✓ test/serve.test.ts > the idea action: origins on capture and paths on launch > answers 400 with the resolver's sentence for every refused origin and writes nothing; a big body is still 413 468ms
  ✓ test/serve.test.ts > the idea action: origins on capture and paths on launch > refuses a capture carrying a path from a foreign origin or a cross-site page, writing nothing 1ms
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > launches the slug a capture just minted, in the same second, with the file's own note and commits in the pack
- ✓ test/serve.test.ts > the idea action: origins on capture and paths on launch > refuses a keyed capture in team mode over a network socket, writing nothing 114ms
+ ✓ test/serve.test.ts > the idea action: origins on capture and paths on launch > refuses a keyed capture in team mode over a network socket, writing nothing 110ms
 
  Test Files  1 passed (1)
       Tests  4 passed | 138 skipped (142)
-   Start at  10:52:33
-   Duration  3.60s (transform 272ms, setup 0ms, import 342ms, tests 3.20s, environment 0ms)
+   Start at  10:58:11
+   Duration  3.60s (transform 264ms, setup 0ms, import 332ms, tests 3.21s, environment 0ms)
 

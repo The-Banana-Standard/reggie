@@ -1,9 +1,10 @@
+# git HEAD at the time of this run: 049ae86
 
  RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/idea-from-every-page/packages/reggie
 
 
  Test Files  36 passed (36)
       Tests  1048 passed | 1 skipped (1049)
-   Start at  10:51:05
-   Duration  43.41s (transform 2.57s, setup 0ms, import 4.47s, tests 231.50s, environment 2ms)
+   Start at  10:57:18
+   Duration  42.98s (transform 2.57s, setup 0ms, import 4.21s, tests 223.60s, environment 2ms)
 

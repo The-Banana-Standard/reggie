@@ -20,7 +20,7 @@
  ✓ src/launch.test.ts > launchCommand > lists several ungroomed slugs in one shaping prompt 0ms
  ✓ src/launch.test.ts > launchCommand > rejects a slug that is not a slug, before it reaches a command string 0ms
  ✓ src/launch.test.ts > launchCommand > names the pack paths in every goal's prompt, right after the context clause 0ms
- ✓ src/launch.test.ts > launchCommand > keeps a hostile path verbatim inside the prompt argument and single-quoted in the command 10ms
+ ✓ src/launch.test.ts > launchCommand > keeps a hostile path verbatim inside the prompt argument and single-quoted in the command 11ms
  ✓ src/launch.test.ts > launchCommand > refuses an empty path, a control character, a ninth path and an over-long path before building anything 0ms
  ✓ src/launch.test.ts > launchCommand > leaves every prompt byte-identical without paths 0ms
  ✓ src/launch.test.ts > launchCommand > rejects an unknown tool, an unknown mode, no task, and no repo 0ms
@@ -42,6 +42,6 @@
 
  Test Files  1 passed (1)
       Tests  20 passed | 18 skipped (38)
-   Start at  10:52:33
-   Duration  207ms (transform 94ms, setup 0ms, import 126ms, tests 17ms, environment 0ms)
+   Start at  10:58:10
+   Duration  194ms (transform 88ms, setup 0ms, import 118ms, tests 18ms, environment 0ms)
 
