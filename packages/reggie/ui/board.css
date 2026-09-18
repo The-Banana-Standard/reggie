@@ -234,6 +234,18 @@
 .packet__evidence { display: inline-flex; gap: var(--s-2); flex-wrap: wrap; }
 .packet__noev { font-size: var(--fs-meta); }
 .packet__decide { margin-top: var(--s-3); }
+/* The policy report above the decide form. Long paths and sentences wrap rather than widen the page. */
+.policy { margin-top: var(--s-3); padding: var(--s-3); border: 1px solid var(--line-strong); border-radius: var(--radius); min-width: 0; overflow-wrap: anywhere; }
+.policy--would-pass { border-color: var(--ok); }
+.policy--refused { border-color: var(--bad); }
+.policy__verdict { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+.policy__facts { font-size: var(--fs-meta); margin: var(--s-1) 0 0; }
+.policy__list { list-style: none; margin: var(--s-2) 0 0; padding: 0; display: grid; gap: 6px; }
+.policy__row { display: flex; align-items: flex-start; gap: var(--s-2); flex-wrap: wrap; font-size: var(--fs-body); line-height: var(--lh-body); min-width: 0; }
+.policy__text { flex: 1 1 200px; min-width: 0; }
+.policy__row.is-bad .policy__text { color: var(--bad); }
+.policy__who, .policy__why { flex: 1 1 100%; padding-left: 26px; font-size: var(--fs-meta); min-width: 0; }
+.policy__reason { display: block; }
 .evidence-link { font-family: var(--mono); font-size: var(--fs-meta); }
 .evidence-code { font-size: var(--fs-meta); color: var(--muted); }
 

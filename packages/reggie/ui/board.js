@@ -494,6 +494,17 @@ export function friendlyError(err) {
   return err?.message ? String(err.message) : "The request failed.";
 }
 
+/**
+ * What the decide form says when a decision did not land. The decide route answers 409 for several
+ * different reasons now (no packet, uncommitted changes on the base, a merge conflict, a citation that
+ * does not resolve, another landing in progress), and each comes with the one sentence that says what
+ * to do about it; so a 409 shows the server's own words instead of guessing at a missing packet.
+ */
+export function decideError(err) {
+  if (err?.status === 409 && err?.message) return String(err.message);
+  return friendlyError(err);
+}
+
 /** Approve / Needs work + comment → POST /api/decide. */
 export function decideForm(ctx, slug, opts = {}) {
   const ta = h("textarea", {
@@ -531,7 +542,7 @@ export function decideForm(ctx, slug, opts = {}) {
     } catch (e) {
       // The inline message is easy to miss under the fold of a long packet section, and a decision
       // that did not land is exactly the thing the reader must not walk away believing (F1).
-      const text = friendlyError(e);
+      const text = decideError(e);
       err.textContent = text;
       toast(`Could not record the decision on \`${slug}\`: ${text}`, { tone: "bad" });
       busy(false);
@@ -3018,7 +3029,7 @@ export function renderTaskPage(storyEl, mapEl, data = {}, deps = {}) {
   );
 
   // --- packet ------------------------------------------------------------------------
-  const packetSec = packet ? packetSection(ctx, slug, packet, task, rights) : section("packet", "Completion packet", h("div", { class: "empty" }, h("p", { class: "empty__text" }, "No completion packet yet. It is written when the work is finished and lists what was verified, with evidence."), h("p", { class: "empty__hint" }, "Write it with ", h("code", {}, `reggie packet ${slug}`), ".")));
+  const packetSec = packet ? packetSection(ctx, slug, packet, task, rights, data.policy ?? null) : section("packet", "Completion packet", h("div", { class: "empty" }, h("p", { class: "empty__text" }, "No completion packet yet. It is written when the work is finished and lists what was verified, with evidence."), h("p", { class: "empty__hint" }, "Write it with ", h("code", {}, `reggie packet ${slug}`), ".")));
 
   // --- journal ------------------------------------------------------------------------
   const entries = journal.slice().sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
@@ -3225,7 +3236,63 @@ function evidenceLink(ctx, slug, entry) {
   return h("a", { class: "link link--file evidence-link", href: url, target: "_blank", rel: "noopener", title: `Open evidence/${name}` }, icon("external"), h("span", {}, name));
 }
 
-function packetSection(ctx, slug, packet, task, rights) {
+const POLICY_VERDICT = { "would-pass": ["would pass", "ok"], refused: ["refused", "bad"], "not-evaluated": ["not evaluated", "muted"] };
+const POLICY_MARK = { pass: ["✓", "ok"], fail: ["✗", "bad"], "not-checked": ["○", "muted"], missing: ["○", "muted"], stale: ["!", "bad"], "no-evidence": ["!", "bad"] };
+
+/**
+ * The policy report, drawn above the decide form: what the policy would say about this task, from
+ * `policy` on GET /api/task/<slug>. It is a report and says so; nothing here decides. Every string
+ * that came out of a check record (who, with what, when, a note) is set as a text node and never
+ * through the inline renderer, because a record is a file anyone on the branch can write.
+ */
+function policyReport(policy) {
+  if (!policy) return null;
+  const [label, tone] = POLICY_VERDICT[policy.verdict] ?? [String(policy.verdict), "muted"];
+  const short = (c) => (c ? `${c.branch} @ ${String(c.commit).slice(0, 12)}` : "not read");
+  const mark = (status) => {
+    const [glyph, t] = POLICY_MARK[status] ?? POLICY_MARK["not-checked"];
+    return h("span", { class: `packet__mark packet__mark--${t}`, "aria-label": status, title: status }, glyph);
+  };
+  const facts = [];
+  if (policy.base) facts.push(`base ${short(policy.base)}`);
+  if (policy.task) facts.push(`branch ${short(policy.task)}`);
+  if (policy.policy) facts.push(`completions pass up to ${policy.policy.completions} (${policy.policy.source.completions === "base-commit" ? "from the base commit's policy block" : "the mode's default"})`);
+  if (policy.risk) facts.push(`effective risk ${policy.risk.effective}`);
+  const criteria = (policy.criteria ?? []).map((c) =>
+    h(
+      "li",
+      { class: `policy__row is-${(POLICY_MARK[c.status] ?? [])[1] ?? "muted"}` },
+      mark(c.status),
+      h("span", { class: "policy__text" }, `${c.n}. ${c.text}`),
+      h("span", { class: "policy__who faint" }, c.record ? `${c.status} · ${c.record.person || "unknown"} (${c.record.tool || "unknown"}) · ${fmtDate(c.record.at)}` : c.status, c.why ? ` · ${c.why}` : ""),
+    ),
+  );
+  const reviews = (policy.reviews ?? []).map((r) =>
+    h("li", { class: "policy__row" }, mark(r.outcome), h("span", { class: "policy__text" }, `review ${r.name}`), h("span", { class: "policy__who faint" }, `${r.outcome} · ${r.record.person || "unknown"} (${r.record.tool || "unknown"}) · ${fmtDate(r.record.at)}`)),
+  );
+  const gates = (policy.gates ?? []).map((g) =>
+    h(
+      "li",
+      { class: `policy__row is-${(POLICY_MARK[g.status] ?? [])[1] ?? "muted"}`, dataset: { gate: g.id } },
+      mark(g.status),
+      h("span", { class: "policy__text" }, g.title),
+      h("span", { class: "policy__why faint" }, (g.reasons ?? []).map((r) => h("span", { class: "policy__reason" }, r))),
+    ),
+  );
+  return h(
+    "div",
+    { class: `policy policy--${policy.verdict}`, dataset: { verdict: policy.verdict } },
+    h("h3", { class: "task-sub" }, "What the policy would say"),
+    h("p", { class: "hint" }, "A report, not a decision. Nothing here approves or merges; a person decides, below."),
+    h("p", { class: "para para--fact policy__verdict" }, chip("Policy", label, { tone, tip: "What the policy would say about this task; nothing acts on it in this version" }), " ", h("span", { class: "policy__summary" }, policy.summary ?? "")),
+    facts.length ? h("p", { class: "policy__facts faint" }, facts.join(" · ")) : null,
+    policy.risk?.unplanned?.length ? h("p", { class: "policy__facts faint" }, `Changed but never named by the plan: ${policy.risk.unplanned.join(", ")}`) : null,
+    criteria.length || reviews.length ? h("ul", { class: "policy__list policy__criteria" }, criteria, reviews) : null,
+    gates.length ? h("ul", { class: "policy__list policy__gates" }, gates) : null,
+  );
+}
+
+function packetSection(ctx, slug, packet, task, rights, policy = null) {
   const verdict = packet.verdict ?? "pending";
   const marks = { true: ["✓", "ok", "passes"], false: ["✗", "bad", "fails"], null: ["○", "muted", "not verified"] };
   const crit = (packet.criteria ?? []).map((c) => {
@@ -3255,7 +3322,7 @@ function packetSection(ctx, slug, packet, task, rights) {
     packet.decidedBy ? chip("Decided by", packet.decidedBy) : null,
     packet.decidedAt ? chip("Date", fmtDate(packet.decidedAt), { tip: packet.decidedAt }) : null,
   );
-  const sec = section("packet", "Completion packet", headRow, crit.length ? h("ul", { class: "packet__criteria" }, crit) : h("p", { class: "para muted" }, "The packet lists no criteria."), subs, allEvidence, decision);
+  const sec = section("packet", "Completion packet", headRow, crit.length ? h("ul", { class: "packet__criteria" }, crit) : h("p", { class: "para muted" }, "The packet lists no criteria."), subs, allEvidence, policyReport(policy), decision);
 
   function afterDecision(v) {
     const label = v === "approved" ? "Approved" : "Needs work";
