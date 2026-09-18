@@ -605,7 +605,7 @@ journal
       out("");
       out(
         e.written
-          ? `Appended to ${e.file}, which is uncommitted: read it, then commit it. Until you do, the next \`reggie decide\` in this checkout refuses to merge, as it does for any hand entry.`
+          ? `Appended to ${e.file}, which is uncommitted: read it, then commit it. A journal file already tracked on this branch will block the next \`reggie decide\` in this checkout until it is committed, as any hand entry does; a brand-new day file will not, so commit it before you land the task.`
           : `Dry run: this would be appended to ${e.file}. Nothing was written.`,
       );
       out("");

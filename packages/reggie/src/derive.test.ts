@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -14,6 +14,7 @@ import {
   realRewriteRunner,
   REWRITE_ARGV,
   REWRITE_INSTRUCTION,
+  REWRITE_SYSTEM_PROMPT,
   SENTENCE_CODEX_UNREAD,
   SENTENCE_ENDED_ON_TOOLS,
   SENTENCE_NO_CLOSING_WORDS,
@@ -21,6 +22,7 @@ import {
   SENTENCE_NO_TRANSCRIPT,
   SENTENCE_OTHER_MACHINE,
   SENTENCE_OUTSIDE_SESSIONS,
+  SENTENCE_SESSION_ELSEWHERE,
   withheldSentence,
   type DeriveInput,
   type DeriveResult,
@@ -35,6 +37,7 @@ import { recordLaunch, type LaunchGoal } from "./launch.js";
 import { ensureLayout } from "./layout.js";
 import { scaffoldPacket } from "./packet.js";
 import { claimFile, packetRelPath, planFile, repoPaths, type RepoPaths } from "./paths.js";
+import { getTask } from "./tasks.js";
 import { currentPerson, loadConfig, loadPeople, type Person, type ReggieConfig } from "./people.js";
 import { MAX_QUOTE_CHARS, WITHHELD } from "./redact.js";
 import { clock, today, writeText } from "./util.js";
@@ -508,6 +511,57 @@ describe("degenerate input", () => {
     expect(text).toContain(SENTENCE_NO_CLOSING_WORDS);
     expect(text).not.toContain("STOPSEQUENCEWORDS");
   });
+
+  it("does not let one far-future timestamp poison the watermark or file the entry under a future year", () => {
+    // C9: a single wrong clock used to set `through` past everything and file the entry under 2999.
+    const s = setup();
+    launch(s, "build", ID1);
+    const r = records(ID1);
+    writeTranscript(s.home, ID1, s.root, [
+      r.user("go", { at: at(10, 0), cwd: s.root }),
+      r.closing("REALCLOSING the work is done.", { at: at(10, 30), cwd: s.root }),
+      r.closing("FUTURECLOSING from a wrong clock.", { at: "2999-01-01T00:00:00.000Z", cwd: s.root }),
+    ]);
+    const first = derive(s);
+    expect(first.entries).toHaveLength(1);
+    expect(first.entries[0]?.date.startsWith("2026-")).toBe(true);
+    expect(first.entries[0]?.text).toContain("REALCLOSING the work is done.");
+    expect(first.entries[0]?.text).not.toContain("FUTURECLOSING");
+    expect(Date.parse(first.entries[0]?.mark.through ?? "")).toBe(Date.parse(at(10, 30)));
+    // The watermark is a real instant, so a later real message is still quoted next time.
+    expect(existsSync(path.join(s.root, ".reggie/journal/2999-01-01"))).toBe(false);
+  });
+
+  it("says nothing was inside this repository, not that there were no closing words, when the checkout has moved", () => {
+    // C10: a recorded session whose records are all in a directory outside the repository as located now.
+    const s = setup();
+    commitAt(s.root, "feat: a commit", at(10, 30));
+    launch(s, "build", ID1);
+    writeTranscript(s.home, ID1, "/elsewhere", [records(ID1).closing("Real closing words, but not here.", { at: at(10, 0), cwd: "/somewhere/old/checkout" })]);
+    const r = derive(s);
+    expect(r.entries).toHaveLength(1);
+    expect(r.entries[0]?.kind).toBe("commits");
+    expect(r.entries[0]?.text).toContain(SENTENCE_SESSION_ELSEWHERE);
+    expect(r.entries[0]?.text).not.toContain(SENTENCE_NO_CLOSING_WORDS);
+    expect(r.sessions).toMatchObject([{ id: ID1, status: "read", eligible: 0 }]);
+  });
+
+  it("reports an unreadable transcript as one session not read, and still derives the rest", () => {
+    // C5 / S10b: chmod 000 used to abort the whole verb with EACCES.
+    const s = setup();
+    commitAt(s.root, "feat: a commit", at(10, 30));
+    launch(s, "build", ID1);
+    const file = writeTranscript(s.home, ID1, s.root, [records(ID1).closing("Words nobody can read.", { at: at(10, 0), cwd: s.root })]);
+    chmodSync(file, 0o000);
+    try {
+      const r = derive(s);
+      expect(r.entries).toHaveLength(1);
+      expect(r.entries[0]?.kind).toBe("commits");
+      expect(r.sessions).toMatchObject([{ id: ID1, status: "not-found" }]);
+    } finally {
+      chmodSync(file, 0o644);
+    }
+  });
 });
 
 describe("which commits are told", () => {
@@ -583,6 +637,28 @@ describe("which commits are told", () => {
     expect(run.status).toBe(0);
     expect(run.stdout).toMatch(/There is nothing to derive for cap-retries/);
     expect(journalFiles(s.root).size).toBe(0);
+  });
+
+  it("narrates a landed task's commits even when the local branch still exists", () => {
+    // C3: landed by someone else (release refuses, the branch stays), or a merged PR not pruned.
+    const s = setup();
+    const other: Person = { name: "Casey Example", email: "casey@example.com", handle: "casey", role: "maintainer" };
+    const worktree = claimTask(s.paths, s.config, SLUG, { person: other, worktree: false }).worktree;
+    const work = commitAt(s.root, "feat: casey's work", at(10, 0));
+    scaffoldPacket(s.paths, s.config, { slug: SLUG, author: other.handle });
+    git(["add", "--", packetRelPath(SLUG)], { cwd: s.root });
+    git(["commit", "-q", "--date", at(10, 30), "-m", `packet: ${SLUG}`, "-m", `Task: ${SLUG}`], { cwd: s.root });
+    git(["switch", "-q", "main"], { cwd: s.root });
+    landTask(s.paths, s.config, SLUG, { person: s.person });
+    expect(git(["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { cwd: s.root, allowFailure: true }).ok).toBe(true);
+    expect(getTask(s.paths, s.config, SLUG).state).toBe("done");
+    void worktree;
+
+    const r = derive(s);
+    expect(r.entries).toHaveLength(1);
+    expect(r.entries[0]?.mark.commits).toEqual([work.slice(0, 12), /* packet */ r.entries[0]?.mark.commits[1] ?? ""]);
+    expect(r.entries[0]?.text).toContain("“feat: casey's work”");
+    expect(r.entries[0]?.text).not.toContain("nothing to derive");
   });
 
   it("derives a planning session that made no commits from its transcript and the plan's state, as a plan entry", () => {
@@ -703,12 +779,50 @@ describe("idempotence", () => {
 
     const statusBefore = git(["status", "--porcelain"], { cwd: s.root }).stdout;
     const fromBase = derive(s);
-    expect(fromBase.entries.filter((e) => e.kind === "session")).toEqual([]);
-    // The journal commit itself is new to the base's view, and is the one thing left to tell.
-    expect(fromBase.entries.flatMap((e) => e.mark.commits)).toHaveLength(fromBase.entries.length);
-    const sessionFiles = Array.from(journalFiles(s.root).keys()).filter((f) => f.includes(ID1));
-    expect(sessionFiles).toEqual([]);
+    // Nothing at all: the session's entry is already there, and the journal commit that carried it is
+    // bookkeeping (every file under the journal folder), so it is never narrated. Committing the entry
+    // the verb told you to commit must not make the next run tell that commit.
+    expect(fromBase.entries).toEqual([]);
     expect(statusBefore).toBe("");
+  });
+
+  it("never narrates a commit whose every file is a journal file, so committing a derived entry does not loop", () => {
+    const s = setup();
+    onBranch(s);
+    commitAt(s.root, "feat: real work", at(10, 10));
+    launch(s, "build", ID1);
+    writeTranscript(s.home, ID1, s.root, [records(ID1).user("go", { at: at(10, 0), cwd: s.root }), records(ID1).closing("Did the work.", { at: at(10, 30), cwd: s.root })]);
+    const first = derive(s);
+    expect(first.entries).toHaveLength(1);
+    // Commit the day file the verb wrote, exactly as its output tells you to.
+    git(["add", "--", ".reggie/journal"], { cwd: s.root });
+    git(["commit", "-q", "-m", "journal: derived entry", "-m", `Task: ${SLUG}`], { cwd: s.root });
+    // Three more cycles: each must derive nothing, because the journal commit is bookkeeping.
+    for (let i = 0; i < 3; i += 1) {
+      const again = derive(s);
+      expect(again.entries).toEqual([]);
+      if (git(["status", "--porcelain"], { cwd: s.root }).stdout.trim() !== "") git(["commit", "-q", "-am", "journal: another"], { cwd: s.root });
+    }
+  });
+
+  it("narrates another task's own commits but never quotes a session that only worked in another task's worktree", () => {
+    // C2: a session that shapes this slug at the root and then builds a different task in .worktree/other.
+    const s = setup();
+    const other = "other-task";
+    writeText(planFile(s.paths, other), fullPlan(other));
+    s.repo.commitAll("plan other");
+    onBranch(s);
+    commitAt(s.root, "feat: work on this task", at(9, 30));
+    launch(s, "shape", ID1);
+    const otherWorktree = path.join(s.root, ".worktree", other);
+    writeTranscript(s.home, ID1, s.root, [
+      records(ID1).user("shape this then build the other", { at: at(9, 0), cwd: s.root }),
+      records(ID1).closing("SHAPED this task at the root.", { at: at(9, 40), cwd: s.root }),
+      records(ID1).closing("OTHERTASKWORDS built the other task in its worktree.", { at: at(12, 0), cwd: otherWorktree }),
+    ]);
+    const text = derive(s).entries[0]?.text ?? "";
+    expect(text).toContain("SHAPED this task at the root.");
+    expect(text).not.toContain("OTHERTASKWORDS");
   });
 
   it("sees, from a task worktree, an entry the base gained after the branch was cut", () => {
@@ -780,7 +894,8 @@ describe("redaction in an entry", () => {
     const s = setup();
     launch(s, "build", ID1);
     const url = `https://${["user", "pw123456"].join(":")}@example.org/page?key=${"k".repeat(16)}`;
-    const message = `Finished. ${SECRET_SHAPES.map((x) => `Then ${x.value} appeared.`).join(" ")} Also ${url} was used.`;
+    // Each shape on its own line, so a name=value shape's end-of-line withholding does not swallow the next.
+    const message = `Finished.\n${SECRET_SHAPES.map((x) => `Then ${x.value} appeared.`).join("\n")}\nAlso ${url} was used.`;
     writeTranscript(s.home, ID1, s.root, [records(ID1).closing(message, { at: at(10, 0), cwd: s.root })]);
 
     const run = cli(s, ["journal", "derive", SLUG]);
@@ -797,6 +912,7 @@ describe("redaction in an entry", () => {
     const entry = parseJournalFile("f", DAY, content)[0];
     const counted = /^Withheld (\d+) passages? that looked like/m.exec(run.stdout)?.[1];
     const n = Number(counted);
+    // At least the fifteen shapes and the URL: a run may withhold more, never fewer.
     expect(n).toBeGreaterThanOrEqual(SECRET_SHAPES.length + 1);
     expect(entry?.text.endsWith(withheldSentence(n))).toBe(true);
     expect(run.stdout.trim().split("\n").pop()).toContain(`withheld ${n};`);
@@ -957,9 +1073,16 @@ describe("rewrite seam", () => {
     const dry = derive(s, { rewrite: true, runner: f.runner, dryRun: true });
     expect(dry.entries.map((e) => [e.kind, e.mark.prose])).toEqual([["session", "model"], ["commits", "template"]]);
     expect(f.calls).toHaveLength(1);
-    expect(f.calls[0]?.argv).toEqual(["claude", "-p", "--tools", "", "--no-session-persistence", "--strict-mcp-config"]);
+    // Constant argv: the tool with nothing to act with and nothing loaded around it (no tools, no MCP,
+    // no user/project/local settings, a fixed system prompt in place of the default).
+    expect(f.calls[0]?.argv).toEqual(["claude", "-p", "--tools", "", "--no-session-persistence", "--strict-mcp-config", "--setting-sources", "", "--system-prompt", REWRITE_SYSTEM_PROMPT]);
     expect(f.calls[0]?.argv).toEqual([...REWRITE_ARGV]);
-    expect(f.calls[0]?.cwd).toBe(os.tmpdir());
+    // A fresh temp directory under the OS temp root, not the shared temp root itself, and removed after.
+    const dir = f.calls[0]?.cwd ?? "";
+    expect(dir.startsWith(os.tmpdir())).toBe(true);
+    expect(dir).not.toBe(os.tmpdir());
+    expect(dir).toMatch(/reggie-rewrite-/);
+    expect(existsSync(dir)).toBe(false);
     expect(f.calls[0]?.timeoutMs).toBe(120_000);
 
     // What a run without the flag writes is, byte for byte, what the call was sent after the instruction.
