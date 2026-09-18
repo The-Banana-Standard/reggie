@@ -15,3 +15,7 @@ sources: derive-the-journal
 The Claude home has no default here. defaultClaudeHome is the only place the home directory is named, only the CLI calls it, and every library function takes the home as a required argument, which is what stops a test from ever reading a real conversation. A test asserts that the word homedir appears once in this file and never in the derive module, and that this file never calls a whole-file read. Keep both true.
 sources: derive-the-journal
 
+## gotcha · 2026-09-18 · Claude via jacobpress · high
+Three review fixes on 2026-09-18. isSidechain is treated as true for anything but a plain false, absent, null, 0 or the string false, so a string true or a 1 is never read as the main conversation and quoted. A cwd is inside the repository only when it is absolute (isInsideDir returns false for a relative or empty cwd), because an empty or dot cwd would otherwise resolve against the process directory and count as inside. selectRecords now excludes any record inside another task's worktree under .worktree, so a session that shaped this slug at the root and then built a different task does not have the other task's closing words quoted here. And a timestamp more than about a day in the future is dropped to null, so one wrong clock cannot set a watermark past every later message or file an entry under a future year.
+sources: derive-the-journal
+

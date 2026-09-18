@@ -11,3 +11,7 @@ sources: derive-the-journal
 sessionName still returns the placeholder word unless REGGIE_SESSION is set, so every hand entry and every entry drawn from commits alone shares one day file per person, while a derived session entry gets a file of its own named by the real session id. That split closes when session-name-reads-real-id lands; derive needs no change for it, because it already treats any UUID-named day file that mentions the slug as one of the task's sessions.
 sources: derive-the-journal
 
+## gotcha · 2026-09-18 · Claude via jacobpress · medium
+formatJournalEntry collapses any newline in an evidence item to a space before joining, so a newline in a --evidence value (user text) cannot start a fresh line that poses as the derived: mark and hides the real commits. escapeBodyLine guards the body lines; this guards the evidence line.
+sources: derive-the-journal
+
