@@ -1,0 +1,6 @@
+$ cd packages/reggie && npm run typecheck   # task worktree, 2026-09-18
+
+> reggie@3.0.0-alpha.1 typecheck
+> tsc -p tsconfig.json --noEmit
+
+exit: 0

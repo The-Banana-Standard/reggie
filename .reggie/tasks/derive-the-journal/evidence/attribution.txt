@@ -1,0 +1,22 @@
+$ TZ=UTC npx vitest run src/derive.test.ts -t attribution --reporter=verbose   # skipped cases left out
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > attribution > a session launched to shape is a triage entry, by the tool claude 206ms
+ ✓ src/derive.test.ts > attribution > a session launched to plan is a plan entry, by the tool claude 185ms
+ ✓ src/derive.test.ts > attribution > a session launched to discuss is a discuss entry, by the tool claude 188ms
+ ✓ src/derive.test.ts > attribution > a session launched to build is a execute entry, by the tool claude 188ms
+ ✓ src/derive.test.ts > attribution > a session named only by the flag is a session entry 186ms
+ ✓ src/derive.test.ts > attribution > goes to the claim's handle when the task has a claim, in the file name too, and to whoever runs the verb otherwise 216ms
+ ✓ src/derive.test.ts > attribution > does not let a claim's handle become a path or a header field 213ms
+ Test Files  1 passed (1)
+      Tests  7 passed | 71 skipped (78)
+   Start at  09:19:52
+   Duration  1.58s (transform 110ms, setup 0ms, import 145ms, tests 1.38s, environment 0ms)
+
+$ TZ=UTC npx vitest run src/tasks.test.ts -t parseClaim --reporter=verbose   # skipped cases left out
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/tasks.test.ts > parseClaim > returns the claim's handle beside the person, and an empty one for a claim written before the field existed 1ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 22 skipped (23)
+   Start at  09:19:54
+   Duration  171ms (transform 88ms, setup 0ms, import 116ms, tests 2ms, environment 0ms)
+

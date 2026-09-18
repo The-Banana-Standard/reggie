@@ -1,0 +1,10 @@
+$ cd packages/reggie && TZ=UTC npx vitest run   # task worktree, 2026-09-18, after the review fixes, on efc2ce6
+
+ RUN  v4.1.11 <task worktree>/packages/reggie
+
+
+ Test Files  36 passed (36)
+      Tests  1022 passed | 1 skipped (1023)
+   Start at  09:15:41
+   Duration  41.71s (transform 2.73s, setup 0ms, import 4.42s, tests 214.93s, environment 1ms)
+

@@ -44,6 +44,15 @@ describe("generated blocks", () => {
     expect(codex).toContain("codex mcp add");
   });
 
+  it("still asks for a hand entry per step, and says what the derive verb adds and what it cannot", () => {
+    const paths = repoPaths(repo.root);
+    for (const tool of ["claude", "codex"] as const) {
+      const line = renderGeneratedBlock(collectFacts(repo.root), loadConfig(paths), tool).split("\n").find((l) => l.includes("journal entry")) ?? "";
+      expect(line).toContain("After each step of work, write one plain-English journal entry: `reggie journal add --slug <slug> --stage <stage>");
+      expect(line).toContain("`reggie journal derive <slug>` adds the commits and a launched session's closing words, not the reasons");
+    }
+  });
+
   it("onboard creates files; check reports fresh, then stale after code changes", () => {
     const r = onboard(repo.root);
     const paths = repoPaths(repo.root);

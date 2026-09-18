@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { run } from "./git.js";
 import type { InstallEntry } from "./people.js";
@@ -353,7 +353,10 @@ export function writeContextFile(cwd: string, slug: string, text: string): strin
   return rel;
 }
 
-/** What a launch left behind: enough to find the chat again and to say a session is in flight. */
+/**
+ * What a launch left behind: enough to find the chat again and to say a session is in flight. It names
+ * no person, and a Codex launch has no id, so `reggie journal derive` can only report that one as unread.
+ */
 export interface LaunchRecord {
   slug: string;
   tool: LaunchTool;
@@ -370,12 +373,73 @@ export function launchRecordFile(root: string, slug: string): string {
   return path.join(root, ".reggie", ".cache", "launches", `${slug}.json`);
 }
 
+/**
+ * `.reggie/.cache/launches/<slug>.log`: every launch for the slug, one JSON object per line, oldest
+ * first. The `.json` beside it keeps only the latest, so a plan launch followed by a build launch
+ * would otherwise lose the planning session's id, and with it the only join to that transcript.
+ */
+export function launchLogFile(root: string, slug: string): string {
+  if (!isSafeSlug(slug)) throw new Error(`"${slug}" is not a valid slug.`);
+  return path.join(root, ".reggie", ".cache", "launches", `${slug}.log`);
+}
+
 export function recordLaunch(root: string, record: Omit<LaunchRecord, "at">): LaunchRecord {
   const full = { ...record, at: nowIso() };
   const file = launchRecordFile(root, record.slug);
+  const log = launchLogFile(root, record.slug);
   mkdirSync(path.dirname(file), { recursive: true });
+  // A record written before the log existed is about to be overwritten; it goes into the log first.
+  const before = !existsSync(log) && existsSync(file) ? parseLaunch(readFileSync(file, "utf8"), record.slug) : null;
+  if (before) appendFileSync(log, `${JSON.stringify(before)}\n`, "utf8");
   writeFileSync(file, `${JSON.stringify(full, null, 2)}\n`, "utf8");
+  appendFileSync(log, `${JSON.stringify(full)}\n`, "utf8");
   return full;
+}
+
+/** A record as it was written, or null for anything else: the cache is a file anyone can edit. */
+function asLaunchRecord(value: unknown, slug: string): LaunchRecord | null {
+  if (!value || typeof value !== "object") return null;
+  const r = value as Record<string, unknown>;
+  if (r.slug !== slug || typeof r.tool !== "string" || !isLaunchTool(r.tool)) return null;
+  if (typeof r.goal !== "string" || !(LAUNCH_GOALS as readonly string[]).includes(r.goal)) return null;
+  if (typeof r.at !== "string" || typeof r.cwd !== "string") return null;
+  return {
+    slug,
+    tool: r.tool,
+    goal: r.goal as LaunchGoal,
+    session: typeof r.session === "string" ? r.session : null,
+    resume: typeof r.resume === "string" ? r.resume : null,
+    cwd: r.cwd,
+    at: r.at,
+  };
+}
+
+function parseLaunch(text: string, slug: string): LaunchRecord | null {
+  try {
+    return asLaunchRecord(JSON.parse(text), slug);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every launch recorded for a slug, oldest first. Lines that do not parse are skipped. The single
+ * `.json` record is read too, because a launch made before the log existed is only there; it is left
+ * out when the log already holds the same launch.
+ */
+export function readLaunches(root: string, slug: string): LaunchRecord[] {
+  const log = launchLogFile(root, slug);
+  const out: LaunchRecord[] = [];
+  if (existsSync(log)) {
+    for (const line of readFileSync(log, "utf8").split("\n")) {
+      const rec = line.trim() ? parseLaunch(line, slug) : null;
+      if (rec) out.push(rec);
+    }
+  }
+  const single = launchRecordFile(root, slug);
+  const latest = existsSync(single) ? parseLaunch(readFileSync(single, "utf8"), slug) : null;
+  if (latest && !out.some((r) => r.at === latest.at && r.session === latest.session)) out.push(latest);
+  return out.sort((a, b) => a.at.localeCompare(b.at));
 }
 
 /** How long to wait for Terminal before giving up and handing the command back to the caller. */

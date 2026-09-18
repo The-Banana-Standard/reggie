@@ -1,0 +1,8 @@
+# AC44, 2026-09-17, second real run against the landed task, in the task worktree, after the first derived entry was committed.
+# Captured outside the repo so the tree it ran on was clean (git status --porcelain: 0 lines before).
+
+$ npx tsx src/cli.ts -C <task worktree> journal derive intake-line-leaves-at-triage
+Nothing new for intake-line-leaves-at-triage: every commit and every closing message Reggie can read is already in a derived entry.
+derive intake-line-leaves-at-triage: sessions 0 read, 0 not found, 0 codex unread; records 0; lines skipped 0 oversized, 0 unparseable; closing messages 0; quoted 0 chars; withheld 0; commits 0; entries 0; 109 ms
+exit: 0
+git status --porcelain lines afterwards: 0

@@ -1,0 +1,14 @@
+$ TZ=UTC npx vitest run src/derive.test.ts -t which commits are told --reporter=verbose   # skipped cases left out
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > which commits are told > narrates exactly the branch's own commits, without merges or the claim, when the branch merged the base back in 778ms
+ ✓ src/derive.test.ts > which commits are told > narrates the branch side of the landing merge once the branch is gone, and not the merge, the claim or the decision 638ms
+ ✓ src/derive.test.ts > which commits are told > narrates the indexed commits that name the slug when the task landed by fast-forward 286ms
+ ✓ src/derive.test.ts > which commits are told > appends nothing for a shaped task nobody launched, says so, and exits 0 635ms
+ ✓ src/derive.test.ts > which commits are told > narrates a landed task's commits even when the local branch still exists 1015ms
+ ✓ src/derive.test.ts > which commits are told > derives a planning session that made no commits from its transcript and the plan's state, as a plan entry 191ms
+ ✓ src/derive.test.ts > which commits are told > quotes up to five subjects and counts the rest 381ms
+ Test Files  1 passed (1)
+      Tests  7 passed | 71 skipped (78)
+   Start at  09:19:29
+   Duration  4.12s (transform 111ms, setup 0ms, import 147ms, tests 3.93s, environment 0ms)
+

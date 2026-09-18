@@ -24,3 +24,11 @@ reggie triage --all scaffolds only for ungroomed tasks with no brief, and names 
 ## gotcha · 2026-09-15 · Claude via jacobpress · medium
 The Ungroomed column holds two kinds of work now and each needs a different verb: a raw line wants reggie triage, a scaffold nobody filled in wants a session. reggie tasks prints a line for each when both exist, and the two counts add up to the column header; collapsing them into one number contradicts the header and hides whichever half loses.
 
+## how · 2026-09-17 · Claude via jacobpress · high
+reggie journal derive <slug> prints each entry in full, the file it went to with a reminder that it is uncommitted and that the next decide in that checkout refuses until it is committed, then any Codex or missing-transcript notice, and last a summary line that holds counts only. A refusal exits 1 and still prints that summary first, so the last line of output is always content free. The CLI is the only caller of defaultClaudeHome and the only builder of the real rewrite runner, and it builds one only when the rewrite flag is passed.
+sources: derive-the-journal
+
+## gotcha · 2026-09-18 · Claude via jacobpress · medium
+The reggie journal derive output no longer over-promises that an uncommitted entry blocks the next decide: a journal file already tracked on the branch does block landTask until committed, but a brand-new untracked day file does not, so the wording says to commit it before landing rather than claiming the merge will refuse.
+sources: derive-the-journal
+

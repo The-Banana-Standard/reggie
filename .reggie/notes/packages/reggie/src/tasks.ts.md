@@ -21,3 +21,7 @@ A brief earns groomed by saying something, not by passing its contract. resolveT
 TaskInfo carries branchRef, the ref a task's branch is read from: the local task branch name, the origin name when the remote tracking ref is all the clone has, and null with no task branch. It is never a plan branch, which the older branch field may name, so anything that reads a task's change must use branchRef and not branch. It is read only plumbing: adding it changed the state, reason and changed files of none of the 79 tasks in this repo.
 sources: packages/reggie/src/tasks.ts, branch-diff-in-reader
 
+## how · 2026-09-17 · Claude via jacobpress · high
+ClaimInfo carries handle, the people-file handle the claim was made under, read from the claim file's handle line and empty for a claim written before the field existed. A derived journal entry is attributed to it. It is an additive field: nothing enumerates the claim's fields, and the task page ignores it.
+sources: derive-the-journal
+

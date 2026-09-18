@@ -1,0 +1,22 @@
+The opt-in rewrite (`reggie journal derive <slug> --rewrite`): what was and was not verified. Written by the build session on 2026-09-17, updated 2026-09-18 for the security review's isolation flags; the packet is to say the same thing in its own words and quote this file.
+
+The statement:
+
+  The real headless call has never been run. Not by the build session, not by the tests, not by anyone. Headless `claude -p` and `codex exec` are denied by the permission system in the environment this was built in, and the build session did not attempt either. What ships is a seam: `deriveJournal` takes an injected runner and has no default, `cli.ts` builds the real runner only when `--rewrite` is passed, and the real runner throws when `VITEST` is set, so the suite cannot make the call by accident. Every rewrite test uses a fake runner.
+
+What the flags rest on:
+
+  The argument list is `claude -p --tools "" --no-session-persistence --strict-mcp-config --setting-sources "" --system-prompt <fixed>`, with the prompt on standard input, run in a fresh `mkdtempSync` directory removed afterwards, with a 120 second limit. The last three were added on 2026-09-18 for the security review (S4); all were read from the help text of `claude` version 2.1.261 (Claude Code) on the owner's machine, and from nothing else. The help text says `--tools ""` disables all built-in tools; `--no-session-persistence` only works with `--print`; `--strict-mcp-config` ignores every MCP configuration but `--mcp-config`; `--setting-sources <sources>` is "Comma-separated list of setting sources to load (user, project, local)", so an empty value loads none of them; and `--system-prompt <prompt>` is "System prompt to use for the session", which replaces the default (so no user-level CLAUDE.md or memory reaches it). The fresh empty working directory means there is no CLAUDE.md for the tool to load and, on a shared temp root, no way to pre-seed one for it. Whether the tool accepts that combination, reads the prompt from standard input when `-p` is given no argument, and answers with plain text on standard output is inferred from that help text and has not been observed.
+
+What is verified, with a fake runner (evidence/rewrite-seam.txt):
+
+  - without the flag the runner is called zero times, even when one is given
+  - with the flag and no runner, the template is written and the reason is reported
+  - the runner is called once per session entry and never for an entry drawn from commits alone
+  - its input is the fixed instruction, a blank line, and exactly the template body a run without the flag writes, byte for byte
+  - its argument list, working directory and timeout are the ones above
+  - a reply holding a secret-shaped value, an entry-header-shaped line and more than 3,000 characters is written redacted, on one line and cut, with prose=model in the mark
+  - a missing tool, a non-zero exit, a timeout, an empty reply, an oversized reply and a runner that throws each leave the template entry with prose=template and a printed reason
+  - the real runner throws under vitest
+
+What the owner should do before trusting the flag: run `reggie journal derive <slug> --rewrite --dry-run` once on a task with a launched session, and check that the tool starts, that the reply is a rewrite of the entry and nothing else, and that nothing is written.

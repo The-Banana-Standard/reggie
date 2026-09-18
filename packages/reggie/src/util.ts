@@ -106,9 +106,13 @@ export function assertInside(baseDir: string, target: string, what: string): str
   return resolved;
 }
 
-/** Body lines that would be mistaken for an entry header or a trailer are indented so parsers ignore them. */
+/**
+ * Body lines that would be mistaken for an entry header or a trailer are indented so parsers ignore them.
+ * `derived:` is the journal's machine-written last line; a hand entry that happens to start a line
+ * with the word must never be read back as one.
+ */
 export function escapeBodyLine(line: string): string {
-  return /^(##\s|###\s|sources:|evidence:)/i.test(line) ? `  ${line}` : line;
+  return /^(##\s|###\s|sources:|evidence:|derived:)/i.test(line) ? `  ${line}` : line;
 }
 
 export function parseIntOption(value: string, name: string): number {

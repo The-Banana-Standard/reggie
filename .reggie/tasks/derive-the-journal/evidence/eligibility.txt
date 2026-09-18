@@ -1,0 +1,11 @@
+$ TZ=UTC npx vitest run src/derive.test.ts -t eligibility --reporter=verbose   # skipped cases left out
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > eligibility > quotes the closing message of a turn and none of the eleven other kinds of text a transcript holds 210ms
+ ✓ src/derive.test.ts > eligibility > quotes only the record inside the slug's own worktree when the session also worked elsewhere 188ms
+ ✓ src/derive.test.ts > eligibility > refuses a --session that never worked inside the repository: exit 1, nothing written 985ms
+ ✓ src/derive.test.ts > eligibility > refuses a --session whose transcript is not on this machine 167ms
+ Test Files  1 passed (1)
+      Tests  4 passed | 74 skipped (78)
+   Start at  09:19:50
+   Duration  1.75s (transform 111ms, setup 0ms, import 147ms, tests 1.55s, environment 0ms)
+

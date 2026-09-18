@@ -69,6 +69,16 @@ describe("buildContext", () => {
     expect(pack).toContain("- src/types/shape.ts");
   });
 
+  it("still asks for a journal entry after each step, and names the derive verb with what it adds and what it does not", () => {
+    const slug = fx.slugs.inProcess;
+    const line = buildContext(fx.paths, fx.config, { slug }).split("\n").find((l) => l.includes("journal entry after each step")) ?? "";
+    expect(line).toContain("Write one plain-English journal entry after each step");
+    expect(line).toContain(`\`reggie journal derive ${slug}\` adds the commits and a launched session's closing words, not the reasons`);
+    expect(line).toContain("Capture unrelated problems; do not fix them here.");
+    // A pack for paths has no slug to name.
+    expect(buildContext(fx.paths, fx.config, { paths: ["src"] })).toContain("`reggie journal derive <slug>`");
+  });
+
   it("says nothing about a brief when there is none", () => {
     const pack = buildContext(fx.paths, fx.config, { slug: fx.slugs.inProcess });
     expect(pack).not.toContain("What the user is asking for");

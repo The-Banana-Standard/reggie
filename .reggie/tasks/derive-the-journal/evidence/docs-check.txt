@@ -1,0 +1,14 @@
+# AC52, in the task worktree, 2026-09-18, after the review fixes. No source files were added or removed this round
+# (file counts unchanged), so the generated block's date is the only thing a refresh would move, and the check normalizes
+# the date. Run from this worktree's own build on a clean tree; the check's output was captured outside the repo.
+
+$ npm run build                                   (packages/reggie; exit 0)
+$ git status --porcelain | wc -l                  (clean tree) -> 0
+$ node packages/reggie/dist/cli.js docs check
+fresh: CLAUDE.md
+fresh: AGENTS.md
+exit: 0
+
+# The PATH bin (reggie) is the integration checkout's older build, which does not hold this branch's code and still
+# renders the journal line without the derive sentence, so `reggie docs check` on PATH reports stale; that is expected
+# and is not this branch's state. After this branch lands, the integration checkout needs `npm run build` before its check is green.

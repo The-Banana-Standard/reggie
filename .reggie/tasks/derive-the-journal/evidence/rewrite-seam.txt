@@ -1,0 +1,18 @@
+$ TZ=UTC npx vitest run src/derive.test.ts -t rewrite seam --reporter=verbose   # skipped cases left out
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > rewrite seam > never calls the runner without the flag, even when one is given 265ms
+ ✓ src/derive.test.ts > rewrite seam > writes the template and says why when the flag is set and no runner is given 242ms
+ ✓ src/derive.test.ts > rewrite seam > calls the runner once per session entry with the fixed instruction and exactly the template body, and never for commits alone 356ms
+ ✓ src/derive.test.ts > rewrite seam > writes a model reply redacted, on one line and cut to the limit, and marks it prose=model 249ms
+ ✓ src/derive.test.ts > rewrite seam > falls back to the template and says why when the tool is missing 241ms
+ ✓ src/derive.test.ts > rewrite seam > falls back to the template and says why when the tool exits non-zero 241ms
+ ✓ src/derive.test.ts > rewrite seam > falls back to the template and says why when the tool times out 245ms
+ ✓ src/derive.test.ts > rewrite seam > falls back to the template and says why when the reply is empty 243ms
+ ✓ src/derive.test.ts > rewrite seam > falls back to the template and says why when the reply is far too long 241ms
+ ✓ src/derive.test.ts > rewrite seam > falls back to the template when the runner throws 244ms
+ ✓ src/derive.test.ts > rewrite seam > has a real runner that refuses to run under vitest 0ms
+ Test Files  1 passed (1)
+      Tests  11 passed | 67 skipped (78)
+   Start at  09:19:26
+   Duration  2.79s (transform 121ms, setup 0ms, import 165ms, tests 2.57s, environment 0ms)
+

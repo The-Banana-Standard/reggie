@@ -1,0 +1,25 @@
+$ grep -n "homedir" packages/reggie/src/derive.ts packages/reggie/src/transcript.ts
+packages/reggie/src/transcript.ts:54:  return configured ? path.resolve(configured) : path.join(os.homedir(), ".claude");
+
+$ grep -rn "defaultClaudeHome" packages/reggie/src | grep -v '\.test\.'
+packages/reggie/src/cli.ts:25:import { defaultClaudeHome } from "./transcript.js";
+packages/reggie/src/cli.ts:588:    const input: DeriveInput = { slug: requireSlug(slug), claudeHome: defaultClaudeHome(), person: c.person };
+packages/reggie/src/transcript.ts:52:export function defaultClaudeHome(env: NodeJS.ProcessEnv = process.env): string {
+
+$ grep -n -E 'readFileSync|readText|readFile' packages/reggie/src/transcript.ts   # no match
+(grep exit 1)
+
+$ git diff --stat --diff-filter=A repo-manager..HEAD -- '*.jsonl'   # no transcript file added
+(none)
+
+$ git ls-files | grep -c '\.jsonl$'
+0
+$ TZ=UTC npx vitest run src/transcript.test.ts -t "the module's own rules" --reporter=verbose
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/transcript.test.ts > the module's own rules > never reads a file whole 1ms
+ ✓ src/transcript.test.ts > the module's own rules > names the home directory only in the function the CLI calls for the default 1ms
+ ✓ src/transcript.test.ts > the module's own rules > has a fixture builder that says where its text comes from, and no transcript file sits beside the tests 0ms
+ Test Files  1 passed (1)
+      Tests  3 passed | 32 skipped (35)
+   Start at  09:20:19
+   Duration  93ms (transform 25ms, setup 0ms, import 33ms, tests 2ms, environment 0ms)

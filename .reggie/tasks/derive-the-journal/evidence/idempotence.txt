@@ -1,0 +1,13 @@
+$ TZ=UTC npx vitest run src/derive.test.ts -t idempotence --reporter=verbose   # skipped cases left out
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > idempotence > leaves every journal file byte-identical on a second run with nothing new, and says so 1657ms
+ ✓ src/derive.test.ts > idempotence > appends only what is new: two further commits and one further closing message make one entry that holds just those 981ms
+ ✓ src/derive.test.ts > idempotence > sees an entry that was derived and committed on the task branch from the serving checkout, and appends nothing there 1302ms
+ ✓ src/derive.test.ts > idempotence > never narrates a commit whose every file is a journal file, so committing a derived entry does not loop 1058ms
+ ✓ src/derive.test.ts > idempotence > narrates another task's own commits but never quotes a session that only worked in another task's worktree 684ms
+ ✓ src/derive.test.ts > idempotence > sees, from a task worktree, an entry the base gained after the branch was cut 1338ms
+ Test Files  1 passed (1)
+      Tests  6 passed | 72 skipped (78)
+   Start at  09:19:37
+   Duration  7.22s (transform 111ms, setup 0ms, import 146ms, tests 7.02s, environment 0ms)
+

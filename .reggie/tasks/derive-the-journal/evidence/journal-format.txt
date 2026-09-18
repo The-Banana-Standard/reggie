@@ -1,0 +1,14 @@
+$ TZ=UTC npx vitest run src/journal.test.ts --reporter=verbose   # skipped cases left out
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/journal.test.ts > journal > appends and reads entries newest first, filtered by slug 67ms
+ ✓ src/journal.test.ts > journal > writes a derived entry's mark as its last line and reads it back, with the text free of it 55ms
+ ✓ src/journal.test.ts > journal > round-trips a mark with no session, no instant and no commits, and the model kind 54ms
+ ✓ src/journal.test.ts > journal > reads only the exact machine-written line as a mark 51ms
+ ✓ src/journal.test.ts > journal > indents a hand entry's own derived: line, so it parses as text and never as a mark 51ms
+ ✓ src/journal.test.ts > journal > keeps an evidence item to one line, so a newline in one cannot plant a mark that hides commits 51ms
+ ✓ src/journal.test.ts > journal > detects the tool from the environment 49ms
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  09:20:01
+   Duration  482ms (transform 35ms, setup 0ms, import 46ms, tests 378ms, environment 0ms)
+

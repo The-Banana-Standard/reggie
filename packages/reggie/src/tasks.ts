@@ -156,6 +156,8 @@ export interface IntakeItem {
 
 export interface ClaimInfo {
   person: string;
+  /** The people-file handle the claim was made under; "" in claims written before the field existed. */
+  handle: string;
   email: string;
   machine: string;
   /** The session id the launcher minted, or the name the session gave itself; "" in older claims. */
@@ -311,7 +313,7 @@ export function knownSlugs(paths: RepoPaths): Set<string> {
 
 export function parseClaim(content: string): ClaimInfo {
   const get = (key: string) => new RegExp(`^${key}:\\s*(.*)$`, "m").exec(content)?.[1]?.trim() ?? "";
-  return { person: get("person"), email: get("email"), machine: get("machine"), tool: get("tool"), session: get("session"), date: get("date") };
+  return { person: get("person"), handle: get("handle"), email: get("email"), machine: get("machine"), tool: get("tool"), session: get("session"), date: get("date") };
 }
 
 export interface TaskListOptions {

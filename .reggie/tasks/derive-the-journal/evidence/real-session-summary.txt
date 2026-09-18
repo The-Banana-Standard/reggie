@@ -1,0 +1,12 @@
+# AC45, 2026-09-17, in the task worktree. The verb was run for real against the build session's own session id, as a dry run, and
+# everything but the last line of its output was discarded unread by the pipe. The entry text was not seen, saved or copied anywhere.
+# Inside a subagent the variable names the parent session, whose main transcript is the file read. It was not refused: that session
+# has records written inside this repository.
+
+$ npx tsx src/cli.ts -C <task worktree> journal derive derive-the-journal --session "$CLAUDE_CODE_SESSION_ID" --dry-run 2><scratch file> | tail -n 1
+derive derive-the-journal: sessions 1 read, 0 not found, 0 codex unread; records 258; lines skipped 0 oversized, 0 unparseable; closing messages 1; quoted 421 chars; withheld 0; commits 12; entries 2 (dry run); 1034 ms
+
+# stderr: 0 bytes. git status --porcelain before and after the dry run: 0 lines and 0 lines.
+# Read off the line: 258 records read, 0 lines oversized, 0 unparseable, 1,034 ms (the limit was 5,000). It would have written two entries:
+# one for the session, quoting 421 characters of one closing message, and one for the twelve commits of this branch, which were made
+# by a subagent after the parent session's last record and so fall outside its span. Neither was written.

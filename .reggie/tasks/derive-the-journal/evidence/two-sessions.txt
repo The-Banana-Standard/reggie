@@ -1,0 +1,9 @@
+$ TZ=UTC npx vitest run src/derive.test.ts -t two sessions --reporter=verbose   # skipped cases left out
+ RUN  v4.1.11 <task worktree>/packages/reggie
+ ✓ src/derive.test.ts > two sessions > writes one day file per session, and gives each commit to the one entry whose span holds it 296ms
+ ✓ src/derive.test.ts > two sessions > files a session that ran past midnight under the day it ended, timed at its end, and names both days 189ms
+ Test Files  1 passed (1)
+      Tests  2 passed | 76 skipped (78)
+   Start at  09:19:57
+   Duration  684ms (transform 111ms, setup 0ms, import 146ms, tests 485ms, environment 0ms)
+
