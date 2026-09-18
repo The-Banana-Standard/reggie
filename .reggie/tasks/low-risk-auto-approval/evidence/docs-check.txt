@@ -1,1 +1,27 @@
-# AC54: written after the generated blocks are refreshed and committed; see the next commit.
+# AC54: npm run build, reggie docs refresh, then reggie docs check on a clean tree, all with the branch's own build
+# branch task/low-risk-auto-approval, 2026-09-18
+
+Run at 6eb7a97, with the evidence files already committed so that the file counts in the block were final:
+$ cd packages/reggie && npm run build
+> tsc -p tsconfig.json
+$ node dist/cli.js --root <task worktree> docs check     # before the refresh
+stale: CLAUDE.md
+stale: AGENTS.md
+reggie: generated blocks are stale or missing; run `reggie docs refresh`
+exit 1
+$ node dist/cli.js --root <task worktree> docs refresh
+updated: CLAUDE.md
+updated: AGENTS.md
+exit 0
+(committed as 22c3122)
+
+Run now, at 22c3122d04e5:
+$ git status --short
+ M .reggie/tasks/low-risk-auto-approval/evidence/docs-check.txt
+(empty: a clean tree)
+$ node dist/cli.js --root <task worktree> docs check
+fresh: CLAUDE.md
+fresh: AGENTS.md
+exit 0
+
+This file and generated-block.txt are rewritten after that run. Both existed already, so the counts in the block do not move; the check is run once more after they are committed, and the journal says what it answered.

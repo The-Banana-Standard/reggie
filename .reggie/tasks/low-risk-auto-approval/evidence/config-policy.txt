@@ -1,5 +1,5 @@
 # AC36, AC37: the policy block in the config
-# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:46:57Z
+# branch task/low-risk-auto-approval at 22c3122d04e5, 2026-09-18T13:49:03Z
 
 $ cd packages/reggie && TZ=UTC npx vitest run src/people.test.ts --reporter=verbose
  RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
@@ -11,17 +11,17 @@ $ cd packages/reggie && TZ=UTC npx vitest run src/people.test.ts --reporter=verb
  ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'one key given, one absent' 0ms
  ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'completions: yes' 0ms
  ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'plans: 3' 0ms
- ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'a list where a class belongs' 0ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'a list where a class belongs' 1ms
  ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'a wrong letter case' 0ms
  ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'a policy that is not a block' 0ms
  ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads 'an unreadable value in team mode fall…' 0ms
- ✓ src/people.test.ts > the policy block in .reggie/config.yaml > keeps every other key as it was read before the block existed 1ms
- ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads back what saveConfig wrote, comment included, and writes the block into every config Reggie creates 118ms
- ✓ src/people.test.ts > the policy block in .reggie/config.yaml > prints the policy, and whether each key came from the file or the default, in reggie people 584ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > keeps every other key as it was read before the block existed 2ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > reads back what saveConfig wrote, comment included, and writes the block into every config Reggie creates 121ms
+ ✓ src/people.test.ts > the policy block in .reggie/config.yaml > prints the policy, and whether each key came from the file or the default, in reggie people 619ms
  Test Files  1 passed (1)
       Tests  15 passed (15)
-   Start at  13:46:57
-   Duration  825ms (transform 33ms, setup 0ms, import 54ms, tests 711ms, environment 0ms)
+   Start at  13:49:04
+   Duration  874ms (transform 35ms, setup 0ms, import 56ms, tests 750ms, environment 0ms)
 exit 0
 
 $ git diff repo-manager -- .reggie/config.yaml
