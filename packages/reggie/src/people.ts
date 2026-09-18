@@ -46,6 +46,23 @@ export interface InstallEntry {
   command: string;
 }
 
+/** The highest risk class that passes without a person; `none` means nothing does. */
+export type PolicyClass = "none" | "low" | "medium" | "high";
+export const POLICY_CLASSES: readonly PolicyClass[] = ["none", "low", "medium", "high"];
+
+/**
+ * The `policy` block: one class per packet kind and nothing finer. `completions` is what the policy
+ * report judges a finished task against. `plans` is parsed and printed and nothing reads it yet: with
+ * the solo default every class of plan is admitted, which is what the board already does.
+ */
+export interface PolicyConfig {
+  plans: PolicyClass;
+  completions: PolicyClass;
+}
+
+/** Where a policy key's value came from: the file, the mode's default because the key was absent, or the default because the value could not be read. */
+export type PolicyKeySource = "file" | "default" | "unreadable";
+
 export interface ReggieConfig {
   mode: Mode;
   defaultBranch?: string;
@@ -54,6 +71,13 @@ export interface ReggieConfig {
   legacy?: LegacyConfig;
   /** Absent when the repo has not said how it installs; claim then leaves a worktree exactly as git made it. */
   install?: InstallEntry[];
+  policy: PolicyConfig;
+  policySource: Record<keyof PolicyConfig, PolicyKeySource>;
+}
+
+/** What a mode means when the file says nothing: solo admits every plan and low-risk completions, team admits nothing. */
+export function defaultPolicy(mode: Mode): PolicyConfig {
+  return mode === "team" ? { plans: "none", completions: "none" } : { plans: "high", completions: "low" };
 }
 
 export const DEFAULT_RISK: RiskRules = {
@@ -139,13 +163,35 @@ function parseInstall(items: readonly unknown[]): InstallEntry[] {
 }
 
 export function loadConfig(paths: RepoPaths): ReggieConfig {
-  const raw = readText(paths.config);
-  const base: ReggieConfig = { mode: "solo", mcpServerName: "reggie", risk: { ...DEFAULT_RISK } };
+  return parseConfig(readText(paths.config));
+}
+
+/**
+ * A config from its text, so that a copy read out of a commit is parsed by the same code as the file
+ * on disk. Null or empty text is the defaults. Throws what the YAML parser throws for text that is
+ * not YAML; every key it does not know is ignored.
+ */
+export function parseConfig(raw: string | null): ReggieConfig {
+  const base: ReggieConfig = { mode: "solo", mcpServerName: "reggie", risk: { ...DEFAULT_RISK }, policy: defaultPolicy("solo"), policySource: { plans: "default", completions: "default" } };
   if (!raw) return base;
   const parsed: unknown = YAML.parse(raw);
   if (!parsed || typeof parsed !== "object") return base;
   const c = parsed as Record<string, unknown>;
   if (c.mode === "team" || c.mode === "solo") base.mode = c.mode;
+  // The defaults follow the mode, so the mode is settled first. A value that is not one of the four
+  // classes (`yes`, `3`, a list) takes the default and is reported, never guessed at.
+  base.policy = defaultPolicy(base.mode);
+  if (c.policy !== undefined && c.policy !== null) {
+    const p = (typeof c.policy === "object" && !Array.isArray(c.policy) ? c.policy : {}) as Record<string, unknown>;
+    const whole = typeof c.policy !== "object" || Array.isArray(c.policy);
+    for (const key of ["plans", "completions"] as const) {
+      const value = p[key];
+      if (typeof value === "string" && (POLICY_CLASSES as readonly string[]).includes(value)) {
+        base.policy[key] = value as PolicyClass;
+        base.policySource[key] = "file";
+      } else if (value !== undefined || whole) base.policySource[key] = "unreadable";
+    }
+  }
   if (typeof c.defaultBranch === "string" && c.defaultBranch) base.defaultBranch = c.defaultBranch;
   if (typeof c.mcpServerName === "string" && c.mcpServerName) base.mcpServerName = c.mcpServerName;
   if (c.risk && typeof c.risk === "object") {
@@ -178,13 +224,23 @@ export function saveConfig(paths: RepoPaths, config: ReggieConfig): void {
   const body: Record<string, unknown> = { mode: config.mode, mcpServerName: config.mcpServerName, risk: config.risk };
   if (config.defaultBranch) body.defaultBranch = config.defaultBranch;
   if (config.install && config.install.length > 0) body.install = config.install;
-  writeText(paths.config, header + YAML.stringify(body));
+  writeText(paths.config, header + YAML.stringify(body) + POLICY_COMMENT + YAML.stringify({ policy: config.policy }));
 }
+
+/** Written above the `policy` block of every config Reggie creates. */
+export const POLICY_COMMENT = [
+  "# policy: the highest risk class that passes without a person, one class per kind of packet.",
+  "#   plans: for a plan. completions: for a finished task. Values: none, low, medium, high.",
+  "# Reggie reads this block from the integration branch's committed copy, never from a task branch,",
+  "# so a task cannot widen the policy it is judged by. In this version the verdict is a report",
+  "# (`reggie check <slug>`) and nothing acts on it: a person still decides every task.",
+  "",
+].join("\n");
 
 export function ensureConfig(paths: RepoPaths, mode: Mode): { config: ReggieConfig; created: boolean } {
   const existing = readText(paths.config);
   if (existing) return { config: loadConfig(paths), created: false };
-  const config: ReggieConfig = { mode, mcpServerName: "reggie", risk: { ...DEFAULT_RISK } };
+  const config: ReggieConfig = { mode, mcpServerName: "reggie", risk: { ...DEFAULT_RISK }, policy: defaultPolicy(mode), policySource: { plans: "file", completions: "file" } };
   saveConfig(paths, config);
   return { config, created: true };
 }
