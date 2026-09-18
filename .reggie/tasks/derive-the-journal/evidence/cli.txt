@@ -27,12 +27,12 @@ $ npx tsx src/cli.ts -C <task worktree> journal derive derive-the-journal --sess
 reggie: --session takes a Claude session id, which is a UUID. Nothing was read and nothing was written.
 exit: 1
 
-$ TZ=UTC npx vitest run src/derive.test.ts -t "the verb" --reporter=verbose   # skipped cases left out
+$ TZ=UTC npx vitest run src/derive.test.ts -t "the verb" --reporter=verbose
  RUN  v4.1.11 <task worktree>/packages/reggie
- ✓ src/derive.test.ts > attribution > goes to the claim's handle when the task has a claim, in the file name too, and to whoever runs the verb otherwise 285ms
- ✓ src/derive.test.ts > the verb > lists its three options, with --rewrite described as off by default and as sending the entry text to the session's own tool 375ms
- ✓ src/derive.test.ts > the verb > exits 1 with a sentence for an unknown slug and for a slug that is not a slug 665ms
+ ✓ src/derive.test.ts > attribution > goes to the claim's handle when the task has a claim, in the file name too, and to whoever runs the verb otherwise 237ms
+ ✓ src/derive.test.ts > the verb > lists its three options, with --rewrite described as off by default and as sending the entry text to the session's own tool 322ms
+ ✓ src/derive.test.ts > the verb > exits 1 with a sentence for an unknown slug and for a slug that is not a slug 597ms
  Test Files  1 passed (1)
-      Tests  3 passed | 69 skipped (72)
-   Start at  12:06:41
-   Duration  1.55s (transform 122ms, setup 0ms, import 161ms, tests 1.33s, environment 0ms)
+      Tests  3 passed | 75 skipped (78)
+   Start at  09:20:43
+   Duration  1.36s (transform 110ms, setup 0ms, import 145ms, tests 1.16s, environment 0ms)

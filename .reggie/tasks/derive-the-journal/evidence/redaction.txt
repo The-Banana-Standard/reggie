@@ -1,53 +1,94 @@
-$ TZ=UTC npx vitest run src/redact.test.ts --reporter=verbose   # skipped cases left out of this capture
- RUN  v4.1.11 <task worktree>/packages/reggie
- ✓ src/redact.test.ts > redactText > withholds 'an sk- key' 1ms
- ✓ src/redact.test.ts > redactText > withholds 'a ghp_ token' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'a github_pat_ token' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'an xox token' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'an AKIA key id' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'an AIza key' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'a PEM block' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'a JWT-shaped triple' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'a Bearer value' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'an API_KEY assignment' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'a password field' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'a 48-character mixed run' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'an email address' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'a /Users path' 0ms
- ✓ src/redact.test.ts > redactText > withholds 'a home-relative path' 0ms
- ✓ src/redact.test.ts > redactText > takes the login, the query and the fragment off a URL, and counts it once 0ms
- ✓ src/redact.test.ts > redactText > leaves a plain URL alone and counts nothing 0ms
- ✓ src/redact.test.ts > redactText > withholds a file URL whole, because it is a local path 0ms
- ✓ src/redact.test.ts > redactText > does not withhold a 40-character lowercase hex string 0ms
- ✓ src/redact.test.ts > redactText > does not withhold the word token, or secret, used in a sentence without a value 0ms
- ✓ src/redact.test.ts > redactText > does not take a route, a relative path or a long hyphenated slug for a secret or a local path 0ms
- ✓ src/redact.test.ts > redactText > takes an unclosed PEM block to the end of the text 0ms
- ✓ src/redact.test.ts > redactText > counts every passage 0ms
- ✓ src/redact.test.ts > dropBlocks > removes fenced code and table rows whole, and an unclosed fence takes the rest 0ms
- ✓ src/redact.test.ts > flattenText > makes one line of plain prose out of Markdown 1ms
- ✓ src/redact.test.ts > flattenText > removes control, zero-width and bidirectional characters, and the replacement character 0ms
- ✓ src/redact.test.ts > flattenText > cannot leave a line that starts like an entry header, a heading or a trailer 0ms
- ✓ src/redact.test.ts > breakLinks > pulls [[ and ]] apart so the web view's link syntax cannot be forged 0ms
- ✓ src/redact.test.ts > capText > leaves a short message alone 0ms
- ✓ src/redact.test.ts > capText > cuts a long message after the last sentence end inside the limit 0ms
- ✓ src/redact.test.ts > capText > cuts at a space and ends with an ellipsis when there is no sentence end 0ms
- ✓ src/redact.test.ts > capText > counts characters and not code units, and never splits one 0ms
- ✓ src/redact.test.ts > capText > sees a sentence that ends exactly on the limit 0ms
- ✓ src/redact.test.ts > cleanText > redacts before it flattens, so Markdown around a secret cannot hide it 0ms
- ✓ src/redact.test.ts > cleanText > does not make a [[ out of a bracket and a withheld word 0ms
- ✓ src/redact.test.ts > cleanText > drops what is inside a fence before anything else looks at it 0ms
- Test Files  1 passed (1)
-      Tests  36 passed (36)
-   Start at  12:06:20
-   Duration  100ms (transform 24ms, setup 0ms, import 33ms, tests 7ms, environment 0ms)
+# Redaction bypass probe (scratchpad/secreview-derive-journal/bypass.mts), run against this branch's redact.ts. Synthetic inputs only; no real secret.
+# Every 'secret' the probe builds is assembled from invented parts. The probe reports LEAK/PART for any input that left a secret behind.
 
-$ TZ=UTC npx vitest run src/derive.test.ts -t redaction in an entry --reporter=verbose   # skipped cases left out of this capture
- RUN  v4.1.11 <task worktree>/packages/reggie
- ✓ src/derive.test.ts > redaction in an entry > leaves none of the listed shapes in the journal file, ends the entry with the count, and prints the same count 581ms
- ✓ src/derive.test.ts > redaction in an entry > does not withhold a 40-character hex string or the bare word token 232ms
- ✓ src/derive.test.ts > redaction in an entry > quotes at most 800 characters ending on a sentence, says the message was cut, and counts the closing messages it did not quote 242ms
- Test Files  1 passed (1)
-      Tests  3 passed | 69 skipped (72)
-   Start at  12:06:20
-   Duration  1.28s (transform 124ms, setup 0ms, import 165ms, tests 1.06s, environment 0ms)
+BEFORE the fix (HEAD 4fc5369): 85 of 161 probes left something behind.
+AFTER the fix: Node.js v22.22.2
 
+The inputs that still leave something are exactly the documented limits (see redact.ts, the README and redact.test.ts's limits table):
+
+$ TZ=UTC npx vitest run src/redact.test.ts --reporter=verbose   # the 74-case regression net and the limits table
+ ✓ src/redact.test.ts > the bypass regression net > catches stripe rk_live 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches stripe whsec 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches gitlab glpat 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches huggingface hf_ 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches google GOCSPX 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches digitalocean dop_v1 hex 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches shopify shpat hex 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches twilio SK hex 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches telegram bot token 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches age secret key 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches npm token lowercase and digits 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches sendgrid 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches slack webhook url 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches discord webhook url 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches sk- short 19 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches Bearer with digit 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches Bearer no digit 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches lowercase bearer 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches Basic auth header 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches DB_PASS upper 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches db_pass lower 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches pwd 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches Pwd in conn string 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches passphrase 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches private_key 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches access_key 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches auth 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches client_secret 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches value after comma 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches unquoted value with spaces 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches yaml quoted value with spaces 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches bold label **Password:** value 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches bold label **Token:** value 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches bold label - **API key:** value 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches bold name **Password**: value 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches italic label *Password:* value 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches underscore label __Password:__ value 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches code label `password:` value 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches json style 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches python dict 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches fence nested in a list item 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches fence in a blockquote 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches indented code block 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches html pre 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches fence opened with tilde, closed with backtick 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches fence close shorter than open 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches fence with info holding a backtick 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches ghp split by zero-width space 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches ghp split by soft hyphen 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches ghp split by word joiner 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches ghp split by variation selector 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches ghp split by combining grapheme joiner 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches C:/Users forward slash 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches C:\Users backslash 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches ~user path 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches $HOME path 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches %USERPROFILE% path 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches /data 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches /media 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches /run/media 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches /workspace 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches /nix 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches UNC path 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches path after a colon in PATH 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches path after equals 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches encoded project folder 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches path with a space in a folder name 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches conn string password with slash 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches conn string password with question mark 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches vscode url with a username 0ms
+ ✓ src/redact.test.ts > the bypass regression net > catches localhost url path with a username 0ms
+ ✓ src/redact.test.ts > the bypass regression net > is documented not to catch a secret spoken in prose 0ms
+ ✓ src/redact.test.ts > the bypass regression net > is documented not to catch a value passed as a flag 0ms
+ ✓ src/redact.test.ts > the bypass regression net > is documented not to catch curl basic auth 0ms
+ ✓ src/redact.test.ts > the bypass regression net > is documented not to catch a hex key with no prefix 0ms
+ ✓ src/redact.test.ts > the bypass regression net > is documented not to catch a uuid key 0ms
+ ✓ src/redact.test.ts > the bypass regression net > is documented not to catch a relative path holding a username 0ms
+ ✓ src/redact.test.ts > the bypass regression net > is documented not to catch a path glued to a compiler flag 0ms
+ ✓ src/redact.test.ts > the bypass regression net > is documented not to catch a phone number 0ms
+ ✓ src/redact.test.ts > the bypass regression net > is documented not to catch an internal hostname 0ms
+ ✓ src/redact.test.ts > the bypass regression net > is documented not to catch a token split by a real newline 0ms
+ Test Files  1 passed (1)
+      Tests  120 passed (120)
+   Start at  09:16:39
+   Duration  105ms (transform 28ms, setup 0ms, import 37ms, tests 10ms, environment 0ms)

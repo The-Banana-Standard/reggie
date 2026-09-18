@@ -1,9 +1,9 @@
-$ TZ=UTC npx vitest run src/derive.test.ts -t never commits --reporter=verbose   # skipped cases left out of this capture
+$ TZ=UTC npx vitest run src/derive.test.ts -t never commits --reporter=verbose   # skipped cases left out
  RUN  v4.1.11 <task worktree>/packages/reggie
- ✓ src/derive.test.ts > never commits > a dry run prints the same entry and summary and leaves the repository exactly as it was 829ms
- ✓ src/derive.test.ts > never commits > a real run moves no commit and stages nothing, and the output names the file as uncommitted 1773ms
+ ✓ src/derive.test.ts > never commits > a dry run prints the same entry and summary and leaves the repository exactly as it was 830ms
+ ✓ src/derive.test.ts > never commits > a real run moves no commit and stages nothing, and the output names the file as uncommitted 1871ms
  Test Files  1 passed (1)
-      Tests  2 passed | 70 skipped (72)
-   Start at  12:06:13
-   Duration  2.80s (transform 111ms, setup 0ms, import 147ms, tests 2.60s, environment 0ms)
+      Tests  2 passed | 76 skipped (78)
+   Start at  09:19:58
+   Duration  2.90s (transform 112ms, setup 0ms, import 147ms, tests 2.70s, environment 0ms)
 

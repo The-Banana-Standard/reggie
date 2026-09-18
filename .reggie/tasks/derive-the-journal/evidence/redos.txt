@@ -1,0 +1,39 @@
+# S6 (redaction ReDoS) timings, before and after the bound. Synthetic adversarial inputs; scratchpad/secreview-derive-journal/redos.mts and a 1 MB harness.
+# The bail condition was that the 1 MB line ceiling case complete in well under a second.
+
+BEFORE (HEAD 4fc5369): the worst two shapes did not finish in 8 s at 8 KB:
+  linear     | token.token.token (kv name, no = or :) | 8K: 11141ms   <- 11.2 s
+  linear     | secret-secret-secret                  | 8K: 8122ms    <- 8.1 s
+  (several others grew quadratically: a@a.a.a 32K: 3014ms, run of 'a' 32K: 1523ms)
+
+AFTER (input capped to 32 KB, every quantifier bounded):
+  QUADRATIC  | eyJ-eyJ-eyJ | 8K: 16ms, 16K: 65ms, 32K: 228ms
+  linear     | - - - - x (rule line) | 8K: 0ms, 16K: 1ms, 32K: 2ms
+  linear     | -----BEGIN X----- repeated, no END | 8K: 14ms, 16K: 35ms, 32K: 77ms
+  linear     | /Users/ a a a a (path tail, no slash) | 8K: 0ms, 16K: 1ms, 32K: 2ms
+  linear     | > > > > (quote markers) | 8K: 0ms, 16K: 0ms, 32K: 0ms
+  linear     | Bearer Bearer Bearer | 8K: 0ms, 16K: 1ms, 32K: 2ms
+  linear     | [[[[[[ (md link label) | 8K: 5ms, 16K: 11ms, 32K: 20ms
+  linear     | _____a (underscore run then letter) | 8K: 1ms, 16K: 2ms, 32K: 5ms
+  linear     | ``` lines | 8K: 0ms, 16K: 0ms, 32K: 1ms
+  linear     | a.a.a.a (dotted, url scheme / kv name) | 8K: 3ms, 16K: 5ms, 32K: 10ms
+  linear     | a@a.a.a.a.a (email domain) | 8K: 3ms, 16K: 5ms, 32K: 11ms
+  linear     | a@a@a@a | 8K: 0ms, 16K: 1ms, 32K: 1ms
+  linear     | hex run | 8K: 2ms, 16K: 4ms, 32K: 9ms
+  linear     | https://a?a?a | 8K: 0ms, 16K: 0ms, 32K: 1ms
+  linear     | newlines | 8K: 2ms, 16K: 3ms, 32K: 6ms
+  linear     | run of 'a' (email local part, no @) | 8K: 3ms, 16K: 4ms, 32K: 8ms
+  linear     | secret-secret-secret | 8K: 2ms, 16K: 5ms, 32K: 9ms
+  linear     | spaces | 8K: 0ms, 16K: 0ms, 32K: 1ms
+  linear     | token.token.token (kv name, no = or :) | 8K: 2ms, 16K: 5ms, 32K: 9ms
+  linear     | ~/ a/ a/ a/ (path tail) | 8K: 1ms, 16K: 1ms, 32K: 1ms
+
+AFTER, the 1 MB line-ceiling cases (each must be well under 1000 ms):
+     10.7 ms | 1 MB of 'a' | outlen=800 withheld=0
+      9.6 ms | 1 MB of 'token.' | outlen=800 withheld=0
+      9.2 ms | 1 MB of 'secret-' | outlen=800 withheld=0
+      9.0 ms | 1 MB of hex | outlen=800 withheld=0
+      1.7 ms | 1 MB of 'a@a.' | outlen=800 withheld=0
+     21.1 ms | 1 MB of '[' | outlen=798 withheld=0
+      2.3 ms | 1 MB of ' /Users/x a' | outlen=793 withheld=2979
+      0.3 ms | 1 MB of 'password: x ' | outlen=178 withheld=9

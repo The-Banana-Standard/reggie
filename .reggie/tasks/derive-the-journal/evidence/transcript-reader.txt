@@ -1,4 +1,4 @@
-$ TZ=UTC npx vitest run src/transcript.test.ts --reporter=verbose   # skipped cases left out of this capture
+$ TZ=UTC npx vitest run src/transcript.test.ts --reporter=verbose   # skipped cases left out
  RUN  v4.1.11 <task worktree>/packages/reggie
  ✓ src/transcript.test.ts > session ids > accepts a UUID and lowercases it 1ms
  ✓ src/transcript.test.ts > session ids > refuses "../x" 0ms
@@ -24,16 +24,19 @@ $ TZ=UTC npx vitest run src/transcript.test.ts --reporter=verbose   # skipped ca
  ✓ src/transcript.test.ts > what a record is reduced to > takes only the text blocks of a closing record that holds several blocks 0ms
  ✓ src/transcript.test.ts > what a record is reduced to > answers null for a line that is not a record 0ms
  ✓ src/transcript.test.ts > what a record is reduced to > reads a record with no timestamp as undated 0ms
+ ✓ src/transcript.test.ts > what a record is reduced to > treats any truthy isSidechain as a sidechain, so a string or a number is never read as the main conversation 0ms
+ ✓ src/transcript.test.ts > what a record is reduced to > drops a timestamp far in the future as unusable, so a wrong clock cannot poison the ordering 1ms
  ✓ src/transcript.test.ts > reading a transcript file > counts lines that do not parse, skips blank ones, and survives bytes that are not UTF-8 1ms
  ✓ src/transcript.test.ts > which records count > compares directories as text, so a directory that is gone still matches and a sibling does not 0ms
- ✓ src/transcript.test.ts > which records count > counts only records inside the repository, and only the slug's own worktree once the session has been there 0ms
+ ✓ src/transcript.test.ts > which records count > counts records at the repo root but never another task's worktree, and narrows to the slug's own worktree once the session has been there 0ms
+ ✓ src/transcript.test.ts > which records count > treats an empty or relative cwd as outside, so a record with cwd "" or "." is never counted 0ms
  ✓ src/transcript.test.ts > which records count > orders closing messages by their timestamps and not by their place in the file, and honours the watermark 0ms
  ✓ src/transcript.test.ts > which records count > spans the main conversation from its first dated record to its last, wherever it was working 0ms
  ✓ src/transcript.test.ts > the module's own rules > never reads a file whole 0ms
  ✓ src/transcript.test.ts > the module's own rules > names the home directory only in the function the CLI calls for the default 0ms
  ✓ src/transcript.test.ts > the module's own rules > has a fixture builder that says where its text comes from, and no transcript file sits beside the tests 0ms
  Test Files  1 passed (1)
-      Tests  32 passed (32)
-   Start at  12:05:47
-   Duration  99ms (transform 24ms, setup 0ms, import 33ms, tests 10ms, environment 0ms)
+      Tests  35 passed (35)
+   Start at  09:20:02
+   Duration  103ms (transform 25ms, setup 0ms, import 34ms, tests 12ms, environment 0ms)
 

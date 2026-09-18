@@ -1,4 +1,4 @@
-A mechanical check that no text from a real transcript is in this branch. 2026-09-17. COUNTS AND FILE NAMES ONLY.
+A mechanical check that no text from a real transcript is in this branch. Re-run 2026-09-18 over the final diff after the review fixes. COUNTS AND FILE NAMES ONLY.
 
 How: a scratch script outside the repository read every Claude transcript on the owner's machine with this branch's own reader
 (so only closing assistant messages, the one kind of text the verb can ever take), and for each of the 1,561 closing messages took
@@ -6,13 +6,12 @@ every 60-character run, 20 characters apart, in two forms: as written, and as th
 asked whether each run appears anywhere in `git diff repo-manager..task/derive-the-journal`. It printed numbers and the names of
 diff files, never a run, and kept nothing.
 
-Result:
-  diff size                         349,124 characters (whitespace squashed)
-  closing messages checked          1,561, from 235 transcripts
-  runs checked                      335,910
-  runs found in the diff            22, from 3 messages
+Result (final diff, 2026-09-18):
+  closing messages checked          1,562, from 235 transcripts
+  60-char runs found in the diff    22, from 3 messages
   of those, already on the base     22   (the same run is in a commit message or a tracked file of repo-manager)
-  of those, not on the base         0
+  of those, not on the base         0   (unexplainedByDiffFile: {})
+  (identical to the first run at 4fc5369: 22 all-on-base, 0 unexplained)
 
 Where the 22 fall, by diff file: CLAUDE.md 17, AGENTS.md 17, docs/repo-manager-vision.md 5, evidence/wording.diff 5 (a run can fall in
 more than one file). All four are files whose diff carries unchanged lines of the generated instruction block or of the vision document

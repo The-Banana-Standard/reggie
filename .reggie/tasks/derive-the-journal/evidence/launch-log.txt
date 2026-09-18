@@ -1,12 +1,12 @@
-$ TZ=UTC npx vitest run src/launch.test.ts -t context files and launch records --reporter=verbose   # skipped cases left out of this capture
+$ TZ=UTC npx vitest run src/launch.test.ts -t context files and launch records --reporter=verbose   # skipped cases left out
  RUN  v4.1.11 <task worktree>/packages/reggie
  ✓ src/launch.test.ts > context files and launch records > writes the pack under .reggie/.cache and returns the relative path the prompt uses 2ms
  ✓ src/launch.test.ts > context files and launch records > records what a launch left behind, so the chat can be found again 2ms
- ✓ src/launch.test.ts > context files and launch records > keeps every launch for a slug in a log, while the single record still holds the latest 7ms
+ ✓ src/launch.test.ts > context files and launch records > keeps every launch for a slug in a log, while the single record still holds the latest 6ms
  ✓ src/launch.test.ts > context files and launch records > skips a line of the log that does not parse, or is not a launch for this slug 1ms
  ✓ src/launch.test.ts > context files and launch records > still reads a cache that holds only the old single record and no log 1ms
  Test Files  1 passed (1)
       Tests  5 passed | 27 skipped (32)
-   Start at  12:05:58
-   Duration  120ms (transform 40ms, setup 0ms, import 51ms, tests 14ms, environment 0ms)
+   Start at  09:20:04
+   Duration  120ms (transform 41ms, setup 0ms, import 52ms, tests 13ms, environment 0ms)
 

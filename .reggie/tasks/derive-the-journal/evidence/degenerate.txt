@@ -1,13 +1,16 @@
-$ TZ=UTC npx vitest run src/derive.test.ts -t degenerate input --reporter=verbose   # skipped cases left out of this capture
+$ TZ=UTC npx vitest run src/derive.test.ts -t degenerate input --reporter=verbose   # skipped cases left out
  RUN  v4.1.11 <task worktree>/packages/reggie
- ✓ src/derive.test.ts > degenerate input > derives from the lines before a cut-off last line, and quotes that line on a later run once it is whole 777ms
- ✓ src/derive.test.ts > degenerate input > writes valid UTF-8 with no NUL, no other control character and no bidirectional control, whatever the transcript holds 197ms
- ✓ src/derive.test.ts > degenerate input > quotes the message after a compaction boundary and nothing from the summary, across two tool versions 186ms
- ✓ src/derive.test.ts > degenerate input > with no closing record at all: an entry with the sentence for it when there are commits, and nothing without them 393ms
- ✓ src/derive.test.ts > degenerate input > with a newest turn that ends on tool calls: an entry with the sentence for it when there are commits, and nothing without them 409ms
- ✓ src/derive.test.ts > degenerate input > does not count a turn that ends on a stop sequence as closing words 219ms
+ ✓ src/derive.test.ts > degenerate input > derives from the lines before a cut-off last line, and quotes that line on a later run once it is whole 823ms
+ ✓ src/derive.test.ts > degenerate input > writes valid UTF-8 with no NUL, no other control character and no bidirectional control, whatever the transcript holds 195ms
+ ✓ src/derive.test.ts > degenerate input > quotes the message after a compaction boundary and nothing from the summary, across two tool versions 188ms
+ ✓ src/derive.test.ts > degenerate input > with no closing record at all: an entry with the sentence for it when there are commits, and nothing without them 425ms
+ ✓ src/derive.test.ts > degenerate input > with a newest turn that ends on tool calls: an entry with the sentence for it when there are commits, and nothing without them 403ms
+ ✓ src/derive.test.ts > degenerate input > does not count a turn that ends on a stop sequence as closing words 213ms
+ ✓ src/derive.test.ts > degenerate input > does not let one far-future timestamp poison the watermark or file the entry under a future year 188ms
+ ✓ src/derive.test.ts > degenerate input > says nothing was inside this repository, not that there were no closing words, when the checkout has moved 216ms
+ ✓ src/derive.test.ts > degenerate input > reports an unreadable transcript as one session not read, and still derives the rest 213ms
  Test Files  1 passed (1)
-      Tests  6 passed | 66 skipped (72)
-   Start at  12:05:55
-   Duration  2.39s (transform 115ms, setup 0ms, import 150ms, tests 2.18s, environment 0ms)
+      Tests  9 passed | 69 skipped (78)
+   Start at  09:19:33
+   Duration  3.06s (transform 110ms, setup 0ms, import 144ms, tests 2.87s, environment 0ms)
 

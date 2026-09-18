@@ -1,4 +1,4 @@
-The opt-in rewrite (`reggie journal derive <slug> --rewrite`): what was and was not verified. Written by the build session on 2026-09-17, before the packet; the packet is to say the same thing in its own words and quote this file.
+The opt-in rewrite (`reggie journal derive <slug> --rewrite`): what was and was not verified. Written by the build session on 2026-09-17, updated 2026-09-18 for the security review's isolation flags; the packet is to say the same thing in its own words and quote this file.
 
 The statement:
 
@@ -6,7 +6,7 @@ The statement:
 
 What the flags rest on:
 
-  The argument list is `claude -p --tools "" --no-session-persistence --strict-mcp-config`, with the prompt on standard input, run from the OS temp directory with a 120 second limit. Those flags were read from the help text of `claude` version 2.1.261 (Claude Code) on the owner's machine on 2026-09-17, and from nothing else. The help text says `--tools ""` disables all built-in tools, that `--no-session-persistence` only works with `--print`, and that `--strict-mcp-config` ignores every MCP configuration but `--mcp-config`. Whether the tool accepts that combination, reads the prompt from standard input when `-p` is given no argument, and answers with plain text on standard output is inferred from that help text and has not been observed.
+  The argument list is `claude -p --tools "" --no-session-persistence --strict-mcp-config --setting-sources "" --system-prompt <fixed>`, with the prompt on standard input, run in a fresh `mkdtempSync` directory removed afterwards, with a 120 second limit. The last three were added on 2026-09-18 for the security review (S4); all were read from the help text of `claude` version 2.1.261 (Claude Code) on the owner's machine, and from nothing else. The help text says `--tools ""` disables all built-in tools; `--no-session-persistence` only works with `--print`; `--strict-mcp-config` ignores every MCP configuration but `--mcp-config`; `--setting-sources <sources>` is "Comma-separated list of setting sources to load (user, project, local)", so an empty value loads none of them; and `--system-prompt <prompt>` is "System prompt to use for the session", which replaces the default (so no user-level CLAUDE.md or memory reaches it). The fresh empty working directory means there is no CLAUDE.md for the tool to load and, on a shared temp root, no way to pre-seed one for it. Whether the tool accepts that combination, reads the prompt from standard input when `-p` is given no argument, and answers with plain text on standard output is inferred from that help text and has not been observed.
 
 What is verified, with a fake runner (evidence/rewrite-seam.txt):
 
