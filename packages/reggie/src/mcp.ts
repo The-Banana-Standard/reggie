@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import type { BuildCheck } from "./build-state.js";
-import { capture } from "./capture.js";
+import { capture, resolveCaptureOrigin, type CaptureOrigin } from "./capture.js";
 import { buildContext } from "./context.js";
 import { appendJournal, detectTool } from "./journal.js";
 import { addNote, findNotes, NOTE_TYPES, renderNoteFile, staleEntries } from "./notes.js";
@@ -181,12 +181,20 @@ export function createMcpServer(root: string, opts: McpServerOptions = {}): McpS
     "reggie_capture",
     {
       title: "Capture to intake",
-      description: "Add a raw idea, bug, or discovered issue to .reggie/intake.md without planning or fixing it.",
-      inputSchema: { text: z.string().min(5), detail: z.string().optional() },
+      description: "Add a raw idea, bug, or discovered issue to .reggie/intake.md without planning or fixing it. `path` names the file or folder the idea came from; it is written under the item as its last detail line.",
+      inputSchema: { text: z.string().min(5), detail: z.string().optional(), path: z.string().optional().describe("Repo-relative file or folder the idea came from") },
     },
-    async ({ text: body, detail }) => {
-      const input: { text: string; person: Person; source: string; detail?: string } = { text: body, person: c.person, source: "mcp" };
+    async ({ text: body, detail, path: origin }) => {
+      const input: { text: string; person: Person; source: string; detail?: string; origin?: CaptureOrigin } = { text: body, person: c.person, source: "mcp" };
       if (detail) input.detail = detail;
+      // The same resolver every other door uses; a refusal is a tool error, which reaches the agent.
+      if (origin !== undefined) {
+        try {
+          input.origin = resolveCaptureOrigin(c.paths, { path: origin });
+        } catch (err) {
+          return { content: [{ type: "text" as const, text: err instanceof Error ? err.message : "bad path" }], isError: true };
+        }
+      }
       const r = capture(c.paths, input);
       return text(`Captured as ${r.slug}.`);
     },

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { checkBuild } from "../src/build-state.js";
 import { createMcpServer, type McpServerOptions } from "../src/mcp.js";
 import { onboard } from "../src/onboard.js";
+import { parseIntake } from "../src/tasks.js";
 import { makeTempRepo, type TempRepo } from "./helpers.js";
 
 const CLI = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -51,6 +52,31 @@ describe("mcp server", () => {
 
     const resources = await client.listResources();
     expect(resources.resources.map((r) => r.uri)).toContain("reggie://readme");
+  });
+
+  it("captures with the file or folder the idea came from, and refuses a path that is not one without writing", async () => {
+    repo.write("src/lib/one.ts", "export const one = 1;\n");
+    repo.commitAll("lib");
+    const intake = path.join(repo.root, ".reggie", "intake.md");
+    const folder = await client.callTool({ name: "reggie_capture", arguments: { text: "The lib folder needs a note", path: "src/lib" } });
+    expect(folder.isError).toBeFalsy();
+    expect(JSON.stringify(folder.content)).toContain("Captured as the-lib-folder-needs-a-note");
+    const items = parseIntake(readFileSync(intake, "utf8"));
+    const item = items.find((i) => i.slug === "the-lib-folder-needs-a-note");
+    expect(item?.meta).toMatch(/^test, mcp, \d{4}-\d{2}-\d{2}$/);
+    expect(item?.detail).toEqual(["Captured from the folder `src/lib`"]);
+
+    const before = readFileSync(intake, "utf8");
+    const refused = await client.callTool({ name: "reggie_capture", arguments: { text: "Must not be written", path: "../etc" } });
+    expect(refused.isError).toBe(true);
+    expect(JSON.stringify(refused.content)).toContain("a path may not step outside the repo");
+    expect(readFileSync(intake, "utf8")).toBe(before);
+
+    // The tool list is unchanged by the option, and no launch tool exists: launching opens a
+    // terminal on the serving machine and is a human act.
+    const names = (await client.listTools()).tools.map((t) => t.name);
+    expect(names.some((n) => /launch/i.test(n))).toBe(false);
+    expect(names).toHaveLength(10);
   });
 });
 

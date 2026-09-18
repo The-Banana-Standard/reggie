@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -8,10 +8,10 @@ import { git } from "../src/git.js";
 import { clearHistoryCache } from "../src/history.js";
 import { appendJournal } from "../src/journal.js";
 import { briefFile, packetFile } from "../src/paths.js";
-import { startServer, type ServerHandle } from "../src/serve.js";
+import { lanAddresses, startServer, type ServerHandle } from "../src/serve.js";
 import { TASK_STATES } from "../src/tasks.js";
 import { ensureLayout } from "../src/layout.js";
-import { currentPerson, loadConfig, loadPeople } from "../src/people.js";
+import { currentPerson, ensureConfig, loadConfig, loadPeople } from "../src/people.js";
 import { repoPaths } from "../src/paths.js";
 import { makeDiffFixture, oddLine, SPACED_NAMES, XSS_LINE, type DiffFixture } from "./diff-fixture.js";
 import { makeFixtureRepo, type FixtureRepo } from "./fixtures.js";
@@ -2022,4 +2022,264 @@ describe("a derived journal entry over HTTP", () => {
       repo.cleanup();
     }
   }, 60_000);
+});
+
+describe("the idea action: origins on capture and paths on launch", () => {
+  let ifx: FixtureRepo;
+  let ideaServer: ServerHandle;
+  let ideaBase: string;
+  const gone = "src/gone.ts";
+
+  beforeAll(async () => {
+    ifx = makeFixtureRepo();
+    const root = ifx.repo.root;
+    // The shapes an origin can take, added to a fixture of this block's own so nothing the other
+    // blocks pin (file counts, section lists) moves.
+    ifx.repo.write("src/a b.ts", "export const ab = 1;\n");
+    ifx.repo.write("src/café ü/uni.ts", "export const uni = 1;\n");
+    ifx.repo.write(gone, "export const gone = 1;\n");
+    ifx.repo.write("docs/README.md", "# docs\n");
+    symlinkSync("../src/types/shape.ts", path.join(root, "docs", "inside"));
+    symlinkSync("/etc/hosts", path.join(root, "docs", "outside"));
+    ifx.repo.commitAll("origins");
+    rmSync(path.join(root, gone));
+    mkdirSync(path.join(root, ".reggie", ".cache"), { recursive: true });
+    writeFileSync(path.join(root, ".reggie", ".cache", "x"), "cached\n", "utf8");
+    ideaServer = await startServer(ifx.paths, ifx.config, { port: 0, host: "127.0.0.1", workspace: null });
+    ideaBase = `http://127.0.0.1:${ideaServer.port}`;
+  }, 120_000);
+
+  afterAll(async () => {
+    await ideaServer?.close();
+    ifx?.repo.cleanup();
+  });
+
+  async function ipost(route: string, body: unknown, headers: Record<string, string> = {}): Promise<{ status: number; body: any }> {
+    const res = await fetch(ideaBase + route, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: typeof body === "string" ? body : JSON.stringify(body) });
+    const text = await res.text();
+    return { status: res.status, body: text ? JSON.parse(text) : null };
+  }
+  async function iget(route: string): Promise<{ status: number; body: any }> {
+    const res = await fetch(ideaBase + route);
+    const text = await res.text();
+    return { status: res.status, body: text ? JSON.parse(text) : null };
+  }
+  const intake = () => readFileSync(ifx.paths.intake, "utf8");
+  const packOf = (slug: string) => path.join(ifx.repo.root, ".reggie", ".cache", "context", `${slug}.md`);
+  const launchesDir = () => path.join(ifx.repo.root, ".reggie", ".cache", "launches");
+
+  /** The platform stubbed away from darwin, so no test here can open a Terminal window. */
+  async function offMac<T>(fn: () => Promise<T>): Promise<T> {
+    const real = process.platform;
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+    try {
+      return await fn();
+    } finally {
+      Object.defineProperty(process, "platform", { value: real, configurable: true });
+    }
+  }
+
+  it("refuses a launch path that is not an entity of the repo before any pack, session or record exists", async () => {
+    const before = intake();
+    const cases: [Record<string, unknown>, RegExp][] = [
+      [{ paths: [gone] }, /listed by git but is not on disk/],
+      [{ paths: ["../etc"] }, /step outside/],
+      [{ paths: ["/etc/hosts"] }, /never absolute/],
+      [{ paths: [".git/HEAD"] }, /not a file or folder in this repo/],
+      [{ paths: ["src/*.ts"] }, /not a file or folder in this repo/],
+      [{ paths: ["docs/outside"] }, /points outside the repo/],
+      [{ path: "." }, /repo itself is not an origin/],
+      [{ paths: Array.from({ length: 9 }, (_, i) => `src/big/a0${i}.ts`) }, /at most 8 paths/],
+    ];
+    for (const [extra, why] of cases) {
+      const { status, body } = await ipost("/api/launch", { slugs: [ifx.slugs.ungroomed], tool: "claude", mode: "discuss", ...extra });
+      expect(status, JSON.stringify(extra)).toBe(400);
+      expect(body.error, JSON.stringify(extra)).toMatch(why);
+      expect(body.error, JSON.stringify(extra)).not.toContain(ifx.repo.root);
+    }
+    expect(existsSync(packOf(ifx.slugs.ungroomed))).toBe(false);
+    expect(existsSync(launchesDir())).toBe(false);
+    expect(intake()).toBe(before);
+    // GET answers the same sentence for the same path.
+    const described = await iget(`/api/launch?slug=${ifx.slugs.ungroomed}&tool=claude&mode=discuss&path=${encodeURIComponent(gone)}`);
+    expect(described.status).toBe(400);
+    expect(described.body.error).toMatch(/listed by git but is not on disk/);
+  });
+
+  it("describes a launch whose pack is built around a folder, and runs it: the pack holds the chain, the scope, the commits and the related tasks", async () => {
+    const described = await iget(`/api/launch?slug=${ifx.slugs.ungroomed}&tool=claude&mode=discuss&path=${encodeURIComponent("./src/big/")}`);
+    expect(described.status, JSON.stringify(described.body)).toBe(200);
+    expect(described.body.command).toContain("The pack was also built around `src/big`: its notes, its recent commits and the tasks that touch it are in there, so start reading at that place.");
+    const run = await offMac(() => ipost("/api/launch", { slugs: [ifx.slugs.ungroomed], tool: "claude", mode: "discuss", paths: ["src/big"] }));
+    expect(run.status, JSON.stringify(run.body)).toBe(200);
+    expect(run.body.goal).toBe("shape");
+    expect(run.body.launched).toBe(false);
+    expect(run.body.command).toContain("The pack was also built around `src/big`");
+    // The same command GET described, plus the session id the POST minted.
+    expect(run.body.command).toBe(described.body.command.replace("claude --permission-mode plan ", `claude --permission-mode plan --session-id ${run.body.session} `));
+    const pack = readFileSync(packOf(ifx.slugs.ungroomed), "utf8");
+    expect(pack).toContain("A fixture repo that exists so the tests have a small codebase");
+    expect(pack).toContain("The chain must stay in order; a01 is the entry and a45 the leaf.");
+    expect(pack).toContain("## Files in scope\n- src/big\n");
+    expect(pack).toContain("## Recent commits touching these files");
+    expect(pack).toContain("## Related tasks touching the same files");
+    expect(pack).toContain(`- ${ifx.slugs.inProcess}`);
+    // The singular alias does the same.
+    const single = await offMac(() => ipost("/api/launch", { slug: ifx.slugs.ungroomed, tool: "codex", mode: "discuss", path: "src/big/" }));
+    expect(single.status).toBe(200);
+    expect(single.body.command).toContain("built around `src/big`:");
+    expect(single.body.session).toBeNull();
+  });
+
+  it("captures with a file, a symbol or a task origin and echoes it; without one it echoes null and writes the old line", async () => {
+    const file = await ipost("/api/capture", { text: "The shape type is unread", path: "src/types/shape.ts" });
+    expect(file.status, JSON.stringify(file.body)).toBe(200);
+    expect(file.body).toEqual({ slug: "the-shape-type-is-unread", line: expect.stringMatching(/^- the-shape-type-is-unread: The shape type is unread \(test, web, \d{4}-\d{2}-\d{2}\)$/), origin: { kind: "file", path: "src/types/shape.ts" } });
+    const symbol = await ipost("/api/capture", { text: "emptyShape allocates", path: "./src/types/shape.ts", symbol: "emptyShape" });
+    expect(symbol.status).toBe(200);
+    expect(symbol.body.origin).toEqual({ kind: "symbol", path: "src/types/shape.ts", symbol: "emptyShape" });
+    const folder = await ipost("/api/capture", { text: "The big area is big", path: "src/big/", detail: "forty-five files" });
+    expect(folder.body.origin).toEqual({ kind: "folder", path: "src/big" });
+    const task = await ipost("/api/capture", { text: "Idea while reading a task", task: ifx.slugs.inProcess });
+    expect(task.status).toBe(200);
+    expect(task.body.origin).toEqual({ kind: "task", task: ifx.slugs.inProcess });
+    const spaced = await ipost("/api/capture", { text: "A spaced path", path: "src/a b.ts" });
+    expect(spaced.body.origin).toEqual({ kind: "file", path: "src/a b.ts" });
+    const uni = await ipost("/api/capture", { text: "A non-ASCII path", path: "src/café ü/uni.ts" });
+    expect(uni.body.origin).toEqual({ kind: "file", path: "src/café ü/uni.ts" });
+    const none = await ipost("/api/capture", { text: "Nothing to see", detail: "plain" });
+    expect(none.status).toBe(200);
+    expect(none.body.origin).toBeNull();
+    expect(Object.keys(none.body).sort()).toEqual(["line", "origin", "slug"]);
+
+    const text = intake();
+    expect(text).toContain("- the-shape-type-is-unread: The shape type is unread (test, web, ");
+    expect(text).toContain("  > Captured from the file `src/types/shape.ts`\n");
+    expect(text).toContain("  > Captured from `emptyShape` in the file `src/types/shape.ts`\n");
+    expect(text).toContain("  > forty-five files\n  > Captured from the folder `src/big`\n");
+    expect(text).toContain(`  > Captured from the task \`${ifx.slugs.inProcess}\`\n`);
+    expect(text).toContain("  > Captured from the file `src/a b.ts`\n");
+    expect(text).toContain("  > Captured from the file `src/café ü/uni.ts`\n");
+    expect(text).toContain("- nothing-to-see: Nothing to see (test, web, ");
+    expect(text).toContain("  > plain\n");
+    const all = (await iget("/api/tasks?all=1")).body;
+    expect(all.find((t: any) => t.slug === "nothing-to-see").intake.detail).toEqual(["plain"]);
+    const fromTask = all.find((t: any) => t.slug === "idea-while-reading-a-task");
+    expect(fromTask.state).toBe("ungroomed");
+    expect(fromTask.intake.detail).toEqual([`Captured from the task \`${ifx.slugs.inProcess}\``]);
+    // The task page's story carries the origin line, where "What was written" renders it.
+    const story = await iget("/api/story?scope=task&id=idea-while-reading-a-task");
+    expect(story.status).toBe(200);
+    expect(JSON.stringify(story.body)).toContain(`Captured from the task`);
+  });
+
+  it("answers 400 with the resolver's sentence for every refused origin and writes nothing; a big body is still 413", async () => {
+    const before = intake();
+    const refused: [Record<string, unknown>, RegExp][] = [
+      [{ path: "" }, /repo itself is not an origin/],
+      [{ path: "." }, /repo itself is not an origin/],
+      [{ path: "./" }, /repo itself is not an origin/],
+      [{ path: "/etc/hosts" }, /never absolute/],
+      [{ path: ifx.repo.root }, /never absolute/],
+      [{ path: "src/../etc" }, /step outside/],
+      [{ path: "src\\types" }, /backslash/],
+      [{ path: "src/types " }, /control character/],
+      [{ path: "src/ty\npes" }, /control character/],
+      [{ path: "src/ty\tpes" }, /control character/],
+      [{ path: "src/`x`.ts" }, /backtick/],
+      [{ path: "src/[x].ts" }, /square bracket/],
+      [{ path: "src/x|y.ts" }, /pipe/],
+      [{ path: ".git/HEAD" }, /not a file or folder in this repo/],
+      [{ path: ".reggie/.cache/x" }, /not a file or folder in this repo/],
+      [{ path: "src/*.ts" }, /not a file or folder in this repo/],
+      [{ path: ":(exclude)src" }, /not a file or folder in this repo/],
+      [{ path: gone }, /listed by git but is not on disk/],
+      [{ path: "src/never.ts" }, /not a file or folder in this repo/],
+      [{ path: "docs/outside" }, /points outside the repo/],
+      [{ symbol: "emptyShape" }, /needs the file that holds it/],
+      [{ path: "src/big", symbol: "emptyShape" }, /belongs to a file, not a folder/],
+      [{ path: "src/types/shape.ts", symbol: "empty Shape" }, /not a symbol name/],
+      [{ path: "src/types/shape.ts", symbol: "a::b" }, /not a symbol name/],
+      [{ path: "src/types/shape.ts", symbol: "<script>" }, /not a symbol name/],
+      [{ path: "src/types/shape.ts", symbol: "x".repeat(201) }, /not a symbol name/],
+      [{ task: ifx.slugs.inProcess, path: "src/big" }, /task or the path, not both/],
+      [{ task: "../etc" }, /not a task slug/],
+      [{ task: "no-such-task" }, /`no-such-task` is not a task in this repo/],
+    ];
+    for (const [origin, why] of refused) {
+      const { status, body } = await ipost("/api/capture", { text: "Must not land", ...origin });
+      expect(status, JSON.stringify(origin)).toBe(400);
+      expect(body.error, JSON.stringify(origin)).toMatch(why);
+      expect(body.error, JSON.stringify(origin)).not.toContain(ifx.repo.root);
+    }
+    expect(intake()).toBe(before);
+    const big = await ipost("/api/capture", { text: "x".repeat(70_000), path: "src/types/shape.ts" });
+    expect(big.status).toBe(413);
+    expect(intake()).toBe(before);
+  });
+
+  it("refuses a capture carrying a path from a foreign origin or a cross-site page, writing nothing", async () => {
+    const before = intake();
+    const foreign = await ipost("/api/capture", { text: "Evil idea", path: "src/types/shape.ts" }, { origin: "http://evil.example.com" });
+    expect(foreign.status).toBe(403);
+    expect(foreign.body.error).toContain("origin");
+    const cross = await ipost("/api/capture", { text: "Evil idea", path: "src/types/shape.ts" }, { "sec-fetch-site": "cross-site" });
+    expect(cross.status).toBe(403);
+    expect(cross.body.error).toContain("cross-site");
+    expect(intake()).toBe(before);
+  });
+
+  it("launches the slug a capture just minted, in the same second, with the file's own note and commits in the pack", async () => {
+    const captured = await ipost("/api/capture", { text: "Launch me at once", path: "src/types/shape.ts" });
+    expect(captured.status).toBe(200);
+    const slug = captured.body.slug;
+    const launched = await offMac(() => ipost("/api/launch", { slugs: [slug], tool: "claude", mode: "discuss", paths: ["src/types/shape.ts"] }));
+    expect(launched.status, JSON.stringify(launched.body)).toBe(200);
+    expect(launched.body.goal).toBe("shape");
+    expect(launched.body.launched).toBe(false);
+    expect(launched.body.reason).toContain("macOS");
+    expect(launched.body.session).toMatch(/^[0-9a-f-]{36}$/);
+    expect(launched.body.resume).toBe(`claude --resume ${launched.body.session}`);
+    expect(launched.body.command).toContain(`shape \`${slug}\` into a brief`);
+    expect(launched.body.command).toContain("The pack was also built around `src/types/shape.ts`");
+    const pack = readFileSync(packOf(slug), "utf8");
+    expect(pack).toContain("Shape is the one shared type");
+    expect(pack).toContain("## Files in scope\n- src/types/shape.ts\n");
+    expect(pack).toContain("## Recent commits touching these files");
+    // The capture stands after a launch that opened nothing.
+    expect(intake()).toContain(`- ${slug}: Launch me at once (test, web, `);
+    expect(intake()).toContain("  > Captured from the file `src/types/shape.ts`\n");
+    const record = JSON.parse(readFileSync(path.join(launchesDir(), `${slug}.json`), "utf8"));
+    expect(record.goal).toBe("shape");
+    expect(record.session).toBe(launched.body.session);
+  });
+
+  it("refuses a keyed capture in team mode over a network socket, writing nothing", async () => {
+    const lan = lanAddresses("0.0.0.0");
+    // No non-internal interface means no non-loopback socket to test over; the unit tests on
+    // checkKey cover the layer, and this case is the end-to-end refusal when the machine allows it.
+    if (lan.length === 0) return;
+    const repo = makeTempRepo("reggie-team-");
+    const paths = repoPaths(repo.root);
+    ensureLayout(paths);
+    ensureConfig(paths, "team");
+    repo.write("src/one.ts", "export const one = 1;\n");
+    repo.commitAll("team");
+    const team = await startServer(paths, loadConfig(paths), { port: 0, host: "0.0.0.0" });
+    try {
+      expect(loadConfig(paths).mode).toBe("team");
+      const before = readFileSync(paths.intake, "utf8");
+      const res = await fetch(`http://${lan[0]}:${team.port}/api/capture?key=${encodeURIComponent(team.key ?? "")}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: "From a phone in a team", path: "src/one.ts" }),
+      });
+      expect(res.status).toBe(403);
+      expect(((await res.json()) as { error: string }).error).toContain("team mode");
+      expect(readFileSync(paths.intake, "utf8")).toBe(before);
+    } finally {
+      await team.close();
+      repo.cleanup();
+    }
+  });
 });

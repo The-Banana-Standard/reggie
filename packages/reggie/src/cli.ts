@@ -4,7 +4,7 @@ import path from "node:path";
 import { Command } from "commander";
 import { lintBrief, parseBrief, PRIORITIES, SIZES, type Priority, type Size } from "./brief.js";
 import { buildState, checkBuild, packageRoot } from "./build-state.js";
-import { capture, removeFromIntake } from "./capture.js";
+import { capture, removeFromIntake, resolveCaptureOrigin } from "./capture.js";
 import { claimTask, releaseTask } from "./claim.js";
 import { pendingSetup, type DepsOutcome } from "./deps.js";
 import { buildContext } from "./context.js";
@@ -16,7 +16,7 @@ import { buildGraph, type RepoGraph } from "./graph.js";
 import { createIssue, createPullRequest, ghAvailable } from "./gh.js";
 import { currentBranch, defaultBranch, git } from "./git.js";
 import { appendJournal, detectTool, readJournal, renderJournalEntry } from "./journal.js";
-import { contextFileRel, isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, mintSession, recordLaunch, resolveGoal, writeContextFile, type LaunchGoal, type LaunchInput, type LaunchTask } from "./launch.js";
+import { contextFileRel, isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, mintSession, recordLaunch, resolveGoal, writeContextPacks, type LaunchGoal, type LaunchInput, type LaunchTask } from "./launch.js";
 import { startMcpServer } from "./mcp.js";
 import { startServer } from "./serve.js";
 import { detectServices, type ServiceNode } from "./services.js";
@@ -147,12 +147,21 @@ program
   .description("Add a raw item to .reggie/intake.md")
   .option("--detail <text>", "extra detail lines")
   .option("--slug <slug>", "choose the slug instead of deriving it")
+  .option("--path <path>", "the file or folder the idea came from, written under the item as its last detail line")
   .option("--issue", "also open a GitHub issue with gh")
-  .action((words: string[], opts: { detail?: string; slug?: string; issue?: boolean }) => {
+  .action((words: string[], opts: { detail?: string; slug?: string; path?: string; issue?: boolean }) => {
     const c = ctx(program.opts<{ root?: string }>().root);
     const input: Parameters<typeof capture>[1] = { text: words.join(" "), person: c.person, source: "cli" };
     if (opts.detail) input.detail = opts.detail;
     if (opts.slug) input.slug = opts.slug;
+    // `--path ""` is a path too: the resolver refuses it with a sentence rather than the option being dropped.
+    if (opts.path !== undefined) {
+      try {
+        input.origin = resolveCaptureOrigin(c.paths, { path: opts.path });
+      } catch (err) {
+        return fail(err instanceof Error ? err.message : "bad path");
+      }
+    }
     const r = capture(c.paths, input);
     out(`Captured ${r.slug}`);
     if (opts.issue) {
@@ -408,8 +417,9 @@ program
   .option("--tool <tool>", `one of ${LAUNCH_TOOLS.join(", ")}`, "claude")
   .option("--mode <mode>", `one of ${LAUNCH_MODES.join(", ")}`, "discuss")
   .option("--note <text>", "a sentence of your own, appended to the prompt")
+  .option("--path <paths...>", "files or folders to build the context pack around; the prompt names them")
   .option("--run", "start the session instead of only printing it")
-  .action((slugs: string[], opts: { tool: string; mode: string; note?: string; run?: boolean }) => {
+  .action((slugs: string[], opts: { tool: string; mode: string; note?: string; path?: string[]; run?: boolean }) => {
     const c = ctx(program.opts<{ root?: string }>().root);
     if (!isLaunchTool(opts.tool)) fail(`--tool must be one of ${LAUNCH_TOOLS.join(", ")}`);
     if (!isLaunchMode(opts.mode)) fail(`--mode must be one of ${LAUNCH_MODES.join(", ")}`);
@@ -425,8 +435,19 @@ program
     } catch (err) {
       return fail(err instanceof Error ? err.message : "cannot launch");
     }
+    // Each path is resolved to the file or folder it is before a command is printed or a pack built.
+    const packPaths: string[] = [];
+    for (const p of opts.path ?? []) {
+      try {
+        const origin = resolveCaptureOrigin(c.paths, { path: p });
+        if (origin.path && !packPaths.includes(origin.path)) packPaths.push(origin.path);
+      } catch (err) {
+        return fail(err instanceof Error ? err.message : "bad path");
+      }
+    }
     const base: LaunchInput = { repo: c.root, tool: opts.tool, mode: opts.mode, tasks };
     if (opts.note) base.note = opts.note;
+    if (packPaths.length > 0) base.paths = packPaths;
     if (!opts.run) {
       const session = launchCommand({ ...base, contextFiles: tasks.map((t) => contextFileRel(t.slug)) });
       out(session.description);
@@ -448,7 +469,7 @@ program
       if (setup.length > 0) base.setup = setup;
     }
     base.repo = cwd;
-    base.contextFiles = tasks.map((t) => writeContextFile(cwd, t.slug, buildContext(c.paths, c.config, { slug: t.slug })));
+    base.contextFiles = writeContextPacks(c.paths, c.config, cwd, tasks, packPaths);
     if (session) base.session = session;
     const r = launchSession(base);
     out(r.command);

@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { capture } from "./capture.js";
 import { buildContext } from "./context.js";
 import { briefFile } from "./paths.js";
+import { currentPerson } from "./people.js";
 import { writeText } from "./util.js";
 import { makeFixtureRepo, type FixtureRepo } from "../test/fixtures.js";
 
@@ -83,5 +85,53 @@ describe("buildContext", () => {
     const pack = buildContext(fx.paths, fx.config, { slug: fx.slugs.inProcess });
     expect(pack).not.toContain("What the user is asking for");
     expect(pack).toContain("## Plan:");
+  });
+});
+
+describe("the pack for a fresh slug, by the origin it was captured from", () => {
+  let fresh: string;
+  beforeAll(() => {
+    fresh = capture(fx.paths, { text: "A fresh idea with no brief and no plan", person: currentPerson(fx.repo.root), source: "web" }).slug;
+  });
+
+  it("holds the file's own note and the repo note for a file origin", () => {
+    const pack = buildContext(fx.paths, fx.config, { slug: fresh, paths: ["src/types/shape.ts"] });
+    expect(pack).toContain(`# Context pack for ${fresh}`);
+    expect(pack).toContain(`## Plan: none yet for ${fresh}`);
+    expect(pack).toContain("A fixture repo that exists so the tests have a small codebase");
+    expect(pack).toContain("Shape is the one shared type");
+    expect(pack).toContain("## Files in scope\n- src/types/shape.ts\n");
+    expect(pack).toContain("## Recent commits touching these files");
+    expect(pack).toContain("## Working agreement");
+  });
+
+  it("holds the folder's own note for a folder origin, and the same pack for a symbol as for its file", () => {
+    const folder = buildContext(fx.paths, fx.config, { slug: fresh, paths: ["src/big"] });
+    expect(folder).toContain("The chain must stay in order; a01 is the entry and a45 the leaf.");
+    expect(folder).toContain("## Files in scope\n- src/big\n");
+    // The tasks whose plans overlap the folder: both fixture plans touch src/big/a01.ts.
+    expect(folder).toContain("## Related tasks touching the same files");
+    expect(folder).toContain(`- ${fx.slugs.inProcess}`);
+    // A symbol page is the file level with the file that holds the symbol as the path.
+    const file = buildContext(fx.paths, fx.config, { slug: fresh, paths: ["src/types/shape.ts"] });
+    const symbol = buildContext(fx.paths, fx.config, { slug: fresh, paths: ["src/types/shape.ts"] });
+    expect(symbol).toBe(file);
+  });
+
+  it("holds the repo note and the working agreement and no files in scope for a task origin or none", () => {
+    const pack = buildContext(fx.paths, fx.config, { slug: fresh });
+    expect(pack).toContain("A fixture repo that exists so the tests have a small codebase");
+    expect(pack).toContain("## Working agreement");
+    expect(pack).not.toContain("## Files in scope");
+    expect(pack).not.toContain("## Recent commits touching these files");
+    expect(pack).not.toContain("Shape is the one shared type");
+  });
+
+  it("still builds the pack, with that file's commits, for a symbol origin whose file the code map never read", () => {
+    const pack = buildContext(fx.paths, fx.config, { slug: fresh, paths: [".reggie/intake.md"] });
+    expect(pack).toContain("## Files in scope\n- .reggie/intake.md\n");
+    expect(pack).toContain("## Recent commits touching these files");
+    expect(pack).toMatch(/- \d{4}-\d{2}-\d{2} [0-9a-f]+ Test Person: intake and plans/);
+    expect(pack).not.toMatch(/Test Person: code: big chain/);
   });
 });
