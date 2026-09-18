@@ -15,3 +15,7 @@ sources: packages/reggie/test/diff-fixture.ts, branch-diff-in-reader
 The fixture turns off git's automatic maintenance in the repo it builds. Git starts a detached maintenance process after a commit or a merge once a repo holds about a hundred loose objects, and this one holds more: measured, the same build sometimes ended with everything loose and sometimes with two packs, a test that takes one file's blob away from git failed one run in four, and once a git add racing the repack failed outright. A fixture must not depend on when a background process finishes. If a test here ever needs packed objects, pack them on purpose.
 sources: packages/reggie/test/diff-fixture.ts, branch-diff-in-reader
 
+## gotcha · 2026-09-18 · Claude via jacobpress · medium
+The packet helper takes a third argument, cites, false for the one packet landTask lands: it never saved an evidence/tests.txt, and since the evidence gate a hand approval refuses a packet that cites a file nobody committed. Saving the file instead would have moved the pinned file lists of the change routes.
+sources: low-risk-auto-approval
+

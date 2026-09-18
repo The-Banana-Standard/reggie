@@ -21,3 +21,7 @@ sources: packages/reggie/ui/board.js, branch-diff-in-reader
 makeLauncher, commandField, friendlyError, TOOL_LABEL and rememberTool are exported for the idea action, which composes them rather than copying them; no behaviour moved. describe takes paths and run takes opts.paths, the repo paths the pack is built around, which the launch URL and body carry as path parameters; run's warning toast takes opts.where so the popover can say the command is below rather than on the card.
 sources: idea-from-every-page
 
+## how · 2026-09-18 · Claude via jacobpress · high
+The task page draws the policy report inside the packet section, above the decide form, from policy on the task route: the verdict chip and the server's sentence, the two commits read, the completions class and where it came from, the effective risk, one row per criterion and review with who recorded it, with what and when, and one row per gate with its reasons. It says it is a report and that a person decides below; the decide form is unchanged. Every string that came out of a check record is set as a text node and never through the inline renderer, because a record is a file anyone on the branch can write. decideError shows the server's own sentence for a 409 from the decide route, in the form and in the toast, because that route now refuses for several different reasons and each sentence says what to do; friendlyError still maps 409 to the missing-packet sentence for its other callers, which is captured and not fixed here.
+sources: low-risk-auto-approval
+

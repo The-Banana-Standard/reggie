@@ -34,3 +34,7 @@ sources: derive-the-journal
 LaunchInput.paths names the places the pack was built around. launchCommand checks only what can reach a command line (an empty entry, a control character, more than eight, longer than 512) and adds one sentence after the context clause in every goal, build included; whether each path is a file or folder of the repo is the caller's check through resolveCaptureOrigin, the same split the slug and the note have. A path reaches the command only inside the single-quoted prompt, exactly where the note already does. writeContextPacks is the one function both launchers use to write the packs, so the server and the CLI cannot disagree about what a session reads first; launchCommand itself stays pure.
 sources: idea-from-every-page
 
+## how · 2026-09-18 · Claude via jacobpress · high
+The build prompt tells a session to record each criterion with reggie check or the reggie_check tool and each review with --review, to record a check after the code it proves is committed and after the last commit that changes code or docs because a pass goes stale once anything outside .reggie/ changes after it, to list every unrelated problem under Discovered issues because an approval captures what the session did not, to run reggie packet again until the checklist is current and check it with --lint, and to read reggie check <slug> for what a decider will see. It still ends by asking the person to decide; the session is never told to decide for itself.
+sources: low-risk-auto-approval
+

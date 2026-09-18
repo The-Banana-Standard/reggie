@@ -15,3 +15,7 @@ sources: packages/reggie/ui/DOM-CONTRACT.md, branch-diff-in-reader
 The idea action is written down in four places here: the trigger's row in the shell ids, the idea icon in the icon list, the tile's new shape and the popover's classes under the story classes, and the idea module plus the five board exports under the module interfaces. The tile row now says the tile is a div and why; a change to the tile's markup in app.js changes that row in the same commit.
 sources: idea-from-every-page
 
+## how · 2026-09-18 · Claude via jacobpress · medium
+The board section gained one row for the policy report block on the task page: its classes, the data-verdict and data-gate attributes, the glyph for each status, that it sits above .packet__decide, and that record strings are text nodes. Change the markup in policyReport and change that row in the same commit.
+sources: low-risk-auto-approval
+
