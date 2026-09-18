@@ -19,7 +19,7 @@ import {
 import { lintPacket, packetCitations, parsePacketVerdict, renderChecklist, resolveEvidence, type EvidenceFault } from "./packet.js";
 import { checksRelPath, packetRelPath, planRelPath, REGGIE_DIR, repoPaths, taskRelDir, TASKS_REL_DIR } from "./paths.js";
 import { loadConfig, parseConfig, type Mode, type PolicyClass, type PolicyKeySource, type ReggieConfig } from "./people.js";
-import { lintPlan, parsePlan, planCriteria, riskFromFiles, type Risk } from "./plan.js";
+import { lintPlan, parsePlan, planCriteria, riskFromFiles, type ParsedPlan, type PlanCriterion, type Risk } from "./plan.js";
 import { splitFrontMatter } from "./util.js";
 
 /*
@@ -214,6 +214,20 @@ function covers(entry: string, file: string): boolean {
   return entry === file || (entry.endsWith("/") && file.startsWith(entry));
 }
 
+/** What a branch did to its own plan, field by field, as sentences for the controls gate. Everything the report prints is still the base's. */
+function planEdits(base: ParsedPlan, baseCriteria: readonly PlanCriterion[], branchText: string | null, baseName: string): string[] {
+  if (branchText === null) return [`the plan is deleted on the branch; the report reads the one on ${baseName}.`];
+  const branch = parsePlan(branchText);
+  const out: string[] = [];
+  if (branch.meta.risk !== base.meta.risk) out.push(`the plan's risk line reads ${branch.meta.risk} on the branch and ${base.meta.risk} on ${baseName}; the report uses ${base.meta.risk}.`);
+  const kept = new Set(planCriteria(branch.sections.get("Acceptance criteria") ?? "").map((c) => c.key));
+  const gone = baseCriteria.filter((c) => !kept.has(c.key)).map((c) => String(c.n));
+  if (gone.length > 0) out.push(`criterion ${gone.join(", ")} of the plan on ${baseName} is deleted or reworded on the branch; the report judges the ${baseCriteria.length} on ${baseName}.`);
+  if (kept.size > baseCriteria.length - gone.length) out.push(`the branch's plan holds criteria that are not on ${baseName}; checks recorded against them count for nothing.`);
+  if (branch.files.join("\n") !== base.files.join("\n")) out.push(`the plan's file list differs on the branch; the report computes the class from the list on ${baseName}.`);
+  return out;
+}
+
 /**
  * What the policy would say about a finished task. `root` is any checkout of the repository: the
  * answer does not depend on which. Never throws for anything a repository can hold; a state that
@@ -309,6 +323,8 @@ export function evaluateCompletion(root: string, slug: string, opts: EvaluateOpt
       const why = controlFileReason(slug, file);
       if (why !== null) controls.reasons.push(`the branch changes ${cleanLine(file, 200)}: ${why}. A person decides that.`);
     }
+    // For its own plan, say which field moved: that is the difference between a typo fixed and a task that lowered its own bar.
+    if (plan !== null && changedAll.includes(planRelPath(slug))) controls.reasons.push(...planEdits(plan, criteriaOfPlan, fileAtCommit(root, tipCommit, planRelPath(slug)), baseName));
     if (controls.reasons.length > 0) controls.status = "fail";
     else controls.reasons.push("none of the control files is among the files the branch changed.");
 
@@ -323,7 +339,7 @@ export function evaluateCompletion(root: string, slug: string, opts: EvaluateOpt
     if (RISK_RANK[effective] > RISK_RANK[config.policy.completions]) {
       riskGate.status = "fail";
       riskGate.reasons.push(
-        `the effective risk class is ${effective}, and the policy on ${baseName} lets a completion pass without a person only up to ${config.policy.completions} (the plan's line says ${planLine}, its file list computes ${planFiles}, the ${counted.length} file${counted.length === 1 ? "" : "s"} the branch changed compute ${changed}).`,
+        `the effective risk class is ${effective}, and the policy on ${baseName} lets a completion pass without a person only up to ${config.policy.completions} (the plan's line says ${planLine}, its file list computes ${planFiles}, the ${counted.length} file${counted.length === 1 ? "" : "s"} the branch changed compute${counted.length === 1 ? "s" : ""} ${changed}).`,
       );
     } else riskGate.reasons.push(`the effective risk class is ${effective}, within a completions policy of ${config.policy.completions}.`);
   }

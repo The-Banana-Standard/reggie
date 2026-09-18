@@ -3253,6 +3253,13 @@ function policyReport(policy) {
     const [glyph, t] = POLICY_MARK[status] ?? POLICY_MARK["not-checked"];
     return h("span", { class: `packet__mark packet__mark--${t}`, "aria-label": status, title: status }, glyph);
   };
+  // When a check was recorded, to the minute in the reader's own time; the instant itself is the row's title.
+  const when = (at) => {
+    const t = Date.parse(at);
+    if (Number.isNaN(t)) return String(at ?? "");
+    const d = new Date(t);
+    return `${fmtDate(at)} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
   const facts = [];
   if (policy.base) facts.push(`base ${short(policy.base)}`);
   if (policy.task) facts.push(`branch ${short(policy.task)}`);
@@ -3264,11 +3271,11 @@ function policyReport(policy) {
       { class: `policy__row is-${(POLICY_MARK[c.status] ?? [])[1] ?? "muted"}` },
       mark(c.status),
       h("span", { class: "policy__text" }, `${c.n}. ${c.text}`),
-      h("span", { class: "policy__who faint" }, c.record ? `${c.status} · ${c.record.person || "unknown"} (${c.record.tool || "unknown"}) · ${fmtDate(c.record.at)}` : c.status, c.why ? ` · ${c.why}` : ""),
+      h("span", { class: "policy__who faint", title: c.record?.at ?? null }, c.record ? `${c.status} · ${c.record.person || "unknown"} (${c.record.tool || "unknown"}) · ${when(c.record.at)}` : c.status, c.why ? ` · ${c.why}` : ""),
     ),
   );
   const reviews = (policy.reviews ?? []).map((r) =>
-    h("li", { class: "policy__row" }, mark(r.outcome), h("span", { class: "policy__text" }, `review ${r.name}`), h("span", { class: "policy__who faint" }, `${r.outcome} · ${r.record.person || "unknown"} (${r.record.tool || "unknown"}) · ${fmtDate(r.record.at)}`)),
+    h("li", { class: "policy__row" }, mark(r.outcome), h("span", { class: "policy__text" }, `review ${r.name}`), h("span", { class: "policy__who faint", title: r.record.at }, `${r.outcome} · ${r.record.person || "unknown"} (${r.record.tool || "unknown"}) · ${when(r.record.at)}`)),
   );
   const gates = (policy.gates ?? []).map((g) =>
     h(
