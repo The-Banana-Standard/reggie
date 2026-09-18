@@ -32,3 +32,7 @@ sources: derive-the-journal
 The reggie journal derive output no longer over-promises that an uncommitted entry blocks the next decide: a journal file already tracked on the branch does block landTask until committed, but a brand-new untracked day file does not, so the wording says to commit it before landing rather than claiming the merge will refuse.
 sources: derive-the-journal
 
+## how · 2026-09-18 · Claude via jacobpress · medium
+reggie capture --path takes one file or folder and reggie launch --path takes several; both resolve through resolveCaptureOrigin and exit 1 with its sentence before writing or printing anything. The capture option is checked against undefined rather than truthiness so that --path with an empty string is refused with a sentence instead of the option being dropped. launch --run hands the resolved paths to writeContextPacks, the same function the server's launch route uses.
+sources: idea-from-every-page
+

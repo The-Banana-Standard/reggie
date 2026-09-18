@@ -30,3 +30,7 @@ The shape prompt says triage also removes the intake line, and tells the session
 recordLaunch still writes the single latest record per slug, and now also appends the same object as one line to a log beside it, so a plan launch followed by a build launch keeps both session ids. A record written before the log existed is carried into the log before it is overwritten. readLaunches returns every launch oldest first, skips lines that do not parse or are not a launch for that slug, and validates the tool and goal, because the cache is a file anyone can edit. The record still names no person and a Codex launch still has no id; both are captured, not fixed.
 sources: derive-the-journal
 
+## how · 2026-09-18 · Claude via jacobpress · high
+LaunchInput.paths names the places the pack was built around. launchCommand checks only what can reach a command line (an empty entry, a control character, more than eight, longer than 512) and adds one sentence after the context clause in every goal, build included; whether each path is a file or folder of the repo is the caller's check through resolveCaptureOrigin, the same split the slug and the note have. A path reaches the command only inside the single-quoted prompt, exactly where the note already does. writeContextPacks is the one function both launchers use to write the packs, so the server and the CLI cannot disagree about what a session reads first; launchCommand itself stays pure.
+sources: idea-from-every-page
+
