@@ -4,6 +4,7 @@ import { git } from "../src/git.js";
 import { appendJournal } from "../src/journal.js";
 import { addNote } from "../src/notes.js";
 import { onboard } from "../src/onboard.js";
+import { recordCheck } from "../src/checks.js";
 import { scaffoldPacket } from "../src/packet.js";
 import { planFile, repoPaths, type RepoPaths } from "../src/paths.js";
 import { currentPerson, loadConfig, type ReggieConfig } from "../src/people.js";
@@ -203,8 +204,10 @@ export function makeFixtureRepo(): FixtureRepo {
   repo.write("src/types/shape.ts", "export interface Shape {\n  id: string;\n  points: number[];\n}\n\nexport function emptyShape(id: string): Shape {\n  return { id, points: [] };\n}\n\nexport function sizeOf(s: Shape): number {\n  return s.points.length;\n}\n");
   commitPaths(root, ["src/types/shape.ts"], `feat: add sizeOf helper\n\nTask: ${awaiting}`);
   repo.write(`.reggie/tasks/${awaiting}/evidence/tests.txt`, "6 passed, 0 failed\n");
+  // The packet's checklist is built from check records, so the evidence is cited by recording one.
+  recordCheck(paths, { slug: awaiting, criterion: "1", outcome: "pass", evidence: ["tests.txt"], person: person.handle, tool: "fixture", session: "fixture" });
   scaffoldPacket(paths, config, { slug: awaiting, author: person.handle });
-  commitPaths(root, [`.reggie/tasks/${awaiting}/packet.md`, `.reggie/tasks/${awaiting}/evidence/tests.txt`], `packet: ${awaiting}`);
+  commitPaths(root, [`.reggie/tasks/${awaiting}/packet.md`, `.reggie/tasks/${awaiting}/checks.jsonl`, `.reggie/tasks/${awaiting}/evidence/tests.txt`], `packet: ${awaiting}`);
   git(["switch", "-q", "main"], { cwd: root });
 
   // The claim journal entries were written to the working tree; keep them on main.
