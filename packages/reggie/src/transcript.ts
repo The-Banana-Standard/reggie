@@ -30,6 +30,8 @@ export const CLOSING_STOP_REASON = "end_turn";
 export const DEFAULT_CHUNK_BYTES = 64 * 1024;
 /** A line longer than this is dropped without being assembled. */
 export const MAX_LINE_BYTES = 1024 * 1024;
+/** How far ahead of the clock a timestamp may sit and still be trusted: a little, for clock skew. */
+export const FUTURE_SKEW_MS = 25 * 60 * 60 * 1000;
 
 /**
  * A session id in the only shape Reggie will build a path from, lowercased; null for anything else.
@@ -188,9 +190,14 @@ export function parseRecord(line: string): TranscriptRecord | null {
   const d = data as Record<string, unknown>;
   const type = str(d.type);
   if (type === null) return null;
-  const sidechain = d.isSidechain === true;
+  // Anything but a plain false or absent flag counts as a sidechain, so "true", 1 or a present object
+  // is never mistaken for the main conversation and read as eligible.
+  const sidechain = d.isSidechain !== undefined && d.isSidechain !== null && d.isSidechain !== false && d.isSidechain !== 0 && d.isSidechain !== "false";
   const ms = Date.parse(str(d.timestamp) ?? "");
-  const record: TranscriptRecord = { type, sidechain, at: Number.isFinite(ms) ? ms : null, cwd: str(d.cwd), stopReason: null, closing: null };
+  // A timestamp far in the future is a wrong clock, not a real instant; drop it so one such record
+  // cannot set a watermark past every later message or file an entry under a year that has not come.
+  const at = Number.isFinite(ms) && ms <= Date.now() + FUTURE_SKEW_MS ? ms : null;
+  const record: TranscriptRecord = { type, sidechain, at, cwd: str(d.cwd), stopReason: null, closing: null };
   // The message is opened for one kind of record only. A user record's message is the owner's prompt
   // or a tool result, and is not looked at, not even to be discarded.
   if (type !== "assistant" || sidechain) return record;
@@ -243,8 +250,13 @@ export function readTranscript(file: string, opts: LineReadOptions = {}): Transc
   return { records, stats: { ...lineStats, unparseable, records: records.length } };
 }
 
-/** `dir` itself or anything under it, compared as text so a directory that no longer exists still matches. */
+/**
+ * `dir` itself or anything under it, compared as text so a directory that no longer exists still
+ * matches. An empty or relative candidate is never inside: it would otherwise resolve against the
+ * process's own directory and a record with `cwd: ""` or `"."` would be read as inside the repository.
+ */
 export function isInsideDir(dir: string, candidate: string): boolean {
+  if (!path.isAbsolute(candidate)) return false;
   const base = path.resolve(dir);
   const target = path.resolve(candidate);
   return target === base || target.startsWith(base + path.sep);
@@ -278,17 +290,22 @@ export interface RecordSelection {
 }
 
 /**
- * Which records count for a task. A record counts only when its `cwd` is inside the repository, and
- * once any record of the session is inside the slug's own worktree, only records inside that worktree
- * count: one session often works in several task worktrees, and another task's closing words are not
- * this task's story.
+ * Which records count for a task. A record counts only when its `cwd` is inside the repository and not
+ * inside another task's worktree under `.worktree/`; and once any record of the session is inside the
+ * slug's own worktree, only records inside that worktree count. One session often works in several
+ * task worktrees (a session that shaped this slug at the root can then go and build a different task),
+ * and another task's closing words are not this task's story.
  */
 export function selectRecords(records: readonly TranscriptRecord[], rule: LocationRule): RecordSelection {
   const within = (dirs: readonly string[], r: TranscriptRecord): boolean => r.cwd !== null && dirs.some((d) => isInsideDir(d, r.cwd ?? ""));
-  const inRepo = records.filter((r) => !r.sidechain && within(rule.repoDirs, r));
-  const inWorktree = inRepo.filter((r) => within(rule.worktreeDirs, r));
+  const worktreeRoots = rule.repoDirs.map((d) => path.join(d, ".worktree"));
+  const inMine = (r: TranscriptRecord): boolean => within(rule.worktreeDirs, r);
+  // A record inside some `.worktree/` but not the slug's own belongs to another task.
+  const inOtherWorktree = (r: TranscriptRecord): boolean => r.cwd !== null && worktreeRoots.some((wr) => isInsideDir(wr, r.cwd ?? "")) && !inMine(r);
+  const eligible = records.filter((r) => !r.sidechain && within(rule.repoDirs, r) && !inOtherWorktree(r));
+  const inWorktree = eligible.filter(inMine);
   const narrowed = inWorktree.length > 0;
-  return { counted: narrowed ? inWorktree : inRepo, insideRepo: inRepo.length > 0, narrowed };
+  return { counted: narrowed ? inWorktree : eligible, insideRepo: eligible.length > 0, narrowed };
 }
 
 /** Closing messages later than `afterMs`, oldest first. A record with no readable timestamp cannot be placed and is left out. */

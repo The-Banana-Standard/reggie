@@ -145,6 +145,19 @@ describe("what a record is reduced to", () => {
   it("reads a record with no timestamp as undated", () => {
     expect(parseRecord(JSON.stringify(r.lastPrompt("x")))?.at).toBeNull();
   });
+
+  it("treats any truthy isSidechain as a sidechain, so a string or a number is never read as the main conversation", () => {
+    const base = { type: "assistant", timestamp: AT, cwd: "/repo", message: { stop_reason: "end_turn", content: [{ type: "text", text: "words" }] } };
+    for (const flag of [true, "true", 1, "1", {}]) expect(parseRecord(JSON.stringify({ ...base, isSidechain: flag }))?.sidechain).toBe(true);
+    for (const flag of [false, "false", 0, null, undefined]) expect(parseRecord(JSON.stringify({ ...base, isSidechain: flag }))).toMatchObject({ sidechain: false, closing: "words" });
+  });
+
+  it("drops a timestamp far in the future as unusable, so a wrong clock cannot poison the ordering", () => {
+    const future = new Date(Date.now() + 400 * 24 * 60 * 60 * 1000).toISOString();
+    expect(parseRecord(JSON.stringify(r.closing("from 2027", { at: future, cwd: "/repo" })))?.at).toBeNull();
+    const soon = new Date(Date.now() + 60 * 1000).toISOString();
+    expect(parseRecord(JSON.stringify(r.closing("clock skew", { at: soon, cwd: "/repo" })))?.at).toBe(Date.parse(soon));
+  });
 });
 
 describe("reading a transcript file", () => {
@@ -172,7 +185,7 @@ describe("which records count", () => {
     expect(isInsideDir(repo, "/work")).toBe(false);
   });
 
-  it("counts only records inside the repository, and only the slug's own worktree once the session has been there", () => {
+  it("counts records at the repo root but never another task's worktree, and narrows to the slug's own worktree once the session has been there", () => {
     const inRepo = parse(r.closing("in the repository", { at: "2026-09-15T10:00:00.000Z", cwd: repo }));
     const other = parse(r.closing("another task", { at: "2026-09-15T10:05:00.000Z", cwd: `${repo}/.worktree/other` }));
     const outside = parse(r.closing("somewhere else", { at: "2026-09-15T10:10:00.000Z", cwd: "/work/elsewhere" }));
@@ -180,15 +193,29 @@ describe("which records count", () => {
     const side = parse(r.closing("a subagent", { at: "2026-09-15T10:20:00.000Z", cwd: `${repo}/.worktree/mine`, sidechain: true }));
     const all = [inRepo, other, outside, mine, side].flatMap((x) => (x ? [x] : []));
 
+    // A session that shaped this slug at the root and then built another task in .worktree/other: the
+    // other task's closing words are never counted for this task, only the root record is.
     const wide = selectRecords(all.filter((x) => x !== mine), rule);
     expect(wide).toMatchObject({ insideRepo: true, narrowed: false });
-    expect(wide.counted.map((x) => x.closing)).toEqual(["in the repository", "another task"]);
+    expect(wide.counted.map((x) => x.closing)).toEqual(["in the repository"]);
 
     const narrow = selectRecords(all, rule);
     expect(narrow.narrowed).toBe(true);
     expect(narrow.counted.map((x) => x.closing)).toEqual(["this task"]);
 
+    // A session that only ever worked in another task's worktree is not inside this task at all.
+    expect(selectRecords(other ? [other] : [], rule)).toMatchObject({ insideRepo: false, counted: [] });
     expect(selectRecords(outside ? [outside] : [], rule)).toMatchObject({ insideRepo: false, counted: [] });
+  });
+
+  it("treats an empty or relative cwd as outside, so a record with cwd \"\" or \".\" is never counted", () => {
+    const empty = parse(r.closing("no cwd", { at: "2026-09-15T10:00:00.000Z", cwd: "" }));
+    const dot = parse(r.closing("dot cwd", { at: "2026-09-15T10:00:00.000Z", cwd: "." }));
+    const rel = parse(r.closing("relative", { at: "2026-09-15T10:00:00.000Z", cwd: "repo/packages" }));
+    const all = [empty, dot, rel].flatMap((x) => (x ? [x] : []));
+    expect(selectRecords(all, rule)).toMatchObject({ insideRepo: false, counted: [] });
+    expect(isInsideDir(repo, "")).toBe(false);
+    expect(isInsideDir(repo, ".")).toBe(false);
   });
 
   it("orders closing messages by their timestamps and not by their place in the file, and honours the watermark", () => {
