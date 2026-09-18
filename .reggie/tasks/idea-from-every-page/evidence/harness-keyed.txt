@@ -1,0 +1,17 @@
+mode:      ok (IDEA_TERMINAL); osascript is stubbed, no Terminal window can open
+fixture:   /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-Ffm6xi
+bare:      /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-bare-JKbV2U
+workspace: /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-idea-ws-si68S9
+intake:    /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-Ffm6xi/.reggie/intake.md
+tasks:     split-the-big-area-into-two-packages (ungroomed), cache-chain-shape (in process), share-shape-helpers (awaiting decision)
+serving:   http://127.0.0.1:4905?key=Pm0pvKIdQNxOeo5Q1v-OuW2v and http://172.16.0.124:4905?key=Pm0pvKIdQNxOeo5Q1v-OuW2v
+pages:
+  http://127.0.0.1:4905/?key=Pm0pvKIdQNxOeo5Q1v-OuW2v#/ws
+  http://127.0.0.1:4905/?key=Pm0pvKIdQNxOeo5Q1v-OuW2v#/repo/fixture
+  http://127.0.0.1:4905/?key=Pm0pvKIdQNxOeo5Q1v-OuW2v#/repo/fixture/area/src/big
+  http://127.0.0.1:4905/?key=Pm0pvKIdQNxOeo5Q1v-OuW2v#/repo/fixture/file/src/types/shape.ts
+  http://127.0.0.1:4905/?key=Pm0pvKIdQNxOeo5Q1v-OuW2v#/repo/fixture/symbol/src/types/shape.ts::emptyShape
+  http://127.0.0.1:4905/?key=Pm0pvKIdQNxOeo5Q1v-OuW2v#/repo/fixture/task/split-the-big-area-into-two-packages
+  http://127.0.0.1:4905/?key=Pm0pvKIdQNxOeo5Q1v-OuW2v#/repo/fixture/tasks
+  http://127.0.0.1:4905/?key=Pm0pvKIdQNxOeo5Q1v-OuW2v#/repo/bare
+[osascript stub] call 1, mode ok: tell application "Terminal" to do script "cd /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-Ffm6xi && claude --permission-m…

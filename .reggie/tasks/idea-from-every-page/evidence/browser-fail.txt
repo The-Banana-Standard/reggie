@@ -19,7 +19,7 @@ Timeline (ms after the click, read from the page):
   8372 ms  POST /api/launch {"slugs":["hang-the-shape-should-carry-a-version"],"tool":"claude","mode":"discuss","paths":["src/types/shape.ts"]} answered 200, launched: false,
            reason "Terminal did not respond within 8 seconds. macOS may be waiting for you to allow Reggie to control Terminal (System Settings, Privacy & Security, Automation). Run the command yourself in /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-hooi3W."
   after    (browser-fail-hang-answer.png) the popover shows the link, the timeout reason and the copy field with the command; the form is enabled again.
-The osascript stub's log lines for both runs are in harness-deny.log and harness-hang.log.
+The osascript stub's log lines for both runs are in harness-deny.txt and harness-hang.txt.
 The served intake afterwards (tail):
 - hang-the-shape-should-carry-a-version: Hang: the shape should carry a version (test, web, 2026-09-18)
   > Captured from the file `src/types/shape.ts`

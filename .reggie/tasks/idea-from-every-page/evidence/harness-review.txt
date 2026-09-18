@@ -1,0 +1,9 @@
+# osascript stub log lines of the three review harness runs (deny mode, port 4903): every launch went to the stub.
+[osascript stub] call 1, mode deny: tell application "Terminal" to do script "cd /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-xtyDe
+[osascript stub] call 2, mode deny: tell application "Terminal" to do script "cd /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-xtyDe
+[osascript stub] call 1, mode deny: tell application "Terminal" to do script "cd /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-pl8pG
+[osascript stub] call 2, mode deny: tell application "Terminal" to do script "cd /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-pl8pG
+[osascript stub] call 3, mode deny: tell application "Terminal" to do script "cd /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-pl8pG
+[osascript stub] call 4, mode deny: tell application "Terminal" to do script "cd /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-pl8pG
+[osascript stub] call 5, mode deny: tell application "Terminal" to do script "cd /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-pl8pG
+[osascript stub] call 1, mode ok: tell application "Terminal" to do script "cd /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-eisGa7 
