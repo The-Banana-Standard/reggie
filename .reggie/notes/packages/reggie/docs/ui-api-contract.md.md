@@ -19,3 +19,7 @@ sources: packages/reggie/docs/ui-api-contract.md, branch-diff-in-reader
 The journal section documents the optional derived field on a journal entry, the handle on a claim, and, in the launch route's paragraph, the launch log beside the single launch record. The derived field's shape is a copy of DerivedMark in the journal module; change one and change the other in the same commit.
 sources: derive-the-journal
 
+## gotcha · 2026-09-18 · Claude via jacobpress · high
+The capture route's paragraph now lists every refusal the origin resolver makes and the exact detail-line sentences it writes, and the launch routes document the path parameter and the sentence added to the prompt. Those lists and sentences are copies of what resolveCaptureOrigin, originLine and pathsClause do; change one and change the other in the same commit, because a client author reads this file instead of the code.
+sources: idea-from-every-page
+

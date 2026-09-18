@@ -23,3 +23,7 @@ sources: packages/reggie/ui/app.js, branch-diff-in-reader
 On a file route with a diff query the change is asked for past the fetch cache on every render and the answer is passed to the reader as its file. That costs one server round trip per render of such a page and buys the guarantee that the reader and the task page never disagree about a branch that has moved. The reader's fetch dep forwards a fresh option to the same cached api function for the same reason.
 sources: packages/reggie/ui/app.js, branch-diff-in-reader
 
+## how · 2026-09-18 · Claude via jacobpress · medium
+wireHeader mounts the idea trigger, which follows the route event on its own. A workspace tile is a div holding the link that wraps every fact and the idea button in its corner, because a button inside an anchor is invalid; the hover cross-highlight and the refs stay on the wrapper, and the whole-tile click is the link's click.
+sources: idea-from-every-page
+
