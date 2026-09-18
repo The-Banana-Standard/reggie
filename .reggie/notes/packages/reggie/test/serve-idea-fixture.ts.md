@@ -1,5 +1,5 @@
 ---
-entity: packages/reggie/ui/dev/serve-idea-fixture.ts
+entity: packages/reggie/test/serve-idea-fixture.ts
 kind: file
 ---
 

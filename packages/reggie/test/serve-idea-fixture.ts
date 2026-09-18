@@ -1,9 +1,14 @@
 /**
- * ui/dev/serve-idea-fixture.ts — serve a fixture workspace for the idea action, with Terminal stubbed.
+ * test/serve-idea-fixture.ts — serve a fixture workspace for the idea action, with Terminal stubbed.
  *
- *   IDEA_TERMINAL=ok   npx tsx ui/dev/serve-idea-fixture.ts --port 4465
- *   IDEA_TERMINAL=deny npx tsx ui/dev/serve-idea-fixture.ts --port 4465          (the default mode)
- *   IDEA_TERMINAL=hang npx tsx ui/dev/serve-idea-fixture.ts --port 4465 --host 0.0.0.0
+ *   IDEA_TERMINAL=ok   npx tsx test/serve-idea-fixture.ts --port 4465
+ *   IDEA_TERMINAL=deny npx tsx test/serve-idea-fixture.ts --port 4465          (the default mode)
+ *   IDEA_TERMINAL=hang npx tsx test/serve-idea-fixture.ts --port 4465 --host 0.0.0.0
+ *
+ * It lives under test/ rather than ui/dev/ because it imports the test fixtures, which the package
+ * does not ship, while everything under ui/ is shipped and served; nothing under test/ is either.
+ * It is outside the package tsconfig (rootDir src), so `npm run typecheck` does not see it; check it
+ * on its own with `npx tsc --noEmit --strict --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck test/serve-idea-fixture.ts`.
  *
  * `POST /api/launch` is the one route that starts a process, and on macOS that means a Terminal
  * window. Nothing that exercises the idea action from a browser may open one, so the osascript call
@@ -17,9 +22,11 @@
  *
  * The workspace holds `fixture` (`makeFixtureRepo` plus a file with a space, one with non-ASCII
  * letters, a symlink into the repo and one out to /etc/hosts) and `bare` (a git repo with no
- * .reggie/ directory at all). `--single` serves the fixture alone; `--empty` serves a workspace whose
- * listing names no usable repo. Nothing is deleted on exit: the server outlives this script and the
- * temp directories are the machine's to reclaim.
+ * .reggie/ directory at all). `--single` serves the fixture alone (named `fixture`, from its package.json);
+ * `--empty` serves a workspace whose listing names no usable repo; `--repo-name <name>` names the fixture
+ * in the workspace listing, so the header can be measured with a real repo's name in the breadcrumb.
+ * Nothing is deleted on exit: the server outlives this script and the temp directories are the
+ * machine's to reclaim.
  */
 import cp from "node:child_process";
 import { mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
@@ -42,6 +49,8 @@ const port = Number.parseInt(arg("--port", "4465"), 10);
 const host = arg("--host", "127.0.0.1");
 const single = process.argv.includes("--single");
 const empty = process.argv.includes("--empty");
+// The name the workspace listing gives the fixture: a long real name such as forge-reggie is what the header must fit.
+const repo = single ? "fixture" : arg("--repo-name", "fixture");
 
 // --- the stub, before anything imports the server ---------------------------------------------
 const realSpawnSync = cp.spawnSync;
@@ -62,16 +71,18 @@ let calls = 0;
 };
 syncBuiltinESMExports();
 
-const { startServer } = await import("../../src/serve.js");
-const { makeFixtureRepo } = await import("../../test/fixtures.js");
-const { makeTempRepo } = await import("../../test/helpers.js");
-const { discoverWorkspace } = await import("../../src/workspace.js");
+const { startServer } = await import("../src/serve.js");
+const { makeFixtureRepo } = await import("./fixtures.js");
+const { makeTempRepo } = await import("./helpers.js");
+const { discoverWorkspace } = await import("../src/workspace.js");
 
 // --- the repos -----------------------------------------------------------------------------
 const fx = makeFixtureRepo();
 fx.repo.write("src/a b.ts", "export const ab = 1;\n");
 fx.repo.write("src/café ü/uni.ts", "export const uni = 1;\n");
 fx.repo.write("docs/README.md", "# docs\n");
+// A star re-export: the symbol page the code map draws for it is named `*`, a name no identifier rule accepts.
+fx.repo.write("src/index.ts", 'export * from "./types/shape.js";\n');
 symlinkSync("../src/types/shape.ts", path.join(fx.repo.root, "docs", "inside"));
 symlinkSync("/etc/hosts", path.join(fx.repo.root, "docs", "outside"));
 fx.repo.commitAll("origin shapes");
@@ -84,7 +95,7 @@ const wsDir = mkdtempSync(path.join(os.tmpdir(), "reggie-idea-ws-"));
 const listing = empty
   ? ["### ghost", "- **Path**: ./does-not-exist", "- **Purpose**: A repo the listing names and the disk lacks", "- **Tech Stack**: none"]
   : [
-      "### fixture",
+      `### ${repo}`,
       `- **Path**: ${fx.repo.root}`,
       "- **Purpose**: The fixture repo: notes on a folder and a file, three tasks, and the origin shapes",
       "- **Tech Stack**: TypeScript",
@@ -99,7 +110,6 @@ const workspace = single ? null : discoverWorkspace(wsDir);
 
 // --- the server ----------------------------------------------------------------------------
 const server = await startServer(fx.paths, fx.config, { port, host, workspace });
-const repo = "fixture"; // the package.json name, which is what single-repo mode calls it too
 const base = `http://127.0.0.1:${server.port}`;
 const q = server.key ? `?key=${encodeURIComponent(server.key)}` : "";
 const { ungroomed, inProcess, awaiting } = fx.slugs;
@@ -118,6 +128,7 @@ process.stdout.write(
     `  ${base}/${q}#/repo/${repo}/area/src/big`,
     `  ${base}/${q}#/repo/${repo}/file/src/types/shape.ts`,
     `  ${base}/${q}#/repo/${repo}/symbol/src/types/shape.ts::emptyShape`,
+    `  ${base}/${q}#/repo/${repo}/symbol/src/index.ts::*`,
     `  ${base}/${q}#/repo/${repo}/task/${ungroomed}`,
     `  ${base}/${q}#/repo/${repo}/tasks`,
     ...(single || empty ? [] : [`  ${base}/${q}#/repo/bare`]),
