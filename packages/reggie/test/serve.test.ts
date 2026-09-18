@@ -2183,7 +2183,7 @@ describe("the idea action: origins on capture and paths on launch", () => {
       [{ path: ifx.repo.root }, /never absolute/],
       [{ path: "src/../etc" }, /step outside/],
       [{ path: "src\\types" }, /backslash/],
-      [{ path: "src/types " }, /control character/],
+      [{ path: "src/types\u0000" }, /control character/],
       [{ path: "src/ty\npes" }, /control character/],
       [{ path: "src/ty\tpes" }, /control character/],
       [{ path: "src/`x`.ts" }, /backtick/],
