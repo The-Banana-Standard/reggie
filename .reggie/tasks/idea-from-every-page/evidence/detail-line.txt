@@ -9,15 +9,17 @@
  ↓ src/capture.test.ts > capture > writes an intake line to hold detail for a slug that has none, and refuses empty detail
  ↓ src/capture.test.ts > resolveCaptureOrigin > accepts a file, a folder in each spelling, a space, non-ASCII letters and a symlink into the repo, tidied
  ↓ src/capture.test.ts > resolveCaptureOrigin > refuses every path that is not an entity of the repo, with a sentence that names no absolute path, and writes nothing
+ ↓ src/capture.test.ts > resolveCaptureOrigin > repeats at most two hundred characters of a refused path, and never an absolute one
+ ↓ src/capture.test.ts > resolveCaptureOrigin > resolves a launch's pack paths through the same door, deduplicated by what they resolved to and capped after that
  ↓ src/capture.test.ts > resolveCaptureOrigin > takes a symbol only with a file, as an identifier, and a task only alone, as a known slug
- ✓ src/capture.test.ts > capture with an origin > writes one added detail line, last, in the four shapes, and leaves the intake line itself unchanged 177ms
- ✓ src/capture.test.ts > capture with an origin > writes the person's detail first and the origin last, and every reader takes both 130ms
- ✓ src/capture.test.ts > a task origin in every state > names the origin task for each of the six states, mints the new slug from the text, and moves nothing 1487ms
+ ✓ src/capture.test.ts > capture with an origin > writes one added detail line, last, in the four shapes, and leaves the intake line itself unchanged 191ms
+ ✓ src/capture.test.ts > capture with an origin > writes the person's detail first and the origin last, and every reader takes both 141ms
+ ✓ src/capture.test.ts > a task origin in every state > names the origin task for each of the six states, mints the new slug from the text, and moves nothing 1910ms
  ↓ src/capture.test.ts > reggie capture --path > writes the folder and file origin lines with source cli, the detail first
  ↓ src/capture.test.ts > reggie capture --path > exits 1 with the resolver's sentence and writes nothing for a missing file, the repo itself and an empty path
 
  Test Files  1 passed (1)
-      Tests  3 passed | 11 skipped (14)
-   Start at  10:58:03
-   Duration  2.62s (transform 99ms, setup 0ms, import 131ms, tests 2.43s, environment 0ms)
+      Tests  3 passed | 13 skipped (16)
+   Start at  11:45:12
+   Duration  3.12s (transform 96ms, setup 0ms, import 128ms, tests 2.93s, environment 0ms)
 

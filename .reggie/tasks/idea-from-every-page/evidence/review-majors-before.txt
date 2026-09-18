@@ -1,0 +1,35 @@
+# The three majors and CR4, reproduced in Chrome (1440x900) against HEAD e823d04 with the reviewer's exact triggers, BEFORE the fixes.
+# Harness: IDEA_TERMINAL=deny on port 4903 (osascript stubbed; no Terminal window can open). The harness gained src/index.ts
+# (a star re-export) and --repo-name for these reproductions; nothing in the product changed between the reviewers' read and this run.
+
+## CR3 — symbol page for an `export * from` re-export (review-cr3-before.png)
+Page #/repo/fixture/symbol/src/index.ts::* exists (the file story links [[#/repo/fixture/symbol/src/index.ts::*|*]] reexport, line 1).
+Trigger present; popover sentence: "Into fixture, from * in the file src/index.ts."
+POST /api/capture {"text":"CR3 before: the barrel should list what it re-exports","path":"src/index.ts","symbol":"*"} -> 400
+  {"error":"that is not a symbol name: letters, digits, underscores and dollar signs only, up to 200 of them."}
+Error line shows that sentence; nothing captured, no toast. CONFIRMED.
+
+## CR1 — target read after the await (fetch hook delaying /api/capture by 2.5 s)
+1. On #/repo/fixture/file/src/types/shape.ts the popover said "Into fixture, from the file src/types/shape.ts."; submitted.
+2. 300 ms later location.hash = #/repo/fixture/area/src/big -> the route change closed the popover (closedByRoute: true).
+3. Clicked the trigger on the area page: the popover reopened saying "Into fixture, from the folder src/big." with the input DISABLED
+   and the idle label "Capture and shape in Claude Code" (the in-flight submit's busy state on a re-targeted popover).
+4. When the capture answered:
+   POST /api/capture {"text":"CR1 before: ...","path":"src/types/shape.ts"} -> 200 origin {"kind":"file","path":"src/types/shape.ts"}
+   POST /api/launch  {"slugs":["cr1-before-the-shape-type-should-carry-a-version"],"tool":"claude","mode":"discuss","paths":["src/big"]} -> 200
+   The intake says "Captured from the file `src/types/shape.ts`"; the pack's "## Files in scope" is "- src/big". CONFIRMED.
+
+## CR2 — the six-second hand-over overwrites the server's answer (fetch hook: launch POST answers at 7 s, describe GET at 9 s)
+  6501 ms  no command field yet, form disabled ("Starting…")
+  8001 ms  why = "Terminal did not start the session: execution error: Not authorized to send Apple events to Terminal. (-1743) Run it yourself:", form enabled
+ 10801 ms  why = "Still waiting for Claude Code to open. If no window appeared, macOS may be holding it behind a permission prompt — run it yourself instead:", form enabled
+The definitive reason was replaced by the stale waiting sentence on a re-enabled form (review-cr2-before.png). CONFIRMED.
+
+## CR4 — the header at 1440 with the repo named forge-reggie (harness --repo-name forge-reggie), workspace mode
+repo page #/repo/forge-reggie, title crumb "forge-reggie" (full width 126 px):
+  label shown (the stylesheet's 1440 rule): trigger 68 px, title 66.9 px of 126, crumbs box 156, tools 761
+  icon only:                                 trigger 36 px, title 99.3 px of 126, crumbs box 188, tools 729
+  no trigger:                                trigger  0 px, title 125.7 px,       crumbs box 215, tools 685
+deep file page #/repo/forge-reggie/file/src/types/shape.ts (title "shape.ts", full 85 px):
+  label shown: title 0 px; icon only: title 0 px; no trigger: title 0 px  (pre-existing: the four earlier crumbs never shrink; captured)
+The reviewer's measurement stands: the label at 1440 costs the repo title half its width on a real name. The plan's 1500 breakpoint is taken.

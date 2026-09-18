@@ -9,17 +9,19 @@
  ↓ src/capture.test.ts > capture > writes an intake line to hold detail for a slug that has none, and refuses empty detail
  ↓ src/capture.test.ts > resolveCaptureOrigin > accepts a file, a folder in each spelling, a space, non-ASCII letters and a symlink into the repo, tidied
  ↓ src/capture.test.ts > resolveCaptureOrigin > refuses every path that is not an entity of the repo, with a sentence that names no absolute path, and writes nothing
+ ↓ src/capture.test.ts > resolveCaptureOrigin > repeats at most two hundred characters of a refused path, and never an absolute one
+ ↓ src/capture.test.ts > resolveCaptureOrigin > resolves a launch's pack paths through the same door, deduplicated by what they resolved to and capped after that
  ↓ src/capture.test.ts > resolveCaptureOrigin > takes a symbol only with a file, as an identifier, and a task only alone, as a known slug
  ↓ src/capture.test.ts > capture with an origin > writes one added detail line, last, in the four shapes, and leaves the intake line itself unchanged
  ↓ src/capture.test.ts > capture with an origin > writes the person's detail first and the origin last, and every reader takes both
  ↓ src/capture.test.ts > a task origin in every state > names the origin task for each of the six states, mints the new slug from the text, and moves nothing
- ✓ src/capture.test.ts > reggie capture --path > writes the folder and file origin lines with source cli, the detail first 837ms
- ✓ src/capture.test.ts > reggie capture --path > exits 1 with the resolver's sentence and writes nothing for a missing file, the repo itself and an empty path 767ms
+ ✓ src/capture.test.ts > reggie capture --path > writes the folder and file origin lines with source cli, the detail first 865ms
+ ✓ src/capture.test.ts > reggie capture --path > exits 1 with the resolver's sentence and writes nothing for a missing file, the repo itself and an empty path 789ms
 
  Test Files  1 passed (1)
-      Tests  2 passed | 12 skipped (14)
-   Start at  10:58:06
-   Duration  1.89s (transform 96ms, setup 0ms, import 126ms, tests 1.70s, environment 0ms)
+      Tests  2 passed | 14 skipped (16)
+   Start at  11:45:16
+   Duration  1.95s (transform 97ms, setup 0ms, import 129ms, tests 1.76s, environment 0ms)
 
 
  RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/idea-from-every-page/packages/reggie
@@ -52,8 +54,8 @@
  ↓ src/launch.test.ts > context files and launch records > keeps every launch for a slug in a log, while the single record still holds the latest
  ↓ src/launch.test.ts > context files and launch records > skips a line of the log that does not parse, or is not a launch for this slug
  ↓ src/launch.test.ts > context files and launch records > still reads a cache that holds only the old single record and no log
- ✓ src/launch.test.ts > writeContextPacks and reggie launch --path > builds each task's pack around the paths it was given, in the directory it was told 113ms
- ✓ src/launch.test.ts > writeContextPacks and reggie launch --path > prints a command whose prompt names both paths, and exits 1 before printing one for a path that is not there 1193ms
+ ✓ src/launch.test.ts > writeContextPacks and reggie launch --path > builds each task's pack around the paths it was given, in the directory it was told 133ms
+ ✓ src/launch.test.ts > writeContextPacks and reggie launch --path > prints a command whose prompt names both paths, and exits 1 before printing one for a path that is not there 1281ms
  ↓ src/launch.test.ts > shellQuote > round-trips every nasty string through a real shell unchanged
  ↓ src/launch.test.ts > shellQuote > leaves plain words bare so commands stay readable
  ↓ src/launch.test.ts > shellQuote > quotes anything else, including the empty string
@@ -65,6 +67,6 @@
 
  Test Files  1 passed (1)
       Tests  2 passed | 36 skipped (38)
-   Start at  10:58:08
-   Duration  1.63s (transform 88ms, setup 0ms, import 118ms, tests 1.45s, environment 0ms)
+   Start at  11:45:18
+   Duration  1.76s (transform 91ms, setup 0ms, import 122ms, tests 1.57s, environment 0ms)
 

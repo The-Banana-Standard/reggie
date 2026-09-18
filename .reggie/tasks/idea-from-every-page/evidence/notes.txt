@@ -1,61 +1,82 @@
-# AC27 — reggie note path <file> for the twelve files this task changed, then git diff --stat of .reggie/notes for the task
+# AC27 — reggie note path <file> for the twelve files the plan names (entries of this task), then git diff --stat of .reggie/notes for the task
 
 ## reggie note path packages/reggie/ui/idea.js
+- **how** 2026-09-18 Claude via jacobpress (high): One module owns the idea action: the header trigger, the popover and the capture-then-launch sequence. originFor is the only mapping from a route to what a page posts (the folder for an area, the file for a file, the file half of the id plus the name for a symbol, the task for a task page, nothing for the other repo-level pages, null for the workspace and home, where the trigger hides), and only those three keys ever reach the capture body. The popover posts the capture, toasts the slug, redraws the level, then hands the new slug and the page's path to the board's launcher in discuss mode; the captured text is never part of the launch body. The three outcomes all stay inside the popover: a session that opened here closes it, one that opened on the machine running reggie serve (the page holds a serve key) keeps it open with the link, a sentence saying so and the command, and a launch that failed, threw or ran past six seconds keeps it open with the link, the reason and the command to copy.
   sources: idea-from-every-page
 - **gotcha** 2026-09-18 Claude via jacobpress (high): The description is fetched before the launch is posted, not at six seconds: the launch holds the single-threaded server for the whole Terminal timeout, so a GET asked at six seconds would queue behind the request it is meant to explain and the still-waiting sentence would arrive with the answer instead of before it. The board avoids this by accident through its tooltip prefetch. Leaving the page closes the popover (its sentence names the page), keyed on the level, repo and id, so the redraw after a capture, which emits the same route, leaves it open with its result. A workspace tile is re-mounted by that redraw, so the opener is found again by the repo the tile button names rather than kept by reference.
   sources: idea-from-every-page
+- **gotcha** 2026-09-18 Claude via jacobpress (high): Three rules the 2026-09-18 code review added, each from a reproduced bug. Everything in submit after its first await reads a snapshot of the target taken at the top, and an open while a submit is in flight shows the popover without re-targeting it, because the launch that follows the capture must be built for the page the line came from and not the page the reader moved to. While busy, neither a route change nor a second click on the trigger closes it, and the result stays until the next submit clears it, because the toast tells the reader the command is there. And a description that resolves after the launch has answered is dropped through a settled flag, because on the single-threaded server it queues behind the launch in exactly the hang case and would overwrite the reason with a stale waiting sentence. originFor posts the file alone for a symbol name that is not an identifier: the code map names a star re-export with an asterisk and links a real page for it.
+  sources: idea-from-every-page
 
 ## reggie note path packages/reggie/src/capture.ts
+- **how** 2026-09-18 Claude via jacobpress (high): resolveCaptureOrigin is the only place a page path is accepted, and every door (the capture route, both launch routes, reggie capture --path, reggie launch --path, the MCP tool's path) calls it before anything is written or built. A path is an entity of the repo when it is in the same git ls-files listing the code map is built from: an exact entry is a file (or a tracked symlink whose real path stays under the repo's real path), a prefix of one followed by a slash is a folder. That listing is what keeps .git, ignored files, globs, pathspec magic and a deleted file out before any of them could reach git log. Backticks, square brackets and pipes are refused rather than escaped because the board's inline renderer and the story's link markup disagree on precedence, so no one escaping serves both. Every refusal is a sentence of Reggie's own that names no absolute path, because the server answers it as a 400 body.
   sources: idea-from-every-page
 - **how** 2026-09-18 Claude via jacobpress (high): capture() writes an origin as the last detail line under the item, after any detail the person gave, through originLine: Captured from the file, the folder, a symbol in the file, or the task, with the path printed exactly as the resolver tidied it. It is a plain detail line on purpose: parseIntake reads it, removeFromIntake removes it, triage's scaffold copies it into the brief's Problem, and the board card and the task page render it, with no change to any of them. The source stamp stays web, cli or mcp: it sits between commas in the parser's meta and a path can hold a comma.
   sources: idea-from-every-page
+- **gotcha** 2026-09-18 Claude via jacobpress (high): Four things the reviews of 2026-09-18 changed in the resolver, each a bug first. The control check runs on the value as given, before any trim, so a trailing newline or tab is refused rather than tidied. Its class is wider than ASCII: the C1 controls, the line and paragraph separators and the zero-width and byte-order marks are refused too, because they would sit unseen inside the backticks of the detail line and inside the prompt; launch.ts imports the same class rather than keeping a copy. A refusal repeats at most two hundred characters of the path, since the same sentence is a 400 body, a CLI line and a tool error. And the two file-system calls after the listing are guarded, because an entry that vanishes between the listing and the check would otherwise answer with Node's own message and the absolute path in it; that case is tested in its own file with the fs module stubbed, since a real disk cannot stage it. resolvePackPaths is the one loop that resolves, deduplicates and caps a launch's paths, counting what they resolved to; both launch routes and the CLI call it.
+  sources: idea-from-every-page
 
 ## reggie note path packages/reggie/src/launch.ts
+- **how** 2026-09-18 Claude via jacobpress (high): LaunchInput.paths names the places the pack was built around. launchCommand checks only what can reach a command line (an empty entry, a control character, more than eight, longer than 512) and adds one sentence after the context clause in every goal, build included; whether each path is a file or folder of the repo is the caller's check through resolveCaptureOrigin, the same split the slug and the note have. A path reaches the command only inside the single-quoted prompt, exactly where the note already does. writeContextPacks is the one function both launchers use to write the packs, so the server and the CLI cannot disagree about what a session reads first; launchCommand itself stays pure.
   sources: idea-from-every-page
 
 ## reggie note path packages/reggie/src/serve.ts
+- **how** 2026-09-18 Claude via jacobpress (high): POST /api/capture reads path, symbol and task through originFields, which keeps every string value even when empty so that an empty path is refused by the resolver with a sentence rather than dropped in silence; the resolver runs before the file is touched and the detail line is built from its output, never from the body. The task list, not knownSlugs, is what a task origin is checked against, because a task page can show a backlog item that knownSlugs does not know. Both launch routes resolve every path through launchPaths before any pack is written, session minted or launch recorded, and parseLaunch bounds the list at eight before the resolver runs git ls-files per entry. The capture route clears the repo's caches before answering, which is what lets a launch that follows at once find the slug.
+  sources: idea-from-every-page
+- **how** 2026-09-18 Claude via jacobpress (medium): After the 2026-09-18 reviews: the capture route builds the task list only when the body names a task, since after the previous capture's invalidate it is a full listing a path origin never reads. The launch body's paths and path are read by launchPathFields, which refuses a field of the wrong shape with a sentence instead of dropping it, keeps a blank entry so the resolver refuses it, and leaves the eight-path cap to resolvePackPaths, which counts after resolution.
   sources: idea-from-every-page
 
 ## reggie note path packages/reggie/src/cli.ts
+- **how** 2026-09-18 Claude via jacobpress (medium): reggie capture --path takes one file or folder and reggie launch --path takes several; both resolve through resolveCaptureOrigin and exit 1 with its sentence before writing or printing anything. The capture option is checked against undefined rather than truthiness so that --path with an empty string is refused with a sentence instead of the option being dropped. launch --run hands the resolved paths to writeContextPacks, the same function the server's launch route uses.
   sources: idea-from-every-page
 
 ## reggie note path packages/reggie/src/mcp.ts
+- **how** 2026-09-18 Claude via jacobpress (medium): reggie_capture takes an optional path, resolved by the same resolver as every other door; a refusal comes back as a tool error with the resolver's sentence, because an error result reaches the agent where stderr may not. There is no launch tool, by the owner's ruling: launching opens a terminal on the serving machine and is a human act.
   sources: idea-from-every-page
 
 ## reggie note path packages/reggie/ui/app.js
+- **how** 2026-09-18 Claude via jacobpress (medium): wireHeader mounts the idea trigger, which follows the route event on its own. A workspace tile is a div holding the link that wraps every fact and the idea button in its corner, because a button inside an anchor is invalid; the hover cross-highlight and the refs stay on the wrapper, and the whole-tile click is the link's click.
   sources: idea-from-every-page
 
 ## reggie note path packages/reggie/ui/board.js
+- **how** 2026-09-18 Claude via jacobpress (medium): makeLauncher, commandField, friendlyError, TOOL_LABEL and rememberTool are exported for the idea action, which composes them rather than copying them; no behaviour moved. describe takes paths and run takes opts.paths, the repo paths the pack is built around, which the launch URL and body carry as path parameters; run's warning toast takes opts.where so the popover can say the command is below rather than on the card.
   sources: idea-from-every-page
 
 ## reggie note path packages/reggie/ui/index.html
+- **how** 2026-09-18 Claude via jacobpress (medium): The idea trigger is the first button in the header tools, hidden until idea.js shows it for a level that belongs to one repo; the idea icon (a bulb) joins the symbol set. Everything else about the popover is built by idea.js and appended to body.
   sources: idea-from-every-page
 
 ## reggie note path packages/reggie/ui/styles.css
+- **gotcha** 2026-09-18 Claude via jacobpress (high): The header is full at 1440px, measured with the idea trigger's label showing: the repo page's title keeps its full width with two pixels to spare in workspace mode, so the label shows from 1440 and the icon alone below it. That margin is thin; if the title suffers on a real repo, moving the label's breakpoint to 1500 is the intended fallback. On a phone the header shows only the parent crumb and the title, because the earlier crumbs never shrink and in workspace mode the title was the only crumb that could, and it shrank to nothing on any file page with or without the trigger; the full trail is on the story's first card. The popover is fixed under the trigger on a desktop and spans the width under the header on a phone, where the inline position idea.js sets is cleared.
+  sources: idea-from-every-page
+- **decision** 2026-09-18 Claude via jacobpress (high): The idea trigger's label shows from 1500 px, not 1440. The earlier note's two pixels to spare held only for a seven-character repo name; with forge-reggie in workspace mode the repo switcher widens too, and at 1440 the title keeps 106 of 126 px with no trigger, 62 beside the icon and 29 beside the label. A plain minimum width on the desktop title was tried and rejected: at the title's font twelve characters is 151 px, which crushed every earlier crumb to a letter. That earlier note's fallback is now the rule.
   sources: idea-from-every-page
 
 ## reggie note path packages/reggie/ui/DOM-CONTRACT.md
+- **how** 2026-09-18 Claude via jacobpress (medium): The idea action is written down in four places here: the trigger's row in the shell ids, the idea icon in the icon list, the tile's new shape and the popover's classes under the story classes, and the idea module plus the five board exports under the module interfaces. The tile row now says the tile is a div and why; a change to the tile's markup in app.js changes that row in the same commit.
   sources: idea-from-every-page
 
 ## reggie note path packages/reggie/docs/ui-api-contract.md
+- **gotcha** 2026-09-18 Claude via jacobpress (high): The capture route's paragraph now lists every refusal the origin resolver makes and the exact detail-line sentences it writes, and the launch routes document the path parameter and the sentence added to the prompt. Those lists and sentences are copies of what resolveCaptureOrigin, originLine and pathsClause do; change one and change the other in the same commit, because a client author reads this file instead of the code.
   sources: idea-from-every-page
 
-## git diff --stat repo-manager..HEAD -- .reggie/notes
- .reggie/notes/packages/reggie/README.md.md                  |  4 ++++
- .reggie/notes/packages/reggie/docs/ui-api-contract.md.md    |  4 ++++
- .reggie/notes/packages/reggie/docs/ui-spec.md.md            |  4 ++++
- .reggie/notes/packages/reggie/src/capture.ts.md             |  8 ++++++++
- .reggie/notes/packages/reggie/src/cli.ts.md                 |  4 ++++
- .reggie/notes/packages/reggie/src/launch.ts.md              |  4 ++++
- .reggie/notes/packages/reggie/src/mcp.ts.md                 |  4 ++++
- .reggie/notes/packages/reggie/src/serve.ts.md               |  4 ++++
- .reggie/notes/packages/reggie/test/serve.test.ts.md         |  4 ++++
- .reggie/notes/packages/reggie/ui/DOM-CONTRACT.md.md         |  4 ++++
- .reggie/notes/packages/reggie/ui/app.js.md                  |  4 ++++
- .reggie/notes/packages/reggie/ui/board.js.md                |  4 ++++
- .../notes/packages/reggie/ui/dev/serve-idea-fixture.ts.md   |  9 +++++++++
- .reggie/notes/packages/reggie/ui/idea.js.md                 | 13 +++++++++++++
- .reggie/notes/packages/reggie/ui/index.html.md              |  4 ++++
- .reggie/notes/packages/reggie/ui/map.css.md                 |  9 +++++++++
- .reggie/notes/packages/reggie/ui/styles.css.md              |  4 ++++
- 17 files changed, 91 insertions(+)
+## git diff --stat repo-manager..HEAD -- .reggie/notes (plus the working tree)
+ .reggie/notes/packages/reggie/README.md.md              |  4 ++++
+ .../notes/packages/reggie/docs/ui-api-contract.md.md    |  4 ++++
+ .reggie/notes/packages/reggie/docs/ui-spec.md.md        |  4 ++++
+ .../notes/packages/reggie/src/capture-race.test.ts.md   |  9 +++++++++
+ .reggie/notes/packages/reggie/src/capture.ts.md         | 12 ++++++++++++
+ .reggie/notes/packages/reggie/src/cli.ts.md             |  4 ++++
+ .reggie/notes/packages/reggie/src/launch.ts.md          |  4 ++++
+ .reggie/notes/packages/reggie/src/mcp.ts.md             |  4 ++++
+ .reggie/notes/packages/reggie/src/serve.ts.md           |  8 ++++++++
+ .../notes/packages/reggie/test/serve-idea-fixture.ts.md | 13 +++++++++++++
+ .reggie/notes/packages/reggie/test/serve.test.ts.md     |  4 ++++
+ .reggie/notes/packages/reggie/ui/DOM-CONTRACT.md.md     |  4 ++++
+ .reggie/notes/packages/reggie/ui/app.js.md              |  4 ++++
+ .reggie/notes/packages/reggie/ui/board.js.md            |  4 ++++
+ .reggie/notes/packages/reggie/ui/idea.js.md             | 17 +++++++++++++++++
+ .reggie/notes/packages/reggie/ui/index.html.md          |  4 ++++
+ .reggie/notes/packages/reggie/ui/map.css.md             |  9 +++++++++
+ .reggie/notes/packages/reggie/ui/styles.css.md          |  8 ++++++++
+ 18 files changed, 120 insertions(+)

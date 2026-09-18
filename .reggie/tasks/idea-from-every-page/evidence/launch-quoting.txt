@@ -18,9 +18,9 @@
  ✓ src/launch.test.ts > launchCommand > every build prompt says to unlink the dependency link before changing a dependency 0ms
  ✓ src/launch.test.ts > launchCommand > names every pending install command and its directory before the instruction to execute the plan 0ms
  ✓ src/launch.test.ts > launchCommand > lists several ungroomed slugs in one shaping prompt 0ms
- ✓ src/launch.test.ts > launchCommand > rejects a slug that is not a slug, before it reaches a command string 0ms
- ✓ src/launch.test.ts > launchCommand > names the pack paths in every goal's prompt, right after the context clause 0ms
- ✓ src/launch.test.ts > launchCommand > keeps a hostile path verbatim inside the prompt argument and single-quoted in the command 11ms
+ ✓ src/launch.test.ts > launchCommand > rejects a slug that is not a slug, before it reaches a command string 1ms
+ ✓ src/launch.test.ts > launchCommand > names the pack paths in every goal's prompt, right after the context clause 1ms
+ ✓ src/launch.test.ts > launchCommand > keeps a hostile path verbatim inside the prompt argument and single-quoted in the command 14ms
  ✓ src/launch.test.ts > launchCommand > refuses an empty path, a control character, a ninth path and an over-long path before building anything 0ms
  ✓ src/launch.test.ts > launchCommand > leaves every prompt byte-identical without paths 0ms
  ✓ src/launch.test.ts > launchCommand > rejects an unknown tool, an unknown mode, no task, and no repo 0ms
@@ -42,6 +42,6 @@
 
  Test Files  1 passed (1)
       Tests  20 passed | 18 skipped (38)
-   Start at  10:58:10
-   Duration  194ms (transform 88ms, setup 0ms, import 118ms, tests 18ms, environment 0ms)
+   Start at  11:45:20
+   Duration  219ms (transform 95ms, setup 0ms, import 129ms, tests 22ms, environment 0ms)
 

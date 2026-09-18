@@ -1,0 +1,16 @@
+# The new resolver tests run against the resolver as it was at e823d04 (the old capture.ts plus a stub exporting the two new names with the OLD behaviour), to show they fail before the fixes:
+     × answers with its own sentence, not with Node's message and the absolute path 130ms
+     × refuses every path that is not an entity of the repo, with a sentence that names no absolute path, and writes nothing 9ms
+     × repeats at most two hundred characters of a refused path, and never an absolute one 9ms
+     × resolves a launch's pack paths through the same door, deduplicated by what they resolved to and capped after that 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected 'ENOENT: no such file or directory, ls…' to be '`src/serve.ts` is listed by git but i…' // Object.is equality
+Expected: "`src/serve.ts` is listed by git but is not on disk."
+Received: "ENOENT: no such file or directory, lstat '/var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-test-y72FYT/src/serve.ts'"
+AssertionError: "src/serve.ts\n": expected '' to match /control character/
+- Expected:
++ Received:
+AssertionError: expected '`src/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…' to contain '…'
+Expected: "…"
+Received: "`src/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa[…4960 more a…].ts` is not a file or folder in this repo (git does not list it, or it is ignored)."
+      Tests  4 failed | 13 passed (17)

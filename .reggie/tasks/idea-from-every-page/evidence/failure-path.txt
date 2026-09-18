@@ -137,15 +137,16 @@
  ↓ test/serve.test.ts > what a task changed > a hostile integration branch name > is never handed to git by either route, and nothing is written
  ↓ test/serve.test.ts > a derived journal entry over HTTP > comes back from both journal routes with its derived object, and with the mark kept out of the text
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > refuses a launch path that is not an entity of the repo before any pack, session or record exists
+ ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > refuses a path field of the wrong shape or a blank path, and counts the cap after resolution
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > describes a launch whose pack is built around a folder, and runs it: the pack holds the chain, the scope, the commits and the related tasks
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > captures with a file, a symbol or a task origin and echoes it; without one it echoes null and writes the old line
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > answers 400 with the resolver's sentence for every refused origin and writes nothing; a big body is still 413
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > refuses a capture carrying a path from a foreign origin or a cross-site page, writing nothing
- ✓ test/serve.test.ts > the idea action: origins on capture and paths on launch > launches the slug a capture just minted, in the same second, with the file's own note and commits in the pack 781ms
+ ✓ test/serve.test.ts > the idea action: origins on capture and paths on launch > launches the slug a capture just minted, in the same second, with the file's own note and commits in the pack 757ms
  ↓ test/serve.test.ts > the idea action: origins on capture and paths on launch > refuses a keyed capture in team mode over a network socket, writing nothing
 
  Test Files  1 passed (1)
-      Tests  1 passed | 141 skipped (142)
-   Start at  10:58:18
-   Duration  2.28s (transform 262ms, setup 0ms, import 329ms, tests 1.89s, environment 0ms)
+      Tests  1 passed | 142 skipped (143)
+   Start at  11:45:28
+   Duration  2.56s (transform 291ms, setup 0ms, import 369ms, tests 2.12s, environment 0ms)
 

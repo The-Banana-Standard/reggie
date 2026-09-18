@@ -111,25 +111,26 @@ index bbb73fe..9576e23 100644
      type: "text",
 
 # git diff --stat repo-manager..HEAD for every product file:
- packages/reggie/README.md                    |   5 +-
- packages/reggie/docs/ui-api-contract.md      |   8 +-
- packages/reggie/docs/ui-spec.md              |  14 +-
- packages/reggie/src/capture.test.ts          | 277 +++++++++++++++++-
- packages/reggie/src/capture.ts               | Bin 5276 -> 11667 bytes
- packages/reggie/src/cli.ts                   |  31 +-
- packages/reggie/src/context.test.ts          |  50 ++++
- packages/reggie/src/launch.test.ts           | 136 +++++++++
- packages/reggie/src/launch.ts                | Bin 25391 -> 28995 bytes
- packages/reggie/src/mcp.ts                   |  18 +-
- packages/reggie/src/serve.ts                 |  81 +++++-
- packages/reggie/test/mcp.test.ts             |  28 +-
- packages/reggie/test/serve.test.ts           | 266 +++++++++++++++++-
- packages/reggie/ui/DOM-CONTRACT.md           |  22 +-
- packages/reggie/ui/app.js                    |  11 +-
- packages/reggie/ui/board.js                  |  34 ++-
- packages/reggie/ui/dev/serve-idea-fixture.ts | 126 +++++++++
- packages/reggie/ui/idea.js                   | 404 +++++++++++++++++++++++++++
- packages/reggie/ui/index.html                |   7 +
- packages/reggie/ui/map.css                   |  17 +-
- packages/reggie/ui/styles.css                |  52 ++++
- 21 files changed, 1525 insertions(+), 62 deletions(-)
+ packages/reggie/README.md                  |   5 +-
+ packages/reggie/docs/ui-api-contract.md    |   8 +-
+ packages/reggie/docs/ui-spec.md            |  14 +-
+ packages/reggie/src/capture-race.test.ts   |  50 ++++
+ packages/reggie/src/capture.test.ts        | 312 ++++++++++++++++++++-
+ packages/reggie/src/capture.ts             | 154 ++++++++++-
+ packages/reggie/src/cli.ts                 |  28 +-
+ packages/reggie/src/context.test.ts        |  54 ++++
+ packages/reggie/src/launch.test.ts         | 136 +++++++++
+ packages/reggie/src/launch.ts              |  85 +++++-
+ packages/reggie/src/mcp.ts                 |  18 +-
+ packages/reggie/src/serve.ts               |  96 ++++++-
+ packages/reggie/test/mcp.test.ts           |  28 +-
+ packages/reggie/test/serve-idea-fixture.ts | 137 +++++++++
+ packages/reggie/test/serve.test.ts         | 288 ++++++++++++++++++-
+ packages/reggie/ui/DOM-CONTRACT.md         |  22 +-
+ packages/reggie/ui/app.js                  |  11 +-
+ packages/reggie/ui/board.js                |  34 ++-
+ packages/reggie/ui/idea.js                 | 427 +++++++++++++++++++++++++++++
+ packages/reggie/ui/index.html              |   7 +
+ packages/reggie/ui/map.css                 |  17 +-
+ packages/reggie/ui/styles.css              |  53 ++++
+ 22 files changed, 1910 insertions(+), 74 deletions(-)

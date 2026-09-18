@@ -30,3 +30,7 @@ sources: packages/reggie/src/serve.ts, branch-diff-in-reader
 POST /api/capture reads path, symbol and task through originFields, which keeps every string value even when empty so that an empty path is refused by the resolver with a sentence rather than dropped in silence; the resolver runs before the file is touched and the detail line is built from its output, never from the body. The task list, not knownSlugs, is what a task origin is checked against, because a task page can show a backlog item that knownSlugs does not know. Both launch routes resolve every path through launchPaths before any pack is written, session minted or launch recorded, and parseLaunch bounds the list at eight before the resolver runs git ls-files per entry. The capture route clears the repo's caches before answering, which is what lets a launch that follows at once find the slug.
 sources: idea-from-every-page
 
+## how · 2026-09-18 · Claude via jacobpress · medium
+After the 2026-09-18 reviews: the capture route builds the task list only when the body names a task, since after the previous capture's invalidate it is a full listing a path origin never reads. The launch body's paths and path are read by launchPathFields, which refuses a field of the wrong shape with a sentence instead of dropping it, keeps a blank entry so the resolver refuses it, and leaves the eight-path cap to resolvePackPaths, which counts after resolution.
+sources: idea-from-every-page
+

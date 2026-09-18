@@ -1,12 +1,12 @@
 diff --git a/packages/reggie/ui/DOM-CONTRACT.md b/packages/reggie/ui/DOM-CONTRACT.md
-index 62a5fa7..bb6b8a3 100644
+index 62a5fa7..9b9f5a1 100644
 --- a/packages/reggie/ui/DOM-CONTRACT.md
 +++ b/packages/reggie/ui/DOM-CONTRACT.md
 @@ -12,6 +12,7 @@ Every container below exists on first paint and is never replaced, only filled.
  | `header` | 48px header | app.js |
  | `crumbs` | Breadcrumb `<nav>`; rendered from `story.crumbs` (`renderCrumbs`) | app.js |
  | `nav` | Header navigation `<nav>`: Overview / Services / Data flow / Tasks for the current repo (`renderNav`); empty on the workspace level, hidden by CSS at ≤1100px where the header row is already full | app.js |
-+| `idea-trigger` | The idea action's header button (first in `.header__tools`; `aria-haspopup="dialog"`, `aria-expanded`; `hidden` on the workspace and home levels; its "Idea" label shows from 1440px). Opens the `.idea` popover for the current page | idea.js |
++| `idea-trigger` | The idea action's header button (first in `.header__tools`; `aria-haspopup="dialog"`, `aria-expanded`; `hidden` on the workspace and home levels; its "Idea" label shows from 1500px). Opens the `.idea` popover for the current page | idea.js |
  | `search-trigger` | "Search ⌘K" button | app.js |
  | `lens` | Lens segmented control (`role=radiogroup`) | app.js |
  | `lens-structure`, `lens-knowledge`, `lens-tests`, `lens-heat`, `lens-owners` | Lens buttons (`data-lens`) | app.js |
@@ -54,10 +54,10 @@ index 62a5fa7..bb6b8a3 100644
 +### `idea.js`
 +```js
 +export function mountIdeaTrigger()        // wires #idea-trigger, follows the `route` event (hidden off-repo, closed on leaving the page)
-+export function originFor(route) → { path?, symbol?, task? } | null   // area/file → path; symbol → path + symbol; task → task; other repo levels → {}; workspace/home → null
++export function originFor(route) → { path?, symbol?, task? } | null   // area/file → path; symbol → path + symbol (the path alone when the name is not an identifier, e.g. a star re-export `*`); task → task; other repo levels → {}; workspace/home → null
 +export function ideaButtonFor(repo) → Element                          // button.ws-tile__idea for a workspace tile
 +```
-+The popover posts `/api/capture` with the text and the origin, then hands `[slug]` and the origin's path to `makeLauncher(ctx).run` in `discuss` mode; `ctx` names the repo explicitly (`withRepo(url, repo)`) because a tile's repo is not the route's. Outcomes and the failure paths are in `docs/ui-spec.md` §3.9.
++The popover posts `/api/capture` with the text and the origin, then hands `[slug]` and the origin's path to `makeLauncher(ctx).run` in `discuss` mode, reading a snapshot of its target taken when the submit began; while a submit is in flight an open is shown but not re-targeted, and neither a route change nor a second trigger click closes it; the result stays until the next submit; `ctx` names the repo explicitly (`withRepo(url, repo)`) because a tile's repo is not the route's. Outcomes and the failure paths are in `docs/ui-spec.md` §3.9.
  
  ### Route → data
  | Level | Story | Map |
