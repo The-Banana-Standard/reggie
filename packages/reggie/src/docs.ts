@@ -42,7 +42,8 @@ export function renderGeneratedBlock(facts: RepoFacts, config: ReggieConfig, too
     "- Before editing a file, read its note at `.reggie/notes/<same path>.md`. Folder notes are `_dir.md`; repo-wide notes are `.reggie/notes/_repo.md`.",
     "- After changing a file, add or correct its note: `reggie note add <path> --type <why|how|gotcha|verify|data-source|decision> \"text\"`.",
     "- Before starting a task, run `reggie context <slug>` (or `reggie context <path...>`). It gathers the notes, related tasks, recent commits, and active work for that area.",
-    "- Plans live at `.reggie/tasks/<slug>/plan.md` and must satisfy the plan contract (`reggie plan lint <slug>`). Completion packets live beside them as `packet.md`, with proof under `evidence/`.",
+    // One sentence on check records, in every onboarded repo: it is how a session learns that nothing is ticked by hand.
+    "- Plans live at `.reggie/tasks/<slug>/plan.md` and must satisfy the plan contract (`reggie plan lint <slug>`). Completion packets live beside them as `packet.md`, with proof under `evidence/`. Verified criteria are recorded with `reggie check <slug> <criterion> pass --evidence <file>`, and the packet's checklist is built from those records.",
     // Still asked for, on purpose: derive can only tell what git and a launched session's transcript hold.
     "- After each step of work, write one plain-English journal entry: `reggie journal add --slug <slug> --stage <stage> \"what happened, why, what is uncertain\"`. No file paths in the prose. `reggie journal derive <slug>` adds the commits and a launched session's closing words, not the reasons and not what is uncertain, so the entry you write is still the record of why.",
     "- Raw ideas and discovered issues go to `.reggie/intake.md` via `reggie capture \"text\"`. Never fix unrelated issues in passing; capture them.",

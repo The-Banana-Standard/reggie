@@ -16,8 +16,12 @@ cache. If a file exists, it is meant to be read and committed.
   checked against a contract, approved before anyone codes.
 - \`tasks/<slug>/packet.md\` — the completion packet: what was done, how it was
   verified, what changed, what was found. This is what a reviewer reads.
+- \`tasks/<slug>/checks.jsonl\` — what was verified, as data: one line per check
+  of a criterion or a review, written by \`reggie check\`. The packet's checklist
+  is built from these lines; nobody ticks a box by hand.
 - \`tasks/<slug>/evidence/\` — test output, screenshots, command output that
-  proves the packet's claims.
+  proves the packet's claims. A packet that cites a file which is not committed
+  here is refused when someone approves it.
 - \`notes/\` — knowledge about the code, arranged as a mirror of the code tree.
   Information about \`src/auth/login.ts\` lives at \`notes/src/auth/login.ts.md\`.
   Information about the \`src/auth/\` folder lives at \`notes/src/auth/_dir.md\`.

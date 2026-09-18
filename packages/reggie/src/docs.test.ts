@@ -53,6 +53,15 @@ describe("generated blocks", () => {
     }
   });
 
+  it("says that verified criteria are recorded with reggie check and that the packet's checklist is built from those records", () => {
+    const paths = repoPaths(repo.root);
+    for (const tool of ["claude", "codex"] as const) {
+      const line = renderGeneratedBlock(collectFacts(repo.root), loadConfig(paths), tool).split("\n").find((l) => l.includes("Completion packets")) ?? "";
+      expect(line).toContain("Verified criteria are recorded with `reggie check <slug> <criterion> pass --evidence <file>`, and the packet's checklist is built from those records.");
+      expect(line).toContain("Completion packets live beside them as `packet.md`, with proof under `evidence/`.");
+    }
+  });
+
   it("onboard creates files; check reports fresh, then stale after code changes", () => {
     const r = onboard(repo.root);
     const paths = repoPaths(repo.root);

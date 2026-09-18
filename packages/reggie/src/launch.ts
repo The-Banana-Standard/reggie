@@ -293,7 +293,10 @@ function buildPrompt(tool: LaunchTool, slug: string, file: string | undefined, b
     `Produce the evidence named under Verification strategy and save it under \`.reggie/tasks/${slug}/evidence/\`; never claim a test passed without its output saved.`,
     `Reviews by risk class, from the plan's front matter: low, run the repo's own checks; medium, also run ${r.code}; high, also run ${r.security} and have a second pass execute the tests. Run ${r.simplify} when the diff is large. Resolve findings before continuing.`,
     "After each file change, add or correct the note for that file. After each step, write one journal entry with `--stage execute`. Capture unrelated problems with `reggie capture` instead of fixing them.",
-    `Finish with \`reggie packet ${slug}\`, fill every section honestly, and commit with a line \`Task: ${slug}\` in the commit message body. Then ask me to decide (\`reggie decide ${slug}\`) or open a PR whose body is the packet (\`reggie pr ${slug}\`).`,
+    // What was verified is recorded as data, and the packet's checklist is built from it; nothing is ticked by hand.
+    `Record each criterion you verified with \`reggie check ${slug} <criterion> pass --evidence <file>\` (or the \`reggie_check\` tool), and each review with \`--review <name>\`. Record a check after the code it proves is committed, and after your last commit that changes code or docs: a pass goes stale once anything outside \`.reggie/\` changes after it. The evidence must be a non-empty file saved directly inside the task's evidence folder, and it must be committed, because a packet that cites a file nobody committed is refused.`,
+    `List every unrelated problem under the packet's Discovered issues as well, or write "none": an approval captures the discovered issues you did not.`,
+    `Finish with \`reggie packet ${slug}\`, which builds the checklist from those records; fill every other section honestly, run \`reggie packet ${slug}\` again until it says the checklist is current, check it with \`reggie packet ${slug} --lint\`, and commit with a line \`Task: ${slug}\` in the commit message body. Read \`reggie check ${slug}\` for what a decider will see. Then ask me to decide (\`reggie decide ${slug}\`) or open a PR whose body is the packet (\`reggie pr ${slug}\`).`,
     ...noteClause(note),
   ].join(" ");
 }

@@ -188,6 +188,26 @@ describe("launchCommand", () => {
     expect(unclaimed).toContain(`reggie claim ${SLUG} --worktree`);
   });
 
+  it("a build records checks as data, after the code they prove is committed, and knows what an approval captures", () => {
+    for (const tool of LAUNCH_TOOLS) {
+      const text = prompt(launchCommand({ repo: REPO, tool, mode: "build", tasks: [planned], branch: `task/${SLUG}` }));
+      expect(text).toContain(`\`reggie check ${SLUG} <criterion> pass --evidence <file>\``);
+      expect(text).toContain("`reggie_check` tool");
+      expect(text).toContain("`--review <name>`");
+      expect(text).toMatch(/Record a check after the code it proves is committed/);
+      expect(text).toMatch(/a pass goes stale once anything outside `\.reggie\/` changes after it/);
+      expect(text).toContain(`run \`reggie packet ${SLUG}\` again until it says the checklist is current`);
+      expect(text).toContain(`\`reggie packet ${SLUG} --lint\``);
+      expect(text).toMatch(/an approval captures the discovered issues you did not/);
+      expect(text).toContain(`Read \`reggie check ${SLUG}\` for what a decider will see`);
+      // Nothing is ticked by hand any more, and the session is never told to decide for itself.
+      expect(text).not.toMatch(/tick/i);
+      expect(text).toContain(`ask me to decide (\`reggie decide ${SLUG}\`)`);
+    }
+    // The other goals do not build, so they say nothing about checks.
+    expect(prompt(launchCommand({ repo: REPO, tool: "claude", mode: "discuss", tasks: [planned] }))).not.toContain("reggie check");
+  });
+
   it("every build prompt says to unlink the dependency link before changing a dependency", () => {
     for (const tool of LAUNCH_TOOLS) {
       const text = prompt(launchCommand({ repo: REPO, tool, mode: "build", tasks: [planned], branch: `task/${SLUG}` }));
