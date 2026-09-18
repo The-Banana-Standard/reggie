@@ -94,6 +94,11 @@ export function evidenceDir(paths: RepoPaths, slug: string): string {
   return path.join(taskDir(paths, slug), "evidence");
 }
 
+/** The check records of a task: one JSON object per line, appended on the task branch only. */
+export function checksFile(paths: RepoPaths, slug: string): string {
+  return path.join(taskDir(paths, slug), "checks.jsonl");
+}
+
 /** Repo-relative path of a task's brief, for git lookups. */
 export function briefRelPath(slug: string): string {
   return `${REGGIE_DIR}/tasks/${assertSlug(slug)}/brief.md`;
@@ -106,6 +111,21 @@ export function planRelPath(slug: string): string {
 
 export function packetRelPath(slug: string): string {
   return `${REGGIE_DIR}/tasks/${assertSlug(slug)}/packet.md`;
+}
+
+/** Repo-relative path of a task's check records, for git lookups. */
+export function checksRelPath(slug: string): string {
+  return `${REGGIE_DIR}/tasks/${assertSlug(slug)}/checks.jsonl`;
+}
+
+/** Repo-relative path of a task's own folder, with the trailing slash a prefix test needs. */
+export function taskRelDir(slug: string): string {
+  return `${REGGIE_DIR}/tasks/${assertSlug(slug)}/`;
+}
+
+/** Repo-relative path of a task's evidence folder, with the trailing slash. The only folder a citation may name. */
+export function evidenceRelDir(slug: string): string {
+  return `${taskRelDir(slug)}evidence/`;
 }
 
 export const TASKS_REL_DIR = `${REGGIE_DIR}/tasks`;

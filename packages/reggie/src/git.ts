@@ -1,4 +1,6 @@
 import { spawnSync, type SpawnSyncOptionsWithStringEncoding } from "node:child_process";
+import { realpathSync } from "node:fs";
+import path from "node:path";
 
 export interface ExecResult {
   ok: boolean;
@@ -333,6 +335,133 @@ export function blobAt(root: string, commit: string, file: string): string | nul
     return type === "blob" && FULL_SHA.test(sha) ? sha : null;
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Judging a task branch: everything below takes commit ids Reggie resolved itself
+// ---------------------------------------------------------------------------
+
+/** How a caller runs git. The default is `git` above; a test passes its own to see the arguments or to fail one call. */
+export type GitRunner = (args: string[], opts?: ExecOptions) => ExecResult;
+
+/** A file's text at a commit, by way of its blob id, so the path is never spliced into a revision. Null when it is not a file there. */
+export function fileAtCommit(root: string, commit: string, file: string): string | null {
+  const blob = blobAt(root, commit, file);
+  return blob === null ? null : blobText(root, blob);
+}
+
+export interface TreeEntry {
+  /** `100644`, `100755`, `120000` for a symbolic link, `160000` for a gitlink. */
+  mode: string;
+  type: string;
+  /** Bytes, or null where git prints `-` (a gitlink has no size). */
+  size: number | null;
+  path: string;
+}
+
+/**
+ * Every entry under a folder at a commit, with its mode and size: one `git ls-tree -r -z -l`. The
+ * folder is Reggie's own constant and still goes after `--`, under `--literal-pathspecs`. Null when
+ * git fails; an empty list when the folder is not there.
+ */
+export function listTreeLong(root: string, commit: string, dir: string, runner: GitRunner = git): TreeEntry[] | null {
+  assertFullSha(commit);
+  const r = runner(["--literal-pathspecs", "ls-tree", "-r", "-z", "-l", "--end-of-options", commit, "--", dir], { cwd: root, allowFailure: true, timeoutMs: DIFF_TIMEOUT_MS });
+  if (!r.ok) return null;
+  const out: TreeEntry[] = [];
+  for (const entry of r.stdout.split("\0")) {
+    const tab = entry.indexOf("\t");
+    if (tab < 0) continue;
+    const [mode = "", type = "", , size = ""] = entry.slice(0, tab).split(/\s+/);
+    const bytes = Number.parseInt(size, 10);
+    out.push({ mode, type, size: Number.isFinite(bytes) ? bytes : null, path: entry.slice(tab + 1) });
+  }
+  return out;
+}
+
+/**
+ * Every path that differs between two commits, with rename detection off, so a file moved out of
+ * `src/auth/` is listed under its old name as well as its new one. `-z`, so a name holding a space,
+ * a quote or a non-ASCII letter comes back exactly. Null when git fails.
+ */
+export function changedPathsNoRenames(root: string, from: string, to: string, runner: GitRunner = git): string[] | null {
+  assertFullSha(from);
+  assertFullSha(to);
+  const args = ["--literal-pathspecs", "-c", "core.quotePath=false", "diff", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--name-only", "-z", "--end-of-options", from, to, "--"];
+  const r = runner(args, { cwd: root, allowFailure: true, timeoutMs: DIFF_TIMEOUT_MS });
+  return r.ok ? r.stdout.split("\0").filter((p) => p !== "") : null;
+}
+
+/** Whether `ancestor` is reachable from `commit`. False when it is not, and when git cannot say. */
+export function isAncestor(root: string, ancestor: string, commit: string, runner: GitRunner = git): boolean {
+  assertFullSha(ancestor);
+  assertFullSha(commit);
+  return runner(["merge-base", "--is-ancestor", "--end-of-options", ancestor, commit], { cwd: root, allowFailure: true, timeoutMs: DIFF_TIMEOUT_MS }).ok;
+}
+
+export interface MergeTreeResult {
+  /** `clean`, `conflict`, or `unknown` when this git cannot do the merge in memory (before 2.38) or the call failed. */
+  status: "clean" | "conflict" | "unknown";
+  conflicts: string[];
+}
+
+/**
+ * Would `ours` and `theirs` merge without a conflict? `git merge-tree --write-tree` merges in memory:
+ * it touches no index, no working tree and no `MERGE_HEAD`. Exit 0 is clean, exit 1 lists the
+ * conflicted paths, and anything else (an older git answers "unknown option") is `unknown`.
+ */
+export function mergeTreeCheck(root: string, ours: string, theirs: string, runner: GitRunner = git): MergeTreeResult {
+  assertFullSha(ours);
+  assertFullSha(theirs);
+  const r = runner(["merge-tree", "--write-tree", "--name-only", "--no-messages", "-z", "--end-of-options", ours, theirs], { cwd: root, allowFailure: true, timeoutMs: DIFF_TIMEOUT_MS });
+  if (r.status === 0 && r.ok) return { status: "clean", conflicts: [] };
+  if (r.status !== 1 || r.timedOut) return { status: "unknown", conflicts: [] };
+  // The first field is the id of the tree git wrote; the rest are the conflicted paths.
+  const fields = r.stdout.split("\0").filter((f) => f !== "");
+  if (!FULL_SHA.test(fields[0] ?? "")) return { status: "unknown", conflicts: [] };
+  return { status: "conflict", conflicts: Array.from(new Set(fields.slice(1))).sort() };
+}
+
+/** The git directory every worktree of this repository shares, as an absolute path. */
+export function gitCommonDir(root: string): string {
+  const r = git(["rev-parse", "--git-common-dir"], { cwd: root });
+  const dir = path.resolve(root, r.stdout.trim());
+  // Git answers `.git` in the main checkout and a real path in a worktree; one spelling for both,
+  // so that two callers can tell they mean the same directory.
+  try {
+    return realpathSync(dir);
+  } catch {
+    return dir;
+  }
+}
+
+/** Where git keeps a per-checkout file such as `MERGE_HEAD` for the checkout at `root`, as an absolute path. */
+export function gitPath(root: string, name: string): string {
+  const r = git(["rev-parse", "--git-path", name], { cwd: root });
+  return path.resolve(root, r.stdout.trim());
+}
+
+export interface WorktreeInfo {
+  path: string;
+  /** The short branch name, or null for a detached or bare entry. */
+  branch: string | null;
+}
+
+/** Every checkout of this repository and the branch each is on, from `git worktree list --porcelain`. */
+export function listWorktrees(root: string): WorktreeInfo[] {
+  const r = git(["worktree", "list", "--porcelain"], { cwd: root, allowFailure: true });
+  if (!r.ok) return [];
+  const out: WorktreeInfo[] = [];
+  let current: WorktreeInfo | null = null;
+  for (const line of r.stdout.split("\n")) {
+    if (line.startsWith("worktree ")) {
+      current = { path: line.slice("worktree ".length), branch: null };
+      out.push(current);
+    } else if (current && line.startsWith("branch refs/heads/")) {
+      current.branch = line.slice("branch refs/heads/".length);
+    }
+  }
+  return out;
 }
 
 export function gitUser(root: string): { name: string; email: string } {

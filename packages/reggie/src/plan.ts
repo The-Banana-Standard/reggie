@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { RiskRules } from "./people.js";
 import { splitFrontMatter, today } from "./util.js";
 
@@ -128,11 +129,7 @@ export function parsePlan(content: string): ParsedPlan {
     if (current !== null) buffer.push(line);
   }
   flush();
-  const criteria = (sections.get("Acceptance criteria") ?? "")
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => /^- \[[ xX]\]\s+/.test(l))
-    .map((l) => l.replace(/^- \[[ xX]\]\s+/, "").trim());
+  const criteria = planCriteria(sections.get("Acceptance criteria") ?? "").map((c) => c.text);
   const files = (sections.get("Files to touch") ?? "")
     .split("\n")
     .map((l) => l.trim())
@@ -140,6 +137,50 @@ export function parsePlan(content: string): ParsedPlan {
     .map((l) => l.replace(/^-\s+/, "").replace(/\s*\((NEW|MOD|DEL)\)\s*$/i, "").replace(/^`|`$/g, "").trim())
     .filter(Boolean);
   return { meta, sections, criteria, files };
+}
+
+export interface PlanCriterion {
+  /** 1-based position in the section. For people; a check is never keyed by it, because renumbering would move a pass onto other words. */
+  n: number;
+  /** The criterion's first line without its checkbox: what `parsePlan` has always returned. */
+  text: string;
+  /** `c:` and twelve hex characters of the SHA-256 of the whole bullet; the second of two identical bullets gets `#2`. */
+  key: string;
+}
+
+const CRITERION_RE = /^- \[[ xX]\]\s+/;
+
+/**
+ * The acceptance criteria of a plan, walked once: each `- [ ]` line is a criterion, and the indented
+ * lines under it belong to it. The key is a hash of the whole bullet with whitespace collapsed, so
+ * reordering or renumbering changes nothing, one changed word on any of its lines makes a new key,
+ * and a check recorded against the old words cannot count for the new ones. Identical bullets are
+ * told apart by `#2`, `#3` in the order they appear.
+ */
+export function planCriteria(section: string): PlanCriterion[] {
+  const bullets: { text: string; rest: string[] }[] = [];
+  let current: { text: string; rest: string[] } | null = null;
+  for (const raw of section.split("\n")) {
+    const line = raw.trim();
+    if (CRITERION_RE.test(line)) {
+      current = { text: line.replace(CRITERION_RE, "").trim(), rest: [] };
+      bullets.push(current);
+    } else if (line === "") {
+      // A blank line inside a bullet does not end it; the next line decides.
+    } else if (current && /^\s/.test(raw)) {
+      current.rest.push(line);
+    } else {
+      current = null;
+    }
+  }
+  const seen = new Map<string, number>();
+  return bullets.map((b, i) => {
+    const whole = [b.text, ...b.rest].join(" ").replace(/\s+/g, " ").trim();
+    const base = `c:${createHash("sha256").update(whole, "utf8").digest("hex").slice(0, 12)}`;
+    const count = (seen.get(base) ?? 0) + 1;
+    seen.set(base, count);
+    return { n: i + 1, text: b.text, key: count === 1 ? base : `${base}#${count}` };
+  });
 }
 
 export interface LintResult {
