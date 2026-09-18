@@ -87,14 +87,23 @@
   border-top: 1px solid var(--line);
   background: var(--panel);
 }
+/* A tile is a div holding the link and the idea button (idea.js), because a button inside an <a> is
+   invalid; the link wraps every fact so the whole surface still opens the repo, and the wrapper keeps
+   the border, the hover and the refs the map cross-highlights by. */
 .ws-tile {
+  position: relative;
   flex: 1 1 180px; max-width: 260px; display: block;
-  padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+  border-radius: 8px; border: 1px solid var(--line);
   background: color-mix(in srgb, var(--panel) 92%, transparent);
-  color: var(--text); text-decoration: none;
+  color: var(--text);
 }
-.ws-tile:hover { border-color: var(--line-strong); text-decoration: none; }
-.ws-tile__name { display: flex; align-items: center; gap: 6px; font-size: var(--fs-label); font-weight: 600; }
+.ws-tile:hover { border-color: var(--line-strong); }
+.ws-tile__link { display: block; padding: 8px 10px; color: var(--text); text-decoration: none; border-radius: 8px; }
+.ws-tile__link:hover { text-decoration: none; }
+.ws-tile__idea { position: absolute; top: 4px; right: 4px; height: 26px; width: 26px; color: var(--muted); }
+.ws-tile__idea:hover { color: var(--brand); }
+/* The name row leaves room for the button in the corner. */
+.ws-tile__name { display: flex; align-items: center; gap: 6px; padding-right: 26px; font-size: var(--fs-label); font-weight: 600; }
 .ws-tile__name .i { color: var(--muted); }
 .ws-tile__meta { font-size: var(--fs-tile, 11px); color: var(--muted); margin: 2px 0; }
 .ws-tile__bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--line); margin-top: 4px; }

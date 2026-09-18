@@ -10,6 +10,7 @@ import { renderStory, renderSpotlight, renderSkeleton, sectionHeadingsFor, close
 import { createMap, SERVICE_NOUNS } from "./map.js";
 import { createReader, diffUrl } from "./reader.js";
 import { renderBoard, renderTaskPage, unmountBoard } from "./board.js";
+import { ideaButtonFor, mountIdeaTrigger } from "./idea.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1140,6 +1141,8 @@ function wireHeader() {
     }).observe(reader, { attributes: true, attributeFilter: ["hidden"] });
   }
   $("search-trigger")?.addEventListener("click", () => openPalette());
+  // The idea action: the trigger follows the route and hides itself on the workspace level.
+  mountIdeaTrigger();
   $("repo-select")?.addEventListener("change", (ev) => {
     navigate({ level: "repo", repo: ev.target.value, query: {} });
   });
@@ -1940,9 +1943,12 @@ function renderWorkspaceTiles(ws, route) {
       const tasks = Object.values(counts).reduce((a, b) => a + (b ?? 0), 0);
       const k = r.knowledge ?? { source: 0, noted: 0, inherited: 0, stale: 0 };
       const undocumented = Math.max(0, (k.source ?? 0) - (k.noted ?? 0) - (k.inherited ?? 0));
-      const tile = h(
+      // A div around the link, not a link: the tile carries the idea button, and interactive
+      // content inside an <a> is invalid. The link wraps every fact so the whole surface still
+      // opens the repo; the hover cross-highlight and the refs stay on the wrapper.
+      const link = h(
         "a",
-        { class: "ws-tile", href: formatRoute({ level: "repo", repo: r.name, query: {} }), "data-refs": `repo:${r.name}` },
+        { class: "ws-tile__link", href: formatRoute({ level: "repo", repo: r.name, query: {} }) },
         h("div", { class: "ws-tile__name" }, icon("repo"), h("span", {}, r.name)),
         // Every fact is a labelled chip with a tooltip; "TypeScript · 224 code files" left the reader
         // to guess which half was which (§5.2).
@@ -1987,6 +1993,7 @@ function renderWorkspaceTiles(ws, route) {
           }),
         ),
       );
+      const tile = h("div", { class: "ws-tile", "data-refs": `repo:${r.name}` }, link, ideaButtonFor(r.name));
       tile.addEventListener("mouseenter", () => state.map?.highlight?.([`repo:${r.name}`]));
       tile.addEventListener("mouseleave", () => state.map?.clearHighlight?.());
       return tile;
