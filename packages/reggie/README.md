@@ -20,7 +20,7 @@ npm link            # puts `reggie` on your PATH
 | `reggie onboard [dir]` | Create `.reggie/`, generate the `CLAUDE.md` and `AGENTS.md` blocks, register you, install project commands, write `.reggie/ONBOARDING.md`. Alias: `init`. Idempotent. |
 | `reggie docs refresh` | Regenerate the facts block in both files. |
 | `reggie docs check` | Exit 1 when a generated block is missing or stale. Use in CI on a clean tree. |
-| `reggie capture <text> [--detail t] [--slug s] [--issue]` | Add a raw item to `.reggie/intake.md`; optionally open a GitHub issue. |
+| `reggie capture <text> [--detail t] [--slug s] [--path p] [--issue]` | Add a raw item to `.reggie/intake.md`; optionally open a GitHub issue. `--path` names the file or folder the idea came from, written under the item as its last detail line (``Captured from the file `src/serve.ts` ``); a path git does not list as a file or folder of the repo is refused. |
 | `reggie tasks [--all] [--json]` | Every task with its derived state, owner, and the reason. |
 | `reggie task <slug>` | One task with its plan. |
 | `reggie status` | Who is working on what. |
@@ -32,6 +32,7 @@ npm link            # puts `reggie` on your PATH
 | `reggie claim <slug> [--worktree]` | Create or switch to `task/<slug>` and commit a claim record on it; refuses a branch someone else holds. |
 | `reggie release <slug> [--force]` | Delete your local task branch and worktree. Refuses someone else's branch and unmerged commits unless forced. |
 | `reggie context [slug] [-p path...] [--max-lines n]` | The pack to read before working. |
+| `reggie launch <slug...> [--tool claude\|codex] [--mode discuss\|build] [--note t] [--path p...] [--run]` | Print the command that opens a Claude Code or Codex session on a task (shape, plan, discuss or build, from the task's state); `--run` opens it in a new Terminal window on macOS and writes the context pack first. `--path` builds the pack around those files or folders and names them in the prompt. |
 | `reggie note add <entity> -t <type> [-c conf] [-s a,b] <text>` | Add a dated entry. Entities: a file, a folder, `_repo`, `store:name`, `service:name`, `env:NAME`, `route:name`. |
 | `reggie note find [query]` | Notes whose entity contains the query. |
 | `reggie note path <file>` | The read-before-edit chain for a file. |
@@ -130,7 +131,7 @@ Until a session records its real id in the claims and entries it writes (`sessio
 
 `.mcp.json` (written by `onboard`) points Claude Code at `reggie mcp`. For Codex: `codex mcp add reggie -- reggie mcp`.
 
-Tools: `reggie_tasks`, `reggie_task`, `reggie_context`, `reggie_find_notes`, `reggie_add_note`, `reggie_journal`, `reggie_capture`, `reggie_plan_new`, `reggie_lint_plan`, `reggie_people`. Resources: `reggie://readme`, `reggie://intake`, `reggie://onboarding`.
+Tools: `reggie_tasks`, `reggie_task`, `reggie_context`, `reggie_find_notes`, `reggie_add_note`, `reggie_journal`, `reggie_capture` (with an optional `path`, the file or folder the idea came from, checked the way `reggie capture --path` checks it), `reggie_plan_new`, `reggie_lint_plan`, `reggie_people`. There is no launch tool: launching opens a terminal on the serving machine and is a human act. Resources: `reggie://readme`, `reggie://intake`, `reggie://onboarding`.
 
 Writes made through the server are attributed as `Claude via <handle>` or `Codex via <handle>`, detected from the environment; set `REGGIE_TOOL` to override.
 
