@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { INVISIBLE_CHARS } from "./capture.js";
+import { buildContext, type ContextRequest } from "./context.js";
 import { run } from "./git.js";
-import type { InstallEntry } from "./people.js";
+import type { RepoPaths } from "./paths.js";
+import type { InstallEntry, ReggieConfig } from "./people.js";
 import type { TaskState } from "./tasks.js";
 import { isSafeSlug, nowIso } from "./util.js";
 
@@ -58,6 +61,12 @@ export interface LaunchInput {
    * or it failed. The build prompt names each one as the session's first command.
    */
   setup?: InstallEntry[];
+  /**
+   * Repo-relative paths the context pack was built around (the page an idea was captured from).
+   * Validated for existence by the caller through `resolveCaptureOrigin`; here only for what can
+   * reach a command line. The prompt names each one so the session knows where to start reading.
+   */
+  paths?: string[];
 }
 
 export interface LaunchPlan {
@@ -88,6 +97,10 @@ export interface LaunchResult {
 
 /** The longest note a launch accepts; a prompt is an argument, not a document. */
 export const MAX_NOTE_CHARS = 4000;
+
+/** How many pack paths one launch names, and how long each may be: a prompt names a place, not a listing. */
+export const MAX_LAUNCH_PATHS = 8;
+export const MAX_PATH_CHARS = 512;
 
 /**
  * POSIX single-quote quoting, and the only shell quoting in this module. Inside single
@@ -129,6 +142,23 @@ function assertTasks(tasks: readonly LaunchTask[]): [LaunchTask, ...LaunchTask[]
 }
 
 /**
+ * The pack paths are the other caller input that reaches a command string, inside the single-quoted
+ * prompt the way the note does. Whether each one is a file or folder of the repo is the caller's
+ * check (`resolveCaptureOrigin`); this one refuses what no prompt should carry: nothing, a control
+ * character, a listing rather than a place, or a path too long to be one.
+ */
+function assertPaths(paths: readonly string[] | undefined): string[] {
+  const list = paths ?? [];
+  if (list.length > MAX_LAUNCH_PATHS) throw new Error(`a launch names at most ${MAX_LAUNCH_PATHS} paths, got ${list.length}.`);
+  for (const p of list) {
+    if (typeof p !== "string" || p.trim() === "") throw new Error("a pack path cannot be empty.");
+    if (INVISIBLE_CHARS.test(p)) throw new Error("a pack path cannot hold a control character.");
+    if (p.length > MAX_PATH_CHARS) throw new Error(`a pack path is longer than ${MAX_PATH_CHARS} characters.`);
+  }
+  return [...list];
+}
+
+/**
  * The goal follows from the state, so a button never has to know which prompt to send and
  * cannot send the wrong one: an ungroomed task is shaped, a groomed one is planned, anything
  * else is discussed. Build needs a plan that passed the contract, or a branch already in
@@ -161,14 +191,28 @@ function noteClause(note: string | undefined): string[] {
   return text ? [`The user adds, in their own words: "${text}"`] : [];
 }
 
+/**
+ * Where the pack was built from, when an idea came from a page: the session is told the place so
+ * it starts reading there instead of at the repo note. One sentence after the context clause in
+ * every goal, build included, because a pack whose scope is unexplained is worse than a sentence.
+ */
+function pathsClause(paths: readonly string[]): string[] {
+  if (paths.length === 0) return [];
+  const named = paths.map((p) => `\`${p}\``);
+  const list = named.length === 1 ? named[0] : `${named.slice(0, -1).join(", ")} and ${named[named.length - 1]}`;
+  const one = named.length === 1;
+  return [`The pack was also built around ${list}: ${one ? "its" : "their"} notes, ${one ? "its" : "their"} recent commits and the tasks that touch ${one ? "it" : "them"} are in there, so start reading at ${one ? "that place" : "those places"}.`];
+}
+
 /** Shape one or more ungroomed items into briefs, together, before anyone plans them. */
-function shapePrompt(tasks: readonly LaunchTask[], files: readonly string[], note: string | undefined): string {
+function shapePrompt(tasks: readonly LaunchTask[], files: readonly string[], note: string | undefined, paths: readonly string[]): string {
   const many = tasks.length > 1;
   const list = tasks.map((t) => `\`${t.slug}\``).join(", ");
   const reads = tasks.map((t, i) => contextClause(t.slug, files[i])).join(" ");
   return [
     many ? `We are going to shape these captured items into briefs together, before anyone plans them: ${list}.` : `We are going to shape ${list} into a brief together, before anyone plans it.`,
     reads,
+    ...pathsClause(paths),
     "Work from the intake line (or, once triage has taken it, the Problem section of the scaffolded brief that holds the same words), the notes and the graph rather than reading much code; a brief is cheap on purpose.",
     "Ask me the questions whose answers would change the shape of the work, one at a time, and tell me what you think the item is about and where in the code it probably lives.",
     many
@@ -181,10 +225,11 @@ function shapePrompt(tasks: readonly LaunchTask[], files: readonly string[], not
 }
 
 /** Plan one groomed task in the tool's plan mode, ending in a plan that passes the contract. */
-function planPrompt(slug: string, file: string | undefined, note: string | undefined): string {
+function planPrompt(slug: string, file: string | undefined, note: string | undefined, paths: readonly string[]): string {
   return [
     `We are going to plan \`${slug}\` together before anything is built.`,
     contextClause(slug, file),
+    ...pathsClause(paths),
     "Stay in plan mode and read-only while we talk: explore the code, but change nothing.",
     "Start from the brief's Problem and its open questions. Ask me every question whose answer would change the approach, one at a time, before you propose one; if I am not available, answer it yourself and record it under Assumptions.",
     `When we agree, write \`.reggie/tasks/${slug}/plan.md\` (\`reggie plan new ${slug}\` scaffolds it) with every section filled: Problem, Approach, Files to touch, Acceptance criteria, Verification strategy, Assumptions, Out of scope, Bail conditions.`,
@@ -196,10 +241,11 @@ function planPrompt(slug: string, file: string | undefined, note: string | undef
 }
 
 /** Talk a task through without touching anything; offer to record what gets settled. */
-function discussPrompt(slug: string, file: string | undefined, note: string | undefined): string {
+function discussPrompt(slug: string, file: string | undefined, note: string | undefined, paths: readonly string[]): string {
   return [
     `Let us discuss \`${slug}\` together.`,
     contextClause(slug, file),
+    ...pathsClause(paths),
     "This is a discussion: do not edit any file, do not write or update a plan, and do not start the work.",
     "Answer my questions, lay out the options with their trade-offs, and say plainly what you are unsure about.",
     "If we settle something worth keeping, offer to record it: a note with `reggie note add`, a captured item with `reggie capture`, or a change to the brief or plan. Do it only if I say yes.",
@@ -234,7 +280,7 @@ const UNLINK_CLAUSE =
   "Before you add or change any dependency, check whether `node_modules` here is a symlink: if it is, it points into the checkout Reggie serves from, so remove the link with `unlink` and run the install command first, because installing through it would change every other worktree and `rm -r` through it would delete their dependencies.";
 
 /** Implement one planned task from its worktree, already claimed, through to a completion packet. */
-function buildPrompt(tool: LaunchTool, slug: string, file: string | undefined, branch: string | undefined, note: string | undefined, setup: readonly InstallEntry[] | undefined): string {
+function buildPrompt(tool: LaunchTool, slug: string, file: string | undefined, branch: string | undefined, note: string | undefined, setup: readonly InstallEntry[] | undefined, paths: readonly string[]): string {
   const r = REVIEW[tool];
   return [
     `Implement \`${slug}\`.`,
@@ -242,6 +288,7 @@ function buildPrompt(tool: LaunchTool, slug: string, file: string | undefined, b
     ...setupClause(setup),
     UNLINK_CLAUSE,
     contextClause(slug, file),
+    ...pathsClause(paths),
     "Execute the plan. You may deviate, but record every deviation and its reason for the packet.",
     `Produce the evidence named under Verification strategy and save it under \`.reggie/tasks/${slug}/evidence/\`; never claim a test passed without its output saved.`,
     `Reviews by risk class, from the plan's front matter: low, run the repo's own checks; medium, also run ${r.code}; high, also run ${r.security} and have a second pass execute the tests. Run ${r.simplify} when the diff is large. Resolve findings before continuing.`,
@@ -251,18 +298,18 @@ function buildPrompt(tool: LaunchTool, slug: string, file: string | undefined, b
   ].join(" ");
 }
 
-function promptFor(tool: LaunchTool, goal: LaunchGoal, tasks: readonly LaunchTask[], input: LaunchInput): string {
+function promptFor(tool: LaunchTool, goal: LaunchGoal, tasks: readonly LaunchTask[], input: LaunchInput, paths: readonly string[]): string {
   const files = input.contextFiles ?? [];
   const first = tasks[0]?.slug ?? "";
   switch (goal) {
     case "shape":
-      return shapePrompt(tasks, files, input.note);
+      return shapePrompt(tasks, files, input.note, paths);
     case "plan":
-      return planPrompt(first, files[0], input.note);
+      return planPrompt(first, files[0], input.note, paths);
     case "discuss":
-      return discussPrompt(first, files[0], input.note);
+      return discussPrompt(first, files[0], input.note, paths);
     case "build":
-      return buildPrompt(tool, first, files[0], input.branch, input.note, input.setup);
+      return buildPrompt(tool, first, files[0], input.branch, input.note, input.setup, paths);
   }
 }
 
@@ -320,8 +367,9 @@ export function launchCommand(input: LaunchInput): LaunchPlan {
   const goal = resolveGoal(mode, tasks);
   if (typeof input.repo !== "string" || input.repo.trim() === "") throw new Error("launch needs the repository directory.");
   if ((input.note ?? "").length > MAX_NOTE_CHARS) throw new Error(`the note is longer than ${MAX_NOTE_CHARS} characters; put the rest in the brief.`);
+  const paths = assertPaths(input.paths);
   const session = tool === "claude" ? (input.session ?? null) : null;
-  const prompt = promptFor(tool, goal, tasks, input);
+  const prompt = promptFor(tool, goal, tasks, input, paths);
   const argv = argvFor(tool, goal, session ?? undefined, prompt);
   return {
     command: argv.map(shellQuote).join(" "),
@@ -351,6 +399,21 @@ export function writeContextFile(cwd: string, slug: string, text: string): strin
   mkdirSync(path.dirname(full), { recursive: true });
   writeFileSync(full, text.endsWith("\n") ? text : `${text}\n`, "utf8");
   return rel;
+}
+
+/**
+ * The packs a launch writes, one per task, each built around the same pack paths, returned as the
+ * relative files the prompt names. `POST /api/launch` and `reggie launch --run` both go through here
+ * so the two callers cannot disagree about what a session is handed to read first. The paths are
+ * the caller's, already resolved; `buildContext` does the rest (the note chain, the files in scope,
+ * their commits and the tasks whose plans overlap them).
+ */
+export function writeContextPacks(paths: RepoPaths, config: ReggieConfig, cwd: string, tasks: readonly LaunchTask[], packPaths: readonly string[] = []): string[] {
+  return tasks.map((t) => {
+    const req: ContextRequest = { slug: t.slug };
+    if (packPaths.length > 0) req.paths = [...packPaths];
+    return writeContextFile(cwd, t.slug, buildContext(paths, config, req));
+  });
 }
 
 /**

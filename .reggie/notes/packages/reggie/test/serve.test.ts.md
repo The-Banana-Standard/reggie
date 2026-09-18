@@ -15,3 +15,7 @@ sources: packages/reggie/test/serve.test.ts, branch-diff-in-reader
 The last describe block builds its own small repo holding one derived entry and one hand entry, starts a third server over it, and checks that both journal routes return the derived object with the mark kept out of the text. It writes into its own repo so the shared fixture's journal counts are untouched.
 sources: derive-the-journal
 
+## how · 2026-09-18 · Claude via jacobpress · medium
+The idea-action block at the end starts its own server over a fresh fixture with the origin shapes added to it (a file with a space, one with non-ASCII letters, a symlink into the repo and one out of it, a file indexed but gone from disk, an ignored cache file), because adding those files to the shared fixture would move the file counts and section lists the earlier blocks pin. Its launch cases stub the platform away from darwin through one helper so nothing in it can open a Terminal window. The team-mode case connects over the machine's own network address with the minted key, and returns early when the machine has no non-internal interface.
+sources: idea-from-every-page
+

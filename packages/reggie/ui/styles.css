@@ -258,6 +258,45 @@ button { cursor: pointer; }
   border: 1px solid var(--line-strong); border-radius: 4px; padding: 0 4px; line-height: 16px;
 }
 
+/* ---------- The idea action (idea.js; decision of 2026-09-15) ----------
+   The header is full at 1440px: with the repo named forge-reggie (workspace mode, four-item nav,
+   every tool) the title crumb keeps 126px of 126 without the trigger, 99px with the icon alone and
+   67px with the label beside it, so the label shows only from 1500px and the trigger is the 36px
+   icon below that; the breadcrumb pays those 36px the way it already pays for the pane toggles.
+   (A 7-character name fits with the label at 1440, which is how an earlier build measured it;
+   every real repo name here is longer.) The popover is one fixed card under the trigger on a
+   desktop and a full-width strip under the header on a phone; the phone rule is at the end of the
+   file with the rest of the phone layout. */
+.idea-trigger { padding: 0 8px; }
+@media (max-width: 1499px) { .idea-trigger span { display: none; } }
+.idea {
+  position: fixed; z-index: 45;
+  width: min(460px, calc(100vw - 16px));
+  display: flex; flex-direction: column; gap: var(--s-2);
+  padding: var(--s-3); border: 1px solid var(--line-strong); border-radius: var(--radius);
+  background: var(--panel); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.idea__head { display: flex; align-items: flex-start; gap: var(--s-2); }
+.idea__where { flex: 1 1 auto; margin: 0; color: var(--muted); font-size: var(--fs-meta); line-height: 1.5; overflow-wrap: anywhere; }
+.idea__where code { color: var(--text); }
+.idea__close { flex: 0 0 auto; margin: -4px -4px 0 0; }
+.idea__actions { justify-content: space-between; flex-wrap: wrap; row-gap: var(--s-2); }
+/* The split control keeps the board's look (.launch, .launch__caret); its menu is absolute rather
+   than fixed, because the popover is fixed itself and no scroll box clips it. */
+.idea__launch { position: relative; }
+.idea__menu {
+  position: absolute; left: 0; top: calc(100% + 4px); z-index: 1;
+  display: flex; flex-direction: column; gap: 2px; min-width: max-content;
+  padding: var(--s-1); border: 1px solid var(--line-strong); border-radius: 6px;
+  background: var(--panel); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+.idea__tool { justify-content: flex-start; text-align: left; white-space: nowrap; }
+.idea__result { display: flex; flex-direction: column; gap: var(--s-2); }
+.idea__result:empty { display: none; }
+.idea__task { margin: 0; font-size: var(--fs-label); }
+.idea__remote { margin: 0; }
+.idea__result .launch-cmd { margin-top: 0; }
+
 /* The page is a flex row of panes (§3.1). Open panes share the width; the story is floored at its
    minimum and capped at its reading measure, so any spare width goes to the map or the code, and a
    story alone sits centred. Which panes are open is written on <main> by app.js (see Panes below). */
@@ -757,6 +796,15 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
   .map-toggle { display: inline-flex; }
   .crumbs { gap: var(--s-1); }
   .crumbs__last { font-size: var(--fs-label); }
+  /* The page title is the crumb that must survive. Every earlier crumb keeps its full width, so in
+     workspace mode ("Workspace › fixture › src › types › shape.ts" in about 107px beside the tools)
+     the title was the only crumb that could shrink and it shrank to nothing, with or without the
+     idea trigger. A phone header holds two crumbs: the parent and the title, the same tail the
+     mini-breadcrumb shows under 1100px; the parent gives way first and the title keeps at least
+     six characters. The full trail is on the story's first card. */
+  .crumbs > :not(:nth-last-child(-n + 3)) { display: none; }
+  .crumbs__item { flex: 0 1 auto; min-width: 2ch; overflow: hidden; text-overflow: ellipsis; }
+  .crumbs__last { flex: 1 1 auto; min-width: 6ch; }
 
   .main { flex-direction: column; }
   /* The page nav the header drops at 1100px comes back as a bottom tab bar: four thumb-sized
@@ -788,6 +836,11 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 
   .btn, .btn--small, .seg__btn { min-height: 34px; }
   .btn--small { height: auto; padding: 0 10px; font-size: var(--fs-label); }
+  /* The idea popover spans the width under the header; idea.js clears its inline position here. */
+  .idea { left: var(--s-2); right: var(--s-2); top: calc(var(--header-h) + 4px); width: auto; max-height: calc(100vh - var(--header-h) - 12px); overflow: auto; }
+  .idea__menu { left: 0; right: 0; min-width: 0; }
+  .idea__tool { white-space: normal; }
+  .idea__hint { display: none; }
   .form__input, .form__textarea, .form__select { font-size: 16px; } /* iOS zooms into anything smaller */
   .toasts { left: var(--s-3); right: var(--s-3); bottom: calc(var(--s-3) + var(--tabbar-h) + env(safe-area-inset-bottom, 0px)); max-width: none; }
   .palette__box { top: 6vh; width: calc(100vw - 20px); }

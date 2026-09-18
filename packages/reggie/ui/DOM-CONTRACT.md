@@ -12,6 +12,7 @@ Every container below exists on first paint and is never replaced, only filled.
 | `header` | 48px header | app.js |
 | `crumbs` | Breadcrumb `<nav>`; rendered from `story.crumbs` (`renderCrumbs`) | app.js |
 | `nav` | Header navigation `<nav>`: Overview / Services / Data flow / Tasks for the current repo (`renderNav`); empty on the workspace level, hidden by CSS at ≤1100px where the header row is already full | app.js |
+| `idea-trigger` | The idea action's header button (first in `.header__tools`; `aria-haspopup="dialog"`, `aria-expanded`; `hidden` on the workspace and home levels; its "Idea" label shows from 1500px). Opens the `.idea` popover for the current page | idea.js |
 | `search-trigger` | "Search ⌘K" button | app.js |
 | `lens` | Lens segmented control (`role=radiogroup`) | app.js |
 | `lens-structure`, `lens-knowledge`, `lens-tests`, `lens-heat`, `lens-owners` | Lens buttons (`data-lens`) | app.js |
@@ -38,7 +39,7 @@ Every container below exists on first paint and is never replaced, only filled.
 | `toasts` | Toast region (`aria-live=polite`) | app.js |
 | `icons` | Inline `<svg><symbol>` set; `#i-<name>` | — |
 
-Icons: `repo area file symbol task person note journal entry test stale external search fit zoom-in zoom-out relayout close copy back service flow`. Use `<svg class="i"><use href="#i-file"/></svg>` (14px) or `class="i i--16"` (toolbar). In JS: `icon("file")`, `icon("fit", 16)`.
+Icons: `repo area file symbol task person note journal entry test stale external search fit zoom-in zoom-out relayout close copy back service flow idea`. Use `<svg class="i"><use href="#i-file"/></svg>` (14px) or `class="i i--16"` (toolbar). In JS: `icon("file")`, `icon("fit", 16)`.
 
 ## 2. Class names (`styles.css`)
 
@@ -47,7 +48,7 @@ Icons: `repo area file symbol task person note journal entry test stale external
 - `.header`, `.header__tools`, `.kbd`.
 - `.main`, `.story`, `.map-col`, `.map-stage`, `.map-canvas`, `.map-footer`.
 - `.tabs`, `.tabs__tab`, `.tabs__tab.is-active`.
-- `.crumbs`, `.crumbs__item`, `.crumbs__item.is-muted` (greyed Workspace crumb), `.crumbs__sep`, `.crumbs__last` (page title, 22px/600).
+- `.crumbs`, `.crumbs__item`, `.crumbs__item.is-muted` (greyed Workspace crumb), `.crumbs__sep`, `.crumbs__last` (page title, 22px/600). Below 760px only the last three children (the parent crumb, its separator, the title) are shown; the parent ellipsises first and the title keeps at least six characters.
 - `.crumbs--mini` on `#mini-crumbs` — `display: none` above 1100px, a one-line crumb tail below it.
 - `.nav` > `.nav__item` (`.is-active` for the level in view) — the header's page navigation.
 - `.app` sets `grid-template-columns: minmax(0, 1fr)`: an `auto` track is floored by its items'
@@ -78,7 +79,8 @@ Icons: `repo area file symbol task person note journal entry test stale external
 - Empty-state block: `.empty` > `.empty__text` + `.empty__hint` (command as secondary hint) + optional `.form`.
 - `.hint` (12px muted, `<code>` for commands), `.muted`, `.faint`, `details.cmds` (collapsed commands).
 - `.story__actions` — the "Read the source" row app.js prepends to `#sections` at the file level; `.spot__via` — the `<ul>` of file pairs app.js appends to a Spotlight pinned from an edge tap.
-- `.ws-tiles` > `.ws-tile` (> `.ws-tile__name`, `.ws-tile__meta`, `.ws-tile__bar` > `.ws-tile__seg`) — the workspace tile strip, a block inside `#map-col` under `#map-stage` (map.css).
+- `.ws-tiles` > `div.ws-tile` (`data-refs="repo:<name>"`, the hover cross-highlight) > `a.ws-tile__link` (the whole surface, > `.ws-tile__name`, `.ws-tile__meta`, `.ws-tile__bar` > `.ws-tile__seg`) + `button.ws-tile__idea` (`data-idea-repo`, top-right; opens `.idea` for that repo alone) — the workspace tile strip, a block inside `#map-col` under `#map-stage` (map.css). The tile is a `div` and not the link, because a button inside an `<a>` is invalid.
+- The idea popover (idea.js; one per page, appended to `body`, `position: fixed`): `.idea` (`role="dialog"`, `aria-label`, `hidden` when closed) > `.idea__head` (`.idea__where`, the sentence naming the repo and the entity; `.idea__close`) + `form.form--idea` (`.idea__input`, `.idea__error`, `.idea__actions` > `.launch.idea__launch` > `.idea__go` (the main button, `.btn--primary`) + `.launch__caret.idea__caret` + `.idea__menu` (`role="menu"`, `.idea__tool` rows, absolute rather than fixed) and `.idea__hint`) + `.idea__result` (`.idea__task`, the link to the new task; `.idea__remote`, the sentence for a keyed page; then the board's `.launch-cmd` command field). Below 760px it spans the width under the header.
 
 ### Services and Data flow (`services-and-flows-spec.md` §4)
 - `.declared` > `.declared__file` > `.declared__list` > `.declared__row` (`.declared__what`,
@@ -247,8 +249,22 @@ export function renderTaskPage(storyEl, mapEl, data /* /api/task/<slug> payload 
 export const STATE_ORDER   // the six states in lifecycle order
 export const OPEN_STATES   // the five the Open view columns by
 export const LAUNCH_TOOLS  // ["claude", "codex"]
+export const TOOL_LABEL    // { claude: "Claude Code", codex: "Codex" }
 export function rememberedTool()   // localStorage `reggie.launch.tool`, "claude" until someone chooses
+export function rememberTool(tool) // writes it
+export function makeLauncher(ctx /* { post, fetchJson } */) → { describe(slugs, tool, mode, paths?), run(slugs, tool, mode, { paths?, onCommand?, onLaunched?, where? }), noteFor, setNote }
+export function commandField(command, reason) → Element   // the `.launch-cmd` readonly field with its Copy button
+export function friendlyError(err) → string
 ```
+`makeLauncher` is the one place that talks to `/api/launch`; `paths` on `describe` and `opts.paths` on `run` are the repo paths the pack is built around (the idea action passes the page's), and `opts.where` names in the warning toast where the command to copy went ("on the card" unless told otherwise). The five exports exist so `idea.js` composes the launcher, the copy field and the tool constants rather than copying them.
+
+### `idea.js`
+```js
+export function mountIdeaTrigger()        // wires #idea-trigger, follows the `route` event (hidden off-repo, closed on leaving the page)
+export function originFor(route) → { path?, symbol?, task? } | null   // area/file → path; symbol → path + symbol (the path alone when the name is not an identifier, e.g. a star re-export `*`); task → task; other repo levels → {}; workspace/home → null
+export function ideaButtonFor(repo) → Element                          // button.ws-tile__idea for a workspace tile
+```
+The popover posts `/api/capture` with the text and the origin, then hands `[slug]` and the origin's path to `makeLauncher(ctx).run` in `discuss` mode, reading a snapshot of its target taken when the submit began; while a submit is in flight an open is shown but not re-targeted, and neither a route change nor a second trigger click closes it; the result stays until the next submit; `ctx` names the repo explicitly (`withRepo(url, repo)`) because a tile's repo is not the route's. Outcomes and the failure paths are in `docs/ui-spec.md` §3.9.
 
 ### Route → data
 | Level | Story | Map |

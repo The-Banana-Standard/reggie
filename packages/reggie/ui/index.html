@@ -94,6 +94,9 @@
     <symbol id="i-flow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 12h6M9 12c0-4 2.5-5 6-5h3M9 12c0 4 2.5 5 6 5h3"/><path d="M15.5 4.5 18.5 7l-3 2.5M15.5 14.5l3 2.5-3 2.5"/>
     </symbol>
+    <symbol id="i-idea" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3a6 6 0 0 0-3.8 10.6c.9.8 1.3 1.6 1.3 2.4h5c0-.8.4-1.6 1.3-2.4A6 6 0 0 0 12 3z"/><path d="M9.5 19h5M10.5 21.5h3"/>
+    </symbol>
   </defs>
 </svg>
 
@@ -106,6 +109,10 @@
     <nav id="crumbs" class="crumbs" aria-label="Breadcrumb"></nav>
     <nav id="nav" class="nav" aria-label="Pages"></nav>
     <div class="header__tools">
+      <!-- The idea action (decision of 2026-09-15): first in the row on every page of one repo, hidden on the workspace level; idea.js follows the route. -->
+      <button id="idea-trigger" class="btn btn--ghost idea-trigger" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Capture an idea from this page" title="Capture an idea from this page and shape it" hidden>
+        <svg class="i"><use href="#i-idea"/></svg><span>Idea</span>
+      </button>
       <button id="map-toggle" class="btn btn--ghost map-toggle" type="button" aria-pressed="false" aria-label="Show the map" title="Show the map" hidden>Map</button>
       <button id="search-trigger" class="btn btn--ghost" type="button" aria-label="Search (Command K)" title="Search (⌘K)">
         <svg class="i"><use href="#i-search"/></svg><span>Search</span><kbd class="kbd">⌘K</kbd>

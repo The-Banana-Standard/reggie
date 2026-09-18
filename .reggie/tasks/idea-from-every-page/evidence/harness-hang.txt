@@ -1,0 +1,17 @@
+mode:      hang (IDEA_TERMINAL); osascript is stubbed, no Terminal window can open
+fixture:   /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-hooi3W
+bare:      /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-bare-gPVeLf
+workspace: /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-idea-ws-36F0Pc
+intake:    /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-hooi3W/.reggie/intake.md
+tasks:     split-the-big-area-into-two-packages (ungroomed), cache-chain-shape (in process), share-shape-helpers (awaiting decision)
+serving:   http://127.0.0.1:4906
+pages:
+  http://127.0.0.1:4906/#/ws
+  http://127.0.0.1:4906/#/repo/fixture
+  http://127.0.0.1:4906/#/repo/fixture/area/src/big
+  http://127.0.0.1:4906/#/repo/fixture/file/src/types/shape.ts
+  http://127.0.0.1:4906/#/repo/fixture/symbol/src/types/shape.ts::emptyShape
+  http://127.0.0.1:4906/#/repo/fixture/task/split-the-big-area-into-two-packages
+  http://127.0.0.1:4906/#/repo/fixture/tasks
+  http://127.0.0.1:4906/#/repo/bare
+[osascript stub] call 1, mode hang: tell application "Terminal" to do script "cd /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-hooi3W && claude --permission-m…

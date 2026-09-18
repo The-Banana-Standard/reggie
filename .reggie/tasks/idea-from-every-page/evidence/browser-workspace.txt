@@ -1,0 +1,24 @@
+# AC17 — workspace page repo cards, read from the DOM (harness IDEA_TERMINAL=deny, port 4903, Chrome 1440 wide)
+# Read with: [...document.querySelectorAll(".ws-tile")].map(t => ({ tag, cls, refs, link, linkIsChild, button, buttonInsideLink }))
+
+[
+  {"tag":"DIV","cls":"ws-tile","refs":"repo:fixture","link":"#/repo/fixture","linkIsChild":true,"button":"Capture an idea for fixture","buttonInsideLink":false},
+  {"tag":"DIV","cls":"ws-tile","refs":"repo:bare","link":"#/repo/bare","linkIsChild":true,"button":"Capture an idea for bare","buttonInsideLink":false}
+]
+
+#idea-trigger.hidden on #/ws: true
+
+Clicking button.ws-tile__idea[data-idea-repo="bare"] opened .idea:
+  { hidden: false, where: "Into bare, as a repo-wide idea.", focus in input: true, aria-expanded on the button: "true" }
+The popover was placed above the tile (top 420, bottom 555 in a 725px-high viewport) because the tile strip sits at the foot of the map column.
+
+The whole-tile click is the link's click (a.ws-tile__link wraps every fact); the hover cross-highlight stays on the wrapper div through data-refs.
+
+# The empty-listing case (harness --empty, port 4907): see the section appended below.
+
+# The empty-listing case (harness --empty, IDEA_TERMINAL=deny, port 4907): the workspace CLAUDE.md names one repo whose path does not exist, so discoverWorkspace lists no usable repo.
+GET /api/facts     -> 404 {"error":"unknown repo: "}
+GET /api/workspace -> 404 {"error":"unknown repo: "}
+#/ws read from the DOM after 2.5 s: { tiles: 0, tileButtons: 0, #idea-trigger.hidden: true, .idea in the document: false, story column: "/api/facts failed: unknown repo: Retry" }
+No tile and no trigger are drawn. The page itself shows only the error card, because a registry with zero repos answers every route 404 (the facts route
+resolves the first repo and there is none); that is pre-existing and captured as `a-workspace-whose-listing-names-no-usable-repo-404`.

@@ -2,6 +2,8 @@ import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFile
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { makeTempRepo, type TempRepo } from "../test/helpers.js";
+import { capture } from "./capture.js";
 import { run } from "./git.js";
 import {
   appleScriptLiteral,
@@ -13,17 +15,27 @@ import {
   LAUNCH_MODES,
   LAUNCH_TIMEOUT_MS,
   LAUNCH_TOOLS,
+  MAX_LAUNCH_PATHS,
   MAX_NOTE_CHARS,
+  MAX_PATH_CHARS,
   mintSession,
   readLaunches,
   recordLaunch,
   resolveGoal,
   shellQuote,
   writeContextFile,
+  writeContextPacks,
   type LaunchMode,
   type LaunchTask,
   type LaunchTool,
 } from "./launch.js";
+import { ensureLayout } from "./layout.js";
+import { addNote } from "./notes.js";
+import { repoPaths } from "./paths.js";
+import { currentPerson, loadConfig } from "./people.js";
+
+const CLI = path.resolve("src/cli.ts");
+const TSX = path.resolve("node_modules/.bin/tsx");
 
 const SLUG = "cap-login-retries";
 const REPO = "/tmp/reggie-fixture-repo";
@@ -216,6 +228,71 @@ describe("launchCommand", () => {
     }
   });
 
+  it("names the pack paths in every goal's prompt, right after the context clause", () => {
+    const clause = "The pack was also built around `src/lib`: its notes, its recent commits and the tasks that touch it are in there, so start reading at that place.";
+    const goals: [LaunchMode, LaunchTask][] = [
+      ["discuss", ungroomed],
+      ["discuss", groomed],
+      ["discuss", planned],
+      ["build", planned],
+    ];
+    for (const tool of LAUNCH_TOOLS) {
+      for (const [mode, task] of goals) {
+        const plan = launchCommand({ repo: REPO, tool, mode, tasks: [task], contextFiles: [contextFileRel(SLUG)], paths: ["src/lib"] });
+        const text = prompt(plan);
+        expect(text, `${tool} ${mode} ${task.state}`).toContain(clause);
+        expect(text.indexOf(clause), `${tool} ${mode} ${task.state}`).toBeGreaterThan(text.indexOf(`.reggie/.cache/context/${SLUG}.md`));
+        expect(plan.command).toContain("The pack was also built around");
+      }
+    }
+    const two = prompt(launchCommand({ repo: REPO, tool: "claude", mode: "discuss", tasks: [groomed], paths: ["src/lib", "src/serve.ts"] }));
+    expect(two).toContain("The pack was also built around `src/lib` and `src/serve.ts`: their notes, their recent commits and the tasks that touch them are in there, so start reading at those places.");
+    const three = prompt(launchCommand({ repo: REPO, tool: "claude", mode: "discuss", tasks: [groomed], paths: ["a", "b", "c"] }));
+    expect(three).toContain("around `a`, `b` and `c`:");
+  });
+
+  it("keeps a hostile path verbatim inside the prompt argument and single-quoted in the command", () => {
+    const hostile = "src/it's a $(touch pwned) `tick` ; semi | pipe.ts";
+    for (const tool of LAUNCH_TOOLS) {
+      const plan = launchCommand({ repo: REPO, tool, mode: "discuss", tasks: [ungroomed], paths: [hostile] });
+      // One element of argv holds the whole prompt, the path inside it exactly as given.
+      expect(plan.argv.filter((a) => a.includes(hostile))).toHaveLength(1);
+      expect(plan.argv[plan.argv.length - 1]).toContain(`\`${hostile}\``);
+      // In the one-line command that element is one single-quoted word, `'` written as `'\''`.
+      const quoted = shellQuote(plan.argv[plan.argv.length - 1] ?? "");
+      expect(plan.command.endsWith(quoted)).toBe(true);
+      expect(quoted.startsWith("'") && quoted.endsWith("'")).toBe(true);
+      expect(quoted).toContain("it'\\''s a $(touch pwned) `tick` ; semi | pipe.ts");
+      // And a real shell hands it back unchanged, so nothing in it ran.
+      const r = run("sh", ["-c", `printf '%s' ${quoted}`], { allowFailure: true });
+      expect(r.ok).toBe(true);
+      expect(r.stdout).toBe(plan.argv[plan.argv.length - 1]);
+    }
+  });
+
+  it("refuses an empty path, a control character, a ninth path and an over-long path before building anything", () => {
+    const base = { repo: REPO, tool: "claude" as const, mode: "discuss" as const, tasks: [groomed] };
+    expect(() => launchCommand({ ...base, paths: [""] })).toThrow(/cannot be empty/);
+    expect(() => launchCommand({ ...base, paths: ["   "] })).toThrow(/cannot be empty/);
+    expect(() => launchCommand({ ...base, paths: ["src/a\nb.ts"] })).toThrow(/control character/);
+    expect(() => launchCommand({ ...base, paths: ["src/a\u0000b.ts"] })).toThrow(/control character/);
+    expect(() => launchCommand({ ...base, paths: Array.from({ length: MAX_LAUNCH_PATHS + 1 }, (_, i) => `src/f${i}.ts`) })).toThrow(/at most 8 paths/);
+    expect(() => launchCommand({ ...base, paths: [`src/${"x".repeat(MAX_PATH_CHARS)}.ts`] })).toThrow(/longer than 512/);
+    expect(launchCommand({ ...base, paths: Array.from({ length: MAX_LAUNCH_PATHS }, (_, i) => `src/f${i}.ts`) }).goal).toBe("plan");
+  });
+
+  it("leaves every prompt byte-identical without paths", () => {
+    for (const tool of LAUNCH_TOOLS) {
+      for (const [mode, task] of [["discuss", ungroomed], ["discuss", groomed], ["discuss", planned], ["build", planned]] as [LaunchMode, LaunchTask][]) {
+        const without = launchCommand({ repo: REPO, tool, mode, tasks: [task], contextFiles: [contextFileRel(SLUG)], note: "a note" });
+        const empty = launchCommand({ repo: REPO, tool, mode, tasks: [task], contextFiles: [contextFileRel(SLUG)], note: "a note", paths: [] });
+        expect(empty.argv).toEqual(without.argv);
+        expect(empty.command).toBe(without.command);
+        expect(prompt(without)).not.toContain("The pack was also built around");
+      }
+    }
+  });
+
   it("rejects an unknown tool, an unknown mode, no task, and no repo", () => {
     expect(() => launchCommand({ repo: REPO, tool: "cursor" as LaunchTool, mode: "discuss", tasks: [groomed] })).toThrow(/not a tool/);
     expect(() => launchCommand({ repo: REPO, tool: "claude", mode: "plan" as LaunchMode, tasks: [groomed] })).toThrow(/not a launch mode/);
@@ -272,6 +349,65 @@ describe("context files and launch records", () => {
     const next = recordLaunch(dir, { slug: SLUG, tool: "claude", goal: "build", session: "66666666-6666-4666-8666-666666666666", resume: null, cwd: dir });
     expect(readLaunches(dir, SLUG)).toEqual([old, next]);
     expect(readLaunches(dir, "never-launched")).toEqual([]);
+  });
+});
+
+describe("writeContextPacks and reggie launch --path", () => {
+  let repo: TempRepo;
+  let slug: string;
+  beforeAll(() => {
+    repo = makeTempRepo("reggie-launch-path-");
+    const paths = repoPaths(repo.root);
+    ensureLayout(paths);
+    repo.write("src/serve.ts", "export const serve = 1;\n");
+    repo.write("src/lib/one.ts", "export const one = 1;\n");
+    addNote(paths, "src/lib/", { type: "how", author: "Test Person", text: "The lib folder holds the one helper." });
+    addNote(paths, "src/serve.ts", { type: "why", author: "Test Person", text: "The server exists to be launched at." });
+    repo.commitAll("code and notes");
+    slug = capture(paths, { text: "An idea about the lib", person: currentPerson(repo.root), source: "cli" }).slug;
+    repo.commitAll("intake");
+  });
+  afterAll(() => repo.cleanup());
+
+  function cli(args: string[]): { ok: boolean; stdout: string; stderr: string } {
+    return run(TSX, [CLI, "--root", repo.root, ...args], { allowFailure: true, cwd: repo.root });
+  }
+
+  it("builds each task's pack around the paths it was given, in the directory it was told", () => {
+    const paths = repoPaths(repo.root);
+    const cwd = mkdtempSync(path.join(os.tmpdir(), "reggie-packs-"));
+    try {
+      const files = writeContextPacks(paths, loadConfig(paths), cwd, [{ slug, state: "ungroomed" }], ["src/lib", "src/serve.ts"]);
+      expect(files).toEqual([contextFileRel(slug)]);
+      const pack = readFileSync(path.join(cwd, files[0] ?? ""), "utf8");
+      expect(pack).toContain(`# Context pack for ${slug}`);
+      expect(pack).toContain("## Files in scope\n- src/lib\n- src/serve.ts\n");
+      expect(pack).toContain("The lib folder holds the one helper.");
+      expect(pack).toContain("The server exists to be launched at.");
+      const bare = writeContextPacks(paths, loadConfig(paths), cwd, [{ slug, state: "ungroomed" }]);
+      expect(readFileSync(path.join(cwd, bare[0] ?? ""), "utf8")).not.toContain("## Files in scope");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("prints a command whose prompt names both paths, and exits 1 before printing one for a path that is not there", () => {
+    const r = cli(["launch", slug, "--path", "src/lib", "--path", "src/serve.ts"]);
+    expect(r.ok, r.stderr).toBe(true);
+    expect(r.stdout).toContain("The pack was also built around `src/lib` and `src/serve.ts`");
+    expect(r.stdout).toContain("claude --permission-mode plan");
+    const tidy = cli(["launch", slug, "--path", "./src/lib/"]);
+    expect(tidy.ok, tidy.stderr).toBe(true);
+    expect(tidy.stdout).toContain("built around `src/lib`:");
+
+    const gone = cli(["launch", slug, "--path", "src/gone.ts"]);
+    expect(gone.ok).toBe(false);
+    expect(gone.stderr).toContain("`src/gone.ts` is not a file or folder in this repo");
+    expect(gone.stdout).toBe("");
+    const outside = cli(["launch", slug, "--path", "../etc"]);
+    expect(outside.ok).toBe(false);
+    expect(outside.stderr).toMatch(/step outside/);
+    expect(outside.stdout).toBe("");
   });
 });
 

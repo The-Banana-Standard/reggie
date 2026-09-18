@@ -17,3 +17,7 @@ sources: packages/reggie/ui/board.js, branch-diff-in-reader
 The What changed section drops an answer that arrives after it has left the document. The story container is shared by every task page and the door rewriting reaches into all of it, so a late answer for one task used to rewrite the file links of whichever task was on screen by then, a planned task with no branch included. The check is safe because mounting is synchronous: by the time any answer can arrive, a section that is still wanted is attached.
 sources: packages/reggie/ui/board.js, branch-diff-in-reader
 
+## how · 2026-09-18 · Claude via jacobpress · medium
+makeLauncher, commandField, friendlyError, TOOL_LABEL and rememberTool are exported for the idea action, which composes them rather than copying them; no behaviour moved. describe takes paths and run takes opts.paths, the repo paths the pack is built around, which the launch URL and body carry as path parameters; run's warning toast takes opts.where so the popover can say the command is below rather than on the card.
+sources: idea-from-every-page
+

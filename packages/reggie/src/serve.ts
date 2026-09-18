@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
-import { addIntakeDetail, capture } from "./capture.js";
+import { addIntakeDetail, capture, resolveCaptureOrigin, resolvePackPaths, type CaptureOrigin } from "./capture.js";
 import { changesPayload, DiffRowCache, fileDiff, listChanges, taskRange, type ChangeEntry, type RangeResult, type TaskChanges } from "./changes.js";
 import { buildContext } from "./context.js";
 import { collectFacts, type RepoFacts } from "./facts.js";
@@ -18,7 +18,7 @@ import { appendJournal, readJournal, type JournalEntry } from "./journal.js";
 import { claimTask } from "./claim.js";
 import { pendingSetup } from "./deps.js";
 import { LandError, landTask } from "./land.js";
-import { isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, MAX_NOTE_CHARS, mintSession, recordLaunch, resolveGoal, writeContextFile, type LaunchMode, type LaunchTask, type LaunchTool } from "./launch.js";
+import { isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, MAX_LAUNCH_PATHS, MAX_NOTE_CHARS, mintSession, recordLaunch, resolveGoal, writeContextPacks, type LaunchMode, type LaunchTask, type LaunchTool } from "./launch.js";
 import { narrate } from "./narrate.js";
 import { addNote, allNoteFiles, NOTE_TYPES, notesForPath, notesIndex, readNoteFile, staleEntriesFor, type Confidence as NoteConfidence, type NoteEntry, type NoteFile, type NoteType, type StaleEntry } from "./notes.js";
 import { decidePacket, locatePacket, materializePacket } from "./packet.js";
@@ -780,6 +780,20 @@ function str(body: Record<string, unknown>, key: string): string | null {
 function strList(body: Record<string, unknown>, key: string): string[] {
   const value = body[key];
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+/**
+ * The origin fields of a capture body as the resolver wants them: every one of `path`, `symbol`
+ * and `task` that is a string, untrimmed and even when empty, so an empty path is refused by the
+ * resolver rather than silently dropped; null when the body names no origin at all.
+ */
+function originFields(body: Record<string, unknown>): { path?: string; symbol?: string; task?: string } | null {
+  const out: { path?: string; symbol?: string; task?: string } = {};
+  for (const key of ["path", "symbol", "task"] as const) {
+    const value = body[key];
+    if (typeof value === "string") out[key] = value;
+  }
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1666,13 +1680,16 @@ interface LaunchRequest {
   mode: LaunchMode;
   slugs: string[];
   note?: string;
+  /** Pack paths as the request spelled them; resolved against the repo by `launchPaths` before use. */
+  paths: string[];
 }
 
 /**
- * Shared by GET and POST: the tool, the mode, the slugs and the note, validated before anything
- * is looked up. Which prompt runs follows from the tasks' states, resolved in `launchTasks`.
+ * Shared by GET and POST: the tool, the mode, the slugs, the note and the pack paths, validated
+ * before anything is looked up. Which prompt runs follows from the tasks' states, resolved in
+ * `launchTasks`; whether each path is a file or folder of the repo is resolved in `launchPaths`.
  */
-function parseLaunch(rawSlugs: readonly string[], rawTool: string | null, rawMode: string | null, rawNote: string | null): { ok: true; value: LaunchRequest } | { ok: false; error: string } {
+function parseLaunch(rawSlugs: readonly string[], rawTool: string | null, rawMode: string | null, rawNote: string | null, rawPaths: readonly string[] = []): { ok: true; value: LaunchRequest } | { ok: false; error: string } {
   const tool = (rawTool ?? "").trim();
   if (!isLaunchTool(tool)) return { ok: false, error: `tool must be one of ${LAUNCH_TOOLS.join(", ")}` };
   const mode = (rawMode ?? "").trim();
@@ -1682,7 +1699,10 @@ function parseLaunch(rawSlugs: readonly string[], rawTool: string | null, rawMod
   if (slugs.some((s) => !isSafeSlug(s))) return { ok: false, error: "bad slug" };
   const note = (rawNote ?? "").trim();
   if (note.length > MAX_NOTE_CHARS) return { ok: false, error: `note is longer than ${MAX_NOTE_CHARS} characters` };
-  const value: LaunchRequest = { tool, mode, slugs };
+  // Kept as spelled, empties included: the resolver refuses a blank the way the capture route does,
+  // and the cap is counted after resolution so that nine spellings of two paths are two.
+  const paths = uniq(rawPaths);
+  const value: LaunchRequest = { tool, mode, slugs, paths };
   if (note) value.note = note;
   return { ok: true, value };
 }
@@ -1695,16 +1715,48 @@ function launchTasks(c: RepoCtx, slugs: readonly string[]): { ok: true; tasks: L
   return { ok: true, tasks: slugs.map((s) => ({ slug: s, state: byS.get(s)!.state })) };
 }
 
+/**
+ * The pack paths a launch names, resolved through the same function the CLI uses. The first
+ * refusal is the answer, in the resolver's words; nothing has been written, minted or recorded by then.
+ */
+function launchPaths(c: RepoCtx, paths: readonly string[]): { ok: true; paths: string[] } | { ok: false; error: string } {
+  try {
+    return { ok: true, paths: resolvePackPaths(c.paths, paths, MAX_LAUNCH_PATHS) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "bad path" };
+  }
+}
+
+/**
+ * The pack paths of a launch body as spelled: `paths` (a list of strings) and the singular `path`.
+ * A field of the wrong shape is a refusal rather than a silent drop, so a client that sent a path
+ * and got a pack without it is never left guessing.
+ */
+function launchPathFields(body: Record<string, unknown>): { ok: true; paths: string[] } | { ok: false; error: string } {
+  const out: string[] = [];
+  if ("path" in body && body.path !== null && body.path !== undefined) {
+    if (typeof body.path !== "string") return { ok: false, error: "path must be a string" };
+    out.push(body.path);
+  }
+  if ("paths" in body && body.paths !== null && body.paths !== undefined) {
+    if (!Array.isArray(body.paths) || body.paths.some((p) => typeof p !== "string")) return { ok: false, error: "paths must be a list of strings" };
+    out.push(...(body.paths as string[]));
+  }
+  return { ok: true, paths: out };
+}
+
 function launchRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
-  const parsed = parseLaunch(url.searchParams.getAll("slug"), url.searchParams.get("tool"), url.searchParams.get("mode"), url.searchParams.get("note"));
+  const parsed = parseLaunch(url.searchParams.getAll("slug"), url.searchParams.get("tool"), url.searchParams.get("mode"), url.searchParams.get("note"), url.searchParams.getAll("path"));
   if (!parsed.ok) return json(res, 400, { error: parsed.error });
   const found = launchTasks(c, parsed.value.slugs);
   if (!found.ok) return json(res, 404, { error: `unknown task: ${found.missing.join(", ")}` });
+  const resolved = launchPaths(c, parsed.value.paths);
+  if (!resolved.ok) return json(res, 400, { error: resolved.error });
   const { tool, mode, note } = parsed.value;
   try {
     // Described, not started: no session id, no claim, no context file. The command shows where
     // the pack will be read from, since that is what the launched command will say too.
-    const input = { repo: c.root, tool, mode, tasks: found.tasks, contextFiles: found.tasks.map((t) => `.reggie/.cache/context/${t.slug}.md`), ...(note ? { note } : {}) };
+    const input = { repo: c.root, tool, mode, tasks: found.tasks, contextFiles: found.tasks.map((t) => `.reggie/.cache/context/${t.slug}.md`), ...(note ? { note } : {}), ...(resolved.paths.length > 0 ? { paths: resolved.paths } : {}) };
     const { command, cwd, description, goal } = launchCommand(input);
     return json(res, 200, { command, cwd, description, goal });
   } catch (err) {
@@ -2199,7 +2251,7 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
     case "/api/capture": {
       const text = str(body.value, "text");
       if (!text) return json(res, 400, { error: "text is required" });
-      const input: { text: string; person: Person; source: string; detail?: string; slug?: string } = { text, person, source: "web" };
+      const input: { text: string; person: Person; source: string; detail?: string; slug?: string; origin?: CaptureOrigin } = { text, person, source: "web" };
       const detail = str(body.value, "detail");
       if (detail) input.detail = detail;
       const slug = str(body.value, "slug");
@@ -2207,9 +2259,22 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
         if (!isSafeSlug(slug)) return json(res, 400, { error: "bad slug" });
         input.slug = slug;
       }
+      // The page the idea came from. Resolved before the file is touched, so a refused origin
+      // writes nothing; the detail line is then built from the resolver's output, never the body.
+      // The task list is built only for a task origin: after the previous capture's invalidate it
+      // is a full listTasks, which a path origin has no use for.
+      const rawOrigin = originFields(body.value);
+      if (rawOrigin) {
+        try {
+          const opts = typeof rawOrigin.task === "string" ? { knownTasks: new Set(tasksOf(c).map((t) => t.slug)) } : {};
+          input.origin = resolveCaptureOrigin(c.paths, rawOrigin, opts);
+        } catch (err) {
+          return json(res, 400, { error: err instanceof Error ? err.message : "bad origin" });
+        }
+      }
       const result = capture(c.paths, input);
       c.invalidate();
-      return json(res, 200, result);
+      return json(res, 200, { ...result, origin: input.origin ?? null });
     }
     case "/api/intake": {
       // The user's answer to "what did you mean": detail lines under the intake item, in the
@@ -2372,10 +2437,15 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       // is built as an argument vector by launch.ts and never interpolated into a shell.
       const raw = strList(body.value, "slugs");
       const single = str(body.value, "slug");
-      const parsed = parseLaunch(single ? [single, ...raw] : raw, str(body.value, "tool"), str(body.value, "mode"), str(body.value, "note"));
+      const pathFields = launchPathFields(body.value);
+      if (!pathFields.ok) return json(res, 400, { error: pathFields.error });
+      const parsed = parseLaunch(single ? [single, ...raw] : raw, str(body.value, "tool"), str(body.value, "mode"), str(body.value, "note"), pathFields.paths);
       if (!parsed.ok) return json(res, 400, { error: parsed.error });
       const found = launchTasks(c, parsed.value.slugs);
       if (!found.ok) return json(res, 404, { error: `unknown task: ${found.missing.join(", ")}` });
+      // A refused path answers before any pack is written, any session minted or any launch recorded.
+      const resolved = launchPaths(c, parsed.value.paths);
+      if (!resolved.ok) return json(res, 400, { error: resolved.error });
       const { tool, mode, note } = parsed.value;
       let goal: ReturnType<typeof resolveGoal>;
       try {
@@ -2404,8 +2474,8 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
           return json(res, 409, { error: err instanceof Error ? err.message : "could not claim the task" });
         }
       }
-      const contextFiles = found.tasks.map((t) => writeContextFile(cwd, t.slug, buildContext(c.paths, c.config, { slug: t.slug })));
-      const input = { repo: cwd, tool, mode, tasks: found.tasks, contextFiles, ...(note ? { note } : {}), ...(session ? { session } : {}), ...(branch ? { branch } : {}), ...(setup.length > 0 ? { setup } : {}) };
+      const contextFiles = writeContextPacks(c.paths, c.config, cwd, found.tasks, resolved.paths);
+      const input = { repo: cwd, tool, mode, tasks: found.tasks, contextFiles, ...(note ? { note } : {}), ...(session ? { session } : {}), ...(branch ? { branch } : {}), ...(setup.length > 0 ? { setup } : {}), ...(resolved.paths.length > 0 ? { paths: resolved.paths } : {}) };
       const result = launchSession(input);
       for (const t of found.tasks) recordLaunch(c.root, { slug: t.slug, tool, goal, session: result.session, resume: result.resume, cwd: result.cwd });
       c.invalidate();

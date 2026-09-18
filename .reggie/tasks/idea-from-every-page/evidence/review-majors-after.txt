@@ -1,0 +1,48 @@
+# The same triggers in Chrome (1440x900) AFTER the fixes, against the working tree that became the review-fix commit.
+# Harness: IDEA_TERMINAL=deny on port 4903, moved to test/serve-idea-fixture.ts, run with --repo-name forge-reggie
+# (the page fetched /ui/idea.js with no-store first and confirmed it held the fixed code).
+
+## CR3 — the star re-export's symbol page (review-cr3-after.png)
+Page #/repo/forge-reggie/symbol/src/index.ts::*; popover sentence now "Into forge-reggie, from the file src/index.ts."
+POST /api/capture {"text":"CR3 after: the barrel should list what it re-exports","path":"src/index.ts"} -> 200 origin {"kind":"file","path":"src/index.ts"}
+POST /api/launch  {"slugs":["cr3-after-the-barrel-should-list-what-it-re-expo"],"tool":"claude","mode":"discuss","paths":["src/index.ts"]} -> 200 (launched: false, deny stub)
+Toast "Captured as cr3-after-the-barrel-should-list-what-it-re-expo"; the popover shows the link, the reason and the command. FIXED.
+
+## CR1 — navigation and a trigger click while /api/capture is in flight (2.5 s delay) (review-cr1-after.png)
+1. Submitted on the file page ("Into forge-reggie, from the file src/types/shape.ts.").
+2. 300 ms later location.hash = area/src/big: the popover stayed OPEN with the same sentence (a submit in flight is not closed by a route change).
+3. Clicked the trigger on the area page: nothing was re-targeted; still "from the file src/types/shape.ts.", input disabled, main button "Capturing…".
+4. POST /api/capture {"text":"CR1 after: ...","path":"src/types/shape.ts"} -> 200; POST /api/launch {"slugs":["cr1-after-the-shape-type-should-carry-a-version"],...,"paths":["src/types/shape.ts"]} -> 200
+   Intake: "> Captured from the file `src/types/shape.ts`"; the pack's "## Files in scope" is "- src/types/shape.ts". They agree. FIXED.
+
+## CR2 — launch POST answers at 7 s, describe GET at 9 s (review-cr2-after.png)
+  6502 ms  no command field yet, form disabled ("Starting…")
+  8001 ms  why = "Terminal did not start the session: execution error: Not authorized to send Apple events to Terminal. (-1743) Run it yourself:"
+ 10801 ms  the same reason (the late description was dropped)
+ 12500 ms  the same reason. FIXED.
+(The in-order hang case, where the description arrives first, was shown before the review in browser-fail.txt: waiting sentence at 6.6 s, timeout reason after.)
+
+## CR5 — a trigger toggle mid-flight, and the result after closing (launch POST delayed 2.5 s)
+  trigger clicked 800 ms into the submit: popover still open, main "Starting…" (not closed)
+  after the answer: open, reason shown, link "cr5-after-the-result-must-survive-a-toggle"
+  trigger clicked again (not busy): closed. Navigated to area/src/big, opened: sentence "from the folder src/big.", the previous result (link and command field) still there, input enabled
+  next submit: the old result was cleared and replaced by "Captured as cr5-after-the-next-submit-clears-the-old-result." FIXED.
+
+## CR4 — the header with the repo named forge-reggie, workspace mode, steady state after a fresh load
+(The repo switcher sizes itself to the longest repo name: 115 px here, 77 px with "fixture". The first reading in review-majors-before.txt
+was taken before the select had settled and shows 37 px more room than there is; these are the settled numbers.)
+at 1440, repo page, title "forge-reggie" (full 126 px):
+  no trigger:                       title 105.8 px  (already cut by the wider switcher; pre-existing)
+  icon only (the rule now, <1500):  title  61.8 px, trigger 36 px, tools 766 px
+  label forced on (the old rule):   title  29.4 px, trigger 68 px, tools 799 px
+at 1440, deep file page src/types/shape.ts: title 0 px with or without the trigger (pre-existing, captured).
+at 1500, repo page: label shows (trigger 68 px), title 89.4 px of 126; without the trigger 125.7 px.
+Decision: the plan's 1500 breakpoint. The other option the manager offered, a desktop min-width for the title, was tried as an injected rule and rejected:
+12ch at the title's 22 px font is 151 px, which crushed every earlier crumb to one letter and padded a three-letter title ("big") to 151 px, with the
+crumbs box overflowing (scrollWidth 265 of 151). A desktop breadcrumb that gives way gracefully is its own piece of work (captured).
+review-cr4-header-1440-forge-reggie.png shows the header at 1440 with the icon alone.
+
+## Final smoke on the committed fixes (harness IDEA_TERMINAL=ok, port 4904, Chrome 1440, repo page; browser-desktop-repo-final.png)
+The label is hidden at 1440 (display none; trigger 36 px); the fixture's title keeps its full 65 px. Submit: one capture, one launch
+{"slugs":["final-smoke-the-overview-should-count-stale-note"],"tool":"claude","mode":"discuss"}; toasts "Captured as …" and "Started shaping, in plan mode in Claude Code. Reopen it later with claude --resume …";
+the popover closed and focus returned to the trigger. The five browser-desktop-*.png of the first build show the label at 1440; this one is the header as it ships.

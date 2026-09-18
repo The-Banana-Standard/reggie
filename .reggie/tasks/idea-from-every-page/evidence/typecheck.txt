@@ -1,0 +1,10 @@
+# git HEAD at the time of this run: fb5d762
+
+> reggie@3.0.0-alpha.1 typecheck
+> tsc -p tsconfig.json --noEmit
+
+exit 0
+
+# test/serve-idea-fixture.ts is outside the package tsconfig (rootDir src), so the run above does not see it. Standalone:
+# npx tsc --noEmit --strict --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck --types node test/serve-idea-fixture.ts
+exit 0

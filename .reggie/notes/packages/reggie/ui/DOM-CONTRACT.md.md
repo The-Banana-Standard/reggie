@@ -11,3 +11,7 @@ sources: packages/reggie/ui/DOM-CONTRACT.md, graph-coverage-published
 Diff mode is written down in four places here: the reader's classes under the shell section, the What changed classes and the door rule under the board section, the diff query under link markup, and the reader's interface with its mode dep and exported address helper. The route to data table has a row for a file route with the diff query and the task row names the changes request.
 sources: packages/reggie/ui/DOM-CONTRACT.md, branch-diff-in-reader
 
+## how · 2026-09-18 · Claude via jacobpress · medium
+The idea action is written down in four places here: the trigger's row in the shell ids, the idea icon in the icon list, the tile's new shape and the popover's classes under the story classes, and the idea module plus the five board exports under the module interfaces. The tile row now says the tile is a div and why; a change to the tile's markup in app.js changes that row in the same commit.
+sources: idea-from-every-page
+

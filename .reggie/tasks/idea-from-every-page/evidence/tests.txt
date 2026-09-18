@@ -1,0 +1,10 @@
+# git HEAD at the time of this run: fb5d762 (the review fixes)
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/idea-from-every-page/packages/reggie
+
+
+ Test Files  37 passed (37)
+      Tests  1052 passed | 1 skipped (1053)
+   Start at  11:44:24
+   Duration  45.13s (transform 2.74s, setup 0ms, import 4.66s, tests 235.81s, environment 2ms)
+

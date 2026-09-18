@@ -1,0 +1,19 @@
+# AC16 — #idea-trigger per level, read from the DOM (harness IDEA_TERMINAL=deny, port 4903, Chrome 1440 wide)
+# For each level: navigate, read #idea-trigger.hidden and whether it sits in .header__tools; click it; read the dialog;
+# dispatch Escape on the focused element; read whether the dialog closed and focus returned to the trigger.
+# (The repo row was re-read after the fix that closes the popover on a route change; the first pass had left it open from the file page.)
+
+[
+  {"level":"repo","hash":"#/repo/fixture","hidden":false,"inTools":true,"dialog":{"role":"dialog","hidden":false,"ariaLabel":"Capture an idea from this page","focusInInput":true,"where":"Into fixture, as a repo-wide idea.","main":"Capture and shape in Claude Code"},"afterEscape":{"dialogHidden":true,"focusOnTrigger":true,"expanded":"false"}},
+  {"level":"area","hash":"#/repo/fixture/area/src/big","hidden":false,"inTools":true,"dialog":{"role":"dialog","hidden":false,"ariaLabel":"Capture an idea from this page","focusInInput":true,"where":"Into fixture, from the folder src/big.","main":"Capture and shape in Claude Code"},"afterEscape":{"dialogHidden":true,"focusOnTrigger":true,"expanded":"false"}},
+  {"level":"file","hash":"#/repo/fixture/file/src/types/shape.ts","hidden":false,"inTools":true,"dialog":{"role":"dialog","hidden":false,"ariaLabel":"Capture an idea from this page","focusInInput":true,"where":"Into fixture, from the file src/types/shape.ts.","main":"Capture and shape in Claude Code"},"afterEscape":{"dialogHidden":true,"focusOnTrigger":true,"expanded":"false"}},
+  {"level":"symbol","hash":"#/repo/fixture/symbol/src/types/shape.ts::emptyShape","hidden":false,"inTools":true,"dialog":{"role":"dialog","hidden":false,"ariaLabel":"Capture an idea from this page","focusInInput":true,"where":"Into fixture, from emptyShape in the file src/types/shape.ts.","main":"Capture and shape in Claude Code"},"afterEscape":{"dialogHidden":true,"focusOnTrigger":true,"expanded":"false"}},
+  {"level":"task","hash":"#/repo/fixture/task/split-the-big-area-into-two-packages","hidden":false,"inTools":true,"dialog":{"role":"dialog","hidden":false,"ariaLabel":"Capture an idea from this page","focusInInput":true,"where":"Into fixture, from the task split-the-big-area-into-two-packages.","main":"Capture and shape in Claude Code"},"afterEscape":{"dialogHidden":true,"focusOnTrigger":true,"expanded":"false"}},
+  {"level":"tasks","hash":"#/repo/fixture/tasks","hidden":false,"inTools":true,"dialog":{"role":"dialog","hidden":false,"ariaLabel":"Capture an idea from this page","focusInInput":true,"where":"Into fixture, as a repo-wide idea.","main":"Capture and shape in Claude Code"},"afterEscape":{"dialogHidden":true,"focusOnTrigger":true,"expanded":"false"}},
+  {"level":"services","hash":"#/repo/fixture/services","hidden":false,"inTools":true,"dialog":{"role":"dialog","hidden":false,"ariaLabel":"Capture an idea from this page","focusInInput":true,"where":"Into fixture, as a repo-wide idea.","main":"Capture and shape in Claude Code"},"afterEscape":{"dialogHidden":true,"focusOnTrigger":true,"expanded":"false"}},
+  {"level":"flows","hash":"#/repo/fixture/flows","hidden":false,"inTools":true,"dialog":{"role":"dialog","hidden":false,"ariaLabel":"Capture an idea from this page","focusInInput":true,"where":"Into fixture, as a repo-wide idea.","main":"Capture and shape in Claude Code"},"afterEscape":{"dialogHidden":true,"focusOnTrigger":true,"expanded":"false"}},
+  {"level":"workspace","hash":"#/ws","hidden":true,"inTools":true}
+]
+
+The trigger is the first child of .header__tools (document.querySelector(".header__tools").firstElementChild === #idea-trigger: true).
+The fixture has no flow, so the flow level could not be opened on it; it takes the same branch of originFor as flows (no path).

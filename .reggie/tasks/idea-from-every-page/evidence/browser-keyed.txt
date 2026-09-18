@@ -1,0 +1,19 @@
+# AC21 — a page opened through the network address with ?key= (harness IDEA_TERMINAL=ok, --host 0.0.0.0, port 4905, Chrome 1440 wide)
+# The harness printed: serving http://127.0.0.1:4905?key=Pm0pvKIdQNxOeo5Q1v-OuW2v and http://172.16.0.124:4905?key=Pm0pvKIdQNxOeo5Q1v-OuW2v
+# The page was opened at http://172.16.0.124:4905/?key=Pm0pvKIdQNxOeo5Q1v-OuW2v#/repo/fixture/file/src/types/shape.ts; it adopted the key and dropped it from the address:
+#   location.href read from the page afterwards: http://172.16.0.124:4905/#/repo/fixture/file/src/types/shape.ts ; localStorage reggie:key set: true
+# (The screenshot is of a headless viewport, which has no address bar; the address is recorded here from the page itself.)
+
+Popover sentence: Into fixture, from the file src/types/shape.ts.
+POST /api/capture?repo=fixture  {"text":"From the network: shape needs a version","path":"src/types/shape.ts"}  (x-reggie-key header sent: true) -> 200 { slug: "from-the-network-shape-needs-a-version", origin: { kind: "file", path: "src/types/shape.ts" } }
+POST /api/launch?repo=fixture   {"slugs":["from-the-network-shape-needs-a-version"],"tool":"claude","mode":"discuss","paths":["src/types/shape.ts"]} (x-reggie-key header sent: true) -> 200 { launched: true (ok stub), goal: "shape" }
+Toasts: "Captured as from-the-network-shape-needs-a-version", "Started shaping, in plan mode in Claude Code. Reopen it later with claude --resume 7bdc0fe6-e2fa-4f19-8c22-dfd3da4785cd."
+The popover stayed open (launched: true but the page holds a serve key) with:
+  Captured as from-the-network-shape-needs-a-version.
+  The Claude Code session opened on the machine running reggie serve, not here.
+  To open it where you are instead, run this in the repo:  [claude --permission-mode plan --session-id 7bdc0fe6-e2fa-4f19-8c22-dfd3da4785cd '...'] [Copy]
+
+# /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-Ffm6xi/.reggie/intake.md after the submit (tail):
+- split-the-big-area-into-two-packages: Split the big area into two packages (test, fixture, 2026-09-18)
+- from-the-network-shape-needs-a-version: From the network: shape needs a version (test, web, 2026-09-18)
+  > Captured from the file `src/types/shape.ts`

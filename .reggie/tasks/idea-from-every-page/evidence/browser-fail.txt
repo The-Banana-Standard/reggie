@@ -1,0 +1,25 @@
+# AC20 — the failure paths inside the popover, from the file page src/types/shape.ts, Chrome 1440 wide
+
+## deny (harness IDEA_TERMINAL=deny, port 4903): osascript exits 1 with "Not authorized to send Apple events to Terminal"
+POST /api/capture {"text":"Shape should carry a version so callers can tell old points apart","path":"src/types/shape.ts"} -> 200
+POST /api/launch  {"slugs":["shape-should-carry-a-version-so-callers-can-tell"],"tool":"claude","mode":"discuss","paths":["src/types/shape.ts"]} -> 200, launched: false
+Inside the popover (browser-fail-deny.png): the link "Captured as shape-should-carry-a-version-so-callers-can-tell", the server's reason
+"Terminal did not start the session: execution error: Not authorized to send Apple events to Terminal. (-1743) Run it yourself:", and the copy field holding
+the command, whose prompt holds "The pack was also built around `src/types/shape.ts`: its notes, its recent commits and the tasks that touch it are in there, so start reading at that place."
+Toast: "Nothing was started: Terminal did not start the session: ... The command is below to copy."
+The served intake afterwards held the line and its origin line:
+  - shape-should-carry-a-version-so-callers-can-tell: Shape should carry a version so callers can tell old points apart (test, web, 2026-09-18)
+    > Captured from the file `src/types/shape.ts`
+
+## hang (harness IDEA_TERMINAL=hang, port 4906): osascript blocks for the caller's timeout, then reports the kill
+Timeline (ms after the click, read from the page):
+  205 ms   GET /api/launch?slug=...&tool=claude&mode=discuss&path=src%2Ftypes%2Fshape.ts answered 200 (the description, asked before the launch so the six-second hand-over has it)
+  6604 ms  (browser-fail-hang-waiting.png) the popover shows "Still waiting for Claude Code to open. If no window appeared, macOS may be holding it behind a permission prompt — run it yourself instead:"
+           and the copy field with the command; the input, the main button ("Starting…") and the caret are still disabled
+  8372 ms  POST /api/launch {"slugs":["hang-the-shape-should-carry-a-version"],"tool":"claude","mode":"discuss","paths":["src/types/shape.ts"]} answered 200, launched: false,
+           reason "Terminal did not respond within 8 seconds. macOS may be waiting for you to allow Reggie to control Terminal (System Settings, Privacy & Security, Automation). Run the command yourself in /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-hooi3W."
+  after    (browser-fail-hang-answer.png) the popover shows the link, the timeout reason and the copy field with the command; the form is enabled again.
+The osascript stub's log lines for both runs are in harness-deny.txt and harness-hang.txt.
+The served intake afterwards (tail):
+- hang-the-shape-should-carry-a-version: Hang: the shape should carry a version (test, web, 2026-09-18)
+  > Captured from the file `src/types/shape.ts`
