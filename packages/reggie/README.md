@@ -40,8 +40,11 @@ npm link            # puts `reggie` on your PATH
 | `reggie journal add <text> [--slug] [--stage] [--evidence a,b] [--session s]` | Append a plain-English entry. |
 | `reggie journal show [--days n] [--slug] [--person]` | Recent entries, newest first. |
 | `reggie journal derive <slug> [--session <uuid>] [--dry-run] [--rewrite]` | Write an entry from the task's commits and the closing words of its launched Claude sessions. Appends only what is new, prints every character it wrote, and never commits. See "The derived journal" below. |
-| `reggie packet <slug> [--force]` | Scaffold the completion packet from the plan, the diff, and the evidence folder. Never overwrites an existing packet unless forced. |
-| `reggie decide <slug> approved\|needs-work [--comment t]` | Record a verdict in the packet (solo mode or no-PR review). |
+| `reggie check <slug> <criterion> pass\|fail [--evidence f,g] [--note t]` | Record that a plan criterion was verified, as one JSON line in `.reggie/tasks/<slug>/checks.jsonl`. The criterion is its number, its key, or a leading label such as `AC12`; `--review <name>` records a review instead. A pass needs evidence saved directly inside the task's evidence folder and no uncommitted code. Never commits. |
+| `reggie check <slug> [--json]` | With no outcome: the policy report, what the policy would say about the finished task, read from the integration branch's tip and the task branch's tip and no working tree. It decides nothing; exit 0 only for would pass. |
+| `reggie packet <slug> [--force]` | Scaffold the completion packet from the plan, the diff, the evidence folder and the check records; on a packet that exists, refresh only its generated checklist. Never overwrites the rest unless forced, and refuses outside the task's own checkout. It never decides and never merges. |
+| `reggie packet <slug> --lint` | Check the packet against the packet contract and resolve every evidence citation on `HEAD`; says when a cited file is on disk but not committed. Writes nothing. |
+| `reggie decide <slug> approved\|needs-work [--comment t]` | Record a verdict in the packet. In solo mode an approval merges `task/<slug>` (`--no-ff`), releases it, and captures the packet's discovered issues inside the merge commit; it refuses a packet that cites evidence nobody committed, and one landing runs at a time. Never pushes. |
 | `reggie pr <slug> [--draft]` | Push the task branch and open a PR whose body is the packet. Needs `gh`. |
 | `reggie services [--json]` | What the repo talks to: every binding, store and API, with the manifest line that declares it and the files that touch it. Names the ones the code reads and no manifest declares first. |
 | `reggie flows [id] [--depth n] [--json]` | Where data enters and where it goes. With no id, the entry points grouped by kind with their step counts and the services they reach; with one, that flow traced step by step, each step's payload in and out, and what any cap dropped. |
@@ -131,7 +134,7 @@ Until a session records its real id in the claims and entries it writes (`sessio
 
 `.mcp.json` (written by `onboard`) points Claude Code at `reggie mcp`. For Codex: `codex mcp add reggie -- reggie mcp`.
 
-Tools: `reggie_tasks`, `reggie_task`, `reggie_context`, `reggie_find_notes`, `reggie_add_note`, `reggie_journal`, `reggie_capture` (with an optional `path`, the file or folder the idea came from, checked the way `reggie capture --path` checks it), `reggie_plan_new`, `reggie_lint_plan`, `reggie_people`. There is no launch tool: launching opens a terminal on the serving machine and is a human act. Resources: `reggie://readme`, `reggie://intake`, `reggie://onboarding`.
+Tools: `reggie_tasks`, `reggie_task`, `reggie_context`, `reggie_find_notes`, `reggie_add_note`, `reggie_journal`, `reggie_capture` (with an optional `path`, the file or folder the idea came from, checked the way `reggie capture --path` checks it), `reggie_check` (records a criterion or a review exactly as `reggie check` does, and returns the policy report when called with no outcome), `reggie_plan_new`, `reggie_lint_plan`, `reggie_people`. There is no launch tool: launching opens a terminal on the serving machine and is a human act. There is no tool that decides, either: a decision is a person's. Resources: `reggie://readme`, `reggie://intake`, `reggie://onboarding`.
 
 Writes made through the server are attributed as `Claude via <handle>` or `Codex via <handle>`, detected from the environment; set `REGGIE_TOOL` to override.
 

@@ -35,6 +35,7 @@ my-app/
       cap-login-retries/
         plan.md              ← the plan, checked against a contract
         packet.md            ← the completion packet a reviewer reads
+        checks.jsonl         ← what was verified, as data: one line per check
         evidence/            ← proof: test output, screenshots
     notes/
       _repo.md               ← what this repo is and how to run it
@@ -64,9 +65,17 @@ One line per item, no structure required. You can add a line by hand, by `reggie
 
 A plan is written in plan mode by Claude Code or Codex, or by hand, but it must satisfy the same contract either way: a problem, an approach that names the alternative it rejected, the files it will touch, acceptance criteria a reviewer can check without asking, a verification strategy that names the evidence for each criterion, the assumptions made, what is out of scope, and the conditions that would send it back to planning. `reggie plan lint` enforces this. `reggie plan risk` reads the files list and sets a risk class of low, medium, or high, which decides how much review the work gets later.
 
-### .reggie/tasks/<slug>/packet.md and evidence/: how you know it is done
+### .reggie/tasks/<slug>/packet.md, checks.jsonl and evidence/: how you know it is done
 
-When the work is finished, `reggie packet` builds the completion packet from the plan: the acceptance criteria as a checklist, each pointing at an evidence file; the list of files changed; the reviews that ran; deviations from the plan and why; issues discovered on the way; open risks. A reviewer reads the packet top to bottom and decides. The evidence folder holds the proof, so a claim like "tests pass" is a file, not a sentence. Both survive forever, because a task you cannot re-verify six months later is a task you have to trust.
+What was verified is recorded as data, not as a ticked box. When a criterion has been proved, the session saves the proof under `evidence/` and runs `reggie check <slug> <criterion> pass --evidence <file>` (or calls the `reggie_check` tool); a review is recorded the same way with `--review <name>`, and a `fail` is always recordable. Each check is one JSON line in `checks.jsonl`: the criterion's key, the outcome, the evidence, who and what recorded it, when, and the commit the checkout was on. The key is a hash of the criterion's own words in the plan, so renumbering the plan changes nothing and rewording a criterion makes a new key that an old pass cannot count for. The latest line for a key wins, by its position in the file. The verb refuses a pass with no evidence, evidence that is not a non-empty regular file directly inside the task's evidence folder, and a pass while code is uncommitted, because a check proves committed code.
+
+When the work is finished, `reggie packet` builds the completion packet from the plan: the acceptance checklist, generated from those records between two markers and never edited by hand; the list of files changed; the reviews that ran; deviations from the plan and why; issues discovered on the way; open risks. Run again, it refreshes only the checklist. `reggie packet <slug> --lint` checks the packet against its contract, the third beside the brief's and the plan's: its own slug and a verdict, the seven sections filled, a checklist equal to what the records render, and well-formed citations. A reviewer reads the packet top to bottom and decides. The evidence folder holds the proof, so a claim like "tests pass" is a file, not a sentence. All three survive forever, because a task you cannot re-verify six months later is a task you have to trust.
+
+**The evidence gate.** A packet that cites evidence nobody committed is never approved, by hand or otherwise, and there is no override. A citation is a path on an `evidence:` line under a criterion or on a bullet under `## Evidence` that names the task's own evidence folder; it must resolve to a regular, non-empty file directly inside that folder on the task branch's tip. `reggie decide <slug> approved` and the page's Approve button both refuse otherwise, naming each path and why, with nothing written. A packet that cites nothing is approved by hand exactly as before.
+
+**What an approval captures.** In solo mode an approval reads the packet's `## Discovered issues` and captures every bullet the queue does not hold yet into `intake.md`, inside the same merge commit as the verdict, so an issue a session wrote down and never captured is not lost. It skips the scaffold's stand-in, a bullet that says none, and a bullet that names a slug Reggie knows or repeats an intake line.
+
+**The policy report.** `reggie check <slug>` with no outcome, and the task's page above the decide form, say what the policy would say about the finished task: would pass, refused with each reason, or not evaluated. It judges exactly two commits and no working tree, so it reads the same from any checkout. The config, the risk rules and the plan come from the integration branch's tip, and the packet, the records and the evidence from the task branch's tip, so a branch cannot lower its own risk, delete a criterion or widen the policy it is judged by; a branch that changes its own plan, `config.yaml`, `people.yaml`, another task's folder, `.mcp.json`, `.gitattributes` or anything under `.claude/` always goes to a person. It is a report: nothing acts on it yet, and a person decides every task.
 
 ### .reggie/notes/: knowledge arranged like the code
 
@@ -95,7 +104,7 @@ When a task is claimed, Reggie commits a small `claim.md` on the branch naming t
 
 ### .reggie/people.yaml and config.yaml: who, and which mode
 
-Identity is your git author email. The first person in becomes a maintainer. One person means solo mode: your commit is your approval. More than one means team mode: plans go up as draft PRs for comments, and packets are decided in PR review. Risk rules in `config.yaml` are substrings of file paths; a plan touching anything matching the high list gets full review.
+Identity is your git author email. The first person in becomes a maintainer. One person means solo mode: your commit is your approval. More than one means team mode: plans go up as draft PRs for comments, and packets are decided in PR review. Risk rules in `config.yaml` are substrings of file paths; a plan touching anything matching the high list gets full review. The `policy` block names, for plans and for completions, the highest risk class that passes without a person: `none`, `low`, `medium` or `high`. Solo mode defaults to `plans: high` and `completions: low`, team mode to `none` for both. It is always read from the integration branch's committed copy, never from a task branch, and today it feeds the policy report and nothing else.
 
 ### .claude/commands/ and .mcp.json: the thin layer for agents
 
@@ -112,8 +121,9 @@ Four small commands, `reggie-onboard`, `reggie-plan`, `reggie-execute`, and `reg
 | A plan | `tasks/<slug>/plan.md` |
 | A claim | A `task/<slug>` branch and a journal entry |
 | Work | Commits on the branch, notes for touched files, journal entries, evidence files |
-| A packet | `tasks/<slug>/packet.md` |
-| A decision | The PR review, or the packet's verdict in solo mode |
+| A check | One line in `tasks/<slug>/checks.jsonl`, uncommitted until the session commits it |
+| A packet | `tasks/<slug>/packet.md`, its checklist generated from the checks |
+| A decision | The PR review, or the packet's verdict in solo mode, where an approval also merges the branch and captures the packet's discovered issues in the same commit |
 | A merge | Nothing; the task is done because git says so |
 
 ## What Reggie never does
