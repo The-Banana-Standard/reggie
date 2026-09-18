@@ -138,6 +138,18 @@ describe("the policy report on a passing task", () => {
     expect(gate(refused, "criteria").reasons.join(" ")).toContain("the review code-review failed its latest check");
   });
 
+  it("never throws: a failure nobody foresaw comes back as not evaluated, without the checkout's path in it", () => {
+    const runner = (args: string[], opts?: ExecOptions): ExecResult => {
+      if (args.includes("ls-tree")) throw new Error(`spawn git ENOENT in ${fx.root}/.git`);
+      return git(args, opts);
+    };
+    const report = evaluateCompletion(fx.root, fx.slug, { runner });
+    expect(report.verdict).toBe("not-evaluated");
+    expect(report.summary).toMatch(/^not evaluated: the evaluation itself failed \(spawn git ENOENT in \.\/\.git\)\. Nothing was decided/);
+    expect(report.summary).not.toContain(fx.root);
+    expect(report.gates).toEqual([]);
+  });
+
   it("refuses naming the lines of a checks file that are not records", () => {
     appendFileSync(checksFile(fx.wtPaths, fx.slug), "not json at all\n[1,2,3]\n", "utf8");
     fx.commitWt("two bad lines");

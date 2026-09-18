@@ -235,6 +235,17 @@ function planEdits(base: ParsedPlan, baseCriteria: readonly PlanCriterion[], bra
  */
 export function evaluateCompletion(root: string, slug: string, opts: EvaluateOptions = {}): PolicyReport {
   evaluationStats.calls += 1;
+  try {
+    return evaluate(root, slug, opts);
+  } catch (err) {
+    // The task page asks for this on every load, so a failure nobody foresaw is a sentence on the page
+    // and never a page that cannot be drawn. The checkout's own path is taken out of the message.
+    const message = cleanLine((err instanceof Error ? err.message : String(err)).split(root).join("."), 200);
+    return notEvaluated(slug, `not evaluated: the evaluation itself failed (${message}). Nothing was decided and nothing was written.`);
+  }
+}
+
+function evaluate(root: string, slug: string, opts: EvaluateOptions): PolicyReport {
   const runner = opts.runner;
   const branchName = `task/${slug}`;
 
