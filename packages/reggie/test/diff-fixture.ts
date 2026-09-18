@@ -82,8 +82,12 @@ function numbered(n: number, change: (i: number) => string | null = () => null):
   return `${lines.join("\n")}\n`;
 }
 
-function packet(slug: string, verdict: "pending" | "approved"): string {
-  return ["---", `slug: ${slug}`, `title: ${slug}`, "risk: low", "author: test", "date: 2026-09-17", `branch: task/${slug}`, "base: main", `verdict: ${verdict}`, "decided_by:", "decided_at:", "---", `# Completion: ${slug}`, "", "## Acceptance criteria", "- [x] It works", "  evidence: evidence/tests.txt", ""].join("\n");
+/**
+ * `cites` is false for the one packet that `landTask` lands: it never saved an `evidence/tests.txt`,
+ * and since the evidence gate a hand approval refuses a packet that cites a file nobody committed.
+ */
+function packet(slug: string, verdict: "pending" | "approved", cites = true): string {
+  return ["---", `slug: ${slug}`, `title: ${slug}`, "risk: low", "author: test", "date: 2026-09-17", `branch: task/${slug}`, "base: main", `verdict: ${verdict}`, "decided_by:", "decided_at:", "---", `# Completion: ${slug}`, "", "## Acceptance criteria", "- [x] It works", ...(cites ? ["  evidence: evidence/tests.txt"] : []), ""].join("\n");
 }
 
 export function makeDiffFixture(opts: { large?: boolean } = {}): DiffFixture {
@@ -276,7 +280,7 @@ export function makeDiffFixture(opts: { large?: boolean } = {}): DiffFixture {
   branch(slugs.landed);
   bytes("src/a.ts", "one\ntwo LANDED\nthree\n");
   bytes("src/landed-only.ts", "export const landed = 1;\n");
-  writeText(packetFile(paths, slugs.landed), packet(slugs.landed, "pending"));
+  writeText(packetFile(paths, slugs.landed), packet(slugs.landed, "pending", false));
   commit("feat: landed work", slugs.landed);
   toMain();
   const config = loadConfig(paths);

@@ -2,10 +2,10 @@ import { existsSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 import { listRepoFiles } from "./git.js";
 import { INTAKE_HEADER } from "./layout.js";
-import type { RepoPaths } from "./paths.js";
+import { claimFile, type RepoPaths } from "./paths.js";
 import type { Person } from "./people.js";
-import { knownSlugs, parseIntake } from "./tasks.js";
-import { appendText, isSafeSlug, readText, slugify, today, writeText } from "./util.js";
+import { knownSlugs, parseClaim, parseIntake, readIntake } from "./tasks.js";
+import { appendText, isSafeSlug, readText, slugify, splitFrontMatter, today, writeText } from "./util.js";
 
 /** Where an idea struck: the page it was captured from, as an entity of the repo. */
 export type CaptureOriginKind = "file" | "folder" | "symbol" | "task";
@@ -272,4 +272,124 @@ export function addIntakeDetail(paths: RepoPaths, input: IntakeDetailInput): Int
   rows.splice(end, 0, ...detail);
   writeText(paths.intake, rows.join("\n"));
   return { slug: input.slug, added: lines, createdLine: false };
+}
+
+// ---------------------------------------------------------------------------
+// Discovered issues: what an approval captures out of the packet
+// ---------------------------------------------------------------------------
+
+export interface DiscoveredIssue {
+  /** The bullet's first line, as written. */
+  text: string;
+  /** The indented lines and nested bullets under it, trimmed, in order. */
+  rest: string[];
+}
+
+/** `INVISIBLE_CHARS` with the global flag, for removing every such character rather than finding one. */
+const INVISIBLE_ALL = new RegExp(INVISIBLE_CHARS.source, "g");
+const MAX_ISSUE_TEXT = 300;
+const MAX_ISSUE_DETAIL_LINES = 10;
+const MAX_ISSUE_DETAIL_CHARS = 500;
+/** A bullet shorter than this says too little to be a task; "none." and "n/a" are far below it. */
+const MIN_ISSUE_CHARS = 12;
+/** A slug is matched by its beginning only when both spellings are at least this long, so a short backticked word such as `reggie` never stands for a slug that starts with it. */
+const MIN_PREFIX_MATCH = 20;
+
+/**
+ * The bullets under `## Discovered issues`. A bullet is a top-level list item: a marker indented by
+ * at most one space. Everything indented under it, nested bullets included, belongs to it.
+ */
+export function parseDiscoveredIssues(packet: string): DiscoveredIssue[] {
+  const out: DiscoveredIssue[] = [];
+  let inside = false;
+  let current: DiscoveredIssue | null = null;
+  for (const line of splitFrontMatter(packet).body.split("\n")) {
+    const h = /^##\s+(.+?)\s*$/.exec(line);
+    if (h) {
+      inside = (h[1] ?? "").trim().toLowerCase() === "discovered issues";
+      current = null;
+      continue;
+    }
+    if (!inside) continue;
+    const top = /^ ?[-*+]\s+(?:\[[ xX]\]\s+)?(\S.*)$/.exec(line);
+    if (top) {
+      current = { text: (top[1] ?? "").trim(), rest: [] };
+      out.push(current);
+    } else if (line.trim() === "") {
+      // A blank line inside a bullet does not end it.
+    } else if (current && /^\s/.test(line)) current.rest.push(line.trim());
+    else current = null;
+  }
+  return out;
+}
+
+function normalizeIssueText(text: string): string {
+  return text.toLowerCase().replace(/[`*_]/g, "").replace(/\s+/g, " ").replace(/[\s.;:!]+$/, "").trim();
+}
+
+/**
+ * Whether a bullet is already in the queue. A duplicate is cheap and a loss is not, so this errs
+ * towards capturing: it recognises a named slug, the bullet's own words as a slug, and the bullet's
+ * own words as an intake item's text, and nothing looser. A bullet reworded since its capture is
+ * captured again; that limit is accepted.
+ */
+function alreadyCaptured(issue: DiscoveredIssue, known: readonly string[], intakeTexts: ReadonlySet<string>): boolean {
+  const isKnown = (token: string): boolean =>
+    known.includes(token) || (token.length >= MIN_PREFIX_MATCH && known.some((k) => k.length >= MIN_PREFIX_MATCH && (k.startsWith(token) || token.startsWith(k))));
+  const whole = [issue.text, ...issue.rest].join(" ");
+  const named = [...whole.matchAll(/`([a-z0-9][a-z0-9-]{2,79})`/g), ...whole.matchAll(/captured(?: as|:)\s+`?([a-z0-9][a-z0-9-]{2,79})/gi)].map((m) => m[1] ?? "");
+  if (named.some(isKnown)) return true;
+  if (isKnown(slugify(issue.text, 48))) return true;
+  return intakeTexts.has(normalizeIssueText(issue.text));
+}
+
+export interface DiscoveredCaptureInput {
+  /** The task whose packet is being approved. */
+  slug: string;
+  /** The packet's text, as it stands in the tree the approval is being recorded in. */
+  packet: string;
+  /** Who is recording the approval; the fallback attribution. */
+  decider: Person;
+}
+
+/**
+ * Capture what a packet's `## Discovered issues` lists and the queue does not hold yet, so that an
+ * issue a session wrote down and never captured is not lost when nobody reads the packet. Called by
+ * `landTask` between the merge and its commit, so the comparison runs against the intake as merged,
+ * which already holds whatever the session captured on the branch, and the new lines land in the
+ * same commit as the verdict.
+ *
+ * Skipped: the scaffold's parenthesised stand-in, a bullet whose first word is none, nothing or n/a,
+ * and a bullet too short to say anything. Each new item is attributed to the handle in the task's
+ * claim record, else the packet's author, else the decider, with the source `packet` and a last
+ * detail line naming the task.
+ */
+export function captureDiscoveredIssues(paths: RepoPaths, input: DiscoveredCaptureInput): CaptureResult[] {
+  const issues = parseDiscoveredIssues(input.packet).filter((i) => {
+    if (/^\(.*\)$/.test(i.text)) return false;
+    if (/^(none|nothing|n\/a)\b/i.test(i.text.replace(/^[*_`"']+/, ""))) return false;
+    return i.text.length >= MIN_ISSUE_CHARS;
+  });
+  if (issues.length === 0) return [];
+
+  const claim = readText(claimFile(paths, input.slug));
+  const author = /^author:[ \t]*(.*)$/m.exec(splitFrontMatter(input.packet).front ?? "")?.[1]?.trim() ?? "";
+  const handle = [claim ? parseClaim(claim).handle : "", author].map((h) => (h ? slugify(h, 24) : "")).find((h) => h !== "" && h !== "item") ?? input.decider.handle;
+  const person: Person = { ...input.decider, handle };
+
+  const clean = (value: string, max: number): string => {
+    const line = value.replace(INVISIBLE_ALL, " ").replace(/\s+/g, " ").trim();
+    return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+  };
+  const results: CaptureResult[] = [];
+  for (const issue of issues) {
+    // Read afresh each time round: the item just written is part of the queue the next bullet is compared with.
+    const known = Array.from(knownSlugs(paths));
+    const intakeTexts = new Set(readIntake(paths).map((i) => normalizeIssueText(i.text)));
+    const text = clean(issue.text, MAX_ISSUE_TEXT);
+    if (text.length < MIN_ISSUE_CHARS || alreadyCaptured({ text, rest: issue.rest }, known, intakeTexts)) continue;
+    const detail = issue.rest.slice(0, MAX_ISSUE_DETAIL_LINES).map((l) => clean(l, MAX_ISSUE_DETAIL_CHARS)).filter(Boolean);
+    results.push(capture(paths, { text, person, source: "packet", origin: { kind: "task", task: input.slug }, ...(detail.length > 0 ? { detail: detail.join("\n") } : {}) }));
+  }
+  return results;
 }
