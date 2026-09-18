@@ -22,7 +22,8 @@ import { isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, 
 import { narrate } from "./narrate.js";
 import { addNote, allNoteFiles, NOTE_TYPES, notesForPath, notesIndex, readNoteFile, staleEntriesFor, type Confidence as NoteConfidence, type NoteEntry, type NoteFile, type NoteType, type StaleEntry } from "./notes.js";
 import { decidePacket, locatePacket, materializePacket } from "./packet.js";
-import { evidenceDir, type RepoPaths } from "./paths.js";
+import { evidenceDir, packetRelPath, type RepoPaths } from "./paths.js";
+import { evaluateCompletion, type PolicyReport } from "./policy.js";
 import { currentPerson, handleFor, inferMode, loadPeople, type PeopleFile, type Person, type ReggieConfig } from "./people.js";
 import { roleOf } from "./roles.js";
 import { detectServices, type ServiceIndex, type ServiceNode } from "./services.js";
@@ -1668,7 +1669,19 @@ function taskRoute(res: ServerResponse, c: RepoCtx, slug: string): void {
           .filter((n) => n.side === "up" && n.kind === "file" && typeof n.hop === "number")
           .map((n) => ({ id: n.id, hop: n.hop ?? 1 }))
       : [];
-  return json(res, 200, { ...detail, impact: { ...detail.impact, downstream }, completion: completionOf(c, detail) });
+  return json(res, 200, { ...detail, impact: { ...detail.impact, downstream }, completion: completionOf(c, detail), policy: policyOf(c, detail) });
+}
+
+/**
+ * What the policy would say about this task: the object `reggie check <slug> --json` prints, for a
+ * task with a live branch and a packet on it, and null otherwise. It is computed per request for
+ * this one page and never stored, because it is a function of two commits and both move; the task
+ * list never computes it. It is a report: the decide form below it is still how a task is decided.
+ */
+function policyOf(c: RepoCtx, detail: TaskDetail): PolicyReport | null {
+  const ref = detail.task.branchRef;
+  if (ref === null || fileAtRef(c.root, ref, packetRelPath(detail.task.slug)) === null) return null;
+  return evaluateCompletion(c.root, detail.task.slug);
 }
 
 // ---------------------------------------------------------------------------
@@ -2370,6 +2383,8 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
             existingMerge: r.existingMerge,
             released: r.released,
             releaseError: r.releaseError,
+            // Slugs of the intake items the approval captured out of the packet's Discovered issues, inside the same commit.
+            captured: r.captured,
           });
         } catch (err) {
           c.invalidate();

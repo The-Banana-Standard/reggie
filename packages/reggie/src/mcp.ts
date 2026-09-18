@@ -3,12 +3,14 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import type { BuildCheck } from "./build-state.js";
 import { capture, resolveCaptureOrigin, type CaptureOrigin } from "./capture.js";
+import { CheckError, recordCheck } from "./checks.js";
 import { buildContext } from "./context.js";
-import { appendJournal, detectTool } from "./journal.js";
+import { appendJournal, detectTool, sessionName } from "./journal.js";
 import { addNote, findNotes, NOTE_TYPES, renderNoteFile, staleEntries } from "./notes.js";
 import { briefFile, planFile, repoPaths, type RepoPaths } from "./paths.js";
 import { currentPerson, loadConfig, loadPeople, type Person, type ReggieConfig } from "./people.js";
 import { lintPlan, renderPlanTemplate, RISKS } from "./plan.js";
+import { evaluateCompletion, formatReport } from "./policy.js";
 import { getTask, listTasks, renderTaskLine } from "./tasks.js";
 import { readText, writeIfMissing } from "./util.js";
 
@@ -197,6 +199,46 @@ export function createMcpServer(root: string, opts: McpServerOptions = {}): McpS
       }
       const r = capture(c.paths, input);
       return text(`Captured as ${r.slug}.`);
+    },
+  );
+
+  tool(
+    "reggie_check",
+    {
+      title: "Record a check, or read the policy report",
+      description:
+        "Record that a plan criterion or a review was verified, as data: `criterion` (its number, its key, or a leading label such as AC12) or `review` (a name such as code-review), with `outcome` pass or fail. A criterion passes only with `evidence`: files saved directly inside the task's evidence folder. Record a pass after the code it proves is committed. With no outcome it returns what the policy would say about the task; that is a report, and a person decides. This tool never decides and never merges.",
+      inputSchema: {
+        slug: slugSchema.describe("Task slug"),
+        criterion: z.string().max(200).optional().describe("The criterion: its number, its key (c:…), or a leading label such as AC12"),
+        review: z.string().max(80).optional().describe("A review name instead of a criterion: lowercase letters, digits and hyphens"),
+        outcome: z.string().max(20).optional().describe("pass or fail; leave out to read the policy report"),
+        evidence: z.array(z.string().max(500)).max(50).optional().describe("Evidence files: a bare name, evidence/<name>, or the full repo-relative path"),
+        note: z.string().max(2000).optional().describe("One line of context kept with the record"),
+      },
+    },
+    async ({ slug, criterion, review, outcome, evidence, note }) => {
+      if (outcome === undefined && criterion === undefined && review === undefined) return text(formatReport(evaluateCompletion(c.paths.root, slug)));
+      // The same function the CLI verb wraps; a refusal is a tool error carrying the verb's own sentence.
+      try {
+        const r = recordCheck(c.paths, {
+          slug,
+          outcome: outcome ?? "",
+          evidence: evidence ?? [],
+          person: c.person.handle,
+          // As the journal tool does: whatever reaches this server is an agent, even when the environment does not say which.
+          tool: detectTool() === "human" ? "agent" : detectTool(),
+          session: sessionName(),
+          ...(criterion !== undefined ? { criterion } : {}),
+          ...(review !== undefined ? { review } : {}),
+          ...(note !== undefined ? { note } : {}),
+        });
+        const what = r.record.kind === "review" ? `review ${r.record.text}` : `criterion ${r.record.n}`;
+        return text(`Recorded ${r.record.outcome} for ${what} (${r.record.key}). It is not committed; run \`reggie packet ${slug}\` to refresh the checklist, then commit both.`);
+      } catch (err) {
+        if (err instanceof CheckError) return { content: [{ type: "text" as const, text: err.message }], isError: true };
+        throw err;
+      }
     },
   );
 
