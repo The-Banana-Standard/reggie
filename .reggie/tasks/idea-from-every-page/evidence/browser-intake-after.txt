@@ -1,0 +1,27 @@
+# The served fixture's .reggie/intake.md after the five desktop submits (harness IDEA_TERMINAL=ok, port 4904, 1440 wide), read from disk:
+# /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-fixture-7f0JIw/.reggie/intake.md
+
+# Intake
+
+Raw items waiting for triage. Anyone can add a line here, by hand, by voice
+note, or by asking Claude or Codex to capture it. No structure is required.
+
+Format Reggie writes (angle brackets are placeholders):
+
+    - <slug>: <one-line description> (<person>, <source>, <date>)
+      > <optional detail>
+
+`reggie triage <slug>` turns an item into a brief under
+`tasks/<slug>/brief.md` and removes its line here: the brief is the record of
+the item from then on. The task stays ungroomed until the brief is filled in.
+
+- split-the-big-area-into-two-packages: Split the big area into two packages (test, fixture, 2026-09-18)
+- the-overview-should-count-the-stale-notes: The overview should count the stale notes (test, web, 2026-09-18)
+- the-chain-should-be-split-at-a20: The chain should be split at a20 (test, web, 2026-09-18)
+  > Captured from the folder `src/big`
+- shape-needs-a-version-field: Shape needs a version field (test, web, 2026-09-18)
+  > Captured from the file `src/types/shape.ts`
+- emptyshape-should-take-a-capacity-hint: emptyShape should take a capacity hint (test, web, 2026-09-18)
+  > Captured from `emptyShape` in the file `src/types/shape.ts`
+- the-helpers-should-live-beside-the-type: The helpers should live beside the type (test, web, 2026-09-18)
+  > Captured from the task `share-shape-helpers`

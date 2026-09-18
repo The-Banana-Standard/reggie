@@ -1,0 +1,135 @@
+# AC24 — story.ts, story.js and the board's rendering are untouched by this task
+# git diff --stat repo-manager..HEAD -- packages/reggie/src/story.ts packages/reggie/ui/story.js  (empty output = no change)
+(no lines above: neither file changed)
+
+# board.js changed only to export five existing pieces and to carry paths through the launcher; no rendering function moved. The whole diff:
+diff --git a/packages/reggie/ui/board.js b/packages/reggie/ui/board.js
+index bbb73fe..9576e23 100644
+--- a/packages/reggie/ui/board.js
++++ b/packages/reggie/ui/board.js
+@@ -144,7 +144,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
+ 
+ /** The two tools a session can open in, and the label each is called by (§4 of the tasks spec). */
+ export const LAUNCH_TOOLS = ["claude", "codex"];
+-const TOOL_LABEL = { claude: "Claude Code", codex: "Codex" };
++export const TOOL_LABEL = { claude: "Claude Code", codex: "Codex" };
+ const LAUNCH_TOOL_KEY = "reggie.launch.tool";
+ const PRIORITY_TONE = { P1: "bad", P2: "warn", P3: "muted", unset: "muted" };
+ const PRIORITY_TIPS = {
+@@ -486,7 +486,7 @@ function whoCanDecideText(rights) {
+ // Forms: decide, capture
+ // ---------------------------------------------------------------------------
+ 
+-function friendlyError(err) {
++export function friendlyError(err) {
+   const status = err?.status;
+   if (status === 409) return "No completion packet exists for this task yet, so there is nothing to decide.";
+   if (status === 403) return "The server refused this decision: only a maintainer may decide in team mode, and only from this machine.";
+@@ -665,14 +665,15 @@ export function rememberedTool() {
+   return LAUNCH_TOOLS.includes(v) ? v : "claude";
+ }
+ 
+-function rememberTool(tool) {
++export function rememberTool(tool) {
+   if (LAUNCH_TOOLS.includes(tool)) storage.set(LAUNCH_TOOL_KEY, tool);
+ }
+ 
+-function launchUrl(slugs, tool, mode, note = "") {
++function launchUrl(slugs, tool, mode, note = "", paths = []) {
+   const qs = slugs.map((s) => `slug=${encodeURIComponent(s)}`).join("&");
+   const n = note ? `&note=${encodeURIComponent(note)}` : "";
+-  return `/api/launch?${qs}&tool=${encodeURIComponent(tool)}&mode=${encodeURIComponent(mode)}${n}`;
++  const p = paths.map((x) => `&path=${encodeURIComponent(x)}`).join("");
++  return `/api/launch?${qs}&tool=${encodeURIComponent(tool)}&mode=${encodeURIComponent(mode)}${n}${p}`;
+ }
+ 
+ /** A command is one line of shell; a Codex prompt runs past a thousand characters. Toasts get a clip. */
+@@ -686,8 +687,11 @@ function clip(text, max = 150) {
+  * running anything, so a tooltip can quote it exactly; `run` is the POST that actually spawns the
+  * session. `launched: false` is a normal answer (nothing outside macOS can spawn a terminal), so the
+  * caller is handed the command to show in a copy field with the server's reason rather than a failure.
++ * `paths` (on `describe`, and `opts.paths` on `run`) are the repo paths the pack is built around,
++ * which the idea action passes so the session opens knowing where the idea struck; `opts.where`
++ * names, in the warning toast, where the command to copy went ("on the card" unless told otherwise).
+  */
+-function makeLauncher(ctx) {
++export function makeLauncher(ctx) {
+   const cache = new Map();
+   /** The sentence the user typed for each launch set, kept until the page re-renders. */
+   const notes = new Map();
+@@ -697,11 +701,11 @@ function makeLauncher(ctx) {
+     if (text && text.trim()) notes.set(key, text.trim());
+     else notes.delete(key);
+   };
+-  async function describe(slugs, tool, mode) {
++  async function describe(slugs, tool, mode, paths = []) {
+     const note = noteFor(slugs);
+-    const key = `${mode}|${tool}|${slugs.join(" ")}|${note}`;
++    const key = `${mode}|${tool}|${slugs.join(" ")}|${note}|${paths.join("\0")}`;
+     if (cache.has(key)) return cache.get(key);
+-    const plan = await ctx.fetchJson(launchUrl(slugs, tool, mode, note));
++    const plan = await ctx.fetchJson(launchUrl(slugs, tool, mode, note, paths));
+     cache.set(key, plan);
+     return plan;
+   }
+@@ -709,12 +713,16 @@ function makeLauncher(ctx) {
+     rememberTool(tool);
+     let res = null;
+     const note = noteFor(slugs);
++    const paths = Array.isArray(opts.paths) ? opts.paths : [];
+     try {
+-      res = await ctx.post("/api/launch", note ? { slugs, tool, mode, note } : { slugs, tool, mode });
++      const body = { slugs, tool, mode };
++      if (note) body.note = note;
++      if (paths.length > 0) body.paths = paths;
++      res = await ctx.post("/api/launch", body);
+     } catch (e) {
+       const text = friendlyError(e);
+       toast(`Could not start the ${TOOL_LABEL[tool]} session: ${text}`, { tone: "bad", ms: 8000 });
+-      const plan = await describe(slugs, tool, mode).catch(() => null);
++      const plan = await describe(slugs, tool, mode, paths).catch(() => null);
+       if (plan?.command) opts.onCommand?.(plan.command, `The server refused to start it: ${text} You can run it yourself:`);
+       return null;
+     }
+@@ -726,7 +734,7 @@ function makeLauncher(ctx) {
+       opts.onLaunched?.(res);
+     } else {
+       const why = res?.reason ?? "this platform cannot open a terminal window from here";
+-      toast(`Nothing was started: ${why} The command is on the card to copy.`, { tone: "warn", ms: 9000 });
++      toast(`Nothing was started: ${why} The command is ${opts.where ?? "on the card"} to copy.`, { tone: "warn", ms: 9000 });
+       opts.onCommand?.(res?.command ?? "", `${why} Run it yourself:`);
+     }
+     return res;
+@@ -738,7 +746,7 @@ function makeLauncher(ctx) {
+ const GOAL_WORDS = { shape: "shaping, in plan mode", plan: "planning, in plan mode", discuss: "a read-only discussion", build: "the build" };
+ 
+ /** A readonly field holding a command nobody could spawn, with the reason above it and a Copy button. */
+-function commandField(command, reason) {
++export function commandField(command, reason) {
+   const input = h("input", {
+     class: "form__input launch-cmd__input",
+     type: "text",
+
+# git diff --stat repo-manager..HEAD for every product file:
+ packages/reggie/README.md                    |   5 +-
+ packages/reggie/docs/ui-api-contract.md      |   8 +-
+ packages/reggie/docs/ui-spec.md              |  14 +-
+ packages/reggie/src/capture.test.ts          | 277 +++++++++++++++++-
+ packages/reggie/src/capture.ts               | Bin 5276 -> 11667 bytes
+ packages/reggie/src/cli.ts                   |  31 +-
+ packages/reggie/src/context.test.ts          |  50 ++++
+ packages/reggie/src/launch.test.ts           | 136 +++++++++
+ packages/reggie/src/launch.ts                | Bin 25391 -> 28995 bytes
+ packages/reggie/src/mcp.ts                   |  18 +-
+ packages/reggie/src/serve.ts                 |  81 +++++-
+ packages/reggie/test/mcp.test.ts             |  28 +-
+ packages/reggie/test/serve.test.ts           | 266 +++++++++++++++++-
+ packages/reggie/ui/DOM-CONTRACT.md           |  22 +-
+ packages/reggie/ui/app.js                    |  11 +-
+ packages/reggie/ui/board.js                  |  34 ++-
+ packages/reggie/ui/dev/serve-idea-fixture.ts | 126 +++++++++
+ packages/reggie/ui/idea.js                   | 404 +++++++++++++++++++++++++++
+ packages/reggie/ui/index.html                |   7 +
+ packages/reggie/ui/map.css                   |  17 +-
+ packages/reggie/ui/styles.css                |  52 ++++
+ 21 files changed, 1525 insertions(+), 62 deletions(-)

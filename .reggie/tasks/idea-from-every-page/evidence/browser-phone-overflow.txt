@@ -1,0 +1,30 @@
+# AC19 — the phone, harness IDEA_TERMINAL=ok on port 4904, Chrome device emulation 390x844 (deviceScaleFactor 2, mobile, touch)
+# Read from the DOM after opening the popover on each page kind; `document.documentElement.scrollWidth` read before and after opening.
+
+page    hash                                                   trigger  label   popover (left..right, top; header bottom)  scrollWidth closed/open  clientWidth  crumbs shown
+repo    #/repo/fixture                                         36px     none    8..382, top 52 (48)                         390 / 390                390          Workspace › fixture
+area    #/repo/fixture/area/src/big                            36px     none    8..396.5, top 52 (48)                       404 / 404                390          src › big
+file    #/repo/fixture/file/src/types/shape.ts                 36px     none    8..382, top 52 (48)                         390 / 390                390          types › shape.ts
+symbol  #/repo/fixture/symbol/src/types/shape.ts::emptyShape   36px     none    8..382, top 52 (48)                         390 / 390                390          types › shape.ts
+task    #/repo/fixture/task/cache-chain-shape                  36px     none    8..382, top 52 (48)                         390 / 390                390          Tasks › cache-chain-shape (shown as "T… › cache-ch…")
+
+The popover spans the width under the header on every page (left 8, right 382 of 390; top 52 under the 48px header) with focus in its input and the sentence naming the page's entity.
+On four of the five pages scrollWidth equals clientWidth (390) with the popover open. On the area page scrollWidth is 404 with the popover CLOSED as well as open:
+the phone's bottom tab bar (.nav, fixed, left and right 0 plus padding) and a chip--bad in the area story overflow the viewport by 14px on that page. That is
+pre-existing and captured (`at-390-px-the-phone-s-bottom-tab-bar-nav-positio`); the popover adds nothing to it (closed 404, open 404; the popover's right edge is 396.5 because
+the layout viewport itself widened to 404).
+
+Submits from each page kind at 390 (bodies from the fetch hook; every launch answered launched: true through the ok stub and the popover closed):
+repo    capture {"text":"From a phone: the overview needs a stale count"}                                            launch {"slugs":["from-a-phone-the-overview-needs-a-stale-count"],"tool":"claude","mode":"discuss"}
+area    capture {"text":"From a phone: split the chain","path":"src/big"}                                             launch {"slugs":["from-a-phone-split-the-chain"],"tool":"claude","mode":"discuss","paths":["src/big"]}
+file    capture {"text":"From a phone: version the shape","path":"src/types/shape.ts"}                                launch {"slugs":["from-a-phone-version-the-shape"],"tool":"claude","mode":"discuss","paths":["src/types/shape.ts"]}
+symbol  capture {"text":"From a phone: emptyShape wants a hint","path":"src/types/shape.ts","symbol":"emptyShape"}   launch {"slugs":["from-a-phone-emptyshape-wants-a-hint"],"tool":"claude","mode":"discuss","paths":["src/types/shape.ts"]}
+task    capture {"text":"From a phone: clear the cache on rebuild","task":"cache-chain-shape"}                        launch {"slugs":["from-a-phone-clear-the-cache-on-rebuild"],"tool":"claude","mode":"discuss"}
+Toasts each time: "Captured as <slug>" then "Started shaping, in plan mode in Claude Code. Reopen it later with claude --resume <uuid>."
+
+# The breadcrumb at 390 (the bail condition about the title on a file page)
+Measured before any breadcrumb change, workspace mode: on the deep file page (src/types/shape.ts) the title crumb had 0 width with the trigger present AND with it
+hidden (the four earlier crumbs never shrink, only the title does); on a shallow file page (README.md) the title had 15px ("R…") without the trigger and 0 with it.
+So the button was not what lost the title on a deep path, but it did take the last letter on a shallow one. Rather than stop with the owner away, the phone block
+of styles.css now shows the last two crumbs in the header (parent › title), the same tail the mini-breadcrumb shows under 1100px, the parent ellipsising first
+and the title keeping at least six characters; the full trail stays on the story's first card. Recorded as a deviation.

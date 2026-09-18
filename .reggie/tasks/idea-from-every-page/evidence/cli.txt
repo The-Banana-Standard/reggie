@@ -1,0 +1,70 @@
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/idea-from-every-page/packages/reggie
+
+ ↓ src/capture.test.ts > capture > derives unique slugs and keeps detail lines
+ ↓ src/capture.test.ts > capture > removes an item and its detail once planned
+ ↓ src/capture.test.ts > capture > removes every bullet shape parseIntake accepts, and leaves a slug that only shares a prefix
+ ↓ src/capture.test.ts > capture > writes nothing for a slug that has no line, so a second sweep is harmless
+ ↓ src/capture.test.ts > capture > adds detail under an existing intake item, after the detail already there
+ ↓ src/capture.test.ts > capture > writes an intake line to hold detail for a slug that has none, and refuses empty detail
+ ↓ src/capture.test.ts > resolveCaptureOrigin > accepts a file, a folder in each spelling, a space, non-ASCII letters and a symlink into the repo, tidied
+ ↓ src/capture.test.ts > resolveCaptureOrigin > refuses every path that is not an entity of the repo, with a sentence that names no absolute path, and writes nothing
+ ↓ src/capture.test.ts > resolveCaptureOrigin > takes a symbol only with a file, as an identifier, and a task only alone, as a known slug
+ ↓ src/capture.test.ts > capture with an origin > writes one added detail line, last, in the four shapes, and leaves the intake line itself unchanged
+ ↓ src/capture.test.ts > capture with an origin > writes the person's detail first and the origin last, and every reader takes both
+ ↓ src/capture.test.ts > a task origin in every state > names the origin task for each of the six states, mints the new slug from the text, and moves nothing
+ ✓ src/capture.test.ts > reggie capture --path > writes the folder and file origin lines with source cli, the detail first 918ms
+ ✓ src/capture.test.ts > reggie capture --path > exits 1 with the resolver's sentence and writes nothing for a missing file, the repo itself and an empty path 762ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 12 skipped (14)
+   Start at  10:52:29
+   Duration  1.97s (transform 101ms, setup 0ms, import 132ms, tests 1.78s, environment 0ms)
+
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/idea-from-every-page/packages/reggie
+
+ ↓ src/launch.test.ts > resolveGoal > derives the goal from the task's state, so a button cannot pick the wrong prompt
+ ↓ src/launch.test.ts > resolveGoal > shapes several ungroomed tasks in one conversation and nothing else takes several
+ ↓ src/launch.test.ts > resolveGoal > refuses to build what has no plan, and says what to do instead
+ ↓ src/launch.test.ts > launchCommand > claude / discuss runs the right binary on the slug, on one line
+ ↓ src/launch.test.ts > launchCommand > claude / build runs the right binary on the slug, on one line
+ ↓ src/launch.test.ts > launchCommand > codex / discuss runs the right binary on the slug, on one line
+ ↓ src/launch.test.ts > launchCommand > codex / build runs the right binary on the slug, on one line
+ ↓ src/launch.test.ts > launchCommand > never fires a slash command: the prompt is the whole instruction, for both tools
+ ↓ src/launch.test.ts > launchCommand > opens Claude Code in plan mode for every discussion goal, and Codex read-only
+ ↓ src/launch.test.ts > launchCommand > passes a minted session id to Claude and knows how to resume it
+ ↓ src/launch.test.ts > launchCommand > appends the user's note verbatim, and bounds its length
+ ↓ src/launch.test.ts > launchCommand > points the session at the written context pack when there is one, else at the verb
+ ↓ src/launch.test.ts > launchCommand > shaping says it is shaping, planning says plan mode and the contract, discussing forbids edits
+ ↓ src/launch.test.ts > launchCommand > a build knows it is already claimed, runs the review policy, and commits with a Task line in the body
+ ↓ src/launch.test.ts > launchCommand > every build prompt says to unlink the dependency link before changing a dependency
+ ↓ src/launch.test.ts > launchCommand > names every pending install command and its directory before the instruction to execute the plan
+ ↓ src/launch.test.ts > launchCommand > lists several ungroomed slugs in one shaping prompt
+ ↓ src/launch.test.ts > launchCommand > rejects a slug that is not a slug, before it reaches a command string
+ ↓ src/launch.test.ts > launchCommand > names the pack paths in every goal's prompt, right after the context clause
+ ↓ src/launch.test.ts > launchCommand > keeps a hostile path verbatim inside the prompt argument and single-quoted in the command
+ ↓ src/launch.test.ts > launchCommand > refuses an empty path, a control character, a ninth path and an over-long path before building anything
+ ↓ src/launch.test.ts > launchCommand > leaves every prompt byte-identical without paths
+ ↓ src/launch.test.ts > launchCommand > rejects an unknown tool, an unknown mode, no task, and no repo
+ ↓ src/launch.test.ts > context files and launch records > writes the pack under .reggie/.cache and returns the relative path the prompt uses
+ ↓ src/launch.test.ts > context files and launch records > records what a launch left behind, so the chat can be found again
+ ↓ src/launch.test.ts > context files and launch records > keeps every launch for a slug in a log, while the single record still holds the latest
+ ↓ src/launch.test.ts > context files and launch records > skips a line of the log that does not parse, or is not a launch for this slug
+ ↓ src/launch.test.ts > context files and launch records > still reads a cache that holds only the old single record and no log
+ ✓ src/launch.test.ts > writeContextPacks and reggie launch --path > builds each task's pack around the paths it was given, in the directory it was told 117ms
+ ✓ src/launch.test.ts > writeContextPacks and reggie launch --path > prints a command whose prompt names both paths, and exits 1 before printing one for a path that is not there 1206ms
+ ↓ src/launch.test.ts > shellQuote > round-trips every nasty string through a real shell unchanged
+ ↓ src/launch.test.ts > shellQuote > leaves plain words bare so commands stay readable
+ ↓ src/launch.test.ts > shellQuote > quotes anything else, including the empty string
+ ↓ src/launch.test.ts > appleScriptLiteral > escapes backslashes and double quotes, and only those
+ ↓ src/launch.test.ts > appleScriptLiteral > round-trips the shell line through osascript on macOS
+ ↓ src/launch.test.ts > launchSession > refuses a directory that does not exist
+ ↓ src/launch.test.ts > launchSession > hands the command back unlaunched off macOS, with the goal and the session alongside
+ ↓ src/launch.test.ts > launchSession > bounds the wait on Terminal
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 36 skipped (38)
+   Start at  10:52:31
+   Duration  1.66s (transform 93ms, setup 0ms, import 125ms, tests 1.47s, environment 0ms)
+

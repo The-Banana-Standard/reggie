@@ -1,0 +1,23 @@
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/idea-from-every-page/packages/reggie
+
+ ↓ src/capture.test.ts > capture > derives unique slugs and keeps detail lines
+ ↓ src/capture.test.ts > capture > removes an item and its detail once planned
+ ↓ src/capture.test.ts > capture > removes every bullet shape parseIntake accepts, and leaves a slug that only shares a prefix
+ ↓ src/capture.test.ts > capture > writes nothing for a slug that has no line, so a second sweep is harmless
+ ↓ src/capture.test.ts > capture > adds detail under an existing intake item, after the detail already there
+ ↓ src/capture.test.ts > capture > writes an intake line to hold detail for a slug that has none, and refuses empty detail
+ ↓ src/capture.test.ts > resolveCaptureOrigin > accepts a file, a folder in each spelling, a space, non-ASCII letters and a symlink into the repo, tidied
+ ↓ src/capture.test.ts > resolveCaptureOrigin > refuses every path that is not an entity of the repo, with a sentence that names no absolute path, and writes nothing
+ ↓ src/capture.test.ts > resolveCaptureOrigin > takes a symbol only with a file, as an identifier, and a task only alone, as a known slug
+ ✓ src/capture.test.ts > capture with an origin > writes one added detail line, last, in the four shapes, and leaves the intake line itself unchanged 175ms
+ ✓ src/capture.test.ts > capture with an origin > writes the person's detail first and the origin last, and every reader takes both 130ms
+ ✓ src/capture.test.ts > a task origin in every state > names the origin task for each of the six states, mints the new slug from the text, and moves nothing 1616ms
+ ↓ src/capture.test.ts > reggie capture --path > writes the folder and file origin lines with source cli, the detail first
+ ↓ src/capture.test.ts > reggie capture --path > exits 1 with the resolver's sentence and writes nothing for a missing file, the repo itself and an empty path
+
+ Test Files  1 passed (1)
+      Tests  3 passed | 11 skipped (14)
+   Start at  10:52:25
+   Duration  2.73s (transform 96ms, setup 0ms, import 127ms, tests 2.54s, environment 0ms)
+

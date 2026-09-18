@@ -1,0 +1,61 @@
+# AC27 — reggie note path <file> for the twelve files this task changed, then git diff --stat of .reggie/notes for the task
+
+## reggie note path packages/reggie/ui/idea.js
+  sources: idea-from-every-page
+- **gotcha** 2026-09-18 Claude via jacobpress (high): The description is fetched before the launch is posted, not at six seconds: the launch holds the single-threaded server for the whole Terminal timeout, so a GET asked at six seconds would queue behind the request it is meant to explain and the still-waiting sentence would arrive with the answer instead of before it. The board avoids this by accident through its tooltip prefetch. Leaving the page closes the popover (its sentence names the page), keyed on the level, repo and id, so the redraw after a capture, which emits the same route, leaves it open with its result. A workspace tile is re-mounted by that redraw, so the opener is found again by the repo the tile button names rather than kept by reference.
+  sources: idea-from-every-page
+
+## reggie note path packages/reggie/src/capture.ts
+  sources: idea-from-every-page
+- **how** 2026-09-18 Claude via jacobpress (high): capture() writes an origin as the last detail line under the item, after any detail the person gave, through originLine: Captured from the file, the folder, a symbol in the file, or the task, with the path printed exactly as the resolver tidied it. It is a plain detail line on purpose: parseIntake reads it, removeFromIntake removes it, triage's scaffold copies it into the brief's Problem, and the board card and the task page render it, with no change to any of them. The source stamp stays web, cli or mcp: it sits between commas in the parser's meta and a path can hold a comma.
+  sources: idea-from-every-page
+
+## reggie note path packages/reggie/src/launch.ts
+  sources: idea-from-every-page
+
+## reggie note path packages/reggie/src/serve.ts
+  sources: idea-from-every-page
+
+## reggie note path packages/reggie/src/cli.ts
+  sources: idea-from-every-page
+
+## reggie note path packages/reggie/src/mcp.ts
+  sources: idea-from-every-page
+
+## reggie note path packages/reggie/ui/app.js
+  sources: idea-from-every-page
+
+## reggie note path packages/reggie/ui/board.js
+  sources: idea-from-every-page
+
+## reggie note path packages/reggie/ui/index.html
+  sources: idea-from-every-page
+
+## reggie note path packages/reggie/ui/styles.css
+  sources: idea-from-every-page
+
+## reggie note path packages/reggie/ui/DOM-CONTRACT.md
+  sources: idea-from-every-page
+
+## reggie note path packages/reggie/docs/ui-api-contract.md
+  sources: idea-from-every-page
+
+## git diff --stat repo-manager..HEAD -- .reggie/notes
+ .reggie/notes/packages/reggie/README.md.md                  |  4 ++++
+ .reggie/notes/packages/reggie/docs/ui-api-contract.md.md    |  4 ++++
+ .reggie/notes/packages/reggie/docs/ui-spec.md.md            |  4 ++++
+ .reggie/notes/packages/reggie/src/capture.ts.md             |  8 ++++++++
+ .reggie/notes/packages/reggie/src/cli.ts.md                 |  4 ++++
+ .reggie/notes/packages/reggie/src/launch.ts.md              |  4 ++++
+ .reggie/notes/packages/reggie/src/mcp.ts.md                 |  4 ++++
+ .reggie/notes/packages/reggie/src/serve.ts.md               |  4 ++++
+ .reggie/notes/packages/reggie/test/serve.test.ts.md         |  4 ++++
+ .reggie/notes/packages/reggie/ui/DOM-CONTRACT.md.md         |  4 ++++
+ .reggie/notes/packages/reggie/ui/app.js.md                  |  4 ++++
+ .reggie/notes/packages/reggie/ui/board.js.md                |  4 ++++
+ .../notes/packages/reggie/ui/dev/serve-idea-fixture.ts.md   |  9 +++++++++
+ .reggie/notes/packages/reggie/ui/idea.js.md                 | 13 +++++++++++++
+ .reggie/notes/packages/reggie/ui/index.html.md              |  4 ++++
+ .reggie/notes/packages/reggie/ui/map.css.md                 |  9 +++++++++
+ .reggie/notes/packages/reggie/ui/styles.css.md              |  4 ++++
+ 17 files changed, 91 insertions(+)

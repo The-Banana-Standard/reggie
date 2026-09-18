@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "POST",
+    "route": "/api/capture",
+    "body": {
+      "text": "Captured over HTTP with a symbol",
+      "path": "./src/types/shape.ts",
+      "symbol": "emptyShape"
+    }
+  },
+  "status": 200,
+  "answer": {
+    "slug": "captured-over-http-with-a-symbol",
+    "line": "- captured-over-http-with-a-symbol: Captured over HTTP with a symbol (test, web, 2026-09-18)",
+    "origin": {
+      "kind": "symbol",
+      "path": "src/types/shape.ts",
+      "symbol": "emptyShape"
+    }
+  }
+}

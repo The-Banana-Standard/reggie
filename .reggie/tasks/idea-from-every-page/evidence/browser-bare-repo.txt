@@ -1,0 +1,34 @@
+# AC25 — a served repo with no .reggie/ directory (harness IDEA_TERMINAL=ok, port 4904, workspace repo 'bare', Chrome 1440 wide)
+# Before the submit the bare repo held only src/one.ts and README.md, committed; no .reggie/ at all.
+
+Popover sentence: Into bare, as a repo-wide idea.
+POST /api/capture?repo=bare {"text":"The bare repo needs its first note"} -> 200 { slug: "the-bare-repo-needs-its-first-note", origin: null }
+POST /api/launch?repo=bare  {"slugs":["the-bare-repo-needs-its-first-note"],"tool":"claude","mode":"discuss"} -> 200 { launched: true (ok stub), goal: "shape", session: "b0380395-d213-49ce-8093-b28579187c50", cwd: /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-bare-9PTfoF }
+Toasts: "Captured as the-bare-repo-needs-its-first-note", "Started shaping, in plan mode in Claude Code. Reopen it later with claude --resume b0380395-d213-49ce-8093-b28579187c50."; popover closed.
+
+# /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-bare-9PTfoF/.reggie/ after the submit:
+  total 8
+  drwxr-xr-x@ 4 jacobpress  staff  128 Sep 18 06:42 .
+  drwx------@ 6 jacobpress  staff  192 Sep 18 06:42 ..
+  drwxr-xr-x@ 4 jacobpress  staff  128 Sep 18 06:42 .cache
+  -rw-r--r--@ 1 jacobpress  staff  623 Sep 18 06:42 intake.md
+
+# /var/folders/rx/mf664n7x5h71rl40_6p81czr0000gn/T/reggie-bare-9PTfoF/.reggie/intake.md:
+# Intake
+
+Raw items waiting for triage. Anyone can add a line here, by hand, by voice
+note, or by asking Claude or Codex to capture it. No structure is required.
+
+Format Reggie writes (angle brackets are placeholders):
+
+    - <slug>: <one-line description> (<person>, <source>, <date>)
+      > <optional detail>
+
+`reggie triage <slug>` turns an item into a brief under
+`tasks/<slug>/brief.md` and removes its line here: the brief is the record of
+the item from then on. The task stays ungroomed until the brief is filled in.
+
+- the-bare-repo-needs-its-first-note: The bare repo needs its first note (test, web, 2026-09-18)
+
+# git status --porcelain in the bare repo (the intake file is untracked, nothing else moved):
+  ?? .reggie/

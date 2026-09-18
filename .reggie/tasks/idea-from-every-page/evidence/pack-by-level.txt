@@ -1,0 +1,17 @@
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/idea-from-every-page/packages/reggie
+
+ ↓ src/context.test.ts > buildContext > puts the brief above the plan block and lists its open questions
+ ↓ src/context.test.ts > buildContext > reads the brief's suspected paths into the files in scope
+ ↓ src/context.test.ts > buildContext > still asks for a journal entry after each step, and names the derive verb with what it adds and what it does not
+ ↓ src/context.test.ts > buildContext > says nothing about a brief when there is none
+ ✓ src/context.test.ts > the pack for a fresh slug, by the origin it was captured from > holds the file's own note and the repo note for a file origin 556ms
+ ✓ src/context.test.ts > the pack for a fresh slug, by the origin it was captured from > holds the folder's own note for a folder origin, and the same pack for a symbol as for its file 361ms
+ ✓ src/context.test.ts > the pack for a fresh slug, by the origin it was captured from > holds the repo note and the working agreement and no files in scope for a task origin or none 89ms
+ ✓ src/context.test.ts > the pack for a fresh slug, by the origin it was captured from > still builds the pack, with that file's commits, for a symbol origin whose file the code map never read 100ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed | 4 skipped (8)
+   Start at  10:52:43
+   Duration  1.95s (transform 85ms, setup 0ms, import 115ms, tests 1.77s, environment 0ms)
+

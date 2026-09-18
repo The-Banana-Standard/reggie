@@ -1,0 +1,26 @@
+# .reggie/intake.md of the fixture after the four capture() cases of AC4 (a file, a folder with a detail line first, a symbol, a task)
+
+# Intake
+
+Raw items waiting for triage. Anyone can add a line here, by hand, by voice
+note, or by asking Claude or Codex to capture it. No structure is required.
+
+Format Reggie writes (angle brackets are placeholders):
+
+    - <slug>: <one-line description> (<person>, <source>, <date>)
+      > <optional detail>
+
+`reggie triage <slug>` turns an item into a brief under
+`tasks/<slug>/brief.md` and removes its line here: the brief is the record of
+the item from then on. The task stays ungroomed until the brief is filled in.
+
+- split-the-big-area-into-two-packages: Split the big area into two packages (test, fixture, 2026-09-18)
+- the-shape-type-is-unread: The shape type is unread (test, web, 2026-09-18)
+  > Captured from the file `src/types/shape.ts`
+- the-big-area-is-big: The big area is big (test, web, 2026-09-18)
+  > forty-five files
+  > Captured from the folder `src/big`
+- emptyshape-allocates: emptyShape allocates (test, web, 2026-09-18)
+  > Captured from `emptyShape` in the file `src/types/shape.ts`
+- idea-while-reading-a-task: Idea while reading a task (test, web, 2026-09-18)
+  > Captured from the task `cache-chain-shape`

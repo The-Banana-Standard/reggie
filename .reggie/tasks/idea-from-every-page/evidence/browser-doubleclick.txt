@@ -1,0 +1,17 @@
+# AC22 — the form while a submit is in flight, and a second submit of the same text (harness deny, port 4903, area page src/big)
+
+Read 25 ms after clicking the main button (then the main button was clicked twice more while in flight):
+  { input.disabled: true, main.disabled: true, caret.disabled: true, main text: "Capturing…" }
+POST bodies recorded by a fetch hook for that submit (exactly one capture and one launch; the two extra clicks changed nothing):
+  /api/capture?repo=fixture  { text: "The big area needs a map of its own", path: "src/big" }                         -> 200
+  /api/launch?repo=fixture   { slugs: ["the-big-area-needs-a-map-of-its-own"], tool: "codex", mode: "discuss", paths: ["src/big"] } -> 200
+
+After the answer, the same text submitted again (from the caret, choosing Claude Code):
+  /api/capture?repo=fixture  { text: "The big area needs a map of its own", path: "src/big" }                         -> 200
+  /api/launch?repo=fixture   { slugs: ["the-big-area-needs-a-map-of-its-own-2"], tool: "claude", mode: "discuss", paths: ["src/big"] } -> 200
+  popover result: "Captured as the-big-area-needs-a-map-of-its-own-2."
+
+# AC23 — the remembered tool
+localStorage reggie.launch.tool set to "codex" before opening: main button read "Capture and shape in Codex"; the launch body said tool: "codex";
+the launch answer had session: null (the command began `codex -s read-only '...`); the launch record (launch-record-codex.json) has tool: "codex".
+Choosing "Capture and shape in Claude Code" from the caret changed the remembered tool: localStorage reggie.launch.tool is now "claude" and the main button reads "Capture and shape in Claude Code".

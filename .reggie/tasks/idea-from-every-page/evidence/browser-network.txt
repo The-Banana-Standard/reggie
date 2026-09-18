@@ -1,0 +1,35 @@
+# POST request bodies recorded by a fetch hook installed in the page (window.fetch wrapped; only POSTs logged), with the answer status.
+# The captured text appears only in the capture body; every launch body holds the slug, the tool, the mode and the page's path — never the text.
+
+## Desktop, harness IDEA_TERMINAL=ok, port 4904, Chrome 1440 wide (AC18)
+repo page   #/repo/fixture
+  /api/capture?repo=fixture  {"text":"The overview should count the stale notes"}                                              -> 200
+  /api/launch?repo=fixture   {"slugs":["the-overview-should-count-the-stale-notes"],"tool":"claude","mode":"discuss"}         -> 200
+  toasts: "Captured as the-overview-should-count-the-stale-notes", "Started shaping, in plan mode in Claude Code. Reopen it later with claude --resume fe27865d-b613-4b15-bd3e-a1d01241054e."; popover closed: true
+area page   #/repo/fixture/area/src/big
+  /api/capture?repo=fixture  {"text":"The chain should be split at a20","path":"src/big"}                                     -> 200
+  /api/launch?repo=fixture   {"slugs":["the-chain-should-be-split-at-a20"],"tool":"claude","mode":"discuss","paths":["src/big"]} -> 200
+  toasts: "Captured as the-chain-should-be-split-at-a20", "Started shaping, in plan mode in Claude Code. Reopen it later with claude --resume 530d5a2e-24de-4716-a296-055d3a77e0ae."; popover closed: true
+file page   #/repo/fixture/file/src/types/shape.ts
+  /api/capture?repo=fixture  {"text":"Shape needs a version field","path":"src/types/shape.ts"}                               -> 200
+  /api/launch?repo=fixture   {"slugs":["shape-needs-a-version-field"],"tool":"claude","mode":"discuss","paths":["src/types/shape.ts"]} -> 200
+  toasts: "Captured as shape-needs-a-version-field", "Started shaping, in plan mode in Claude Code. Reopen it later with claude --resume 1b0e95dc-48f5-4a06-8592-8bae201cbe13."; popover closed: true
+symbol page #/repo/fixture/symbol/src/types/shape.ts::emptyShape
+  /api/capture?repo=fixture  {"text":"emptyShape should take a capacity hint","path":"src/types/shape.ts","symbol":"emptyShape"} -> 200
+  /api/launch?repo=fixture   {"slugs":["emptyshape-should-take-a-capacity-hint"],"tool":"claude","mode":"discuss","paths":["src/types/shape.ts"]} -> 200
+  toasts: "Captured as emptyshape-should-take-a-capacity-hint", "Started shaping, in plan mode in Claude Code. Reopen it later with claude --resume f3db92a8-b3f0-46cd-af1a-4fa23656f7ef."; popover closed: true
+task page   #/repo/fixture/task/share-shape-helpers
+  /api/capture?repo=fixture  {"text":"The helpers should live beside the type","task":"share-shape-helpers"}                 -> 200
+  /api/launch?repo=fixture   {"slugs":["the-helpers-should-live-beside-the-type"],"tool":"claude","mode":"discuss"}           -> 200
+  toasts: "Captured as the-helpers-should-live-beside-the-type", "Started shaping, in plan mode in Claude Code. Reopen it later with claude --resume 7a3adfc3-69d2-448d-af88-4ba0f1b0e061."; popover closed: true
+
+## Desktop, harness IDEA_TERMINAL=deny, port 4903 (AC20, AC22, AC23)
+file page   #/repo/fixture/file/src/types/shape.ts
+  /api/capture?repo=fixture  {"text":"Shape should carry a version so callers can tell old points apart","path":"src/types/shape.ts"} -> 200
+  /api/launch?repo=fixture   {"slugs":["shape-should-carry-a-version-so-callers-can-tell"],"tool":"claude","mode":"discuss","paths":["src/types/shape.ts"]} -> 200 (launched: false)
+area page, reggie.launch.tool remembered as codex
+  /api/capture?repo=fixture  {"text":"The big area needs a map of its own","path":"src/big"}                                  -> 200
+  /api/launch?repo=fixture   {"slugs":["the-big-area-needs-a-map-of-its-own"],"tool":"codex","mode":"discuss","paths":["src/big"]} -> 200 (launched: false, session: null)
+area page, Claude Code chosen from the caret
+  /api/capture?repo=fixture  {"text":"The big area needs a map of its own","path":"src/big"}                                  -> 200
+  /api/launch?repo=fixture   {"slugs":["the-big-area-needs-a-map-of-its-own-2"],"tool":"claude","mode":"discuss","paths":["src/big"]} -> 200 (launched: false)
