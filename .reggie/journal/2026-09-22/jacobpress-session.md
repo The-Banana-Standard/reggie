@@ -32,3 +32,6 @@ Pull request 16 passed the independent Linux and macOS jobs, closing the last ve
 ### 18:47 · jacobpress · codex · web-ui-test-foundation · decide
 Decision: approved. Merged the task branch into repo-manager. Approved under the requested program after complete local verification, manual browser acceptance, and passing hosted Linux/macOS CI on pull request 16.
 
+### 19:08 · jacobpress · codex · semantic-code-index · plan
+Mapped the regex-first symbol and flow seams and shaped the compiler-backed replacement around stable identities, explicit-source types, proof-bearing concept links, and separate reachability versus reference evidence; legacy flow fields remain only as a migration adapter.
+
