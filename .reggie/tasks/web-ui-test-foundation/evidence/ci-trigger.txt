@@ -1,0 +1,7 @@
+Command: parse `.github/workflows/ci.yml` with the repository's YAML dependency and print the event branches.
+Result: PASS
+
+Parsed value:
+{"push":["main","repo-manager"],"pullRequest":null}
+
+The workflow keeps the existing unfiltered pull-request event and the Linux/macOS matrix; only the push branch list changed.

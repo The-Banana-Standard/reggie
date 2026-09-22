@@ -1,0 +1,11 @@
+The package development guide names both Vitest projects:
+
+- `node`: TypeScript unit and integration tests, including the MCP client.
+- `web-dom`: `ui/**/*.dom.test.js` in jsdom, importing the production router, story, reader, and map-model modules.
+
+It explicitly reserves Cytoscape geometry, fit behavior, and desktop/phone rendering for an in-app-browser check.
+
+`node dist/cli.js -C ../.. docs check` after the generated-block refresh reported:
+
+- fresh: CLAUDE.md
+- fresh: AGENTS.md

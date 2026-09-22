@@ -1,0 +1,16 @@
+In-app-browser acceptance against the task worktree server on 127.0.0.1:4312.
+
+Desktop, 1600 by 1000:
+
+- Repository page: `data-panes="story map"`, `data-open="story map"`, document width 1600, no horizontal overflow.
+- Hid the map with the Map pane button: map column became `display: none`, `data-open="story"`, and the map rail appeared.
+- Restored the map from its rail and pressed Fit: `data-open="story map"`; all three Cytoscape canvases matched the 1027 by 952 stage; no overflow.
+- Data Flow overview loaded at `#/repo/reggie/flows`, drew three Cytoscape canvases, and had document width 1600 with no overflow.
+
+Phone, 390 by 844:
+
+- Data Flow overview: document and body width 390, map hidden behind the phone Map button, no horizontal overflow.
+- Opened the phone map: fixed overlay visible, stage 390 by 768, document width remained 390.
+- Repository overview: heading `About this repo`, fixed bottom navigation, document and body width 390, no horizontal overflow.
+
+Console inspection after desktop and phone navigation returned no warnings or errors.
