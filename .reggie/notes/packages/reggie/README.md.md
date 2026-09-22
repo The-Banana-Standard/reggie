@@ -11,3 +11,6 @@ sources: derive-the-journal
 The command table gained the launch verb, which it had never listed, alongside the new --path option on capture and launch, and the MCP line says reggie_capture takes a path and that there is no launch tool.
 sources: idea-from-every-page
 
+## how · 2026-09-22 · Codex via jacobpress · medium
+Development documentation distinguishes the Node and web-dom test projects and keeps Cytoscape geometry and responsive rendering as real-browser checks.
+

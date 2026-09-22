@@ -15,3 +15,6 @@ Published the integration branch and turned the first program milestone into a l
 ### 18:01 · jacobpress · codex · web-ui-test-foundation · claim
 Claimed the task and started a branch from repo-manager in a separate worktree.
 
+### 18:16 · jacobpress · codex · web-ui-test-foundation · execute
+Added a named jsdom test project around the production browser modules, pinned current routing, story, reader and graph-model behavior, and widened the integration branch's CI trigger. Kept geometry and responsive behavior in the real-browser lane; chose the older jsdom line so Node 20 remains supported.
+
