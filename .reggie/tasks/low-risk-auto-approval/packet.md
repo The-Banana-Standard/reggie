@@ -240,7 +240,7 @@ Read this top to bottom to decide whether the work is done. Every claim should p
  .reggie/config.yaml                                |  14 +
  .reggie/intake.md                                  |  17 +-
  .reggie/journal/2026-09-18/jacobpress-session.md   |  15 +
- .reggie/journal/2026-09-22/jacobpress-session.md   |   7 +
+ .reggie/journal/2026-09-22/jacobpress-session.md   |   9 +
  .reggie/notes/.reggie/config.yaml.md               |   8 +
  .../packages/reggie/docs/ui-api-contract.md.md     |   4 +
  .reggie/notes/packages/reggie/src/capture.ts.md    |   4 +
@@ -266,7 +266,7 @@ Read this top to bottom to decide whether the work is done. Every claim should p
  .../notes/packages/reggie/ui/DOM-CONTRACT.md.md    |   4 +
  .reggie/notes/packages/reggie/ui/board.css.md      |   4 +
  .reggie/notes/packages/reggie/ui/board.js.md       |   4 +
- .reggie/tasks/low-risk-auto-approval/checks.jsonl  |   1 +
+ .reggie/tasks/low-risk-auto-approval/checks.jsonl  |  58 ++
  .reggie/tasks/low-risk-auto-approval/claim.md      |  10 +
  .../evidence/api-contract.diff                     |  73 +++
  .../low-risk-auto-approval/evidence/api-policy.txt |  11 +
@@ -317,7 +317,7 @@ Read this top to bottom to decide whether the work is done. Every claim should p
  .../low-risk-auto-approval/evidence/tests.txt      |  14 +
  .../evidence/two-at-once.txt                       | 135 +++++
  .../low-risk-auto-approval/evidence/typecheck.txt  |   9 +
- .reggie/tasks/low-risk-auto-approval/packet.md     | 376 +++++++++++++
+ .reggie/tasks/low-risk-auto-approval/packet.md     | 381 +++++++++++++
  AGENTS.md                                          |  10 +-
  CLAUDE.md                                          |  10 +-
  docs/getting-started.md                            |  22 +-
@@ -360,7 +360,7 @@ Read this top to bottom to decide whether the work is done. Every claim should p
  packages/reggie/ui/DOM-CONTRACT.md                 |   1 +
  packages/reggie/ui/board.css                       |  12 +
  packages/reggie/ui/board.js                        |  82 ++-
- 124 files changed, 7502 insertions(+), 137 deletions(-)
+ 124 files changed, 7566 insertions(+), 137 deletions(-)
 ```
 
 ## Reviews
