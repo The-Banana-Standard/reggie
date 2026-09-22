@@ -117,4 +117,3 @@ describe("criterion keys", () => {
     expect(parsePlan(awkward).criteria).toHaveLength(3);
   });
 });
-

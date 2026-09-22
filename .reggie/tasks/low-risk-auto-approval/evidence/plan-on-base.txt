@@ -11,4 +11,3 @@ $ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "AC22" --rep
    Start at  13:45:03
    Duration  1.82s (transform 121ms, setup 0ms, import 159ms, tests 1.60s, environment 0ms)
 exit 0
-

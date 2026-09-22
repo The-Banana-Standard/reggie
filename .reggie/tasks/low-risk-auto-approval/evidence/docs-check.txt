@@ -25,3 +25,16 @@ fresh: AGENTS.md
 exit 0
 
 This file and generated-block.txt are rewritten after that run. Both existed already, so the counts in the block do not move; the check is run once more after they are committed, and the journal says what it answered.
+
+Finalization rerun on 2026-09-22, after the packet and checks paths existed:
+$ npm run build
+> tsc -p tsconfig.json
+$ node packages/reggie/dist/cli.js -C . docs refresh
+updated: CLAUDE.md
+updated: AGENTS.md
+$ node packages/reggie/dist/cli.js -C . docs check
+fresh: CLAUDE.md
+fresh: AGENTS.md
+$ node packages/reggie/dist/cli.js -C . plan lint low-risk-auto-approval
+PASS
+exit 0

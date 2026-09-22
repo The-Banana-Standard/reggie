@@ -61,4 +61,3 @@ describe("the README every onboarded repo gets", () => {
     }
   });
 });
-

@@ -21,4 +21,3 @@ $ cd packages/reggie && TZ=UTC npx vitest run src/packet.test.ts -t "the one rea
    Start at  13:44:54
    Duration  202ms (transform 105ms, setup 0ms, import 140ms, tests 3ms, environment 0ms)
 exit 0
-

@@ -1,5 +1,5 @@
 # AC52: the whole suite
-# branch task/low-risk-auto-approval at f416a5346333, 2026-09-18T13:50:52Z
+# final candidate run, 2026-09-22T18:38:59Z
 
 $ cd packages/reggie && TZ=UTC npx vitest run
 
@@ -8,7 +8,7 @@ $ cd packages/reggie && TZ=UTC npx vitest run
 
  Test Files  41 passed (41)
       Tests  1200 passed | 1 skipped (1201)
-   Start at  13:50:53
-   Duration  48.83s (transform 3.35s, setup 0ms, import 5.84s, tests 343.88s, environment 2ms)
+   Start at  18:38:59
+   Duration  66.59s (transform 3.06s, setup 0ms, import 5.13s, tests 306.13s, environment 3ms)
 
 exit 0

@@ -35,7 +35,7 @@ index cbd5e6a..de9e6e9 100644
  - Entry points: `packages/reggie/src/cli.ts`
 -- Tests: 42 test files under `packages/reggie`. CI: `ci.yml`.
 +- Tests: 47 test files under `packages/reggie`. CI: `ci.yml`.
- 
+
  ## Commands (generated)
  - build: `npm run build`
 @@ -38,7 +38,7 @@ read the same rules; edit them there, then run `reggie docs refresh`.
@@ -46,7 +46,7 @@ index cbd5e6a..de9e6e9 100644
 +- Plans live at `.reggie/tasks/<slug>/plan.md` and must satisfy the plan contract (`reggie plan lint <slug>`). Completion packets live beside them as `packet.md`, with proof under `evidence/`. Verified criteria are recorded with `reggie check <slug> <criterion> pass --evidence <file>`, and the packet's checklist is built from those records.
  - After each step of work, write one plain-English journal entry: `reggie journal add --slug <slug> --stage <stage> "what happened, why, what is uncertain"`. No file paths in the prose. `reggie journal derive <slug>` adds the commits and a launched session's closing words, not the reasons and not what is uncertain, so the entry you write is still the record of why.
  - Raw ideas and discovered issues go to `.reggie/intake.md` via `reggie capture "text"`. Never fix unrelated issues in passing; capture them.
- 
+
 diff --git a/CLAUDE.md b/CLAUDE.md
 index fe97c16..d3f7925 100644
 --- a/CLAUDE.md
@@ -63,7 +63,7 @@ index fe97c16..d3f7925 100644
  - Entry points: `packages/reggie/src/cli.ts`
 -- Tests: 42 test files under `packages/reggie`. CI: `ci.yml`.
 +- Tests: 47 test files under `packages/reggie`. CI: `ci.yml`.
- 
+
  ## Commands (generated)
  - build: `npm run build`
 @@ -37,7 +37,7 @@ Curated notes for anyone, human or agent, working in this repo. Edit freely outs
@@ -74,7 +74,7 @@ index fe97c16..d3f7925 100644
 +- Plans live at `.reggie/tasks/<slug>/plan.md` and must satisfy the plan contract (`reggie plan lint <slug>`). Completion packets live beside them as `packet.md`, with proof under `evidence/`. Verified criteria are recorded with `reggie check <slug> <criterion> pass --evidence <file>`, and the packet's checklist is built from those records.
  - After each step of work, write one plain-English journal entry: `reggie journal add --slug <slug> --stage <stage> "what happened, why, what is uncertain"`. No file paths in the prose. `reggie journal derive <slug>` adds the commits and a launched session's closing words, not the reasons and not what is uncertain, so the entry you write is still the record of why.
  - Raw ideas and discovered issues go to `.reggie/intake.md` via `reggie capture "text"`. Never fix unrelated issues in passing; capture them.
- 
+
 $ grep -c 'Verified criteria are recorded with' CLAUDE.md AGENTS.md
 CLAUDE.md:1
 AGENTS.md:1

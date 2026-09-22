@@ -18,4 +18,3 @@ $ cd packages/reggie && TZ=UTC npx vitest run src/checks.test.ts -t "exits 1 wit
    Start at  13:44:34
    Duration  2.77s (transform 100ms, setup 0ms, import 134ms, tests 2.58s, environment 0ms)
 exit 0
-

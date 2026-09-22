@@ -18,4 +18,3 @@ sources: low-risk-auto-approval
 ## decision · 2026-09-18 · Claude via jacobpress · high
 An empty evidence file fails although one landed packet holds an honest one: with no reader, an empty file cannot be told from a redirect that failed, and the message says to save the command and its exit status into the file. lintPacket is the packet contract, the third beside the brief's and the plan's; a hand approval does not run it, the policy report does. Whether a citation resolves is the gate's question and not the contract's, which only asks that it is well formed.
 sources: low-risk-auto-approval
-

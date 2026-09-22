@@ -14,4 +14,3 @@ sources: low-risk-auto-approval
 ## gotcha · 2026-09-18 · Claude via jacobpress · high
 Never type a backslash-u escape into this file through the file-writing tool: it arrives as the raw character, and three character classes here were briefly raw control bytes because of it. They are written as escapes, and after any edit to UNSAFE_TEXT_CHARS, cleanLine or evidencePath the file should be scanned for bytes below 0x20. The same trap is recorded for capture.ts.
 sources: low-risk-auto-approval
-

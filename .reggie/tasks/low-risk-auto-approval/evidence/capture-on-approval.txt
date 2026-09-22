@@ -36,4 +36,3 @@ $ cd packages/reggie && TZ=UTC npx vitest run test/serve.test.ts -t "carries the
    Start at  13:45:32
    Duration  2.24s (transform 298ms, setup 0ms, import 372ms, tests 1.80s, environment 0ms)
 exit 0
-

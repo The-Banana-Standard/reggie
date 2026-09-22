@@ -23,4 +23,3 @@ $ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "lets a late
    Start at  13:44:32
    Duration  1.81s (transform 123ms, setup 0ms, import 161ms, tests 1.59s, environment 0ms)
 exit 0
-

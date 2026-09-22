@@ -574,4 +574,3 @@ describe("discovered issues, captured inside the merge commit", () => {
     }
   });
 });
-

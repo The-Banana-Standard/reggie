@@ -1,5 +1,5 @@
 # AC53: npm run typecheck
-# branch task/low-risk-auto-approval at f416a5346333, 2026-09-18T13:50:51Z
+# final candidate run, 2026-09-22
 
 $ cd packages/reggie && npm run typecheck
 

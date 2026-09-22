@@ -13,4 +13,3 @@ $ cd packages/reggie && TZ=UTC npx vitest run src/land.test.ts -t "one landing a
    Start at  13:45:18
    Duration  5.29s (transform 107ms, setup 0ms, import 141ms, tests 5.09s, environment 0ms)
 exit 0
-

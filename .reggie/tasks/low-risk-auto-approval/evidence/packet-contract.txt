@@ -38,4 +38,3 @@ $ cd packages/reggie && TZ=UTC npx vitest run src/packet.test.ts -t "the packet 
    Start at  13:44:51
    Duration  1.20s (transform 102ms, setup 0ms, import 135ms, tests 1.00s, environment 0ms)
 exit 0
-

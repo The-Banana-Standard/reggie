@@ -73,7 +73,7 @@ index 666a655..a066399 100644
 @@ -82,8 +82,12 @@ function numbered(n: number, change: (i: number) => string | null = () => null):
    return `${lines.join("\n")}\n`;
  }
- 
+
 -function packet(slug: string, verdict: "pending" | "approved"): string {
 -  return ["---", `slug: ${slug}`, `title: ${slug}`, "risk: low", "author: test", "date: 2026-09-17", `branch: task/${slug}`, "base: main", `verdict: ${verdict}`, "decided_by:", "decided_at:", "---", `# Completion: ${slug}`, "", "## Acceptance criteria", "- [x] It works", "  evidence: evidence/tests.txt", ""].join("\n");
 +/**
@@ -83,7 +83,7 @@ index 666a655..a066399 100644
 +function packet(slug: string, verdict: "pending" | "approved", cites = true): string {
 +  return ["---", `slug: ${slug}`, `title: ${slug}`, "risk: low", "author: test", "date: 2026-09-17", `branch: task/${slug}`, "base: main", `verdict: ${verdict}`, "decided_by:", "decided_at:", "---", `# Completion: ${slug}`, "", "## Acceptance criteria", "- [x] It works", ...(cites ? ["  evidence: evidence/tests.txt"] : []), ""].join("\n");
  }
- 
+
  export function makeDiffFixture(opts: { large?: boolean } = {}): DiffFixture {
 @@ -276,7 +280,7 @@ export function makeDiffFixture(opts: { large?: boolean } = {}): DiffFixture {
    branch(slugs.landed);

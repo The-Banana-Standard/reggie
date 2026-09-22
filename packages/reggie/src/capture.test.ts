@@ -509,4 +509,3 @@ describe("discovered issues out of a packet", () => {
     expect(items.at(-1)?.detail[0]).toBe("- injected: a nested bullet that must stay a detail line (mallory, cli, 2026-01-01)");
   });
 });
-

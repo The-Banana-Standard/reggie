@@ -13,7 +13,7 @@ index 8d3982c..a4c424c 100644
 @@ -238,6 +239,50 @@ interface Completion {
  ```
  `brief` parses the brief the same way `plan` parses the plan, so the page renders sections rather than raw markdown. In a `Completion`, `evidence[].route` is the `/api/evidence` URL for a reference that names a file under `.reggie/tasks/<slug>/evidence/` and `null` otherwise; `exists` says whether that file is really there (working tree or task branch), so a criterion claiming proof that was never saved is visible as such. `diff` sums the numstat of the task's own commits and leaves `.reggie/` records out, the way `changedFiles` does.
- 
+
 +### `policy`: what the policy would say about a finished task
 +
 +`policy` is the object `reggie check <slug> --json` prints, for a task that has a live `task/<slug>` branch with a packet on it, and `null` otherwise. It is a **report**: in this version nothing acts on it, the decide form is still how a task is decided, and the page says so above the form. It is computed per request for this one page and never stored, because it is a function of two commits and both move; `GET /api/tasks` never computes it.
@@ -59,7 +59,7 @@ index 8d3982c..a4c424c 100644
 +One JSON object per line, appended on the task branch by `reggie check` and the `reggie_check` MCP tool, never committed by them: `{ v: 1; kind: 'criterion'|'review'; key: string; n: number; text: string; outcome: 'pass'|'fail'; evidence: string[]; note: string; person: string; tool: string; session: string; at: string; head: string }`. A criterion's `key` is `c:` and the first twelve hex characters of the SHA-256 of its whole bullet in the plan (first line and indented continuation lines, whitespace collapsed), with `#2`, `#3` for identical bullets, so renumbering changes nothing and one changed word makes a new key; a review's is `r:<name>`. `evidence` holds full repo-relative paths of files directly inside the task's evidence folder; `head` is the commit the checkout was on. `n` and `text` are for readers and are never trusted. A line that is not such an object (not JSON, not an object, over 16 KB, a wrong or unknown field) is counted by line number in `badLines` and is itself a refusal. The packet's acceptance checklist is generated from these records between `<!-- reggie:checks:start -->` and `<!-- reggie:checks:end -->` by `reggie packet`; `packet.criteria` reads that block back like any other checklist.
 +
  404 for unknown slug; 400 for unsafe slug.
- 
+
  ## GET /api/state-machine
 @@ -396,7 +441,8 @@ Every request, GET and POST alike, must carry a `Host` header naming a loopback
  ## POST endpoints (JSON bodies ≤ 64 KB; loopback socket only; `Sec-Fetch-Site` must be `same-origin` or `none`; `Origin`, when present, must equal the server origin; otherwise 403)

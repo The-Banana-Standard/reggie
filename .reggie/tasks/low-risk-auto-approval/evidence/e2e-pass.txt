@@ -214,11 +214,11 @@ Approved two-not-one: merged task/two-not-one into main as 0393689.
    03936892f5aeb358b29c490e539ae0eb46a026fa
    merge: task/two-not-one — Change the constant in one file
    Evidence matches the criteria
-   
+
    Task: two-not-one
    Decided-by: fixture
-   
-   
+
+
     .reggie/intake.md                             |  2 +
     .reggie/journal/2026-09-18/fixture-session.md | 10 +++++
     .reggie/tasks/two-not-one/checks.jsonl        |  2 +

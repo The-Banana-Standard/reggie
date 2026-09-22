@@ -23,10 +23,10 @@ index d085291..3c24957 100644
 @@ -117,29 +117,36 @@ In solo mode, committing the plan to your default branch is the approval. The ta
  /reggie-execute <slug>
  ```
- 
+
 -That claims the task on a `task/<slug>` branch, does the work, saves the evidence the plan asked for under `.reggie/tasks/<slug>/evidence/`, runs the review policy for the risk class (`/code-review` at medium, `/security-review` too at high), writes notes for the files it touched, journals each step, and scaffolds the completion packet. By hand:
 +That claims the task on a `task/<slug>` branch, does the work, saves the evidence the plan asked for under `.reggie/tasks/<slug>/evidence/`, runs the review policy for the risk class (`/code-review` at medium, `/security-review` too at high), records each criterion it verified as a check, writes notes for the files it touched, journals each step, and scaffolds the completion packet. By hand:
- 
+
  ```bash
  reggie claim <slug>               # task/<slug> branch; add --worktree to keep your checkout free
 -# ... do the work, commit as you go ...
@@ -41,28 +41,28 @@ index d085291..3c24957 100644
 +# commit the packet, checks.jsonl and the evidence together
 +reggie check <slug>               # what a decider will see: the policy report, which decides nothing
  ```
- 
+
 +Record a check after the code it proves is committed, and after your last commit that changes code or docs: a pass is stale once anything outside `.reggie/` changes after it, and the verb refuses a pass while code is uncommitted. Nobody ticks a box by hand; the packet's checklist is rebuilt from `checks.jsonl` every time `reggie packet` runs.
 +
  **Decide.** With `gh`, open a pull request whose body is the packet:
- 
+
  ```bash
  reggie pr <slug>
  ```
- 
+
 -Approving the PR is the decision, and merging it makes the task **done**. Without `gh`, or in solo mode:
 +Approving the PR is the decision, and merging it makes the task **done**. Without `gh`, or in solo mode, decide from the checkout that has the integration branch checked out:
- 
+
  ```bash
  reggie decide <slug> approved --comment "Evidence matches the criteria"
 -git add .reggie && git commit -m "decide: <slug>"
 -git switch main && git merge task/<slug>
  ```
- 
+
 +In solo mode that one command lands the task: it merges `task/<slug>` with `--no-ff`, writes the verdict and a journal entry inside the merge commit, and releases the branch and its worktree. It never pushes. It refuses, and writes nothing, when the packet cites evidence that is not committed on the branch (each path is named with its reason: missing, empty, a link, a folder, a path outside the task's evidence folder; there is no override, so commit the file or fix the citation), when the checkout has uncommitted changes or a merge already in progress, when another landing holds the lock, and when the merge conflicts, which it aborts. An approval also **captures** what the packet lists under Discovered issues and the queue does not hold yet, into `intake.md` inside the same merge commit, and prints the new slugs; write "none" there when there are none. `reggie decide <slug> needs-work --comment "..."` sends the task back and captures nothing.
 +
  Check where everything stands at any time:
- 
+
  ```bash
 @@ -183,6 +190,7 @@ The generated block in `CLAUDE.md` tells every agent session exactly this, so yo
  | `.reggie/intake.md` | Raw captured items |
@@ -85,12 +85,12 @@ index c6c41cb..1092bda 100644
      notes/
        _repo.md               ← what this repo is and how to run it
 @@ -64,9 +65,17 @@ One line per item, no structure required. You can add a line by hand, by `reggie
- 
+
  A plan is written in plan mode by Claude Code or Codex, or by hand, but it must satisfy the same contract either way: a problem, an approach that names the alternative it rejected, the files it will touch, acceptance criteria a reviewer can check without asking, a verification strategy that names the evidence for each criterion, the assumptions made, what is out of scope, and the conditions that would send it back to planning. `reggie plan lint` enforces this. `reggie plan risk` reads the files list and sets a risk class of low, medium, or high, which decides how much review the work gets later.
- 
+
 -### .reggie/tasks/<slug>/packet.md and evidence/: how you know it is done
 +### .reggie/tasks/<slug>/packet.md, checks.jsonl and evidence/: how you know it is done
- 
+
 -When the work is finished, `reggie packet` builds the completion packet from the plan: the acceptance criteria as a checklist, each pointing at an evidence file; the list of files changed; the reviews that ran; deviations from the plan and why; issues discovered on the way; open risks. A reviewer reads the packet top to bottom and decides. The evidence folder holds the proof, so a claim like "tests pass" is a file, not a sentence. Both survive forever, because a task you cannot re-verify six months later is a task you have to trust.
 +What was verified is recorded as data, not as a ticked box. When a criterion has been proved, the session saves the proof under `evidence/` and runs `reggie check <slug> <criterion> pass --evidence <file>` (or calls the `reggie_check` tool); a review is recorded the same way with `--review <name>`, and a `fail` is always recordable. Each check is one JSON line in `checks.jsonl`: the criterion's key, the outcome, the evidence, who and what recorded it, when, and the commit the checkout was on. The key is a hash of the criterion's own words in the plan, so renumbering the plan changes nothing and rewording a criterion makes a new key that an old pass cannot count for. The latest line for a key wins, by its position in the file. The verb refuses a pass with no evidence, evidence that is not a non-empty regular file directly inside the task's evidence folder, and a pass while code is uncommitted, because a check proves committed code.
 +
@@ -101,18 +101,18 @@ index c6c41cb..1092bda 100644
 +**What an approval captures.** In solo mode an approval reads the packet's `## Discovered issues` and captures every bullet the queue does not hold yet into `intake.md`, inside the same merge commit as the verdict, so an issue a session wrote down and never captured is not lost. It skips the scaffold's stand-in, a bullet that says none, and a bullet that names a slug Reggie knows or repeats an intake line.
 +
 +**The policy report.** `reggie check <slug>` with no outcome, and the task's page above the decide form, say what the policy would say about the finished task: would pass, refused with each reason, or not evaluated. It judges exactly two commits and no working tree, so it reads the same from any checkout. The config, the risk rules and the plan come from the integration branch's tip, and the packet, the records and the evidence from the task branch's tip, so a branch cannot lower its own risk, delete a criterion or widen the policy it is judged by; a branch that changes its own plan, `config.yaml`, `people.yaml`, another task's folder, `.mcp.json`, `.gitattributes` or anything under `.claude/` always goes to a person. It is a report: nothing acts on it yet, and a person decides every task.
- 
+
  ### .reggie/notes/: knowledge arranged like the code
- 
+
 @@ -95,7 +104,7 @@ When a task is claimed, Reggie commits a small `claim.md` on the branch naming t
- 
+
  ### .reggie/people.yaml and config.yaml: who, and which mode
- 
+
 -Identity is your git author email. The first person in becomes a maintainer. One person means solo mode: your commit is your approval. More than one means team mode: plans go up as draft PRs for comments, and packets are decided in PR review. Risk rules in `config.yaml` are substrings of file paths; a plan touching anything matching the high list gets full review.
 +Identity is your git author email. The first person in becomes a maintainer. One person means solo mode: your commit is your approval. More than one means team mode: plans go up as draft PRs for comments, and packets are decided in PR review. Risk rules in `config.yaml` are substrings of file paths; a plan touching anything matching the high list gets full review. The `policy` block names, for plans and for completions, the highest risk class that passes without a person: `none`, `low`, `medium` or `high`. Solo mode defaults to `plans: high` and `completions: low`, team mode to `none` for both. It is always read from the integration branch's committed copy, never from a task branch, and today it feeds the policy report and nothing else.
- 
+
  ### .claude/commands/ and .mcp.json: the thin layer for agents
- 
+
 @@ -112,8 +121,9 @@ Four small commands, `reggie-onboard`, `reggie-plan`, `reggie-execute`, and `reg
  | A plan | `tasks/<slug>/plan.md` |
  | A claim | A `task/<slug>` branch and a journal entry |
@@ -123,7 +123,7 @@ index c6c41cb..1092bda 100644
 +| A packet | `tasks/<slug>/packet.md`, its checklist generated from the checks |
 +| A decision | The PR review, or the packet's verdict in solo mode, where an approval also merges the branch and captures the packet's discovered issues in the same commit |
  | A merge | Nothing; the task is done because git says so |
- 
+
  ## What Reggie never does
 diff --git a/docs/repo-manager-vision.md b/docs/repo-manager-vision.md
 index 5fa5e4f..4b8c842 100644
@@ -156,14 +156,14 @@ index a51def2..da082c8 100644
  | `reggie services [--json]` | What the repo talks to: every binding, store and API, with the manifest line that declares it and the files that touch it. Names the ones the code reads and no manifest declares first. |
  | `reggie flows [id] [--depth n] [--json]` | Where data enters and where it goes. With no id, the entry points grouped by kind with their step counts and the services they reach; with one, that flow traced step by step, each step's payload in and out, and what any cap dropped. |
 @@ -131,7 +134,7 @@ Until a session records its real id in the claims and entries it writes (`sessio
- 
+
  `.mcp.json` (written by `onboard`) points Claude Code at `reggie mcp`. For Codex: `codex mcp add reggie -- reggie mcp`.
- 
+
 -Tools: `reggie_tasks`, `reggie_task`, `reggie_context`, `reggie_find_notes`, `reggie_add_note`, `reggie_journal`, `reggie_capture` (with an optional `path`, the file or folder the idea came from, checked the way `reggie capture --path` checks it), `reggie_plan_new`, `reggie_lint_plan`, `reggie_people`. There is no launch tool: launching opens a terminal on the serving machine and is a human act. Resources: `reggie://readme`, `reggie://intake`, `reggie://onboarding`.
 +Tools: `reggie_tasks`, `reggie_task`, `reggie_context`, `reggie_find_notes`, `reggie_add_note`, `reggie_journal`, `reggie_capture` (with an optional `path`, the file or folder the idea came from, checked the way `reggie capture --path` checks it), `reggie_check` (records a criterion or a review exactly as `reggie check` does, and returns the policy report when called with no outcome), `reggie_plan_new`, `reggie_lint_plan`, `reggie_people`. There is no launch tool: launching opens a terminal on the serving machine and is a human act. There is no tool that decides, either: a decision is a person's. Resources: `reggie://readme`, `reggie://intake`, `reggie://onboarding`.
- 
+
  Writes made through the server are attributed as `Claude via <handle>` or `Codex via <handle>`, detected from the environment; set `REGGIE_TOOL` to override.
- 
+
 diff --git a/packages/reggie/src/layout.ts b/packages/reggie/src/layout.ts
 index 4a0d02d..ad18293 100644
 --- a/packages/reggie/src/layout.ts
@@ -192,5 +192,5 @@ index 9b9f5a1..a206bee 100644
  - Completed: `.completed` > `.completed__list` > `.done-row` (`.is-open`) > `.done-row__head` (`.done-row__title`, `.done-row__chips`, `.done-row__toggle`) + `.done-row__detail` > `.done-detail__body`, which draws the verdict chips, `.packet__criteria` with `.evidence-link` (or `.evidence-missing` when the packet cites proof nobody saved), `.done-files` > `.done-file` > `.done-file__stat` (`.done-file__add` / `.done-file__del`), and `.done-journal`. `.completed__empty` is its empty state. When the task has a landing merge (`completion.merge`), each `.done-file` link is a door (`?diff=<slug>`, below) and the records sentence links to the task page; without one the links stay plain file links.
 +- Task page, the policy report (inside `#sec-packet`, after the packet's sub-sections and **above** `.packet__decide`, only when `GET /api/task/<slug>` carries a non-null `policy`): `.policy` (`.policy--would-pass` / `.policy--refused` / `.policy--not-evaluated`, with `data-verdict`) > an `h3.task-sub` "What the policy would say", a `.hint` saying it is a report and that a person decides below, `.policy__verdict` (a Policy `.chip` toned ok / bad / muted, then `.policy__summary` with the server's sentence), `.policy__facts` (the two commits read, the completions class and where it came from, the effective risk; a second one lists `risk.unplanned` when it is not empty), `.policy__list.policy__criteria` > `.policy__row` per criterion and per review (`.packet__mark` glyph: `✓` pass, `✗` fail, `!` stale or no-evidence, `○` missing; `.policy__text` "n. text"; `.policy__who` with the status, who recorded it, with what, and when, then `why`), and `.policy__list.policy__gates` > `.policy__row[data-gate="<GateId>"]` (`.packet__mark`, `.policy__text` with the gate's title, `.policy__why` > one `.policy__reason` per reason). Every string that came out of a check record is set as a text node, never through `inline()`: a record is a file anyone on the branch can write. The block wraps long paths (`overflow-wrap: anywhere`) so the page never scrolls sideways at phone width. The decide form is unchanged and still below it; on a refused decision `.form__error` and the toast show the server's own sentence for a 409 (`decideError`), never a guess at a missing packet.
  - Task page, "What changed" (`#sec-changes`, only for `in-process`, `awaiting-decision` and `done`): `.changes` (`aria-live`, a skeleton until `/api/changes` answers; an answer that arrives after the section has left the document is dropped, because the story container is shared by every task page) > `.changes__summary` (which two points the change is read between, and its size), then one of `.changes__reason` (no change to read, in the server's words), `.changes__none` (the commits left no net change, no commits yet, or only records changed), or `.change-files` > `.change-file` > `.change-file__status` (a `.badge`: `badge--new` Added, `badge--del` Deleted, `badge--mod` Modified, `badge--ren` Renamed / Copied / Type changed), the door link, `.change-file__from` for a rename, and `.change-file__stat` (`+n −n`, or `binary`). Reggie's own records follow under a `.task-sub` heading in `.change-files--records`, with the same rows. Every row links to `#/repo/<repo>/file/<path>?diff=<slug>`. A file link elsewhere on the page that may become a door carries `data-change-path`; once the list arrives, the ones whose path is in it (a "Files to touch" row, an "also changed" link) have their `href` rewritten to the door, and the rest keep the plain file link. The list is the one source of doors.
- 
+
  ### Reader (shared shell; reader.css owns the rest)

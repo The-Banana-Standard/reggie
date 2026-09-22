@@ -2391,4 +2391,3 @@ describe("the policy report and the evidence gate over HTTP", () => {
     expect(item?.detail).toEqual(["Captured from the task `approved-one`"]);
   });
 });
-

@@ -11,4 +11,3 @@ $ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "reads commi
    Start at  13:44:54
    Duration  2.21s (transform 127ms, setup 0ms, import 167ms, tests 1.99s, environment 0ms)
 exit 0
-

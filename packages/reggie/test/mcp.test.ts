@@ -261,4 +261,3 @@ describe("the reggie_check tool", () => {
     }
   });
 });
-

@@ -17,4 +17,3 @@ $ cd packages/reggie && TZ=UTC npx vitest run test/mcp.test.ts --reporter=verbos
    Start at  13:44:39
    Duration  3.42s (transform 123ms, setup 0ms, import 214ms, tests 3.14s, environment 0ms)
 exit 0
-
