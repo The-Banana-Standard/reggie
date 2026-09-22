@@ -35,3 +35,6 @@ Decision: approved. Merged the task branch into repo-manager. Approved under the
 ### 19:08 · jacobpress · codex · semantic-code-index · plan
 Mapped the regex-first symbol and flow seams and shaped the compiler-backed replacement around stable identities, explicit-source types, proof-bearing concept links, and separate reachability versus reference evidence; legacy flow fields remain only as a migration adapter.
 
+### 19:09 · jacobpress · codex · semantic-code-index · claim
+Claimed the task and started a branch from repo-manager.
+
