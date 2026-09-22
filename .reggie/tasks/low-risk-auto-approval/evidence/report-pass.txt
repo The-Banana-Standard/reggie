@@ -1,0 +1,18 @@
+# Passing policy report (AC18)
+
+Source run: `evidence/e2e-pass.txt`, executed in a guarded throwaway repository under the OS temporary directory on 2026-09-18.
+
+- Text report exit: 0.
+- JSON report exit from the integration checkout: 0.
+- JSON report exit from the task worktree: 0.
+- The two JSON documents were byte-identical (`cmp` exit 0).
+- Base: `main @ 543bdac85324`.
+- Branch: `task/two-not-one @ 33039c5c66c6`.
+- Policy: solo-mode completions through low, read from the base commit.
+- Risk: plan low, planned files low, changed files low, effective low.
+- Criteria: 2 of 2 passed with recorded person, tool, and instant.
+- Gates: policy, plan, controls, packet, criteria, evidence, risk, and merge all passed.
+- Verdict: would pass.
+- Both full branch ids were unchanged before and after both reports.
+
+The complete command transcript, report text, JSON comparison, branch-id comparison, later human merge, and exit status are retained in `evidence/e2e-pass.txt`.

@@ -1,0 +1,145 @@
+# AC14: one reader of evidence references, run read-only over the fifteen landed packets
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:46:04Z
+
+$ grep -rn 'parseEvidenceRefs' packages/reggie/src
+exit 1 (1 means nothing found)
+
+$ grep -rn 'evidenceRefs(' packages/reggie/src --include=*.ts | grep -v test
+/Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie/src/packet.ts:214:export function evidenceRefs(value: string): string[] {
+/Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie/src/packet.ts:248:    if (m) out.push(...evidenceRefs(m[1] ?? ""));
+/Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie/src/packet.ts:252:    if (m) out.push(...evidenceRefs(m[1] ?? ""));
+/Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie/src/tasks.ts:896:    if (ev && last) last.evidence.push(...evidenceRefs(ev[1] ?? ""));
+
+$ grep -c 'a-packet-s-evidence-line-with-prose-after-the-path-links-not' .reggie/intake.md
+0
+exit 1 (1 means the line is gone)
+
+==== the probe (probe-citations.mts)
+// Read-only probe over this repository's landed loop tasks (AC14). It runs only `git log`,
+// `git rev-parse`, `git show` and `git ls-tree` against the repository, writes nothing there, and
+// refuses to start unless its own working directory is under the OS temp directory (AC50).
+//
+// For each landing merge on the integration branch it reads the packet at the branch tip that was
+// merged (the merge's second parent) and compares today's evidence reader with this branch's, then
+// resolves every citation on that tip with this branch's resolver.
+import path from "node:path";
+const here = process.cwd();
+if (!/^\/(private\/)?(tmp|var\/folders)\//.test(here)) {
+  console.error(`refusing to run in ${here}: not under the OS temp directory`);
+  process.exit(98);
+}
+console.log(`running in ${here}`);
+const SRC = process.env.REGGIE_SRC ?? "";
+const ROOT = process.env.REGGIE_READ_ROOT ?? "";
+if (!SRC || !ROOT) throw new Error("set REGGIE_SRC (this branch's packages/reggie/src) and REGGIE_READ_ROOT (the repository to read)");
+const { git } = await import(path.join(SRC, "git.ts"));
+const { parsePacketCriteria } = await import(path.join(SRC, "tasks.ts"));
+const { packetCitations, resolveEvidence, packetEvidenceRefs } = await import(path.join(SRC, "packet.ts"));
+const { splitFrontMatter } = await import(path.join(SRC, "util.ts"));
+
+// Today's reader, copied verbatim from tasks.ts on the integration branch (parseEvidenceRefs).
+function oldRefs(value: string): string[] {
+  return value
+    .trim()
+    .replace(/^\((.*)\)$/, "$1")
+    .split(",")
+    .map((s) => s.trim().replace(/^`|`$/g, ""))
+    .filter((s) => s !== "" && !/\s/.test(s) && (s.includes("/") || /\.\w+$/.test(s)));
+}
+function oldCriteria(section: string): { pass: boolean | null; evidence: string[] }[] {
+  const out: { pass: boolean | null; evidence: string[] }[] = [];
+  for (const raw of section.split("\n")) {
+    const line = raw.trim();
+    const box = /^-\s+\[([ xX])\]\s+(.+)$/.exec(line);
+    if (box) { if (!/^\(.*\)$/.test((box[2] ?? "").trim())) out.push({ pass: box[1] !== " ", evidence: [] }); continue; }
+    const bullet = /^-\s+(\S.*)$/.exec(line);
+    if (bullet) { if (!/^\(.*\)$/.test((bullet[1] ?? "").trim())) out.push({ pass: null, evidence: [] }); continue; }
+    const ev = /^evidence:\s*(.*)$/i.exec(line);
+    const last = out[out.length - 1];
+    if (ev && last) last.evidence.push(...oldRefs(ev[1] ?? ""));
+  }
+  return out;
+}
+function section(body: string, name: string): string {
+  const lines: string[] = [];
+  let on = false;
+  for (const line of body.split("\n")) {
+    const h = /^##\s+(.+?)\s*$/.exec(line);
+    if (h) { on = (h[1] ?? "").trim() === name; continue; }
+    if (on) lines.push(line);
+  }
+  return lines.join("\n");
+}
+
+const base = process.env.REGGIE_READ_BRANCH ?? "repo-manager";
+const merges = git(["log", "--first-parent", "--merges", "--format=%H%x1f%s", base], { cwd: ROOT }).stdout.trim().split("\n");
+const rows: Record<string, unknown>[] = [];
+const problems: string[] = [];
+let ticked = 0, tickedOld = 0, tickedNew = 0, boxed = 0, boxedOld = 0, boxedNew = 0, distinct = 0, notSuperset = 0;
+for (const line of merges) {
+  const [sha = "", subject = ""] = line.split("\x1f");
+  const m = /task\/([a-z0-9-]+)/.exec(subject);
+  if (!m?.[1]) continue;
+  const slug = m[1];
+  const tip = git(["rev-parse", "--verify", "--quiet", `${sha}^2^{commit}`], { cwd: ROOT, allowFailure: true }).stdout.trim();
+  if (!/^[0-9a-f]{40}$/.test(tip)) continue;
+  const shown = git(["show", `${tip}:.reggie/tasks/${slug}/packet.md`], { cwd: ROOT, allowFailure: true });
+  if (!shown.ok) continue;
+  const { body } = splitFrontMatter(shown.stdout);
+  const ac = section(body, "Acceptance criteria");
+  const before = oldCriteria(ac);
+  const after = parsePacketCriteria(ac) as { pass: boolean | null; evidence: string[] }[];
+  let lost = 0;
+  before.forEach((c, i) => { for (const ref of c.evidence) if (!(after[i]?.evidence ?? []).includes(ref)) lost += 1; });
+  if (before.length !== after.length) lost += 1;
+  notSuperset += lost;
+  const t = after.filter((c) => c.pass === true);
+  const tOld = before.filter((c) => c.pass === true && c.evidence.length > 0).length;
+  const tNew = t.filter((c) => c.evidence.length > 0).length;
+  ticked += t.length; tickedOld += tOld; tickedNew += tNew;
+  // The planning probe counted every criterion with a checkbox, ticked or not; both counts are printed.
+  boxed += after.filter((c) => c.pass !== null).length;
+  boxedOld += before.filter((c) => c.pass !== null && c.evidence.length > 0).length;
+  boxedNew += after.filter((c) => c.pass !== null && c.evidence.length > 0).length;
+  const cites = packetCitations(slug, shown.stdout) as string[];
+  distinct += cites.length;
+  const faults = resolveEvidence(ROOT, tip, slug, cites) as { path: string; why: string }[];
+  for (const f of faults) problems.push(`${slug}: ${f.path} ${f.why}`);
+  rows.push({ slug: slug.slice(0, 32), tip: tip.slice(0, 12), ticked: t.length, withRefsToday: tOld, withRefsNew: tNew, refsToday: before.flatMap((c) => c.evidence).length, refsNew: (packetEvidenceRefs(shown.stdout) as string[]).length, citations: cites.length, faults: faults.length, lostRefs: lost });
+}
+console.table(rows);
+console.log(`landed packets read: ${rows.length}`);
+console.log(`ticked criteria: ${ticked}; with at least one reference today: ${tickedOld}; with this branch's reader: ${tickedNew}`);
+console.log(`criteria with a checkbox, ticked or not: ${boxed}; with at least one reference today: ${boxedOld}; with this branch's reader: ${boxedNew}`);
+console.log(`references today's reader returned that this branch's does not: ${notSuperset}`);
+console.log(`distinct citations judged: ${distinct}; refused: ${problems.length}`);
+for (const p of problems) console.log(`  refused: ${p}`);
+
+==== its output
+running in /private/tmp/claude-501/-Users-jacobpress-Desktop-Projects-Reggie-Workspace/aa70063d-6e62-4dd8-9734-e05b1b14e49b/scratchpad/build-auto-approval
+┌─────────┬────────────────────────────────────┬────────────────┬────────┬───────────────┬─────────────┬───────────┬─────────┬───────────┬────────┬──────────┐
+│ (index) │ slug                               │ tip            │ ticked │ withRefsToday │ withRefsNew │ refsToday │ refsNew │ citations │ faults │ lostRefs │
+├─────────┼────────────────────────────────────┼────────────────┼────────┼───────────────┼─────────────┼───────────┼─────────┼───────────┼────────┼──────────┤
+│ 0       │ 'idea-from-every-page'             │ 'd961aab64750' │ 31     │ 31            │ 31          │ 68        │ 69      │ 69        │ 0      │ 0        │
+│ 1       │ 'derive-the-journal'               │ '109862592b32' │ 52     │ 52            │ 52          │ 57        │ 35      │ 35        │ 0      │ 0        │
+│ 2       │ 'branch-diff-in-reader'            │ 'fde7c900bcc6' │ 47     │ 47            │ 47          │ 86        │ 71      │ 71        │ 0      │ 0        │
+│ 3       │ 'intake-line-leaves-at-triage'     │ '3615afe2cd52' │ 28     │ 2             │ 28          │ 2         │ 24      │ 23        │ 1      │ 0        │
+│ 4       │ 'note-form-on-repo-and-area'       │ 'e371aa8cda64' │ 23     │ 23            │ 23          │ 40        │ 19      │ 19        │ 0      │ 0        │
+│ 5       │ 'graph-coverage-published'         │ 'aed74d8e594f' │ 19     │ 1             │ 19          │ 1         │ 20      │ 16        │ 0      │ 0        │
+│ 6       │ 'false-tests-sentence'             │ '8b076b2578f6' │ 13     │ 1             │ 13          │ 1         │ 16      │ 12        │ 0      │ 0        │
+│ 7       │ 'docs-check-in-ci'                 │ '989d3a66e4d7' │ 8      │ 0             │ 8           │ 0         │ 7       │ 6         │ 0      │ 0        │
+│ 8       │ 'a-task-worktree-has-no-node-modu' │ '33f3115de195' │ 15     │ 15            │ 15          │ 18        │ 6       │ 6         │ 0      │ 0        │
+│ 9       │ 'task-attribution-by-merge'        │ '19a27c3a74c7' │ 15     │ 1             │ 15          │ 1         │ 7       │ 5         │ 0      │ 0        │
+│ 10      │ 'journal-files-conflict-on-merge-' │ '136dff99c85b' │ 12     │ 9             │ 12          │ 9         │ 8       │ 8         │ 0      │ 0        │
+│ 11      │ 'stale-dev-bin'                    │ '933038836c79' │ 11     │ 10            │ 11          │ 10        │ 5       │ 5         │ 0      │ 0        │
+│ 12      │ 'about-this-repo'                  │ 'de3dbbd32397' │ 8      │ 7             │ 8           │ 7         │ 3       │ 3         │ 0      │ 0        │
+│ 13      │ 'layout-modes'                     │ '19f6388b9cb4' │ 12     │ 12            │ 12          │ 12        │ 2       │ 2         │ 0      │ 0        │
+│ 14      │ 'mobile-ui'                        │ '15910c04ee9f' │ 10     │ 9             │ 10          │ 11        │ 5       │ 5         │ 0      │ 0        │
+└─────────┴────────────────────────────────────┴────────────────┴────────┴───────────────┴─────────────┴───────────┴─────────┴───────────┴────────┴──────────┘
+landed packets read: 15
+ticked criteria: 304; with at least one reference today: 220; with this branch's reader: 304
+criteria with a checkbox, ticked or not: 306; with at least one reference today: 220; with this branch's reader: 306
+references today's reader returned that this branch's does not: 0
+distinct citations judged: 285; refused: 1
+  refused: intake-line-leaves-at-triage: .reggie/tasks/intake-line-leaves-at-triage/evidence/board-diff.txt is empty; an empty file cannot be told from a redirect that failed, so save the command and its exit status into it
+exit 0

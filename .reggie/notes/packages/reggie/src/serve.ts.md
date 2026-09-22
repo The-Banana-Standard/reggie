@@ -34,3 +34,7 @@ sources: idea-from-every-page
 After the 2026-09-18 reviews: the capture route builds the task list only when the body names a task, since after the previous capture's invalidate it is a full listing a path origin never reads. The launch body's paths and path are read by launchPathFields, which refuses a field of the wrong shape with a sentence instead of dropping it, keeps a blank entry so the resolver refuses it, and leaves the eight-path cap to resolvePackPaths, which counts after resolution.
 sources: idea-from-every-page
 
+## how · 2026-09-18 · Claude via jacobpress · high
+GET /api/task/<slug> carries policy: the object reggie check --json prints, for a task with a live task branch and a packet on it, and null otherwise. It is computed per request for that one page and never stored or cached, because it is a function of two commits and both move; building the task list calls the evaluation zero times, which a test proves with a counter. POST /api/decide answers captured on a solo approval, the slugs the approval captured inside the merge commit. It now answers 409 for one more reason, the evidence gate, and for the landing lock; every 409 carries the one sentence that says what to do, so the client shows it.
+sources: low-risk-auto-approval
+

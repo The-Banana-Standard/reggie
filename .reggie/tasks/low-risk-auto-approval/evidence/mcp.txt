@@ -1,0 +1,19 @@
+# AC8: the reggie_check tool over InMemoryTransport, and the tool list
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:44:39Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run test/mcp.test.ts --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ test/mcp.test.ts > mcp server > exposes the tools and captures through them 552ms
+ ✓ test/mcp.test.ts > mcp server > captures with the file or folder the idea came from, and refuses a path that is not one without writing 461ms
+ ✓ test/mcp.test.ts > mcp server on a stale build > refuses every tool call with an error naming the build, and writes nothing 148ms
+ ✓ test/mcp.test.ts > mcp server on a stale build > tells the session to restart when dist was rebuilt after the server loaded it 138ms
+ ✓ test/mcp.test.ts > mcp server on a stale build > runs tools normally when the escape hatch is set 175ms
+ ✓ test/mcp.test.ts > the reggie_check tool > writes a record of the same shape as the CLI for the same input, and holds no tool that decides 632ms
+ ✓ test/mcp.test.ts > the reggie_check tool > returns the verb's own sentence as a tool error for a refusal, writing nothing, and records a review 359ms
+ ✓ test/mcp.test.ts > the reggie_check tool > returns the policy report, which says it is a report, when called with no outcome 366ms
+ ✓ test/mcp.test.ts > the reggie_check tool > is registered through the stale-build wrapper: on a stale build it refuses, naming the build, and writes nothing 311ms
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  13:44:39
+   Duration  3.42s (transform 123ms, setup 0ms, import 214ms, tests 3.14s, environment 0ms)
+exit 0

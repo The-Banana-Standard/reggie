@@ -1,0 +1,9 @@
+# AC53: npm run typecheck
+# final candidate run, 2026-09-22
+
+$ cd packages/reggie && npm run typecheck
+
+> reggie@3.0.0-alpha.1 typecheck
+> tsc -p tsconfig.json --noEmit
+
+exit 0

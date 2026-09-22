@@ -3,7 +3,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { makeTempRepo, type TempRepo } from "../test/helpers.js";
 import { git } from "./git.js";
-import { ensureGitattributes, ensureLayout, GITATTRIBUTES_LINES } from "./layout.js";
+import { ensureGitattributes, ensureLayout, GITATTRIBUTES_LINES, REGGIE_README } from "./layout.js";
 import { repoPaths } from "./paths.js";
 
 describe(".gitattributes for journal files", () => {
@@ -40,5 +40,24 @@ describe(".gitattributes for journal files", () => {
     expect(ensureLayout(repoPaths(repo.root)).gitattributesUpdated).toBe(false);
     expect(ensureGitattributes(repo.root)).toBe(false);
     expect(readFileSync(file(), "utf8")).toBe(before);
+  });
+});
+
+describe("the README every onboarded repo gets", () => {
+  it("names the checks file beside the packet and the evidence folder, and says what it is for", () => {
+    const repo = makeTempRepo();
+    try {
+      const paths = repoPaths(repo.root);
+      ensureLayout(paths);
+      const written = readFileSync(paths.readme, "utf8");
+      expect(written).toBe(REGGIE_README);
+      expect(written).toContain("- `tasks/<slug>/checks.jsonl` — what was verified, as data: one line per check");
+      expect(written).toContain("written by `reggie check`. The packet's checklist");
+      expect(written).toMatch(/A packet that cites a file which is not committed\s+here is refused when someone approves it\./);
+      const order = ["tasks/<slug>/packet.md", "tasks/<slug>/checks.jsonl", "tasks/<slug>/evidence/"].map((name) => written.indexOf(name));
+      expect(order.every((i) => i > 0) && order[0]! < order[1]! && order[1]! < order[2]!).toBe(true);
+    } finally {
+      repo.cleanup();
+    }
   });
 });

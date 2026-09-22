@@ -10,3 +10,7 @@ The generated block states the state rule, so it is the widest-travelling copy o
 The generated block still asks for one hand entry per step, reworded on 2026-09-17 to name reggie journal derive and to say what it adds and what it cannot: the commits and a launched session's closing words, not the reasons and not what is uncertain. Dropping the request would have emptied the journal, because no launch record exists and no claim carries a real session id on the owner's machine yet. When to stop asking is its own captured item.
 sources: derive-the-journal
 
+## how · 2026-09-18 · Claude via jacobpress · medium
+The generated block's line about plans and packets gained one sentence: verified criteria are recorded with reggie check, and the packet's checklist is built from those records. It travels into every onboarded repo's CLAUDE.md and AGENTS.md, so change it in the same commit as the verb and refresh the blocks on a clean tree afterwards.
+sources: low-risk-auto-approval
+

@@ -7,6 +7,7 @@ import { capture, removeFromIntake } from "./capture.js";
 import { claimTask } from "./claim.js";
 import { git } from "./git.js";
 import { onboard } from "./onboard.js";
+import { recordCheck } from "./checks.js";
 import { decidePacket, scaffoldPacket } from "./packet.js";
 import { briefFile, packetFile, planFile, repoPaths } from "./paths.js";
 import { currentPerson, loadConfig } from "./people.js";
@@ -335,11 +336,12 @@ describe("state machine and task detail", () => {
     expect(detail.impact.collisions).toContainEqual({ file: "src/auth/", slug: "other-login-work", owner: "test" });
     expect(must(getTaskDetail(paths, config, "other-login-work")).impact.collisions).toEqual([{ file: "src/auth/login.ts", slug, owner: "Test Person" }]);
 
-    // Awaiting decision: evidence on disk, a packet with the first criterion ticked, committed on the branch.
+    // Awaiting decision: evidence on disk, a check recorded for the first criterion, and a packet
+    // whose checklist is generated from that record, all committed on the branch. Nothing is ticked
+    // by hand, and no evidence file is paired with a criterion that no record names.
     writeText(path.join(repo.root, ".reggie", "tasks", slug, "evidence", "tests.txt"), "2 passed\n");
+    recordCheck(paths, { slug, criterion: "1", outcome: "pass", evidence: ["tests.txt"], person: person.handle, tool: "test", session: "test" });
     scaffoldPacket(paths, config, { slug, author: person.handle });
-    const packetPath = packetFile(paths, slug);
-    writeText(packetPath, (readText(packetPath) ?? "").replace("- [ ] After three failed attempts", "- [x] After three failed attempts"));
     repo.commitAll("packet");
     detail = must(getTaskDetail(paths, config, slug));
     expect(detail.task.state).toBe("awaiting-decision");

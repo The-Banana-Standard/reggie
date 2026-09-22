@@ -36,3 +36,17 @@ risk:
     - api
     - model
     - store
+# policy: the highest risk class that passes without a person, one class per kind of packet.
+#   plans: for a plan. With high, every plan that passes the plan contract counts as planned, which
+#     is what solo mode has always done; narrowing it is not enforced yet.
+#   completions: for a finished task. With low, only a task whose effective risk class is low could
+#     pass; the class is the highest of the plan's risk line, its file list, and the files the branch
+#     really changed.
+#   Values: none, low, medium, high. none means nothing passes without a person.
+# Reggie reads this block from the integration branch's committed copy, never from a task branch,
+# so a task cannot widen the policy it is judged by. In this version the verdict is reported
+# (`reggie check <slug>`, and on the task page) and nothing acts on it: a person still decides every
+# task with `reggie decide`. Acting on the verdict is the item `policy-acts-on-its-verdict`.
+policy:
+  plans: high
+  completions: low

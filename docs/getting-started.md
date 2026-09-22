@@ -117,14 +117,21 @@ In solo mode, committing the plan to your default branch is the approval. The ta
 /reggie-execute <slug>
 ```
 
-That claims the task on a `task/<slug>` branch, does the work, saves the evidence the plan asked for under `.reggie/tasks/<slug>/evidence/`, runs the review policy for the risk class (`/code-review` at medium, `/security-review` too at high), writes notes for the files it touched, journals each step, and scaffolds the completion packet. By hand:
+That claims the task on a `task/<slug>` branch, does the work, saves the evidence the plan asked for under `.reggie/tasks/<slug>/evidence/`, runs the review policy for the risk class (`/code-review` at medium, `/security-review` too at high), records each criterion it verified as a check, writes notes for the files it touched, journals each step, and scaffolds the completion packet. By hand:
 
 ```bash
 reggie claim <slug>               # task/<slug> branch; add --worktree to keep your checkout free
-# ... do the work, commit as you go ...
-reggie packet <slug>              # packet.md from the plan, the diff, and the evidence folder
-# fill in the packet honestly, then commit
+# ... do the work, commit as you go, and save what proves each criterion under evidence/ ...
+reggie check <slug> 1 pass --evidence tests.txt    # one record per criterion, by number, key or label (AC1)
+reggie check <slug> --review code-review pass      # a review is a check too; a fail is always recordable
+reggie packet <slug>              # packet.md from the plan, the diff, the evidence folder and the checks
+# fill in every other section honestly; run `reggie packet <slug>` again after a new check, then
+reggie packet <slug> --lint       # the packet contract, and every citation resolved on HEAD
+# commit the packet, checks.jsonl and the evidence together
+reggie check <slug>               # what a decider will see: the policy report, which decides nothing
 ```
+
+Record a check after the code it proves is committed, and after your last commit that changes code or docs: a pass is stale once anything outside `.reggie/` changes after it, and the verb refuses a pass while code is uncommitted. Nobody ticks a box by hand; the packet's checklist is rebuilt from `checks.jsonl` every time `reggie packet` runs.
 
 **Decide.** With `gh`, open a pull request whose body is the packet:
 
@@ -132,13 +139,13 @@ reggie packet <slug>              # packet.md from the plan, the diff, and the e
 reggie pr <slug>
 ```
 
-Approving the PR is the decision, and merging it makes the task **done**. Without `gh`, or in solo mode:
+Approving the PR is the decision, and merging it makes the task **done**. Without `gh`, or in solo mode, decide from the checkout that has the integration branch checked out:
 
 ```bash
 reggie decide <slug> approved --comment "Evidence matches the criteria"
-git add .reggie && git commit -m "decide: <slug>"
-git switch main && git merge task/<slug>
 ```
+
+In solo mode that one command lands the task: it merges `task/<slug>` with `--no-ff`, writes the verdict and a journal entry inside the merge commit, and releases the branch and its worktree. It never pushes. It refuses, and writes nothing, when the packet cites evidence that is not committed on the branch (each path is named with its reason: missing, empty, a link, a folder, a path outside the task's evidence folder; there is no override, so commit the file or fix the citation), when the checkout has uncommitted changes or a merge already in progress, when another landing holds the lock, and when the merge conflicts, which it aborts. An approval also **captures** what the packet lists under Discovered issues and the queue does not hold yet, into `intake.md` inside the same merge commit, and prints the new slugs; write "none" there when there are none. `reggie decide <slug> needs-work --comment "..."` sends the task back and captures nothing.
 
 Check where everything stands at any time:
 
@@ -183,6 +190,7 @@ The generated block in `CLAUDE.md` tells every agent session exactly this, so yo
 | `.reggie/intake.md` | Raw captured items |
 | `.reggie/tasks/<slug>/plan.md` | The plan, against the contract |
 | `.reggie/tasks/<slug>/packet.md` | The completion packet a reviewer reads |
+| `.reggie/tasks/<slug>/checks.jsonl` | What was verified, as data; the packet's checklist is built from it |
 | `.reggie/tasks/<slug>/evidence/` | Proof: test output, screenshots, command output |
 | `.reggie/notes/` | Knowledge, arranged like the code |
 | `.reggie/journal/` | What happened, day by day, per person |

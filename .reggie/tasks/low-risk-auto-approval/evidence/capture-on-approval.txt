@@ -1,0 +1,38 @@
+# AC32, AC33, AC34: discovered issues captured inside the merge commit
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:45:24Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/land.test.ts -t "discovered issues, captured inside the merge commit" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/land.test.ts > discovered issues, captured inside the merge commit > captures exactly the two fresh bullets, in the one merge commit, attributed to the session that found them 821ms
+ ✓ src/land.test.ts > discovered issues, captured inside the merge commit > prints the captured slugs from the CLI 1041ms
+ ✓ src/land.test.ts > discovered issues, captured inside the merge commit > aborts the merge and records nothing when capturing throws 739ms
+ ✓ src/land.test.ts > discovered issues, captured inside the merge commit > puts the intake back even when the branch changed it too, where a bare merge --abort would be refused 1177ms
+ ✓ src/land.test.ts > discovered issues, captured inside the merge commit > writes the captures of a task that had already landed into its verdict commit, and captures nothing the second time 1025ms
+ ✓ src/land.test.ts > discovered issues, captured inside the merge commit > captures nothing on needs-work or on a team-mode approval, which write exactly the files they wrote before 1513ms
+ Test Files  1 passed (1)
+      Tests  6 passed | 18 skipped (24)
+   Start at  13:45:24
+   Duration  6.52s (transform 104ms, setup 0ms, import 138ms, tests 6.32s, environment 0ms)
+exit 0
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/capture.test.ts -t "discovered issues out of a packet" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/capture.test.ts > discovered issues out of a packet > reads top-level bullets, with the indented lines and nested bullets under each as its detail 90ms
+ ✓ src/capture.test.ts > discovered issues out of a packet > skips the scaffold's stand-in, a bullet that says none, and a bullet too short to say anything 115ms
+ ✓ src/capture.test.ts > discovered issues out of a packet > does not capture what the queue already holds, by named slug, by a slug cut short or lengthened, by its own words as a slug, or by its text 291ms
+ ✓ src/capture.test.ts > discovered issues out of a packet > attributes an item to the claim's handle, else the packet's author, else the decider, and bounds what it writes 169ms
+ ✓ src/capture.test.ts > discovered issues out of a packet > removes control and invisible characters and keeps the intake one item per bullet 118ms
+ Test Files  1 passed (1)
+      Tests  5 passed | 16 skipped (21)
+   Start at  13:45:31
+   Duration  986ms (transform 105ms, setup 0ms, import 141ms, tests 784ms, environment 0ms)
+exit 0
+
+$ cd packages/reggie && TZ=UTC npx vitest run test/serve.test.ts -t "carries the slugs an approval captured" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ test/serve.test.ts > the policy report and the evidence gate over HTTP > carries the slugs an approval captured in its response, and captures nothing on needs-work 1187ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 145 skipped (146)
+   Start at  13:45:32
+   Duration  2.24s (transform 298ms, setup 0ms, import 372ms, tests 1.80s, environment 0ms)
+exit 0

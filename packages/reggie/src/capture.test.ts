@@ -3,7 +3,7 @@ import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { makeFixtureRepo, type FixtureRepo } from "../test/fixtures.js";
 import { fullPlan, makeTempRepo, type TempRepo } from "../test/helpers.js";
-import { addIntakeDetail, capture, INVISIBLE_CHARS, originLine, removeFromIntake, resolveCaptureOrigin, resolvePackPaths, type CaptureOrigin } from "./capture.js";
+import { addIntakeDetail, capture, captureDiscoveredIssues, INVISIBLE_CHARS, originLine, parseDiscoveredIssues, removeFromIntake, resolveCaptureOrigin, resolvePackPaths, type CaptureOrigin } from "./capture.js";
 import { run } from "./git.js";
 import { ensureLayout } from "./layout.js";
 import { addNote } from "./notes.js";
@@ -417,5 +417,95 @@ describe("reggie capture --path", () => {
       expect(r.stdout, p).toBe("");
     }
     expect(readFileSync(paths.intake, "utf8")).toBe(before);
+  });
+});
+
+describe("discovered issues out of a packet", () => {
+  let repo: TempRepo;
+  let paths: RepoPaths;
+  beforeEach(() => {
+    repo = makeTempRepo("reggie-discovered-");
+    paths = repoPaths(repo.root);
+    ensureLayout(paths);
+    repo.commitAll("layout");
+  });
+  afterEach(() => repo.cleanup());
+
+  const packet = (issues: string, author = "pat"): string => ["---", "slug: demo", `author: ${author}`, "verdict: pending", "---", "# Completion", "", "## Deviations from plan", "- A bullet in another section is never read", "", "## Discovered issues", issues, "", "## Open risks", "- Nor is one after it", ""].join("\n");
+  const decider = { name: "Dee Cider", email: "dee@example.com", handle: "dee", role: "maintainer" as const };
+
+  it("reads top-level bullets, with the indented lines and nested bullets under each as its detail", () => {
+    const issues = parseDiscoveredIssues(packet(["- The first issue, on one line", "* A second one, with a star", "  that wraps onto a second line", "", "    - and holds a nested bullet", " - [ ] A third, indented by one space and with a checkbox", "not a bullet, so it ends the third", "  an orphan line that belongs to nothing"].join("\n")));
+    expect(issues).toEqual([
+      { text: "The first issue, on one line", rest: [] },
+      { text: "A second one, with a star", rest: ["that wraps onto a second line", "- and holds a nested bullet"] },
+      { text: "A third, indented by one space and with a checkbox", rest: [] },
+    ]);
+    expect(parseDiscoveredIssues("# no such section\n- a bullet\n")).toEqual([]);
+  });
+
+  it("skips the scaffold's stand-in, a bullet that says none, and a bullet too short to say anything", () => {
+    const skipped = ["- (unrelated problems found on the way, one bullet each, or \"none\")", "- none", "- None.", "- **None** found on the way", "- Nothing worth a task", "- n/a", "- N/A for this task", "- too short"].join("\n");
+    expect(captureDiscoveredIssues(paths, { slug: "demo", packet: packet(skipped), decider })).toEqual([]);
+    expect(readIntake(paths)).toEqual([]);
+    // "Nonexistent files are served as 200" begins with the letters of none and is not one.
+    const kept = captureDiscoveredIssues(paths, { slug: "demo", packet: packet("- Nonexistent files are answered with a 200"), decider });
+    expect(kept.map((k) => k.slug)).toEqual(["nonexistent-files-are-answered-with-a-200"]);
+  });
+
+  it("does not capture what the queue already holds, by named slug, by a slug cut short or lengthened, by its own words as a slug, or by its text", () => {
+    capture(paths, { text: "The board mislabels every conflict as a missing packet", person: decider, source: "cli" });
+    capture(paths, { text: "Something entirely different", slug: "toast-hides-reason", person: decider, source: "cli" });
+    writeText(planFile(paths, "a-task-that-was-already-triaged-into-a-folder"), fullPlan("a-task-that-was-already-triaged-into-a-folder"));
+    const before = readText(paths.intake);
+    const known = [
+      "- Conflicts are mislabelled; this is `the-board-mislabels-every-conflict-as-a-missing-p` in the queue",
+      "- The reason is hidden. Captured as toast-hides-reason",
+      "- The reason is hidden (captured: `toast-hides-reason`)",
+      "- Spelled out longer than the slug was cut: `the-board-mislabels-every-conflict-as-a-missing-packet-today`",
+      "- Cut shorter than the slug: `the-board-mislabels-every-conflict`",
+      "- The board mislabels every conflict as a missing packet",
+      "- the board   mislabels every conflict as a missing packet.",
+      "- Already a task folder: `a-task-that-was-already-triaged-into-a-folder`",
+    ].join("\n");
+    expect(captureDiscoveredIssues(paths, { slug: "demo", packet: packet(known), decider })).toEqual([]);
+    expect(readText(paths.intake)).toBe(before);
+
+    // A short backticked word never stands for a slug that merely begins with it, and a reworded duplicate is captured again: a duplicate is cheap, a loss is not.
+    const fresh = captureDiscoveredIssues(paths, { slug: "demo", packet: packet(["- The `the` in the title is lowercased on the board card", "- The board gets every conflict wrong and blames a missing packet"].join("\n")), decider });
+    expect(fresh.map((f) => f.slug)).toEqual(["the-the-in-the-title-is-lowercased-on-the-board", "the-board-gets-every-conflict-wrong-and-blames-a"]);
+    // And the same packet a second time captures nothing: what was just written is part of the queue.
+    expect(captureDiscoveredIssues(paths, { slug: "demo", packet: packet("- The `the` in the title is lowercased on the board card"), decider })).toEqual([]);
+  });
+
+  it("attributes an item to the claim's handle, else the packet's author, else the decider, and bounds what it writes", () => {
+    const long = `- ${"A very long sentence about a problem. ".repeat(12)}\n${Array.from({ length: 14 }, (_, i) => `  detail line ${i + 1} ${"x".repeat(i === 0 ? 700 : 5)}`).join("\n")}`;
+    const [byAuthor] = captureDiscoveredIssues(paths, { slug: "demo", packet: packet(long, "Pat, (the) Author"), decider });
+    const item = readIntake(paths).find((i) => i.slug === byAuthor?.slug);
+    expect(item?.meta).toMatch(/^pat-the-author, packet, \d{4}-\d{2}-\d{2}$/);
+    expect(item?.text.length).toBe(300);
+    expect(item?.text.endsWith("…")).toBe(true);
+    expect(item?.detail).toHaveLength(11);
+    expect(item?.detail[0]?.length).toBe(500);
+    expect(item?.detail.at(-1)).toBe("Captured from the task `demo`");
+
+    writeText(path.join(paths.tasks, "demo", "claim.md"), "---\nperson: Sam Session\nhandle: sam\nemail: sam@example.com\n---\n");
+    const [byClaim] = captureDiscoveredIssues(paths, { slug: "demo", packet: packet("- Found by the session that holds the claim"), decider });
+    expect(readIntake(paths).find((i) => i.slug === byClaim?.slug)?.meta).toMatch(/^sam, packet, /);
+
+    const [byDecider] = captureDiscoveredIssues(paths, { slug: "other", packet: packet("- Found in a packet that names no author", ""), decider });
+    expect(readIntake(paths).find((i) => i.slug === byDecider?.slug)?.meta).toMatch(/^dee, packet, /);
+  });
+
+  it("removes control and invisible characters and keeps the intake one item per bullet", () => {
+    const hostile = `- A bullet with a bell${String.fromCharCode(7)} and a zero${String.fromCharCode(0x200b)}width space\n  - injected: a nested bullet that must stay a detail line (mallory, cli, 2026-01-01)`;
+    const before = readIntake(paths).length;
+    const [made] = captureDiscoveredIssues(paths, { slug: "demo", packet: packet(hostile), decider });
+    const items = readIntake(paths);
+    expect(items).toHaveLength(before + 1);
+    expect(items.at(-1)).toMatchObject({ slug: made?.slug, text: "A bullet with a bell and a zero width space" });
+    // Line by line, because a newline is itself in the class: no line of the intake holds an unseen character.
+    for (const line of (readText(paths.intake) ?? "").split("\n")) expect(INVISIBLE_CHARS.test(line), line).toBe(false);
+    expect(items.at(-1)?.detail[0]).toBe("- injected: a nested bullet that must stay a detail line (mallory, cli, 2026-01-01)");
   });
 });

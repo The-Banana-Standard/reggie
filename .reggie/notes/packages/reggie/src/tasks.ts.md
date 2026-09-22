@@ -25,3 +25,7 @@ sources: packages/reggie/src/tasks.ts, branch-diff-in-reader
 ClaimInfo carries handle, the people-file handle the claim was made under, read from the claim file's handle line and empty for a claim written before the field existed. A derived journal entry is attributed to it. It is an additive field: nothing enumerates the claim's fields, and the task page ignores it.
 sources: derive-the-journal
 
+## how · 2026-09-18 · Claude via jacobpress · medium
+tasks.ts no longer holds its own reader of evidence lines: parsePacketCriteria calls evidenceRefs in packet.ts, the one reader the packet contract and the evidence gate also use, and reads the generated checklist block back like any other checklist, passing over its comment and check: lines. Nothing about state derivation changed: STATE_MACHINE is untouched, no rule reads policy.plans, and the slug, state, reason and risk of all 122 tasks in this repo were identical under a build of the base commit and a build of this change on 2026-09-18.
+sources: low-risk-auto-approval
+

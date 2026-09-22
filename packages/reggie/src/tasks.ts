@@ -4,7 +4,7 @@ import { aheadCount, currentBranch, defaultBranch, fileAtRef, git, lastCommitDat
 import { pullRequestForBranch, type PullRequest } from "./gh.js";
 import { readJournal, type JournalEntry } from "./journal.js";
 import { briefDraft, parseBrief, type BriefMeta } from "./brief.js";
-import { listEvidence, parsePacketVerdict, type Verdict } from "./packet.js";
+import { evidenceRefs, listEvidence, parsePacketVerdict, type Verdict } from "./packet.js";
 import { readLegacy, type LegacyBacklog, type LegacyItem } from "./legacy.js";
 import { briefFile, briefRelPath, claimRelPath, packetFile, packetRelPath, planFile, planRelPath, REGGIE_DIR, TASKS_REL_DIR, type RepoPaths } from "./paths.js";
 import type { Mode, ReggieConfig, RiskRules } from "./people.js";
@@ -869,17 +869,12 @@ function parseSections(body: string): Record<string, string> {
   return out;
 }
 
-/** Paths named on an `evidence:` line; the scaffold's "(path to the file that proves this)" hint is not a path. */
-function parseEvidenceRefs(value: string): string[] {
-  return value
-    .trim()
-    .replace(/^\((.*)\)$/, "$1")
-    .split(",")
-    .map((s) => s.trim().replace(/^`|`$/g, ""))
-    .filter((s) => s !== "" && !/\s/.test(s) && (s.includes("/") || /\.\w+$/.test(s)));
-}
-
-/** The packet's acceptance checklist: ticked → pass, empty box → fail, plain bullet → unknown. */
+/**
+ * The packet's acceptance checklist: ticked → pass, empty box → fail, plain bullet → unknown. The
+ * paths on an `evidence:` line are read by `evidenceRefs` in packet.ts, the one reader the contract
+ * and the evidence gate also use. The generated block's comment and `check:` lines are not bullets
+ * and are passed over.
+ */
 export function parsePacketCriteria(section: string): PacketCriterion[] {
   const out: PacketCriterion[] = [];
   for (const raw of section.split("\n")) {
@@ -898,7 +893,7 @@ export function parsePacketCriteria(section: string): PacketCriterion[] {
     }
     const ev = /^evidence:\s*(.*)$/i.exec(line);
     const last = out[out.length - 1];
-    if (ev && last) last.evidence.push(...parseEvidenceRefs(ev[1] ?? ""));
+    if (ev && last) last.evidence.push(...evidenceRefs(ev[1] ?? ""));
   }
   return out;
 }

@@ -1,0 +1,14 @@
+# AC52: the whole suite
+# final candidate run, 2026-09-22T18:38:59Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run
+
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+
+
+ Test Files  41 passed (41)
+      Tests  1200 passed | 1 skipped (1201)
+   Start at  18:38:59
+   Duration  66.59s (transform 3.06s, setup 0ms, import 5.13s, tests 306.13s, environment 3ms)
+
+exit 0

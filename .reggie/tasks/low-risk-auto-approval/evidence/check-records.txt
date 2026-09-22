@@ -1,0 +1,25 @@
+# AC1, AC5, AC6: the record's fields and spellings, latest line wins, review records
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:44:30Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/checks.test.ts -t "appends exactly one line|chooses a criterion|records a fail with no evidence|records a review under|lets a key that is in the file" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/checks.test.ts > recordCheck and reggie check > appends exactly one line holding every field, with full evidence paths however the file was spelled, and creates no commit and stages nothing 313ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > chooses a criterion by its number, its key, or a label that ends where the selector does 1ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > records a fail with no evidence, even while a tracked file is modified 21ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > records a review under r:<name>, and refuses a name with an uppercase letter, a space or a slash 307ms
+ ✓ src/checks.test.ts > recordCheck and reggie check > lets a key that is in the file and no longer in the plan be superseded by naming it 43ms
+ Test Files  1 passed (1)
+      Tests  5 passed | 12 skipped (17)
+   Start at  13:44:31
+   Duration  1.22s (transform 105ms, setup 0ms, import 141ms, tests 1.01s, environment 0ms)
+exit 0
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "lets a later pass supersede|shows a passing review" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/policy.test.ts > the policy report on a passing task > shows a passing review without requiring one, and refuses when a review's latest record fails 408ms
+ ✓ src/policy.test.ts > the criteria gate (AC23) > lets a later pass supersede a fail and a later fail a pass, by position and not by clock 719ms
+ Test Files  1 passed (1)
+      Tests  2 passed | 42 skipped (44)
+   Start at  13:44:32
+   Duration  1.81s (transform 123ms, setup 0ms, import 161ms, tests 1.59s, environment 0ms)
+exit 0

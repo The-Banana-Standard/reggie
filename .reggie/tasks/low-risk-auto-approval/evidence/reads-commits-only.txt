@@ -1,0 +1,13 @@
+# AC19: six uncommitted edits leave the --json output byte-identical
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:44:54Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "reads commits only|finds the integration checkout by structure|evaluates and formats without moving" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/policy.test.ts > the policy report on a passing task > reads commits only: uncommitted edits in either checkout change nothing in the --json output 703ms
+ ✓ src/policy.test.ts > the policy report on a passing task > finds the integration checkout by structure, and only when git agrees it is one 40ms
+ ✓ src/policy.test.ts > the policy report on a passing task > evaluates and formats without moving a ref, the index, a tracked file or MERGE_HEAD in either checkout 802ms
+ Test Files  1 passed (1)
+      Tests  3 passed | 41 skipped (44)
+   Start at  13:44:54
+   Duration  2.21s (transform 127ms, setup 0ms, import 167ms, tests 1.99s, environment 0ms)
+exit 0

@@ -1,0 +1,42 @@
+# AC49: every reggie check and reggie packet call of the three runs, with refs, index and tracked files compared before and after
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:43:40Z
+
+The watched() wrapper in e2e.sh snapshots git for-each-ref, git status --porcelain --untracked-files=no and git diff --cached --name-only in both checkouts around each call, and stops the script if anything differs.
+
+== pass
+25:watched() { local before after code=0; before="$(snap)"; "$@" || code=$?; after="$(snap)"; if [ "$before" = "$after" ]; then echo "   [AC49] unchanged by: reggie ${*:3} (exit $code)" >&2; else echo "   [AC49] CHANGED by: reggie ${*:3}" >&2; diff <(echo "$before") <(echo "$after") >&2 || true; exit 1; fi; return $code; }
+155:   [AC49] unchanged by: reggie check two-not-one AC1 pass --evidence value.txt (exit 0)
+157:   [AC49] unchanged by: reggie check two-not-one 2 pass --evidence evidence/run.txt --note grep counted one line (exit 0)
+160:   [AC49] unchanged by: reggie packet two-not-one (exit 0)
+163:   [AC49] unchanged by: reggie packet two-not-one (exit 0)
+168:   [AC49] unchanged by: reggie packet two-not-one --lint (exit 1)
+172:   [AC49] unchanged by: reggie packet two-not-one --lint (exit 0)
+201:   [AC49] unchanged by: reggie check two-not-one (exit 0)
+202:   [AC49] unchanged by: reggie check two-not-one --json (exit 0)
+203:   [AC49] unchanged by: reggie check two-not-one --json (exit 0)
+
+== medium
+25:watched() { local before after code=0; before="$(snap)"; "$@" || code=$?; after="$(snap)"; if [ "$before" = "$after" ]; then echo "   [AC49] unchanged by: reggie ${*:3} (exit $code)" >&2; else echo "   [AC49] CHANGED by: reggie ${*:3}" >&2; diff <(echo "$before") <(echo "$after") >&2 || true; exit 1; fi; return $code; }
+155:   [AC49] unchanged by: reggie check two-not-one AC1 pass --evidence value.txt (exit 0)
+157:   [AC49] unchanged by: reggie check two-not-one 2 pass --evidence evidence/run.txt --note grep counted one line (exit 0)
+160:   [AC49] unchanged by: reggie packet two-not-one (exit 0)
+163:   [AC49] unchanged by: reggie packet two-not-one (exit 0)
+168:   [AC49] unchanged by: reggie packet two-not-one --lint (exit 1)
+172:   [AC49] unchanged by: reggie packet two-not-one --lint (exit 0)
+201:   [AC49] unchanged by: reggie check two-not-one (exit 1)
+202:   [AC49] unchanged by: reggie check two-not-one --json (exit 1)
+203:   [AC49] unchanged by: reggie check two-not-one --json (exit 1)
+
+== tampered
+25:watched() { local before after code=0; before="$(snap)"; "$@" || code=$?; after="$(snap)"; if [ "$before" = "$after" ]; then echo "   [AC49] unchanged by: reggie ${*:3} (exit $code)" >&2; else echo "   [AC49] CHANGED by: reggie ${*:3}" >&2; diff <(echo "$before") <(echo "$after") >&2 || true; exit 1; fi; return $code; }
+155:   [AC49] unchanged by: reggie check two-not-one AC1 pass --evidence value.txt (exit 0)
+157:   [AC49] unchanged by: reggie check two-not-one 2 pass --evidence evidence/run.txt --note grep counted one line (exit 0)
+160:   [AC49] unchanged by: reggie packet two-not-one (exit 0)
+163:   [AC49] unchanged by: reggie packet two-not-one (exit 0)
+168:   [AC49] unchanged by: reggie packet two-not-one --lint (exit 1)
+172:   [AC49] unchanged by: reggie packet two-not-one --lint (exit 0)
+206:   [AC49] unchanged by: reggie check two-not-one (exit 1)
+207:   [AC49] unchanged by: reggie check two-not-one --json (exit 1)
+208:   [AC49] unchanged by: reggie check two-not-one --json (exit 1)
+
+calls that changed something: 3

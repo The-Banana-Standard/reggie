@@ -5,6 +5,7 @@ import { Command } from "commander";
 import { lintBrief, parseBrief, PRIORITIES, SIZES, type Priority, type Size } from "./brief.js";
 import { buildState, checkBuild, packageRoot } from "./build-state.js";
 import { capture, removeFromIntake, resolveCaptureOrigin, resolvePackPaths } from "./capture.js";
+import { CheckError, evidencePath, readChecks, recordCheck } from "./checks.js";
 import { claimTask, releaseTask } from "./claim.js";
 import { pendingSetup, type DepsOutcome } from "./deps.js";
 import { buildContext } from "./context.js";
@@ -14,8 +15,8 @@ import { collectFacts } from "./facts.js";
 import { detectFlows, MAX_FLOW_HOPS, traceFlow, type Payload } from "./flows.js";
 import { buildGraph, type RepoGraph } from "./graph.js";
 import { createIssue, createPullRequest, ghAvailable } from "./gh.js";
-import { currentBranch, defaultBranch, git } from "./git.js";
-import { appendJournal, detectTool, readJournal, renderJournalEntry } from "./journal.js";
+import { currentBranch, defaultBranch, git, resolveCommit } from "./git.js";
+import { appendJournal, detectTool, readJournal, renderJournalEntry, sessionName } from "./journal.js";
 import { contextFileRel, isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, MAX_LAUNCH_PATHS, mintSession, recordLaunch, resolveGoal, writeContextPacks, type LaunchGoal, type LaunchInput, type LaunchTask } from "./launch.js";
 import { startMcpServer } from "./mcp.js";
 import { startServer } from "./serve.js";
@@ -24,10 +25,11 @@ import { addNote, findNotes, NOTE_TYPES, notesForPath, renderNoteFile, staleEntr
 import { onboard, refreshDocs } from "./onboard.js";
 import { defaultClaudeHome } from "./transcript.js";
 import { landTask, type LandResult } from "./land.js";
-import { decidePacket, scaffoldPacket } from "./packet.js";
-import { briefFile, findRepoRoot, packetFile, planFile, repoPaths, type RepoPaths } from "./paths.js";
+import { assertTaskCheckout, decidePacket, evidenceGate, lintPacket, PacketError, renderChecklist, scaffoldPacket, type PacketResult } from "./packet.js";
+import { briefFile, checksFile, findRepoRoot, packetFile, planFile, repoPaths, type RepoPaths } from "./paths.js";
+import { evaluateCompletion, formatReport } from "./policy.js";
 import { currentPerson, loadConfig, loadPeople, type Person, type ReggieConfig } from "./people.js";
-import { lintPlan, parsePlan, renderPlanTemplate, riskFromFiles, RISKS, setPlanRisk, type Risk } from "./plan.js";
+import { lintPlan, parsePlan, planCriteria, renderPlanTemplate, riskFromFiles, RISKS, setPlanRisk, type Risk } from "./plan.js";
 import { getTask, listTasks, readIntake, renderTaskLine, STATE_MACHINE, stateDefinition, type TaskInfo, type TaskState } from "./tasks.js";
 import { isPriority, isSize, scaffoldBrief, type TriageInput } from "./triage.js";
 import { isSafeSlug, parseIntOption, readText, slugify, uniq, writeIfMissing, writeText } from "./util.js";
@@ -651,15 +653,102 @@ journal
     for (const e of entries) out(renderJournalEntry(e));
   });
 
+/** The last line of every `reggie packet` run: in this version the verb writes a file and nothing else. */
+const PACKET_DECIDES_NOTHING = "Nothing was decided: in this version the policy's verdict is a report (`reggie check <slug>`), and a person decides with `reggie decide`.";
+
 program
   .command("packet <slug>")
-  .description("Scaffold the completion packet from the plan, the diff, and the evidence folder (never overwrites without --force)")
+  .description("Scaffold the completion packet, or refresh its checklist from the check records; --lint checks it against the packet contract and the evidence gate. It never decides and never merges")
   .option("--force", "overwrite an existing packet, discarding its contents and verdict")
-  .action((slug: string, opts: { force?: boolean }) => {
+  .option("--lint", "check the packet against the packet contract and resolve its citations on HEAD; writes nothing")
+  .action((slug: string, opts: { force?: boolean; lint?: boolean }) => {
     const c = ctx(program.opts<{ root?: string }>().root);
-    const r = scaffoldPacket(c.paths, c.config, { slug: requireSlug(slug), author: c.person.handle, force: Boolean(opts.force) });
-    if (r.skipped) return out(`${path.relative(c.root, r.file)} already exists; edit it in place, or pass --force to regenerate it from scratch.`);
-    out(`${r.created ? "Created" : "Rewrote"} ${path.relative(c.root, r.file)}. Fill every section honestly, commit, then open a PR with: reggie pr ${slug}`);
+    const s = requireSlug(slug);
+    const rel = path.relative(c.root, packetFile(c.paths, s));
+    if (opts.lint) {
+      try {
+        assertTaskCheckout(c.root, s);
+      } catch (err) {
+        return fail(err instanceof Error ? err.message : String(err));
+      }
+      const content = readText(packetFile(c.paths, s));
+      if (content === null) fail(`no packet for ${s}; run reggie packet ${s} first`);
+      const plan = readText(planFile(c.paths, s));
+      const checklist = plan === null ? null : renderChecklist(planCriteria(parsePlan(plan).sections.get("Acceptance criteria") ?? ""), readChecks(readText(checksFile(c.paths, s)) ?? "").records);
+      const errors = lintPacket(content, { slug: s, checklist }).errors.map((e) => `error: ${e}`);
+      // Citations resolve on a commit, never on a disk. This verb stands in the task's checkout, so it
+      // can add the one thing the resolver cannot know: the file is here and was never committed.
+      const head = resolveCommit(c.root, "HEAD");
+      if (head === null) errors.push("error: this checkout has no commit to resolve citations on");
+      else {
+        for (const f of evidenceGate(c.root, head, s, content)) {
+          const cited = evidencePath(s, f.path);
+          const onDisk = f.missing === true && cited.ok && existsSync(path.join(c.root, cited.path));
+          errors.push(`error: ${f.path} ${onDisk ? "is on disk but not committed; commit it on the task branch" : f.why}`);
+        }
+      }
+      out(errors.length === 0 ? `PASS: ${rel} satisfies the packet contract, and every citation resolves on HEAD.` : `FAIL: ${rel} does not satisfy the packet contract.`);
+      for (const e of errors) out(e);
+      out(PACKET_DECIDES_NOTHING);
+      if (errors.length > 0) process.exit(1);
+      return;
+    }
+    let r: PacketResult;
+    try {
+      r = scaffoldPacket(c.paths, c.config, { slug: s, author: c.person.handle, force: Boolean(opts.force) });
+    } catch (err) {
+      if (err instanceof PacketError) return fail(err.message);
+      throw err;
+    }
+    const said: Record<PacketResult["status"], string> = {
+      created: `Created ${rel}. Its checklist is built from the check records: record each criterion with \`reggie check ${s} <criterion> pass --evidence <file>\`, run this again, fill every other section honestly, and commit.`,
+      rewrote: `Rewrote ${rel} from scratch.`,
+      refreshed: `Refreshed the checklist in ${rel} from the check records; every byte outside the markers is as it was.`,
+      current: `The checklist in ${rel} is current; nothing was written.`,
+      predates: `${rel} has no generated checklist: it predates check records and was left exactly as it is. Pass --force to regenerate it from scratch.`,
+    };
+    out(said[r.status]);
+    out(PACKET_DECIDES_NOTHING);
+  });
+
+program
+  .command("check <slug> [args...]")
+  .description("Record a verified criterion or review as data, or with no outcome print what the policy would say about the task (a report; a person decides)")
+  .option("--review <name>", "record a review (code-review, security-review, ...) instead of a criterion")
+  .option("--evidence <files>", "evidence files under the task's evidence folder; comma-separated, repeatable", collectList, [] as string[])
+  .option("--note <text>", "one line of context kept with the record")
+  .option("--json", "with no outcome: print the report as one JSON object")
+  .action((slug: string, args: string[], opts: { review?: string; evidence: string[]; note?: string; json?: boolean }) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    const s = requireSlug(slug);
+    if (args.length === 0 && opts.review === undefined) {
+      const report = evaluateCompletion(c.root, s);
+      out(opts.json ? JSON.stringify(report, null, 2) : formatReport(report));
+      if (report.verdict !== "would-pass") process.exit(1);
+      return;
+    }
+    // `check <slug> <criterion> <outcome>`, or `check <slug> --review <name> <outcome>`.
+    const [criterion, outcome] = opts.review !== undefined ? [undefined, args[0]] : [args[0], args[1]];
+    if (args.length > (opts.review !== undefined ? 1 : 2)) fail("too many arguments: reggie check <slug> <criterion> <pass|fail>, or reggie check <slug> --review <name> <pass|fail>");
+    if (outcome === undefined) fail("give the outcome: pass or fail. With no criterion and no outcome, `reggie check <slug>` prints the policy report.");
+    try {
+      const r = recordCheck(c.paths, {
+        slug: s,
+        outcome,
+        evidence: opts.evidence,
+        person: c.person.handle,
+        tool: detectTool(),
+        session: sessionName(),
+        ...(criterion !== undefined ? { criterion } : {}),
+        ...(opts.review !== undefined ? { review: opts.review } : {}),
+        ...(opts.note !== undefined ? { note: opts.note } : {}),
+      });
+      const what = r.record.kind === "review" ? `review ${r.record.text}` : `criterion ${r.record.n}`;
+      out(`Recorded ${r.record.outcome} for ${what} (${r.record.key}) in ${path.relative(c.root, r.file)}. It is not committed; run \`reggie packet ${s}\` to refresh the checklist, then commit both.`);
+    } catch (err) {
+      if (err instanceof CheckError) return fail(err.message);
+      throw err;
+    }
   });
 
 program
@@ -684,6 +773,7 @@ program
       );
       for (const action of r.released) out(`  ${action}`);
       if (r.releaseError) out(`  not released: ${r.releaseError}`);
+      if (r.captured.length > 0) out(`  captured from the packet's discovered issues, in the same commit: ${r.captured.join(", ")}`);
       return;
     }
     const file = decidePacket(c.paths, s, verdict, c.person.handle, opts.comment);
@@ -717,6 +807,11 @@ program
     const c = ctx(program.opts<{ root?: string }>().root);
     const people = loadPeople(c.paths);
     out(`mode: ${c.config.mode}`);
+    const from = (key: "plans" | "completions"): string => {
+      const source = c.config.policySource[key];
+      return source === "file" ? "from .reggie/config.yaml" : source === "unreadable" ? `the ${c.config.mode} default; the value in .reggie/config.yaml could not be read` : `the ${c.config.mode} default`;
+    };
+    out(`policy: plans ${c.config.policy.plans} (${from("plans")}), completions ${c.config.policy.completions} (${from("completions")}). This checkout's copy; the policy report reads the integration branch's committed copy.`);
     for (const p of people.people) out(`- ${p.handle}: ${p.name} <${p.email}> ${p.role}`);
     if (people.people.length === 0) out("(nobody registered yet; run reggie onboard)");
   });

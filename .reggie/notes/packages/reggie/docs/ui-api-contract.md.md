@@ -23,3 +23,7 @@ sources: derive-the-journal
 The capture route's paragraph now lists every refusal the origin resolver makes and the exact detail-line sentences it writes, and the launch routes document the path parameter and the sentence added to the prompt. Those lists and sentences are copies of what resolveCaptureOrigin, originLine and pathsClause do; change one and change the other in the same commit, because a client author reads this file instead of the code.
 sources: idea-from-every-page
 
+## how · 2026-09-18 · Claude via jacobpress · high
+The task route's section documents the policy object with every gate id and criterion status, what is read from which commit, the not-evaluated cases, and the checks file's record shape. The decide route's paragraph was rewritten to match what the route really answers: a solo approval lands the task and answers the merge, the release and captured, and every refusal is a 409 carrying its own sentence, the evidence gate and the landing lock among them. It also states the rule by which an evidence reference is read and when a reference is a citation. GateId, CriterionStatus and the record shape are copies of unions in policy.ts and checks.ts; change one and change the other in the same commit.
+sources: low-risk-auto-approval
+

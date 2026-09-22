@@ -1,0 +1,22 @@
+# AC7: hostile text in a note and a criterion, and lines that are not records
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:44:37Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/checks.test.ts -t "hostile text in and out" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/checks.test.ts > hostile text in and out of a checks file (AC7) > writes a hostile note and criterion as one line that JSON.parse reads back, with control and bidirectional characters gone 24ms
+ ✓ src/checks.test.ts > hostile text in and out of a checks file (AC7) > yields the valid records of a file that also holds lines that are not records, counts those by line number, and leaves Object.prototype alone 1ms
+ ✓ src/checks.test.ts > hostile text in and out of a checks file (AC7) > judges an evidence path by its words alone, accepting the three spellings of one file 0ms
+ Test Files  1 passed (1)
+      Tests  3 passed | 14 skipped (17)
+   Start at  13:44:37
+   Duration  535ms (transform 103ms, setup 0ms, import 137ms, tests 340ms, environment 0ms)
+exit 0
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "refuses naming the lines of a checks file" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/policy.test.ts > the policy report on a passing task > refuses naming the lines of a checks file that are not records 203ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 43 skipped (44)
+   Start at  13:44:38
+   Duration  878ms (transform 136ms, setup 0ms, import 175ms, tests 643ms, environment 0ms)
+exit 0

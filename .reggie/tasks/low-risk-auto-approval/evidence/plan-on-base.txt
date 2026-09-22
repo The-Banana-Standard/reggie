@@ -1,0 +1,13 @@
+# AC22: the plan must be on the base
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:45:03Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "AC22" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/policy.test.ts > the plan must be on the base (AC22) > refuses a task whose plan exists only on the task branch 521ms
+ ✓ src/policy.test.ts > the plan must be on the base (AC22) > refuses a plan on the base that fails the plan contract 573ms
+ ✓ src/policy.test.ts > the plan must be on the base (AC22) > refuses a plan with no criteria in words that say so, never as passing 466ms
+ Test Files  1 passed (1)
+      Tests  3 passed | 41 skipped (44)
+   Start at  13:45:03
+   Duration  1.82s (transform 121ms, setup 0ms, import 159ms, tests 1.60s, environment 0ms)
+exit 0

@@ -16,6 +16,10 @@ import { repoPaths } from "../src/paths.js";
 import { makeDiffFixture, oddLine, SPACED_NAMES, XSS_LINE, type DiffFixture } from "./diff-fixture.js";
 import { makeFixtureRepo, type FixtureRepo } from "./fixtures.js";
 import { fullPlan, makeTempRepo, type TempRepo } from "./helpers.js";
+import { evidenceRelDir, packetRelPath } from "../src/paths.js";
+import { evaluateCompletion, evaluationStats } from "../src/policy.js";
+import { parseIntake } from "../src/tasks.js";
+import { makePolicyFixture, policySnapshot, type PolicyFixture } from "./policy-fixture.js";
 
 let fx: FixtureRepo;
 let server: ServerHandle;
@@ -2303,5 +2307,87 @@ describe("the idea action: origins on capture and paths on launch", () => {
       await team.close();
       repo.cleanup();
     }
+  });
+});
+
+describe("the policy report and the evidence gate over HTTP", () => {
+  const made: PolicyFixture[] = [];
+  const servers: ServerHandle[] = [];
+  afterAll(async () => {
+    for (const srv of servers) await srv.close();
+    for (const f of made) f.cleanup();
+  });
+
+  async function serve(f: PolicyFixture): Promise<{ get: (route: string) => Promise<{ status: number; body: any }>; post: (route: string, body: unknown) => Promise<{ status: number; body: any }> }> {
+    made.push(f);
+    const srv = await startServer(f.paths, f.config, { port: 0, host: "127.0.0.1", workspace: null });
+    servers.push(srv);
+    const at = `http://127.0.0.1:${srv.port}`;
+    const read = async (res: Response) => ({ status: res.status, body: JSON.parse((await res.text()) || "null") });
+    return {
+      get: async (route) => read(await fetch(at + route)),
+      post: async (route, body) => read(await fetch(at + route, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })),
+    };
+  }
+
+  it("returns as policy the object reggie check --json prints, null for a task with no packet on a branch, and never evaluates while the list is built", async () => {
+    const f = makePolicyFixture();
+    const http = await serve(f);
+    const detail = await http.get(`/api/task/${f.slug}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.policy).toEqual(JSON.parse(JSON.stringify(evaluateCompletion(f.root, f.slug))));
+    expect(detail.body.policy.verdict).toBe("would-pass");
+    expect(detail.body.policy.gates.map((g: any) => g.id)).toEqual(["policy", "plan", "controls", "packet", "criteria", "evidence", "risk", "merge"]);
+
+    const before = evaluationStats.calls;
+    for (const route of ["/api/tasks", "/api/tasks?all=1", "/api/status"]) expect((await http.get(route)).status).toBe(200);
+    expect(evaluationStats.calls).toBe(before);
+
+    const planned = makePolicyFixture({ stage: "planned", slug: "only-planned" });
+    const built = makePolicyFixture({ stage: "built", slug: "no-packet-yet" });
+    expect((await (await serve(planned)).get("/api/task/only-planned")).body.policy).toBeNull();
+    expect((await (await serve(built)).get("/api/task/no-packet-yet")).body.policy).toBeNull();
+  });
+
+  it("answers 409 with each path and its reason for a packet that cites a file nobody committed, changes nothing, and lands it once the file is there", async () => {
+    const f = makePolicyFixture();
+    const http = await serve(f);
+    f.wt(packetRelPath(f.slug), (readFileSync(path.join(f.worktree, packetRelPath(f.slug)), "utf8")).replace("## Evidence\n", "## Evidence\n- evidence/never-saved.png — the screenshot\n"));
+    f.commitWt("packet: cite a screenshot nobody saved");
+    const before = policySnapshot(f);
+
+    const refused = await http.post("/api/decide", { slug: f.slug, verdict: "approved" });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toMatch(/its packet cites evidence that does not resolve on task\/two-not-one \([0-9a-f]{12}\): evidence\/never-saved\.png is not on the commit/);
+    expect(refused.body.error).not.toContain(f.root);
+    expect(policySnapshot(f)).toEqual(before);
+    expect((await http.get(`/api/task/${f.slug}`)).body.task.state).toBe("awaiting-decision");
+
+    f.wt(`${evidenceRelDir(f.slug)}never-saved.png`, "not really a png, but a file with bytes in it\n");
+    f.commitWt("evidence: the screenshot");
+    const landed = await http.post("/api/decide", { slug: f.slug, verdict: "approved" });
+    expect(landed.status, JSON.stringify(landed.body)).toBe(200);
+    expect(landed.body.merge).toMatch(/^[0-9a-f]{40}$/);
+    expect(landed.body.captured).toEqual([]);
+    expect(git(["show", `HEAD:${packetRelPath(f.slug)}`], { cwd: f.root }).stdout).toMatch(new RegExp(`^decided_by: ${f.person.handle}$`, "m"));
+  });
+
+  it("carries the slugs an approval captured in its response, and captures nothing on needs-work", async () => {
+    const discovered = "- The toast hides why a landing was refused, which nobody has captured yet\n- none of the rest matters";
+    const sentBack = makePolicyFixture({ discovered, slug: "sent-back" });
+    const http = await serve(sentBack);
+    const intake = readFileSync(sentBack.paths.intake, "utf8");
+    const needsWork = await http.post("/api/decide", { slug: "sent-back", verdict: "needs-work", comment: "not yet" });
+    expect(needsWork.status).toBe(200);
+    expect(needsWork.body.captured).toBeUndefined();
+    expect(readFileSync(sentBack.paths.intake, "utf8")).toBe(intake);
+
+    const approved = makePolicyFixture({ discovered, slug: "approved-one" });
+    const res = await (await serve(approved)).post("/api/decide", { slug: "approved-one", verdict: "approved" });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.captured).toEqual(["the-toast-hides-why-a-landing-was-refused-which"]);
+    const item = parseIntake(git(["show", `${res.body.merge}:.reggie/intake.md`], { cwd: approved.root }).stdout).find((i) => i.slug === res.body.captured[0]);
+    expect(item?.meta).toMatch(/, packet, /);
+    expect(item?.detail).toEqual(["Captured from the task `approved-one`"]);
   });
 });

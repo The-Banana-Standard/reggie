@@ -1,0 +1,12 @@
+# AC24: stale checks
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:45:09Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "AC24" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/policy.test.ts > stale checks (AC24) > keeps a pass counting through a later commit that touches only .reggie/, and makes it stale once code changes after it 756ms
+ ✓ src/policy.test.ts > stale checks (AC24) > makes a pass stale when its head is no longer part of the branch, as after a rebase 603ms
+ Test Files  1 passed (1)
+      Tests  2 passed | 42 skipped (44)
+   Start at  13:45:09
+   Duration  1.61s (transform 122ms, setup 0ms, import 161ms, tests 1.39s, environment 0ms)
+exit 0

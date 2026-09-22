@@ -1,0 +1,11 @@
+# AC39: policy on the task route, and a task list that never evaluates
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:45:34Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run test/serve.test.ts -t "returns as policy the object" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ test/serve.test.ts > the policy report and the evidence gate over HTTP > returns as policy the object reggie check --json prints, null for a task with no packet on a branch, and never evaluates while the list is built 2485ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 145 skipped (146)
+   Start at  13:45:35
+   Duration  3.57s (transform 304ms, setup 0ms, import 380ms, tests 3.13s, environment 0ms)
+exit 0

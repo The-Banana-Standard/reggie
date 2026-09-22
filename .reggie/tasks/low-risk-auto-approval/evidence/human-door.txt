@@ -1,0 +1,98 @@
+# AC16, AC35: the human door, as it was except where the gate and the lock bind it
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:45:39Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/land.test.ts --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/land.test.ts > landTask > merges an approved task with the verdict inside the merge commit, releases it, and pushes nothing 760ms
+ ✓ src/land.test.ts > landTask > aborts a conflicting merge and leaves both branches, the tree and the verdicts as they were 1064ms
+ ✓ src/land.test.ts > landTask > refuses from a checkout that is not on the base branch 467ms
+ ✓ src/land.test.ts > landTask > refuses while tracked files on the base branch are modified 487ms
+ ✓ src/land.test.ts > landTask > refuses while the task worktree holds uncommitted work 528ms
+ ✓ src/land.test.ts > landTask > refuses when the base holds untracked files the merge would overwrite, naming them 531ms
+ ✓ src/land.test.ts > landTask > approves a task whose branch was merged and released before anyone decided 636ms
+ ✓ src/land.test.ts > landTask > refuses when there is neither a branch nor a merge that landed the task 498ms
+ ✓ src/land.test.ts > landTask > records the verdict without a second merge when the branch has already landed, and says so 944ms
+ ✓ src/land.test.ts > landTask > leaves needs-work as a verdict written into the packet, with no commit 668ms
+ ✓ src/land.test.ts > the evidence gate on the human door > refuses a packet that cites a file nobody committed, naming each path and its reason, and merges once the file is on the branch 1602ms
+ ✓ src/land.test.ts > the evidence gate on the human door > refuses an empty evidence file and a symbolic link, and judges the base for a task that has already landed 779ms
+ ✓ src/land.test.ts > the evidence gate on the human door > still merges, by hand, a task the policy report refuses for its risk class and for having no checks 989ms
+ ✓ src/land.test.ts > one landing at a time > keeps its lock under the git directory every worktree shares 408ms
+ ✓ src/land.test.ts > one landing at a time > refuses while a lock names a live pid, naming the other slug, the pid and the start, and changes nothing 768ms
+ ✓ src/land.test.ts > one landing at a time > replaces a lock whose pid is dead, and one older than ten minutes, and lands 1216ms
+ ✓ src/land.test.ts > one landing at a time > leaves no lock behind after a landing, a refusal, a conflict, and a throw while the approval is being recorded 2161ms
+ ✓ src/land.test.ts > one landing at a time > refuses before running git merge when a merge is already in progress, and leaves that merge exactly as it was 508ms
+ ✓ src/land.test.ts > discovered issues, captured inside the merge commit > captures exactly the two fresh bullets, in the one merge commit, attributed to the session that found them 810ms
+ ✓ src/land.test.ts > discovered issues, captured inside the merge commit > prints the captured slugs from the CLI 1051ms
+ ✓ src/land.test.ts > discovered issues, captured inside the merge commit > aborts the merge and records nothing when capturing throws 728ms
+ ✓ src/land.test.ts > discovered issues, captured inside the merge commit > puts the intake back even when the branch changed it too, where a bare merge --abort would be refused 1175ms
+ ✓ src/land.test.ts > discovered issues, captured inside the merge commit > writes the captures of a task that had already landed into its verdict commit, and captures nothing the second time 1003ms
+ ✓ src/land.test.ts > discovered issues, captured inside the merge commit > captures nothing on needs-work or on a team-mode approval, which write exactly the files they wrote before 1494ms
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  13:45:39
+   Duration  21.47s (transform 105ms, setup 0ms, import 139ms, tests 21.27s, environment 0ms)
+exit 0
+
+$ cd packages/reggie && TZ=UTC npx vitest run test/serve.test.ts -t "answers 409 with each path|POST /api/decide|decide" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ test/serve.test.ts > the policy report and the evidence gate over HTTP > answers 409 with each path and its reason for a packet that cites a file nobody committed, changes nothing, and lands it once the file is there 1747ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 145 skipped (146)
+   Start at  13:46:01
+   Duration  2.80s (transform 299ms, setup 0ms, import 373ms, tests 2.36s, environment 0ms)
+exit 0
+
+$ git diff repo-manager -- packages/reggie/src/land.test.ts | grep '^-[^-]'   # every line of the old file that changed: imports only
+-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+-import { fileAtRef, git, run } from "./git.js";
+-import { LandError, landTask } from "./land.js";
+-import { getTask } from "./tasks.js";
+-import { writeText } from "./util.js";
+
+$ git diff repo-manager -- packages/reggie/test/serve.test.ts | grep '^-[^-]'   # no line of the old file changed
+exit 1 (1 means none)
+
+$ git diff --stat repo-manager -- packages/reggie/src/land.test.ts packages/reggie/test/serve.test.ts packages/reggie/test/diff-fixture.ts packages/reggie/test/fixtures.ts packages/reggie/src/tasks.test.ts
+ packages/reggie/src/land.test.ts     | 336 ++++++++++++++++++++++++++++++++++-
+ packages/reggie/src/tasks.test.ts    |   8 +-
+ packages/reggie/test/diff-fixture.ts |  10 +-
+ packages/reggie/test/fixtures.ts     |   5 +-
+ packages/reggie/test/serve.test.ts   |  87 +++++++++
+ 5 files changed, 434 insertions(+), 12 deletions(-)
+
+Fixture edits, each because of the gate or the generated checklist:
+  test/diff-fixture.ts  the one packet landTask lands cited evidence/tests.txt and never saved it; it now cites nothing.
+  test/fixtures.ts      the awaiting-decision task records a check, since no evidence file is paired with a criterion by position any more.
+  src/tasks.test.ts     the same: a check is recorded instead of a box ticked by hand.
+
+$ git diff repo-manager -- packages/reggie/test/diff-fixture.ts
+diff --git a/packages/reggie/test/diff-fixture.ts b/packages/reggie/test/diff-fixture.ts
+index 666a655..a066399 100644
+--- a/packages/reggie/test/diff-fixture.ts
++++ b/packages/reggie/test/diff-fixture.ts
+@@ -82,8 +82,12 @@ function numbered(n: number, change: (i: number) => string | null = () => null):
+   return `${lines.join("\n")}\n`;
+ }
+
+-function packet(slug: string, verdict: "pending" | "approved"): string {
+-  return ["---", `slug: ${slug}`, `title: ${slug}`, "risk: low", "author: test", "date: 2026-09-17", `branch: task/${slug}`, "base: main", `verdict: ${verdict}`, "decided_by:", "decided_at:", "---", `# Completion: ${slug}`, "", "## Acceptance criteria", "- [x] It works", "  evidence: evidence/tests.txt", ""].join("\n");
++/**
++ * `cites` is false for the one packet that `landTask` lands: it never saved an `evidence/tests.txt`,
++ * and since the evidence gate a hand approval refuses a packet that cites a file nobody committed.
++ */
++function packet(slug: string, verdict: "pending" | "approved", cites = true): string {
++  return ["---", `slug: ${slug}`, `title: ${slug}`, "risk: low", "author: test", "date: 2026-09-17", `branch: task/${slug}`, "base: main", `verdict: ${verdict}`, "decided_by:", "decided_at:", "---", `# Completion: ${slug}`, "", "## Acceptance criteria", "- [x] It works", ...(cites ? ["  evidence: evidence/tests.txt"] : []), ""].join("\n");
+ }
+
+ export function makeDiffFixture(opts: { large?: boolean } = {}): DiffFixture {
+@@ -276,7 +280,7 @@ export function makeDiffFixture(opts: { large?: boolean } = {}): DiffFixture {
+   branch(slugs.landed);
+   bytes("src/a.ts", "one\ntwo LANDED\nthree\n");
+   bytes("src/landed-only.ts", "export const landed = 1;\n");
+-  writeText(packetFile(paths, slugs.landed), packet(slugs.landed, "pending"));
++  writeText(packetFile(paths, slugs.landed), packet(slugs.landed, "pending", false));
+   commit("feat: landed work", slugs.landed);
+   toMain();
+   const config = loadConfig(paths);
+
+A task the report refuses for medium risk is merged by a hand approval: the last step of evidence/e2e-medium.txt.

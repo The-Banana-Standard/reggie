@@ -1,0 +1,14 @@
+# AC23: the criteria gate
+# branch task/low-risk-auto-approval at 0b3c594b9ee2, 2026-09-18T13:45:05Z
+
+$ cd packages/reggie && TZ=UTC npx vitest run src/policy.test.ts -t "AC23" --reporter=verbose
+ RUN  v4.1.11 /Users/jacobpress/Desktop/Projects/Reggie Workspace/reggie/.worktree/repo-manager/.worktree/low-risk-auto-approval/packages/reggie
+ ✓ src/policy.test.ts > the criteria gate (AC23) > refuses with the sentence that a packet with no checks never passes when there is no checks file 482ms
+ ✓ src/policy.test.ts > the criteria gate (AC23) > names by number a criterion with no record, one whose latest record fails, and one whose only pass cites no evidence 885ms
+ ✓ src/policy.test.ts > the criteria gate (AC23) > does not count a pass recorded against a rewording that exists only on the branch, and refuses a failing record whose key is in no plan 754ms
+ ✓ src/policy.test.ts > the criteria gate (AC23) > lets a later pass supersede a fail and a later fail a pass, by position and not by clock 747ms
+ Test Files  1 passed (1)
+      Tests  4 passed | 40 skipped (44)
+   Start at  13:45:05
+   Duration  3.16s (transform 124ms, setup 0ms, import 164ms, tests 2.93s, environment 0ms)
+exit 0
