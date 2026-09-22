@@ -45,8 +45,8 @@ Read this top to bottom to decide whether the work is done. Every claim should p
   evidence: .reggie/tasks/web-ui-test-foundation/evidence/browser.txt
   check: pass by jacobpress (codex) at 2026-09-22T22:32:30.056Z · c:c594ae241526
 - [x] From `packages/reggie`, `npm test`, `npm run typecheck`, `npm run build`, and the generated documentation check all exit zero.
-  evidence: .reggie/tasks/web-ui-test-foundation/evidence/full-verification.txt
-  check: pass by jacobpress (codex) at 2026-09-22T22:32:30.236Z · c:7bbe176ebc92
+  evidence: .reggie/tasks/web-ui-test-foundation/evidence/full-verification.txt, .reggie/tasks/web-ui-test-foundation/evidence/hosted-ci.txt
+  check: pass by jacobpress (codex) at 2026-09-22T22:41:21.249Z · c:7bbe176ebc92
 <!-- reggie:checks:end -->
 
 ## Evidence
@@ -55,6 +55,7 @@ Read this top to bottom to decide whether the work is done. Every claim should p
 - .reggie/tasks/web-ui-test-foundation/evidence/docs.txt
 - .reggie/tasks/web-ui-test-foundation/evidence/dom-tests.txt
 - .reggie/tasks/web-ui-test-foundation/evidence/full-verification.txt
+- .reggie/tasks/web-ui-test-foundation/evidence/hosted-ci.txt
 - .reggie/tasks/web-ui-test-foundation/evidence/mutation-probe.txt
 - .reggie/tasks/web-ui-test-foundation/evidence/reviews.txt
 
@@ -112,4 +113,4 @@ Read this top to bottom to decide whether the work is done. Every claim should p
 
 ## Open risks
 - jsdom cannot establish Cytoscape geometry or responsive paint correctness. The in-app-browser run covered the repository and Data Flow pages at 1600px and 390px, including a map hide/show/Fit cycle, canvas sizing, overflow, and console output; a future browser or Cytoscape change would still be caught in that manual lane rather than by these DOM tests.
-- The local CI-equivalent commands are green. The hosted GitHub job is intentionally the next gate: push this task branch, open its PR against `repo-manager`, and require the Linux and macOS checks before approval.
+- Pull request 16 passed both hosted GitHub jobs on `ubuntu-latest` and `macos-latest`. See `evidence/hosted-ci.txt`.
