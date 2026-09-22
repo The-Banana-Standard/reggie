@@ -1,0 +1,8 @@
+Final committed implementation verification:
+
+- `npm test -- --reporter=default`: PASS; 45 test files, 1,217 tests passed, 1 skipped. Output named both `node` and `web-dom` projects; web-dom contributed 4 files and 17 tests.
+- `npm run typecheck`: PASS; `tsc -p tsconfig.json --noEmit` exited zero.
+- `npm run build`: PASS; `tsc -p tsconfig.json` exited zero.
+- `node dist/cli.js -C ../.. docs check`: PASS; CLAUDE.md and AGENTS.md both fresh.
+- `npm audit --json`: PASS; 0 vulnerabilities at every severity across production and development dependencies.
+- `git diff --check`: PASS after normalizing the new note-file endings.

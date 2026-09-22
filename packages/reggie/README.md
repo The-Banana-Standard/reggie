@@ -147,9 +147,11 @@ Front matter: `slug`, `title`, `risk` (low, medium, high), `deciders`, `author`,
 ## Development
 
 ```bash
-npm test            # vitest, including an end-to-end MCP client test
+npm test            # Vitest: Node integration tests and the browser-DOM project
 npm run typecheck
 npm run dev -- tasks
 ```
+
+Vitest runs two named projects. `node` contains the TypeScript unit and integration suite, including the end-to-end MCP client test. `web-dom` runs `ui/**/*.dom.test.js` in jsdom and imports the production router, story, reader, and map-model modules. That project checks DOM contracts and deterministic model construction; Cytoscape geometry, fit behavior, and responsive desktop/phone rendering still require an in-app-browser check.
 
 Source layout: one module per concern under `src/` (`paths`, `git`, `gh`, `layout`, `people`, `facts`, `docs`, `notes`, `journal`, `plan`, `tasks`, `packet`, `context`, `claim`, `capture`, `onboard`, `mcp`, `cli`). Tests sit beside the modules; `test/helpers.ts` builds throwaway git repos.

@@ -1,0 +1,7 @@
+---
+entity: packages/reggie/ui/map.dom.test.js
+kind: file
+---
+
+## verify · 2026-09-22 · Codex via jacobpress · medium
+The DOM map test imports map.js and pins deterministic repository, file-impact, and data-flow node and edge records without pretending jsdom validates Cytoscape geometry.

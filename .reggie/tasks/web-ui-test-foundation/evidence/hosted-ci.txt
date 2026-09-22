@@ -1,0 +1,7 @@
+Hosted CI verification
+
+- Pull request: https://github.com/The-Banana-Standard/reggie/pull/16
+- GitHub Actions run: https://github.com/The-Banana-Standard/reggie/actions/runs/35793391646
+- ubuntu-latest: pass (1m22s)
+- macos-latest: pass (2m25s)
+- Verified: 2026-09-22

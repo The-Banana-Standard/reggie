@@ -1,0 +1,10 @@
+Each mutation was applied to the production module, its focused DOM test was run, and the production file was restored before the next probe. A final `git diff` over the four production files was empty, and the complete web-dom project passed 17 of 17 tests.
+
+1. app.js: changed the workspace route segment from `ws` to `workspace-mutation`.
+   Result: exit 1; `browser router > round-trips { level: 'workspace', query: {} }` failed because the parsed level became `home`.
+2. story.js: replaced each paragraph's real `data-para` id with `mutation`.
+   Result: exit 1; `story DOM > renders the production section, link, detail, reference, and text contracts` failed because `data-para="what-1"` disappeared.
+3. reader.js: replaced source line splitting with an empty line array.
+   Result: exit 1; `source reader DOM > opens real source rows, marks symbols, moves the highlight, and closes cleanly` failed because zero rows rendered instead of three.
+4. map.js: prevented the `flow` level from selecting `buildFlowModel`.
+   Result: exit 1; `map model > builds flow labels and payload summaries without starting Cytoscape` failed because the expected flow nodes were absent.

@@ -1,0 +1,12 @@
+Command: npm test -- --project web-dom --reporter=verbose
+Result: PASS
+
+Vitest reported the named project `web-dom` and imported all four production modules.
+
+- ui/app.dom.test.js: 12 passed
+- ui/story.dom.test.js: 1 passed
+- ui/reader.dom.test.js: 1 passed
+- ui/map.dom.test.js: 3 passed
+- Total: 4 files, 17 tests passed
+
+The final focused rerun after the mutation probes reported the same 4 files and 17 passing tests.
