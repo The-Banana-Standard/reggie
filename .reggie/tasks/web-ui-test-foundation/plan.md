@@ -27,6 +27,8 @@ The DOM project will not instantiate Cytoscape to claim layout correctness. Mode
 - packages/reggie/ui/map.dom.test.js (NEW)
 - packages/reggie/README.md (MOD)
 - .github/workflows/ci.yml (MOD)
+- CLAUDE.md (MOD)
+- AGENTS.md (MOD)
 
 ## Acceptance criteria
 - [ ] `npm test` runs named `node` and `web-dom` Vitest projects, with the existing TypeScript suites remaining in the Node environment and only `ui/**/*.dom.test.js` running in jsdom.
