@@ -7,3 +7,6 @@ kind: file
 This whole file is generated, not just a block inside it, so the check compares it end to end and any hand edit anywhere in it reads as drift. The shared rules it carries are edited in the Claude-facing file and arrive here through the refresh.
 sources: packages/reggie/src/docs.ts
 
+## verify · 2026-09-22 · Codex via jacobpress · medium
+The generated repository facts include the browser-DOM test files; refresh and check these blocks after test inventory changes.
+
