@@ -50,9 +50,9 @@ Read this top to bottom to decide whether the work is done. Every claim should p
 - [x] DOM tests cover step-card headings, plain-English and linked technical sentences, all expandable regions, recursive values, stale/missing knowledge, map labels and routes, compact edge labels, cleanup grouping, keyboard operation, and phone-safe no-overflow markup.
   evidence: .reggie/tasks/data-flow-experience/evidence/focused-tests.txt
   check: pass by jacobpress (codex) at 2026-09-23T08:48:15.525Z · c:5dd08e835422
-- [ ] From `packages/reggie`, focused tests, the full suite, typecheck, build, generated documentation checks, code review, security review, simplification review, manual desktop/phone browser acceptance, zero console errors, no horizontal overflow, and hosted Linux/macOS CI all pass.
-  evidence: (none)
-  check: none recorded · c:ce5af076d8ed
+- [x] From `packages/reggie`, focused tests, the full suite, typecheck, build, generated documentation checks, code review, security review, simplification review, manual desktop/phone browser acceptance, zero console errors, no horizontal overflow, and hosted Linux/macOS CI all pass.
+  evidence: .reggie/tasks/data-flow-experience/evidence/full-verification.txt, .reggie/tasks/data-flow-experience/evidence/browser-acceptance.txt, .reggie/tasks/data-flow-experience/evidence/reviews.txt
+  check: pass by jacobpress (codex) at 2026-09-23T08:54:01.348Z · c:ce5af076d8ed
 <!-- reggie:checks:end -->
 
 ## Evidence
