@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { makeTempRepo, type TempRepo } from "../test/helpers.js";
 import { buildGraph } from "./graph.js";
 import { clearHistoryCache } from "./history.js";
@@ -15,7 +15,7 @@ describe("semantic code index", () => {
   let paths: RepoPaths;
   let index: SemanticIndex;
 
-  beforeEach(() => {
+  beforeAll(() => {
     clearHistoryCache();
     repo = makeTempRepo("reggie-semantic-");
     repo.write(".gitignore", "dist/\nnode_modules/\n");
@@ -95,7 +95,7 @@ describe("semantic code index", () => {
     index = buildSemanticIndex(paths, buildGraph(paths), { now: new Date("2026-09-22T00:00:00Z") });
   });
 
-  afterEach(() => repo.cleanup());
+  afterAll(() => repo.cleanup());
 
   it("catalogs every tracked JavaScript/TypeScript extension and code role", () => {
     expect(index.files.map((file) => file.file)).toEqual([
