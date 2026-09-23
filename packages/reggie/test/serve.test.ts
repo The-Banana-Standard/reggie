@@ -259,7 +259,8 @@ describe("numeric query parameters are bounded", () => {
   // request size a ~1.3 GB allocation. Every numeric parameter is refused outside its range rather
   // than silently clamped, so a typo is visible instead of answered.
   const routes = ["/api/history", "/api/story?scope=repo", "/api/explain?id=src/types/shape.ts"];
-  const validCases = routes.flatMap((route) => ["1", "30", "730", ""].map((days) => ({ route, days })));
+  const lightweightRoutes = ["/api/history", "/api/explain?id=src/types/shape.ts"];
+  const lightweightValidCases = lightweightRoutes.flatMap((route) => ["1", "30", "730", ""].map((days) => ({ route, days })));
 
   it.each(routes)(
     "refuses an out-of-range or non-numeric days on %s",
@@ -273,10 +274,20 @@ describe("numeric query parameters are bounded", () => {
     }
   );
 
-  it.each(validCases)("accepts days=$days on $route", async ({ route, days }) => {
+  it.each(lightweightValidCases)("accepts days=$days on $route", async ({ route, days }) => {
     const sep = route.includes("?") ? "&" : "?";
     expect((await get(`${route}${sep}days=${days}`)).status, `${route} days=${days}`).toBe(200);
   });
+
+  // The first repo story also builds the compiler-backed flow index. Keep that cold-start
+  // integration path real, but give it its own budget on saturated two-core hosted runners.
+  it.each(["1", "30", "730", ""])(
+    "accepts days=%s on the repo story",
+    async (days) => {
+      expect((await get(`/api/story?scope=repo&days=${days}`)).status, `repo story days=${days}`).toBe(200);
+    },
+    60_000,
+  );
 
   it("bounds depth, limit and the journal window", async () => {
     expect((await get("/api/impact?id=src/types/shape.ts&depth=99")).status).toBe(400);

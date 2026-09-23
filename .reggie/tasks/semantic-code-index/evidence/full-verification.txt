@@ -28,8 +28,9 @@ Hosted CI (PR #17, run 35815118894, commit a703cb5):
   Both jobs passed tests, typecheck, build, and generated documentation checks.
 
 The compiler-backed fixtures reuse immutable semantic indexes, and the real server numeric-range
-contract keeps each route and valid boundary request in its own test. This preserves every assertion
-and the 20-second per-test guard while avoiding an artificial shared timeout on saturated runners.
+contract keeps each route and valid boundary request in its own test. Every lightweight request
+retains the default 20-second guard. The cold repo-story cases have a 60-second integration budget
+because their first request intentionally builds the compiler-backed flow index on the same process.
 
 The first documentation check was started concurrently with the build and correctly refused
 the then-stale dist output. It passed immediately after the build completed.
