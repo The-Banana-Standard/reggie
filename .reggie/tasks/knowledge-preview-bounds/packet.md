@@ -26,9 +26,9 @@ Read this top to bottom to decide whether the work is done. Every claim should p
 - [x] The real `personal_website` Codex preview succeeds and reports the full new/stale scope without writing notes, jobs, or commits.
   evidence: .reggie/tasks/knowledge-preview-bounds/evidence/real-repo.txt
   check: pass by jacobpress (codex) at 2026-09-23T09:50:01.787Z · c:eaed7f589063
-- [ ] Focused tests, the full suite, typecheck, build, documentation checks, reviews, and hosted Linux/macOS CI pass before landing.
-  evidence: (none)
-  check: none recorded · c:f6891bfd7622
+- [x] Focused tests, the full suite, typecheck, build, documentation checks, reviews, and hosted Linux/macOS CI pass before landing.
+  evidence: .reggie/tasks/knowledge-preview-bounds/evidence/full-verification.txt, .reggie/tasks/knowledge-preview-bounds/evidence/reviews.txt
+  check: pass by jacobpress (codex) at 2026-09-23T09:58:12.673Z · c:f6891bfd7622
 <!-- reggie:checks:end -->
 
 ## Evidence
@@ -70,4 +70,4 @@ Read this top to bottom to decide whether the work is done. Every claim should p
 ## Open risks
 - Omitted prompt evidence still has exact source-backed IDs but less contextual detail than the 24 representative records. Poor description quality would be visible in the generated current-understanding text and can be refreshed explicitly.
 - The final `personal_website` batch contains 464 agent chunks. Adapter timeouts remain resumable, and no repository notes publish unless every chunk validates.
-- Hosted Linux/macOS CI is still pending; criterion 4 remains unchecked until both jobs pass.
+- Hosted Linux and macOS CI both passed in GitHub Actions run 35845358689.
