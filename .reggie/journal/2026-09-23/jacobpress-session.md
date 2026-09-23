@@ -48,3 +48,9 @@ The automated and browser checks found and fixed same-file symbol source retenti
 Hosted Linux and macOS CI passed the full typecheck, test, build, and documentation workflow; the completion evidence now records the run.
 evidence: full-verification.txt
 
+### 03:27 · jacobpress · codex · code-entity-pages · release
+Released the claim on this task.
+
+### 03:34 · jacobpress · codex · data-flow-experience · plan
+Turned the final UI task into a reviewable contract: flows will use only semantic arguments, boundary payloads, return variants, typed entity nodes, layered step cards, and role-aware cleanup evidence; no browser fallback may recreate the old fake payloads.
+
