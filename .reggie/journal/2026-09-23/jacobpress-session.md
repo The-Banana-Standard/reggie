@@ -35,3 +35,6 @@ Decision: approved. Merged the task branch into repo-manager. All 14 criteria, r
 ### 01:37 · jacobpress · codex · code-entity-pages · plan
 Planned first-class symbol, route, and concept pages on the semantic and shared-knowledge contracts. The task includes exact declaration source, paged full files, safe editing and refresh, and durable manual concept overrides while leaving Data Flow cards for the next task.
 
+### 01:38 · jacobpress · codex · code-entity-pages · claim
+Claimed the task and started a branch from repo-manager in a separate worktree.
+
