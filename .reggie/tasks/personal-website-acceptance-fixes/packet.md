@@ -23,9 +23,9 @@ Read this top to bottom to decide whether the work is done. Every claim should p
 - [x] The route entity page connects that client call to its exact caller symbol and retains the inline request-body shape.
   evidence: .reggie/tasks/personal-website-acceptance-fixes/evidence/tests.txt, .reggie/tasks/personal-website-acceptance-fixes/evidence/real-repo.txt
   check: pass by jacobpress (codex) at 2026-09-23T09:22:20.304Z · c:004eea2d9b70
-- [ ] Literal fetch URLs, unresolved dynamic expressions, alias cycles, typecheck, focused tests, full tests, build, and hosted Linux/macOS CI remain safe and passing.
-  evidence: (none)
-  check: none recorded · c:33e90f3e7d97
+- [x] Literal fetch URLs, unresolved dynamic expressions, alias cycles, typecheck, focused tests, full tests, build, and hosted Linux/macOS CI remain safe and passing.
+  evidence: .reggie/tasks/personal-website-acceptance-fixes/evidence/tests.txt, .reggie/tasks/personal-website-acceptance-fixes/evidence/full-verification.txt, .reggie/tasks/personal-website-acceptance-fixes/evidence/reviews.txt
+  check: pass by jacobpress (codex) at 2026-09-23T09:29:14.862Z · c:33e90f3e7d97
 <!-- reggie:checks:end -->
 
 ## Evidence
