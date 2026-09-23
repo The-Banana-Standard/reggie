@@ -319,7 +319,7 @@ function withQuery(path: string, query: RouteQuery): string {
  *
  * `repo:<n>` → `#/repo/<n>`, `dir:./` → `#/repo/<repo>`, `dir:<p>/` → `…/area/<p>`, a bare path →
  * `…/file/<path>`, `task:<s>` → `…/task/<s>`, `person:<h>` → `…/person/<h>`, `sym:<f>::<n>` →
- * `…/symbol/<f>::<n>`. Ghost ids resolve to what they stand for; folds and entities land on the repo.
+ * `…/symbol/sym:<f>::<n>`. Ghost ids resolve to what they stand for; folds land on the repo.
  */
 export function routeFor(repo: string, nodeId: string, query: RouteQuery = {}): string {
   const id = String(nodeId ?? "").trim();
@@ -335,10 +335,12 @@ export function routeFor(repo: string, nodeId: string, query: RouteQuery = {}): 
   if (id.startsWith("svc:")) return withQuery(`${base}/services`, { ...query, service: id });
   if (id.startsWith("flow:")) return withQuery(`${base}/flow/${encodeRouteId(id.slice(5))}`, query);
   if (id.startsWith("resp:")) return withQuery(`${base}/flow/${encodeRouteId(id.slice(5))}`, query);
+  if (id.startsWith("route:")) return withQuery(`${base}/route/${encodeRouteId(id)}`, query);
+  if (id.startsWith("concept:")) return withQuery(`${base}/concept/${encodeRouteId(id)}`, query);
   if (id.startsWith("task:")) return withQuery(`${base}/task/${encodeRouteId(id.slice(5))}`, query);
   if (id.startsWith("person:")) return withQuery(`${base}/person/${encodeRouteId(id.slice(7))}`, query);
   if (id.startsWith("sym:")) {
-    return withQuery(`${base}/symbol/${encodeRouteId(id.slice(4))}`, query);
+    return withQuery(`${base}/symbol/${encodeRouteId(id)}`, query);
   }
   if (id.startsWith("fold:") || id.startsWith("entity:")) return withQuery(base, query);
   return withQuery(`${base}/file/${encodeRouteId(id)}`, query);

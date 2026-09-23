@@ -13,3 +13,6 @@ Knowledge write tests prove an unreadable live lock is preserved and rejected ra
 A real Git index lock forces the post-commit path refresh to fail; the test proves HEAD rolls back and the new knowledge note is removed.
 ## verify · 2026-09-23 · Codex via jacobpress · medium
 Batch fixtures prove formerly colliding route IDs publish to two distinct knowledge note files.
+## verify · 2026-09-23 · Codex via jacobpress · high
+Knowledge transaction coverage includes generic repository artifacts and rejects duplicate resolved targets.
+sources: code-entity-pages

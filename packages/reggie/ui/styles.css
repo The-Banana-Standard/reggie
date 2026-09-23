@@ -618,6 +618,36 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
 .form__actions { display: flex; gap: var(--s-2); align-items: center; }
 .form__error { color: var(--bad); font-size: var(--fs-meta); }
 
+/* Code entity pages: concise top-level facts, with evidence layered under native details. */
+.entity-hero { margin: 0 0 var(--s-4); padding: var(--s-4); border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+.entity-hero h1 { margin: var(--s-2) 0; font-family: var(--mono); font-size: clamp(18px, 2.2vw, 28px); overflow-wrap: anywhere; }
+.entity-subhead { margin: var(--s-3) 0 var(--s-2); font-size: var(--fs-label); }
+.entity-list { display: grid; gap: var(--s-2); margin: 0; padding-left: 1.25rem; }
+.entity-links { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); }
+.entity-controls { margin-top: var(--s-3); }
+.entity-summary { margin: 0 0 var(--s-3); font-size: var(--fs-body); line-height: 1.55; }
+.knowledge-panel, .knowledge-editor, .knowledge-refresh, .concept-override { display: grid; gap: var(--s-3); }
+.knowledge-editor__field { display: grid; gap: var(--s-1); }
+.knowledge-refresh { margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.knowledge-refresh__preview { padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); }
+.stale-warning { margin-bottom: var(--s-3); padding: var(--s-2) var(--s-3); border-left: 3px solid var(--warn); background: var(--panel-2); color: var(--muted); overflow-wrap: anywhere; }
+.value-tree, .parameter-list, .return-list, .concept-occurrence-list { display: grid; gap: var(--s-2); }
+.value-tree { margin: var(--s-2) 0 0 var(--s-3); border-left: 1px solid var(--line); padding-left: var(--s-3); }
+.value-tree__field, .parameter-card, .return-card, .concept-occurrence, .concept-action { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); }
+.value-tree__field > summary, .parameter-card > summary, .return-card > summary, .concept-occurrence > summary, .concept-action > summary { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); padding: var(--s-2) var(--s-3); cursor: pointer; overflow-wrap: anywhere; }
+.value-tree__field > :not(summary), .parameter-card > :not(summary), .return-card > :not(summary), .concept-occurrence > :not(summary), .concept-action > :not(summary) { margin-inline: var(--s-3); }
+.value-tree__type { margin-left: auto; color: var(--muted); font-size: var(--fs-meta); }
+.value-tree__type.is-missing { color: var(--warn); }
+.value-tree__description { color: var(--muted); line-height: 1.5; }
+.concept-occurrences { display: grid; gap: var(--s-2); min-width: 0; margin: 0; padding: var(--s-3); border: 1px solid var(--line); }
+.concept-occurrence-choice { display: flex; align-items: start; gap: var(--s-2); min-width: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 760px) {
+  .entity-hero { padding: var(--s-3); }
+  .value-tree { margin-left: 0; padding-left: var(--s-2); }
+  .value-tree__type { width: 100%; margin-left: 0; }
+}
+
 /* ---------- Floating cards: toolbar and legend (§5.3) ---------- */
 .float {
   position: absolute; z-index: 5;
@@ -821,7 +851,7 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
   .nav__item { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 3px; height: auto; padding: 6px 2px; border-radius: 8px; font-size: var(--fs-sub); }
   .nav__item span { display: inline; }
   .nav__item .i { width: 20px; height: 20px; }
-  .story { --story-pad: var(--s-3); padding-top: var(--s-4); padding-bottom: calc(var(--s-7) + var(--tabbar-h) + env(safe-area-inset-bottom, 0px)); }
+  .story { --story-pad: var(--s-3); min-width: 0; padding-top: var(--s-4); padding-bottom: calc(var(--s-7) + var(--tabbar-h) + env(safe-area-inset-bottom, 0px)); }
   .app.is-map-open .map-col { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px)); }
   .map-col { display: none; }
   .app.is-map-open .map-col {

@@ -19,3 +19,7 @@ sources: idea-from-every-page
 The board section gained one row for the policy report block on the task page: its classes, the data-verdict and data-gate attributes, the glyph for each status, that it sits above .packet__decide, and that record strings are text nodes. Change the markup in policyReport and change that row in the same commit.
 sources: low-risk-auto-approval
 
+## decision · 2026-09-23 · Codex via jacobpress · high
+The DOM contract documents first-class entity levels, declaration and full-file reader modes, recursive evidence, and explicit knowledge edit and conflict states.
+sources: code-entity-pages
+

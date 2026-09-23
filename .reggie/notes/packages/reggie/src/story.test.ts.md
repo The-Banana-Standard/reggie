@@ -18,3 +18,7 @@ sources: packages/reggie/src/story.test.ts, note-form-on-repo-and-area
 ## verify · 2026-09-22 · Codex via jacobpress · medium
 Story routing tests require stable double-colon symbol IDs to open symbol routes and label flow nodes.
 
+## verify · 2026-09-23 · Codex via jacobpress · high
+Story route coverage expects canonical symbol, route, and concept entity URLs.
+sources: code-entity-pages
+

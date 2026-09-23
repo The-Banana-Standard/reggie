@@ -18,7 +18,7 @@ describe("story DOM", () => {
             {
               id: "what-1",
               kind: "fact",
-              text: "Calls [[#/repo/demo/symbol/functions/chat.js::onRequestPost|onRequestPost]] and prints <script>never run()</script>.",
+              text: "Calls [[#/repo/demo/symbol/sym:functions/chat.js::onRequestPost|onRequestPost]] and prints <script>never run()</script>.",
               refs: ["sym:functions/chat.js::onRequestPost"],
             },
           ],
@@ -31,7 +31,7 @@ describe("story DOM", () => {
     renderStory(container, story, { repo: "demo", route: { level: "repo", repo: "demo" }, map });
 
     expect(Array.from(container.querySelectorAll("h2")).map((el) => el.textContent.trim())).toEqual(["About this repo", "How to run it"]);
-    const link = container.querySelector('a[href="#/repo/demo/symbol/functions/chat.js::onRequestPost"]');
+    const link = container.querySelector('a[href="#/repo/demo/symbol/sym:functions/chat.js::onRequestPost"]');
     expect(link?.textContent).toBe("onRequestPost");
     expect(container.querySelector("script")).toBeNull();
     expect(container.textContent).toContain("<script>never run()</script>");

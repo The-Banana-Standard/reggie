@@ -1,0 +1,10 @@
+Focused verification — 2026-09-23
+
+Command:
+  npx vitest run src/entity-pages.test.ts src/concept-overrides.test.ts test/entity-api.test.ts ui/app.dom.test.js ui/reader.dom.test.js ui/map.dom.test.js --reporter=verbose
+
+Result:
+  Test Files  6 passed (6)
+  Tests       43 passed (43)
+
+Named coverage includes canonical router round trips, symbol entity rendering, seven-field recursive trees, route and concept pages, retained edit drafts, retired-text exclusion, call-map layout, documented declaration paging, same-file symbol navigation, split/merge guards, exact symbol HTTP reads, complete route payloads, ranged-source conflicts, role-aware reachability, and guarded concept writes.

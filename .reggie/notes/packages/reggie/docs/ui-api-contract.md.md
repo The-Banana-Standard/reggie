@@ -37,3 +37,11 @@ sources: shared-repo-knowledge
 ## decision · 2026-09-23 · Codex via jacobpress · medium
 Knowledge detail reads expose historyCount but require history=1 to include immutable history entries in the response.
 
+## decision · 2026-09-23 · Codex via jacobpress · high
+The API contract documents entity reads, role-aware reachability, revision-checked source pages, and guarded concept override writes.
+sources: code-entity-pages
+
+## decision · 2026-09-23 · Codex via jacobpress · high
+The documented source-read boundary is tracked first-party JavaScript and TypeScript only, with repository internals and symlinks excluded.
+sources: code-entity-pages
+

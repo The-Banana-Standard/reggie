@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { addIntakeDetail, capture, resolveCaptureOrigin, resolvePackPaths, type CaptureOrigin } from "./capture.js";
 import { changesPayload, DiffRowCache, fileDiff, listChanges, taskRange, type ChangeEntry, type RangeResult, type TaskChanges } from "./changes.js";
+import { applyConceptOverrides, mergeConcepts, readConceptOverrides, splitConcept } from "./concept-overrides.js";
 import { buildContext } from "./context.js";
+import { buildConceptEntityPage, buildRouteEntityPage, buildSymbolEntityPage, normalizeSourcePath, readSourcePage, SourceRevisionConflict } from "./entity-pages.js";
 import { collectFacts, type RepoFacts } from "./facts.js";
 import { listEpisodes, makeEpisode, readEpisode, renderFeed } from "./episode.js";
 import { detectFlows, MAX_FLOW_HOPS, traceFlow, type Flow, type FlowIndex } from "./flows.js";
@@ -997,6 +999,16 @@ function route(req: IncomingMessage, res: ServerResponse, url: URL, registry: Re
       return explainRoute(res, c, url);
     case "/api/file":
       return fileRoute(res, c, url);
+    case "/api/source":
+      return sourceRoute(res, c, url);
+    case "/api/symbol":
+      return symbolEntityRoute(res, c, url);
+    case "/api/route":
+      return routeEntityRoute(res, c, url);
+    case "/api/concept":
+      return conceptEntityRoute(res, c, url);
+    case "/api/reachability":
+      return json(res, 200, semanticIndexOf(c).reachability);
     case "/api/changes":
       return changesRoute(res, c, url);
     case "/api/filediff":
@@ -1399,6 +1411,72 @@ function fileRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
     history: own ? { ...own, recent: recentFor(hist, rel) } : null,
     editorUrl: editorUrlFor(extrasOf(c).editorScheme, c.root, rel),
   });
+}
+
+function inventoryEntry(c: RepoCtx, entity: string): KnowledgeInventoryEntry | null {
+  return knowledgeInventoryOf(c).find((entry) => entry.entity === entity) ?? null;
+}
+
+function sourceRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
+  const rel = url.searchParams.get("path") ?? "";
+  try {
+    const normalized = normalizeSourcePath(rel);
+    if (!semanticIndexOf(c).files.some((file) => file.file === normalized)) return json(res, 404, { error: `No indexed source file: ${normalized}.` });
+    return json(res, 200, readSourcePage(c.paths, normalized, {
+      startLine: qInt(url, "startLine", 1, 1, 99_999_999),
+      lineCount: qInt(url, "lineCount", 300, 1, 1_000),
+      expectedRevision: url.searchParams.get("revision"),
+    }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "source read failed";
+    if (error instanceof SourceRevisionConflict) return json(res, 409, { error: message });
+    return json(res, /No such source/.test(message) ? 404 : 400, { error: message });
+  }
+}
+
+function symbolEntityRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
+  const id = url.searchParams.get("id") ?? "";
+  const entry = inventoryEntry(c, id);
+  if (!entry) return json(res, id.startsWith("sym:") ? 404 : 400, { error: id.startsWith("sym:") ? `Unknown symbol ${id}.` : "Symbol ID must use sym:<path>::<qualified-name>." });
+  const direction = url.searchParams.get("direction") ?? "both";
+  if (direction !== "up" && direction !== "down" && direction !== "both") return json(res, 400, { error: "direction must be up, down, or both" });
+  try {
+    return json(res, 200, buildSymbolEntityPage(c.paths, semanticIndexOf(c), entry, id, {
+      depth: qInt(url, "depth", 1, 1, 3),
+      direction,
+    }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "symbol read failed";
+    return json(res, /Unknown symbol/.test(message) ? 404 : 400, { error: message });
+  }
+}
+
+function routeEntityRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
+  const id = url.searchParams.get("id") ?? "";
+  const entry = inventoryEntry(c, id);
+  if (!entry) return json(res, id.startsWith("route:") ? 404 : 400, { error: id.startsWith("route:") ? `Unknown route ${id}.` : "Route ID must use route:<METHOD>:<path>." });
+  try {
+    return json(res, 200, buildRouteEntityPage(c.paths, semanticIndexOf(c), entry, id, flowsOf(c).flows));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "route read failed";
+    return json(res, /Unknown route/.test(message) ? 404 : 400, { error: message });
+  }
+}
+
+function conceptEntityRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
+  const id = url.searchParams.get("id") ?? "";
+  if (!id.startsWith("concept:")) return json(res, 400, { error: "Concept ID must use concept:<slug>." });
+  const index = semanticIndexOf(c);
+  const overrides = applyConceptOverrides(index.staticConcepts, readConceptOverrides(c.paths));
+  const resolvedId = overrides.redirects[id] ?? id;
+  const entry = inventoryEntry(c, resolvedId);
+  if (!entry) return json(res, 404, { error: `Unknown concept ${id}.` });
+  try {
+    return json(res, 200, buildConceptEntityPage(c.paths, index, entry, id, overrides, flowsOf(c).flows));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "concept read failed";
+    return json(res, /Unknown concept/.test(message) ? 404 : 400, { error: message });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2278,7 +2356,7 @@ function knowledgeJobRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
 // ---------------------------------------------------------------------------
 
 async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, registry: RepoRegistry, port: number, keyed = false): Promise<void> {
-  const routes = new Set(["/api/capture", "/api/intake", "/api/note", "/api/knowledge", "/api/knowledge-generate", "/api/knowledge-run", "/api/knowledge-retire", "/api/decide", "/api/journal", "/api/triage", "/api/launch", "/api/episode"]);
+  const routes = new Set(["/api/capture", "/api/intake", "/api/note", "/api/knowledge", "/api/knowledge-generate", "/api/knowledge-run", "/api/knowledge-retire", "/api/concept-merge", "/api/concept-split", "/api/decide", "/api/journal", "/api/triage", "/api/launch", "/api/episode"]);
   if (!routes.has(url.pathname)) {
     const readOnly = new Set([
       "/api/facts",
@@ -2290,6 +2368,11 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       "/api/feed.xml",
       "/api/explain",
       "/api/file",
+      "/api/source",
+      "/api/symbol",
+      "/api/route",
+      "/api/concept",
+      "/api/reachability",
       "/api/changes",
       "/api/filediff",
       "/api/symbols",
@@ -2419,6 +2502,56 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
         return json(res, 200, result);
       } catch (err) {
         const message = err instanceof Error ? err.message : "knowledge retirement failed";
+        return json(res, /revision conflict|configured integration checkout|repository lock|uncommitted changes/.test(message) ? 409 : 400, { error: message });
+      }
+    }
+    case "/api/concept-merge": {
+      const expectedRevision = str(body.value, "expectedRevision");
+      const targetId = str(body.value, "targetId");
+      const sourceIds = strList(body.value, "sourceIds");
+      const reason = str(body.value, "reason");
+      if (!expectedRevision || !targetId || !sourceIds.length || !reason) return json(res, 400, { error: "expectedRevision, targetId, sourceIds, and reason are required" });
+      try {
+        const index = semanticIndexOf(c);
+        const canonicalName = str(body.value, "canonicalName");
+        const result = mergeConcepts(c.paths, c.config, index.staticConcepts, {
+          expectedRevision,
+          targetId,
+          sourceIds,
+          ...(canonicalName ? { canonicalName } : {}),
+          by: `${person.handle} (web)`,
+          reason,
+        });
+        c.invalidate();
+        return json(res, 200, result);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "concept merge failed";
+        return json(res, /revision conflict|configured integration checkout|repository lock|uncommitted changes/.test(message) ? 409 : 400, { error: message });
+      }
+    }
+    case "/api/concept-split": {
+      const expectedRevision = str(body.value, "expectedRevision");
+      const sourceId = str(body.value, "sourceId");
+      const targetId = str(body.value, "targetId");
+      const canonicalName = str(body.value, "canonicalName");
+      const occurrenceIds = strList(body.value, "occurrenceIds");
+      const reason = str(body.value, "reason");
+      if (!expectedRevision || !sourceId || !targetId || !canonicalName || !occurrenceIds.length || !reason) return json(res, 400, { error: "expectedRevision, sourceId, targetId, canonicalName, occurrenceIds, and reason are required" });
+      try {
+        const index = semanticIndexOf(c);
+        const result = splitConcept(c.paths, c.config, index.staticConcepts, {
+          expectedRevision,
+          sourceId,
+          targetId,
+          canonicalName,
+          occurrenceIds,
+          by: `${person.handle} (web)`,
+          reason,
+        });
+        c.invalidate();
+        return json(res, 200, result);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "concept split failed";
         return json(res, /revision conflict|configured integration checkout|repository lock|uncommitted changes/.test(message) ? 409 : 400, { error: message });
       }
     }

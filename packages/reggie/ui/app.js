@@ -18,7 +18,7 @@ import { ideaButtonFor, mountIdeaTrigger } from "./idea.js";
 
 export const LENSES = ["structure", "knowledge", "tests", "heat", "owners"];
 export const LENS_KEYS = { 1: "structure", 2: "knowledge", 3: "tests", 4: "heat", 5: "owners" };
-export const LEVELS = ["workspace", "repo", "area", "file", "symbol", "tasks", "task", "services", "flows", "flow", "people", "person", "time"];
+export const LEVELS = ["workspace", "repo", "area", "file", "symbol", "route", "concept", "tasks", "task", "services", "flows", "flow", "people", "person", "time"];
 export const CACHE_TTL_MS = 10_000;
 export const VENDOR_EXPECTED = "/vendor/cytoscape.min.js";
 export const RENDERER_FAILURE_TEXT =
@@ -235,6 +235,10 @@ export function parseRoute(hash) {
       return { ...route, level: "file", id: rest };
     case "symbol":
       return { ...route, level: "symbol", id: rest };
+    case "route":
+      return { ...route, level: "route", id: rest };
+    case "concept":
+      return { ...route, level: "concept", id: rest };
     case "tasks":
       return { ...route, level: "tasks" };
     case "services":
@@ -281,6 +285,12 @@ export function formatRoute(route) {
     case "symbol":
       path = `/repo/${encodeId(route.repo)}/symbol/${encodeId(route.id)}`;
       break;
+    case "route":
+      path = `/repo/${encodeId(route.repo)}/route/${encodeId(route.id)}`;
+      break;
+    case "concept":
+      path = `/repo/${encodeId(route.repo)}/concept/${encodeId(route.id)}`;
+      break;
     case "tasks":
       path = `/repo/${encodeId(route.repo)}/tasks`;
       break;
@@ -322,12 +332,14 @@ export function routeForNode(repo, nodeId, query) {
   if (id.startsWith("person:")) return formatRoute({ ...base, level: "person", id: id.slice(7) });
   if (id.startsWith("svc:")) return formatRoute({ ...base, level: "services", query: { ...(query ?? {}), service: id } });
   if (id.startsWith("resp:")) return formatRoute({ ...base, level: "flow", id: id.slice(5) });
+  if (id.startsWith("route:")) return formatRoute({ ...base, level: "route", id });
+  if (id.startsWith("concept:")) return formatRoute({ ...base, level: "concept", id });
   if (id.startsWith("sym:")) {
     const rest = id.slice(4);
     const cut = rest.lastIndexOf("#");
     // A flow step names a symbol with `#`; the symbol level addresses it with `::`.
-    if (cut > 0) return formatRoute({ ...base, level: "symbol", id: `${rest.slice(0, cut)}::${rest.slice(cut + 1)}` });
-    return formatRoute({ ...base, level: "symbol", id: rest });
+    if (cut > 0) return formatRoute({ ...base, level: "symbol", id: `sym:${rest.slice(0, cut)}::${rest.slice(cut + 1)}` });
+    return formatRoute({ ...base, level: "symbol", id });
   }
   if (id.startsWith("ghost:")) return routeForNode(repo, id.replace(/^ghost:(up|down):/, ""), query);
   if (id.startsWith("fold:") || id.startsWith("entity:")) return formatRoute({ ...base, level: "repo" });
@@ -382,7 +394,11 @@ export function parentRoute(route) {
       return { level: "repo", repo: route.repo, query: {} };
     }
     case "symbol":
-      return { level: "file", repo: route.repo, id: route.id.split("::")[0], query: {} };
+      return { level: "file", repo: route.repo, id: String(route.id).replace(/^sym:/, "").split("::")[0], query: {} };
+    case "route":
+      return { level: "flows", repo: route.repo, query: {} };
+    case "concept":
+      return { level: "repo", repo: route.repo, query: {} };
     case "task":
       return { level: "tasks", repo: route.repo, query: {} };
     case "flow":
@@ -813,11 +829,19 @@ export function crumbsFor(route) {
       segCrumbs(route.id, "file");
       break;
     case "symbol": {
-      const [file, name] = String(route.id).split("::");
+      const [file, name] = String(route.id).replace(/^sym:/, "").split("::");
       segCrumbs(file, "file");
       out.push({ label: name ?? "symbol", route: formatRoute(route) });
       break;
     }
+    case "route":
+      out.push({ label: "Data flow", route: formatRoute({ level: "flows", repo, query: {} }) });
+      out.push({ label: String(route.id).replace(/^route:/, ""), route: formatRoute(route) });
+      break;
+    case "concept":
+      out.push({ label: "Data concepts", route: formatRoute({ level: "repo", repo, query: {} }) });
+      out.push({ label: String(route.id).replace(/^concept:/, ""), route: formatRoute(route) });
+      break;
     case "tasks":
       out.push({ label: "Tasks", route: formatRoute({ level: "tasks", repo, query: {} }) });
       break;
@@ -884,6 +908,8 @@ const PANES_BY_LEVEL = {
   tasks: { map: "payload", mapLabel: "Board" },
   file: { map: "graph", code: true },
   symbol: { map: "graph", code: true },
+  route: {},
+  concept: {},
 };
 
 function paneSpec(level) {
@@ -898,7 +924,7 @@ export function panesFor(level) {
 
 /** A symbol page is the file page with a highlight, so it shares the file's choices. */
 function paneKey(level) {
-  return level === "symbol" ? "file" : level || "repo";
+  return level || "repo";
 }
 
 /** Above this width the panes are side by side and can be collapsed; below it everything stacks. */
@@ -1156,7 +1182,7 @@ const NAV_ITEMS = [
   ["flows", "Data flow", "flow"],
   ["tasks", "Tasks", "task"],
 ];
-const NAV_ACTIVE = { repo: "repo", area: "repo", file: "repo", symbol: "repo", services: "services", flows: "flows", flow: "flows", tasks: "tasks", task: "tasks" };
+const NAV_ACTIVE = { repo: "repo", area: "repo", file: "repo", symbol: "repo", concept: "repo", route: "flows", services: "services", flows: "flows", flow: "flows", tasks: "tasks", task: "tasks" };
 function renderNav(route) {
   const nav = $("nav");
   if (!nav) return;
@@ -1274,6 +1300,8 @@ const LEVEL_NAMES = {
   area: "Area",
   file: "File",
   symbol: "Symbol",
+  route: "Route",
+  concept: "Data concept",
   tasks: "Task board",
   task: "Task",
   services: "Services",
@@ -1395,15 +1423,15 @@ function titleFor(route) {
 }
 
 /** Story scope per route level (`/api/story?scope=`); levels without a story render their own column. */
-const STORY_SCOPE = { workspace: "workspace", repo: "repo", area: "area", file: "file", symbol: "file", task: "task", services: "services", flow: "flow" };
+const STORY_SCOPE = { workspace: "workspace", repo: "repo", area: "area", file: "file", task: "task", services: "services", flow: "flow" };
 
 /** The file a file/symbol route points at, and the symbol name when the route names one. */
 function fileOf(route) {
-  return route.level === "symbol" ? String(route.id ?? "").split("::")[0] : String(route.id ?? "");
+  return route.level === "symbol" ? String(route.id ?? "").replace(/^sym:/, "").split("::")[0] : String(route.id ?? "");
 }
 function symbolOf(route) {
   if (route.level !== "symbol") return null;
-  const parts = String(route.id ?? "").split("::");
+  const parts = String(route.id ?? "").replace(/^sym:/, "").split("::");
   return parts.length > 1 ? parts.slice(1).join("::") : null;
 }
 /**
@@ -1668,6 +1696,355 @@ function afterWrite() {
   render(route);
 }
 
+function symbolHref(repo, id) {
+  return formatRoute({ level: "symbol", repo, id, query: {} });
+}
+
+function routeHref(repo, id) {
+  return formatRoute({ level: "route", repo, id, query: {} });
+}
+
+function conceptHref(repo, id) {
+  return formatRoute({ level: "concept", repo, id, query: {} });
+}
+
+function descriptionOf(knowledge, id) {
+  for (const key of ["parameters", "fields", "returns", "callSites"]) {
+    const item = knowledge?.current?.[key]?.find?.((entry) => entry.id === id);
+    if (item?.description) return item.description;
+  }
+  return "No description yet.";
+}
+
+function typeFact(explicitType) {
+  return explicitType?.text ? `Type: ${explicitType.text}` : "Type: not declared";
+}
+
+function conceptsForField(concepts, field) {
+  const path = Array.isArray(field?.path) ? field.path.join(".") : field?.name;
+  return (concepts ?? []).filter((concept) => concept.occurrences?.some?.((occurrence) => {
+    const occurrencePath = Array.isArray(occurrence.path) ? occurrence.path.join(".") : occurrence.name;
+    return occurrencePath === path || occurrence.name === field?.name || occurrence.path?.at?.(-1) === field?.name;
+  }));
+}
+
+/** Recursive, uncapped rendering of semantic values. Every leaf states type, validation and shared description facts. */
+export function renderValueTree(shape, options = {}) {
+  if (!shape) return h("p", { class: "empty__hint" }, "No structure was derivable from the code.");
+  const prefix = options.prefix ?? "value";
+  const renderShape = (value, pathParts, depth) => {
+    const children = [];
+    for (const field of value.fields ?? []) {
+      const next = [...pathParts, field.name];
+      const id = `${prefix}:${next.join(".")}`;
+      const validations = (options.validations ?? []).filter((rule) => rule.fieldPaths?.some?.((candidate) => candidate.join(".").endsWith(next.join("."))));
+      const concepts = conceptsForField(options.concepts, field);
+      const detail = h(
+        "details",
+        { class: "value-tree__field", open: depth < 1 ? true : null },
+        h(
+          "summary",
+          {},
+          h("code", {}, field.name),
+          h("span", { class: `value-tree__type${field.explicitType ? "" : " is-missing"}` }, typeFact(field.explicitType)),
+        ),
+        h("p", { class: "value-tree__description" }, descriptionOf(options.knowledge, id)),
+        validations.length
+          ? h("ul", { class: "fact-list" }, validations.map((rule) => h("li", {}, h("span", { class: "chip chip--muted" }, `Validation: ${rule.kind}`), " ", h("code", {}, rule.expression))))
+          : h("p", { class: "faint" }, "Validation: none found"),
+        concepts.length
+          ? h("div", { class: "entity-links" }, concepts.map((concept) => entityLink("entity", conceptHref(options.repo, concept.id), concept.canonicalName, { refs: concept.id })))
+          : null,
+        field.shape ? renderShape(field.shape, next, depth + 1) : null,
+      );
+      children.push(detail);
+    }
+    for (const [index, element] of (value.elements ?? []).entries()) {
+      children.push(h("details", { class: "value-tree__field", open: depth < 1 ? true : null }, h("summary", {}, h("code", {}, `Item ${index + 1}`), h("span", { class: "value-tree__type is-missing" }, "Type: not declared")), renderShape(element, [...pathParts, `[${index}]`], depth + 1)));
+    }
+    for (const [index, variant] of (value.variants ?? []).entries()) {
+      children.push(h("details", { class: "value-tree__field" }, h("summary", {}, `Variant ${index + 1}`), renderShape(variant, [...pathParts, `variant-${index + 1}`], depth + 1)));
+    }
+    if (!children.length) children.push(h("p", { class: "faint" }, value.reference ? `Declared shape: ${value.reference}` : "No fields are declared or statically visible."));
+    return h("div", { class: "value-tree", dataset: { kind: value.kind ?? "unknown" } }, children);
+  };
+  return renderShape(shape, [], 0);
+}
+
+function renderReturns(returns, options = {}) {
+  if (!returns?.length) return h("p", { class: "empty__hint" }, "No explicit return statements were found.");
+  return h("div", { class: "return-list" }, returns.map((variant, index) => h(
+    "details",
+    { class: "return-card", open: index === 0 ? true : null },
+    h("summary", {}, h("code", {}, variant.expression || "implicit return"), h("span", { class: `value-tree__type${variant.explicitType ? "" : " is-missing"}` }, typeFact(variant.explicitType)), variant.status ? h("span", { class: "chip chip--muted" }, `HTTP ${variant.status}`) : null),
+    variant.condition ? h("p", { class: "faint" }, `When ${variant.condition}`) : null,
+    h("p", { class: "value-tree__description" }, descriptionOf(options.knowledge, variant.id)),
+    variant.shape ? renderValueTree(variant.shape, { ...options, prefix: variant.id }) : null,
+  )));
+}
+
+function renderKnowledgeEditor(knowledge, route) {
+  const current = structuredClone(knowledge.current ?? { summary: "", parameters: [], fields: [], returns: [], callSites: [] });
+  const summary = h("p", { class: "entity-summary" }, current.summary || "No shared summary yet.");
+  const editor = h("form", { class: "form knowledge-editor", hidden: true });
+  const summaryInput = h("textarea", { class: "form__textarea", name: "summary", required: true, "aria-label": "Current summary" }, current.summary);
+  const reason = h("input", { class: "form__input", name: "reason", required: true, placeholder: "Why are you changing this understanding?", "aria-label": "Reason for edit" });
+  const error = h("p", { class: "form__error", role: "alert", hidden: true });
+  const groups = ["parameters", "fields", "returns", "callSites"];
+  const descriptionInputs = new Map();
+  for (const group of groups) {
+    for (const item of current[group] ?? []) {
+      const input = h("textarea", { class: "form__textarea knowledge-editor__description", rows: "2", dataset: { group, id: item.id }, "aria-label": `Description for ${item.id}` }, item.description ?? "");
+      descriptionInputs.set(`${group}:${item.id}`, input);
+      editor.append(h("label", { class: "form__label knowledge-editor__field" }, h("code", {}, item.id), item.explicitType ? h("span", { class: "faint" }, ` · ${item.explicitType}`) : h("span", { class: "faint" }, " · type not declared"), input));
+    }
+  }
+  const edit = h("button", { class: "btn btn--small", type: "button" }, "Edit");
+  const cancel = h("button", { class: "btn btn--small", type: "button" }, "Cancel");
+  const save = h("button", { class: "btn btn--primary btn--small", type: "submit" }, "Save");
+  const reload = h("button", { class: "btn btn--small", type: "button", hidden: true }, "Reload server version");
+  editor.prepend(h("label", { class: "form__label" }, "Current summary", summaryInput));
+  editor.append(h("label", { class: "form__label" }, "Change reason", reason), error, h("div", { class: "form__actions" }, save, cancel, reload));
+  edit.addEventListener("click", () => {
+    summary.hidden = true;
+    edit.hidden = true;
+    editor.hidden = false;
+    summaryInput.focus();
+  });
+  cancel.addEventListener("click", () => {
+    editor.reset();
+    summaryInput.value = current.summary;
+    for (const group of groups) for (const item of current[group] ?? []) descriptionInputs.get(`${group}:${item.id}`).value = item.description ?? "";
+    error.hidden = true;
+    reload.hidden = true;
+    editor.hidden = true;
+    summary.hidden = false;
+    edit.hidden = false;
+  });
+  reload.addEventListener("click", () => render(route));
+  editor.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    error.hidden = true;
+    reload.hidden = true;
+    const next = structuredClone(current);
+    next.summary = summaryInput.value.trim();
+    for (const group of groups) for (const item of next[group] ?? []) item.description = descriptionInputs.get(`${group}:${item.id}`).value.trim();
+    if (!next.summary || !reason.value.trim()) {
+      error.textContent = "A summary and change reason are required.";
+      error.hidden = false;
+      return;
+    }
+    save.disabled = true;
+    try {
+      await post(withRepo("/api/knowledge", route.repo), { entity: knowledge.entity, expectedRevision: knowledge.revision, fingerprint: knowledge.fingerprint, current: next, reason: reason.value.trim() });
+      toast("Shared understanding saved in its own commit.", { tone: "ok" });
+      render(route);
+    } catch (err) {
+      error.textContent = err.status === 409 ? `${err.message} Your draft is still here.` : err.message;
+      error.hidden = false;
+      reload.hidden = err.status !== 409;
+      save.disabled = false;
+    }
+  });
+
+  const refresh = h("div", { class: "knowledge-refresh" });
+  const agent = h("select", { class: "form__select", "aria-label": "Knowledge generator" }, h("option", { value: "codex" }, "Codex"), h("option", { value: "claude" }, "Claude"));
+  const previewButton = h("button", { class: "btn btn--small", type: "button" }, knowledge.stale ? "Preview refresh" : "Generate summary");
+  const preview = h("div", { class: "knowledge-refresh__preview", hidden: true });
+  previewButton.addEventListener("click", async () => {
+    previewButton.disabled = true;
+    try {
+      const scope = await api(withRepo(`/api/knowledge-preview?agent=${agent.value}&entity=${encodeURIComponent(knowledge.entity)}`, route.repo), { fresh: true });
+      const confirm = h("button", { class: "btn btn--primary btn--small", type: "button" }, "Confirm refresh");
+      confirm.addEventListener("click", async () => {
+        confirm.disabled = true;
+        mount(preview, h("p", { class: "para" }, "Generation is running…"));
+        try {
+          const job = await post(withRepo("/api/knowledge-generate", route.repo), { agent: agent.value, entities: [knowledge.entity] });
+          const finished = await post(withRepo("/api/knowledge-run", route.repo), { id: job.id, confirm: true });
+          if (finished.status === "completed") {
+            mount(preview, h("p", { class: "para para--fact" }, `Completed ${finished.completedChunks} chunk${finished.completedChunks === 1 ? "" : "s"}; commit ${finished.commit}.`));
+            render(route);
+          } else mount(preview, h("p", { class: "form__error" }, finished.failures?.join("; ") || `Generation ${finished.status}.`));
+        } catch (err) {
+          mount(preview, h("p", { class: "form__error" }, err.message));
+        }
+      });
+      mount(preview, h("p", { class: "para" }, `${scope.agent} will refresh ${scope.entities} entity in ${scope.expectedChunks} chunk. It will create ${scope.commitBehavior}.`), h("p", { class: "faint" }, `${scope.files} files · ${scope.symbols} symbols · ${scope.newEntities} new · ${scope.staleEntities} stale`), confirm);
+      preview.hidden = false;
+    } catch (err) {
+      mount(preview, h("p", { class: "form__error" }, err.message));
+      preview.hidden = false;
+    } finally {
+      previewButton.disabled = false;
+    }
+  });
+  refresh.append(h("div", { class: "form__row" }, agent, previewButton), preview);
+
+  return h(
+    "div",
+    { class: "knowledge-panel" },
+    knowledge.stale ? h("div", { class: "stale-warning", role: "status" }, "This summary may be stale. Current source fingerprint ", h("code", {}, knowledge.currentFingerprint ?? knowledge.fingerprint), "; saved fingerprint ", h("code", {}, knowledge.storedFingerprint ?? "unknown"), ".") : null,
+    knowledge.retired ? h("div", { class: "stale-warning" }, "This understanding is retired", knowledge.supersededBy ? ` and superseded by ${knowledge.supersededBy}` : "", ".") : null,
+    summary,
+    h("div", { class: "card__actions" }, edit),
+    editor,
+    refresh,
+    h("p", { class: "faint" }, `${knowledge.historyCount} saved update${knowledge.historyCount === 1 ? "" : "s"} · revision ${knowledge.revision}`),
+  );
+}
+
+function callList(items, repo, empty) {
+  if (!items?.length) return h("p", { class: "empty__hint" }, empty);
+  return h("ul", { class: "entity-list" }, items.map((item) => h("li", {}, entityLink("symbol", symbolHref(repo, item.symbol.id), item.symbol.qualifiedName, { refs: item.symbol.id }), h("span", { class: "faint" }, ` · ${item.callSites.length} call site${item.callSites.length === 1 ? "" : "s"} · ${item.symbol.file}`))));
+}
+
+function callView(graph) {
+  return {
+    level: "call",
+    center: graph.center,
+    nodes: graph.nodes.map((node) => ({ id: node.id, kind: "symbol", label: node.label, path: node.file, center: node.selected, side: node.side === "caller" ? "up" : node.side === "callee" ? "down" : "center", hop: node.depth, role: "source" })),
+    edges: graph.edges.map((edge) => ({ ...edge, kind: "calls", weight: edge.callSiteIds.length, names: edge.callSiteIds })),
+    counts: {
+      up: [graph.nodes.filter((node) => node.side === "caller").length],
+      down: [graph.nodes.filter((node) => node.side === "callee").length],
+    },
+  };
+}
+
+/** Dedicated symbol page renderer; exported for the DOM contract tests. */
+export function renderSymbolEntity(container, page, route) {
+  const params = page.parameters?.length
+    ? h("div", { class: "parameter-list" }, page.parameters.map((parameter) => {
+      const name = parameter.name ?? (parameter.bindingPaths?.map((parts) => parts.join(".")).join(", ") || `argument ${parameter.index + 1}`);
+      return h("details", { class: "parameter-card" }, h("summary", {}, h("code", {}, name), h("span", { class: `value-tree__type${parameter.explicitType ? "" : " is-missing"}` }, typeFact(parameter.explicitType))), h("p", { class: "value-tree__description" }, descriptionOf(page.knowledge, `parameter:${parameter.index}:${parameter.name ?? "anonymous"}`)), parameter.shape ? renderValueTree(parameter.shape, { prefix: `parameter:${parameter.index}`, knowledge: page.knowledge, validations: page.validations, repo: route.repo }) : null);
+    }))
+    : h("p", { class: "empty__hint" }, "This declaration has no parameters.");
+  mount(
+    container,
+    section("understanding", "Current understanding", renderKnowledgeEditor(page.knowledge, route)),
+    section("signature", "Inputs and returns", params, renderReturns(page.returns, { knowledge: page.knowledge, validations: page.validations, repo: route.repo })),
+    section("calls", "Call relationships", h("h3", { class: "entity-subhead" }, "Called by"), callList(page.callers, route.repo, "No resolved direct callers were found."), h("h3", { class: "entity-subhead" }, "Calls"), callList(page.callees, route.repo, "No resolved direct callees were found.")),
+    section("unresolved", "Unresolved call sites", page.unresolved?.length ? h("ul", { class: "entity-list" }, page.unresolved.map((item) => h("li", {}, h("code", {}, item.finding.expression), " — ", item.finding.reason, h("span", { class: "faint" }, ` · ${item.finding.source.file}`)))) : h("p", { class: "empty__hint" }, "No unresolved calls originate in this symbol.")),
+  );
+}
+
+async function renderSymbolLevel(route, token) {
+  const sections = $("sections");
+  const map = ensureMap();
+  const reader = ensureReader();
+  const depth = ["1", "2", "3"].includes(String(route.query?.depth)) ? route.query.depth : "1";
+  const direction = ["up", "down", "both"].includes(String(route.query?.dir)) ? route.query.dir : "both";
+  try {
+    const page = await api(withRepo(`/api/symbol?id=${encodeURIComponent(route.id)}&depth=${depth}&direction=${direction}`, route.repo));
+    if (token !== state.renderToken) return;
+    renderCrumbs([
+      { label: route.repo, route: formatRoute({ level: "repo", repo: route.repo, query: {} }) },
+      { label: page.parentFile, route: formatRoute({ level: "file", repo: route.repo, id: page.parentFile, query: {} }) },
+      { label: page.symbol.qualifiedName, route: formatRoute(route) },
+    ]);
+    renderSymbolEntity(sections, page, route);
+    sections.prepend(h("div", { class: "entity-hero" }, h("span", { class: "chip chip--muted" }, page.symbol.kind.toUpperCase()), h("h1", {}, page.symbol.qualifiedName), entityLink("file", formatRoute({ level: "file", repo: route.repo, id: page.parentFile, query: {} }), page.parentFile, { refs: page.parentFile }), h("div", { class: "form__row entity-controls" }, h("span", { class: "form__label" }, "Direction"), ...["up", "both", "down"].map((value) => h("button", { class: `btn btn--small${direction === value ? " is-active" : ""}`, type: "button", on: { click: () => setQuery({ dir: value === "both" ? null : value }) } }, value === "up" ? "Callers" : value === "down" ? "Callees" : "Both")), h("label", { class: "form__label" }, "Depth ", h("select", { class: "form__select", on: { change: (event) => setQuery({ depth: event.target.value === "1" ? null : event.target.value }) } }, [1, 2, 3].map((value) => h("option", { value, selected: String(value) === depth ? true : null }, value)))))));
+    try {
+      map?.show(callView(page.graph), { level: "call", lens: "structure", repo: route.repo, depth: Number(depth), direction });
+      $("map-footer").textContent = `${page.callers.length} direct caller${page.callers.length === 1 ? "" : "s"} · ${page.callees.length} direct callee${page.callees.length === 1 ? "" : "s"}`;
+    } catch (err) {
+      console.error("symbol call map failed", err);
+    }
+    reader?.open(page.parentFile, { source: page.source, symbolSource: page.source });
+  } catch (err) {
+    if (token !== state.renderToken) return;
+    mount(sections, errorCard("/api/symbol", err.message, () => render(route)));
+  }
+}
+
+function symbolReference(repo, symbol, fallback = "Unknown symbol") {
+  return symbol ? entityLink("symbol", symbolHref(repo, symbol.id), symbol.qualifiedName, { refs: symbol.id }) : h("span", { class: "faint" }, fallback);
+}
+
+export function renderRouteEntity(container, page, route) {
+  const handler = h("div", { class: "entity-links" }, symbolReference(route.repo, page.handler, "No handler symbol was resolved."), ...(page.middleware ?? []).map((symbol) => symbolReference(route.repo, symbol)));
+  const clients = page.clients?.length ? h("ul", { class: "entity-list" }, page.clients.map((item) => h("li", {}, symbolReference(route.repo, item.caller), h("span", { class: "faint" }, ` · ${item.call.method} ${item.call.path}`)))) : h("p", { class: "empty__hint" }, "No static client callers were found.");
+  mount(
+    container,
+    h("div", { class: "entity-hero" }, h("span", { class: "chip chip--muted" }, "ENDPOINT"), h("h1", {}, `${page.route.method} ${page.route.path}`), h("span", { class: "faint" }, page.route.kind)),
+    section("understanding", "Current understanding", renderKnowledgeEditor(page.knowledge, route)),
+    section("handlers", "Handler and middleware", handler),
+    section("clients", "Client callers", clients),
+    section("request", "Request fields", renderValueTree(page.requestShape, { prefix: "request", knowledge: page.knowledge, validations: page.validations, concepts: page.concepts, repo: route.repo })),
+    section("responses", "Response variants", renderReturns(page.responses, { knowledge: page.knowledge, validations: page.validations, concepts: page.concepts, repo: route.repo })),
+    section("connections", "Flows, services, and concepts", h("div", { class: "entity-links" }, ...(page.flows ?? []).map((flow) => entityLink("flow", formatRoute({ level: "flow", repo: route.repo, id: flow.id, query: {} }), flow.title, { refs: flow.id })), ...(page.services ?? []).map((service) => entityLink("service", formatRoute({ level: "services", repo: route.repo, query: { service } }), service.replace(/^svc:[^:]+:/, ""), { refs: service })), ...(page.concepts ?? []).map((concept) => entityLink("entity", conceptHref(route.repo, concept.id), concept.canonicalName, { refs: concept.id })))),
+  );
+}
+
+async function renderRouteLevel(route, token) {
+  try {
+    const page = await api(withRepo(`/api/route?id=${encodeURIComponent(route.id)}`, route.repo));
+    if (token !== state.renderToken) return;
+    renderRouteEntity($("sections"), page, route);
+  } catch (err) {
+    if (token === state.renderToken) mount($("sections"), errorCard("/api/route", err.message, () => render(route)));
+  }
+}
+
+function conceptOverrideForms(page, route) {
+  const status = h("p", { class: "form__error", role: "status", hidden: true });
+  const mergeSources = h("input", { class: "form__input", placeholder: "concept:source-one, concept:source-two", "aria-label": "Concept IDs to merge" });
+  const mergeReason = h("input", { class: "form__input", placeholder: "Why should these concepts be merged?", "aria-label": "Merge reason" });
+  const mergeForm = h("form", { class: "form concept-override" }, h("label", { class: "form__label" }, "Merge these concept IDs into this concept", mergeSources), h("label", { class: "form__label" }, "Reason", mergeReason), h("button", { class: "btn btn--small", type: "submit" }, "Merge concepts"));
+  mergeForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const sourceIds = mergeSources.value.split(",").map((value) => value.trim()).filter(Boolean);
+      await post(withRepo("/api/concept-merge", route.repo), { expectedRevision: page.override.revision, targetId: page.concept.id, sourceIds, reason: mergeReason.value.trim() });
+      render(route);
+    } catch (err) {
+      status.textContent = err.message;
+      status.hidden = false;
+    }
+  });
+  const target = h("input", { class: "form__input", placeholder: "concept:new-name", "aria-label": "New concept ID" });
+  const name = h("input", { class: "form__input", placeholder: "New canonical name", "aria-label": "New concept name" });
+  const splitReason = h("input", { class: "form__input", placeholder: "Why are these occurrences distinct?", "aria-label": "Split reason" });
+  const choices = (page.concept.occurrences ?? []).map((occurrence) => h("label", { class: "concept-occurrence-choice" }, h("input", { type: "checkbox", value: occurrence.id }), h("code", {}, occurrence.name), h("span", { class: "faint" }, ` · ${occurrence.source.file}:${occurrence.source.startLine}`)));
+  const splitForm = h("form", { class: "form concept-override" }, h("label", { class: "form__label" }, "New concept ID", target), h("label", { class: "form__label" }, "Canonical name", name), h("fieldset", { class: "concept-occurrences" }, h("legend", { class: "form__label" }, "Occurrences to move"), choices), h("label", { class: "form__label" }, "Reason", splitReason), h("button", { class: "btn btn--small", type: "submit" }, "Split selected occurrences"));
+  splitForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const occurrenceIds = [...splitForm.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value);
+      await post(withRepo("/api/concept-split", route.repo), { expectedRevision: page.override.revision, sourceId: page.concept.id, targetId: target.value.trim(), canonicalName: name.value.trim(), occurrenceIds, reason: splitReason.value.trim() });
+      render(route);
+    } catch (err) {
+      status.textContent = err.message;
+      status.hidden = false;
+    }
+  });
+  return h("div", {}, h("details", { class: "concept-action" }, h("summary", {}, "Merge concepts"), mergeForm), h("details", { class: "concept-action" }, h("summary", {}, "Split this concept"), splitForm), status);
+}
+
+export function renderConceptEntity(container, page, route) {
+  const occurrences = h("div", { class: "concept-occurrence-list" }, ...(page.concept.occurrences ?? []).map((occurrence) => h("details", { class: "concept-occurrence" }, h("summary", {}, h("code", {}, occurrence.name), h("span", { class: `value-tree__type${occurrence.explicitType ? "" : " is-missing"}` }, occurrence.explicitType ? `Type: ${occurrence.explicitType}` : "Type: not declared")), h("p", {}, descriptionOf(page.knowledge, occurrence.id)), h("div", { class: "entity-links" }, entityLink("file", formatRoute({ level: "file", repo: route.repo, id: occurrence.source.file, query: { line: String(occurrence.source.startLine) } }), occurrence.source.file, { refs: occurrence.source.file }), occurrence.symbolId ? entityLink("symbol", symbolHref(route.repo, occurrence.symbolId), occurrence.symbolId.split("::").at(-1), { refs: occurrence.symbolId }) : null))));
+  mount(
+    container,
+    h("div", { class: "entity-hero" }, h("span", { class: "chip chip--muted" }, "DATA CONCEPT"), h("h1", {}, page.concept.canonicalName), page.redirectedFrom ? h("p", { class: "stale-warning" }, `Redirected from ${page.redirectedFrom}. The older knowledge record and history were retained.`) : null, h("p", { class: "faint" }, `Aliases: ${(page.concept.aliases ?? []).join(", ") || "none"}`)),
+    section("understanding", "Current understanding", renderKnowledgeEditor(page.knowledge, route)),
+    section("occurrences", "Occurrences and declared types", occurrences),
+    section("evidence", "Validations and transformations", page.validations?.length ? h("ul", { class: "entity-list" }, page.validations.map((rule) => h("li", {}, h("code", {}, rule.expression), h("span", { class: "faint" }, ` · ${rule.kind}`)))) : h("p", { class: "empty__hint" }, "No runtime validations were connected."), page.concept.transformations?.length ? h("ul", { class: "entity-list" }, page.concept.transformations.map((value) => h("li", {}, value))) : h("p", { class: "empty__hint" }, "No transformations were proven.")),
+    section("connections", "Routes, flows, and symbols", h("div", { class: "entity-links" }, ...(page.routes ?? []).map((item) => entityLink("flow", routeHref(route.repo, item.id), `${item.method} ${item.path}`, { refs: item.id })), ...(page.flows ?? []).map((flow) => entityLink("flow", formatRoute({ level: "flow", repo: route.repo, id: flow.id, query: {} }), flow.title, { refs: flow.id })), ...(page.symbols ?? []).map((symbol) => entityLink("symbol", symbolHref(route.repo, symbol.id), symbol.qualifiedName, { refs: symbol.id })))),
+    section("manual", "Manual grouping", h("p", { class: "para" }, `Override revision ${page.override.revision}. Splits are applied before merges; older records and history are retained.`), conceptOverrideForms(page, route)),
+  );
+}
+
+async function renderConceptLevel(route, token) {
+  try {
+    const page = await api(withRepo(`/api/concept?id=${encodeURIComponent(route.id)}`, route.repo));
+    if (token !== state.renderToken) return;
+    renderConceptEntity($("sections"), page, route);
+  } catch (err) {
+    if (token === state.renderToken) mount($("sections"), errorCard("/api/concept", err.message, () => render(route)));
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Level rendering
 // ---------------------------------------------------------------------------
@@ -1713,6 +2090,12 @@ async function renderLevel(route, token) {
       return renderFlowsLevel(route, token);
     case "flow":
       return renderFlowLevel(route, token);
+    case "symbol":
+      return renderSymbolLevel(route, token);
+    case "route":
+      return renderRouteLevel(route, token);
+    case "concept":
+      return renderConceptLevel(route, token);
     case "people":
     case "person":
     case "time":
@@ -1727,16 +2110,17 @@ async function renderLevel(route, token) {
  * levels there is no Cytoscape view, so they sat there live and controlled nothing (F12). They are
  * hidden on exactly the levels `mapUrlFor` draws no graph for, the same way the tests toggle is.
  */
-const GRAPHLESS_LEVELS = new Set(["tasks", "people", "person", "time"]);
+const GRAPHLESS_LEVELS = new Set(["tasks", "route", "concept", "people", "person", "time"]);
 /** The levels whose maps carry no history, no coverage and no authorship to colour by (§4). */
 const SERVICE_LEVELS = new Set(["services", "flows", "flow"]);
 const SERVICE_LENSES = new Set(["structure", "knowledge"]);
 function syncGraphChrome(route) {
   const graphless = GRAPHLESS_LEVELS.has(route.level ?? "");
+  const dedicatedGraph = route.level === "symbol";
   const lens = $("lens");
-  if (lens) lens.hidden = graphless;
+  if (lens) lens.hidden = graphless || dedicatedGraph;
   const tabs = $("map-tabs");
-  if (tabs) tabs.hidden = graphless;
+  if (tabs) tabs.hidden = graphless || dedicatedGraph;
   // A lens that cannot say anything about the nodes on screen is disabled rather than left live and
   // inert: the Services and Data flow maps draw services and steps, which have notes but no commits,
   // no test coverage and no authors of their own.
@@ -1759,7 +2143,7 @@ function syncTestsButton(route) {
   if (!btn) return;
   const on = route.query?.tests === "1";
   btn.setAttribute("aria-pressed", on ? "true" : "false");
-  btn.hidden = !(route.level === "area" || route.level === "file" || route.level === "symbol" || route.level === "services");
+  btn.hidden = !(route.level === "area" || route.level === "file" || route.level === "services");
 }
 
 /** Workspace, repo, area, file and symbol: story column + Cytoscape map, fetched together. */
@@ -2454,27 +2838,6 @@ function renderStretchLevel(route) {
   $("map-footer").textContent = "";
 }
 
-/**
- * Symbol links inside the story scroll the reader instead of leaving the page (spec §2 Level 3:
- * Level 4 is stretch, "Core: reader scroll"). Everything else is a normal hash link.
- */
-function wireStoryLinks() {
-  $("sections")?.addEventListener("click", (ev) => {
-    const a = ev.target?.closest?.("a[href^='#/']");
-    if (!a || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button > 0) return;
-    const target = parseRoute(a.getAttribute("href"));
-    if (target.level !== "symbol") return;
-    const route = state.route;
-    if (!route || (route.level !== "file" && route.level !== "symbol")) return;
-    const [file, ...rest] = String(target.id ?? "").split("::");
-    if (file !== fileOf(route) || rest.length === 0) return;
-    // Symbol lines are this checkout's; the rows on screen are the branch's. Navigate instead.
-    if (diffOf(route)) return;
-    ev.preventDefault();
-    openReader(route, { highlight: rest.join("::") });
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Recent routes (palette empty state)
 // ---------------------------------------------------------------------------
@@ -2751,7 +3114,6 @@ export async function boot() {
   wireSections();
   wirePalette();
   wireKeyboard();
-  wireStoryLinks();
   storage.remove("reggie.dense"); // Dense mode retired 2026-09-14; the pane toggles replace it
   const tests = currentRoute().query?.tests === "1";
   $("tb-tests")?.setAttribute("aria-pressed", tests ? "true" : "false");

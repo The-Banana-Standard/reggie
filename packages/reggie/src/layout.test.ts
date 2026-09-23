@@ -56,6 +56,8 @@ describe("the README every onboarded repo gets", () => {
       expect(written).toMatch(/A packet that cites a file which is not committed\s+here is refused when someone approves it\./);
       expect(written).toContain("notes/_symbols/<source-path>/<qualified-symbol>.md");
       expect(written).toContain("replaceable current-understanding block");
+      expect(written).toContain("`concepts.json`");
+      expect(JSON.parse(readFileSync(paths.concepts, "utf8"))).toEqual({ version: 1, revision: "missing", merges: [], splits: [], history: [] });
       const order = ["tasks/<slug>/packet.md", "tasks/<slug>/checks.jsonl", "tasks/<slug>/evidence/"].map((name) => written.indexOf(name));
       expect(order.every((i) => i > 0) && order[0]! < order[1]! && order[1]! < order[2]!).toBe(true);
     } finally {

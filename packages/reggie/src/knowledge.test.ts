@@ -4,6 +4,7 @@ import { makeTempRepo, type TempRepo } from "../test/helpers.js";
 import { git } from "./git.js";
 import {
   currentKnowledge,
+  commitKnowledgeArtifacts,
   knowledgeLockFile,
   readKnowledge,
   saveKnowledge,
@@ -162,6 +163,14 @@ describe("shared repository knowledge", () => {
     const status = git(["status", "--short"], { cwd: repo.root }).stdout;
     expect(status).toContain("M  staged.txt");
     expect(status).toContain(" M unstaged.txt");
+  });
+
+  it("extends the guarded transaction only to explicit .reggie artifacts", () => {
+    expect(() => commitKnowledgeArtifacts(paths, config, [{ file: `${repo.root}/outside.json`, content: "{}\n", label: "outside" }], "knowledge: outside")).toThrow(/outside \.reggie/);
+    expect(() => commitKnowledgeArtifacts(paths, config, [
+      { file: paths.concepts, content: "{}\n", label: "first" },
+      { file: paths.concepts, content: "{}\n", label: "second" },
+    ], "knowledge: duplicates")).toThrow(/same file/);
   });
 
   it("rolls the branch back when the ordinary index cannot be refreshed", () => {

@@ -47,6 +47,28 @@ describe("map model", () => {
     ]);
   });
 
+  it("lays out a selected symbol between callers and callees with full symbol labels", () => {
+    const model = buildModel({
+      level: "call",
+      center: "sym:src/chat.ts::chat",
+      nodes: [
+        { id: "sym:src/client.ts::send", kind: "symbol", label: "send\nclient.ts", path: "src/client.ts", side: "up", hop: 1 },
+        { id: "sym:src/chat.ts::chat", kind: "symbol", label: "chat\nchat.ts", path: "src/chat.ts", side: "center", center: true, hop: 0 },
+        { id: "sym:src/session.ts::resolve", kind: "symbol", label: "resolve\nsession.ts", path: "src/session.ts", side: "down", hop: 1 },
+      ],
+      edges: [
+        { source: "sym:src/client.ts::send", target: "sym:src/chat.ts::chat", kind: "calls" },
+        { source: "sym:src/chat.ts::chat", target: "sym:src/session.ts::resolve", kind: "calls" },
+      ],
+    }, { level: "call" });
+    expect(model.layout.rankDir).toBe("LR");
+    expect(model.nodeById.get("sym:src/chat.ts::chat")).toMatchObject({ center: true, kind: "symbol", label: "chat\nchat.ts", w: expect.any(Number), h: 58 });
+    expect(model.edges.map((edge) => [edge.source, edge.target])).toEqual([
+      ["sym:src/chat.ts::chat", "sym:src/session.ts::resolve"],
+      ["sym:src/client.ts::send", "sym:src/chat.ts::chat"],
+    ]);
+  });
+
   it("builds flow labels and payload summaries without starting Cytoscape", () => {
     const input = { fields: ["message", "session_id"], shape: "request body", confidence: "exact", source: { file: "functions/chat.js", line: 20 } };
     const model = buildModel({

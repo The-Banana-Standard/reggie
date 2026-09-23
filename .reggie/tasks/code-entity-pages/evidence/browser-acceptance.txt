@@ -1,0 +1,23 @@
+In-app browser acceptance — 2026-09-23
+
+Server: local task checkout on 127.0.0.1:4311.
+
+Desktop viewport 1440x900:
+- canonical formatRoute symbol page loaded as a dedicated FUNCTION page;
+- parent-file breadcrumb and link point to packages/reggie/ui/app.js;
+- 28 resolved direct callers, 1 direct callee, and 5 unresolved call sites rendered;
+- centered Cytoscape call graph rendered with 30 nodes and 29 edges;
+- declaration reader opened at lines 263–322;
+- Show full file loaded lines 1–500 of 3,127 and then appended to 1,000 without replacing the page;
+- direct caller navigation opened addReaderButton as a new symbol page;
+- route and concept pages rendered every expected section;
+- page-level horizontal overflow was zero.
+
+Phone viewport 390x844:
+- map overlay and story view both rendered;
+- formatRoute declaration remained synchronized at line 263 after prior same-file symbol navigation;
+- story width matched the document width and page-level horizontal overflow was zero;
+- parent link, direction/depth controls, edit controls, bottom navigation, and visible focus outline remained usable.
+
+Console: zero warnings or errors after desktop and phone runs.
+The run exposed and then verified fixes for stale same-file declaration state and the desktop story minimum leaking into phone width.

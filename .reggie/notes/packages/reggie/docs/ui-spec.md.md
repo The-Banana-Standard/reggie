@@ -15,3 +15,7 @@ sources: packages/reggie/docs/ui-spec.md, note-form-on-repo-and-area
 Section 3.9 is the idea action: where the trigger sits, what each level posts, the sequence, and the three outcomes inside the popover. The header sentence in 3.1 and the tile sentence in Level 0 name the trigger and the tile button; keep the three agreeing with idea.js.
 sources: idea-from-every-page
 
+## decision · 2026-09-23 · Codex via jacobpress · high
+The UI specification promotes symbol, route, and concept pages from stretch aliases to first-class code-intelligence levels.
+sources: code-entity-pages
+

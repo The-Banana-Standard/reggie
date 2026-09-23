@@ -5,6 +5,7 @@ import ts from "typescript";
 import type { RepoGraph } from "./graph.js";
 import type { Role } from "./roles.js";
 import { buildDataConcepts, type ConceptEvidence, type ConceptLink, type ConceptOccurrence, type DataConcept } from "./data-concepts.js";
+import { applyConceptOverrides, readConceptOverrides } from "./concept-overrides.js";
 import { analyzeReachability, codeRoleOf, type CodeRole, type ReachabilityResult } from "./reachability.js";
 
 export interface SourceSpan {
@@ -181,6 +182,8 @@ export interface SemanticIndex {
   findings: CallFinding[];
   validations: ValidationRule[];
   routes: RouteRecord[];
+  /** Compiler-derived grouping before repository-owned merge/split overrides. */
+  staticConcepts: DataConcept[];
   concepts: DataConcept[];
   reachability: ReachabilityResult;
   generatedAt: string;
@@ -1614,7 +1617,7 @@ function reachabilityRoots(graph: RepoGraph, files: readonly SemanticFileRecord[
 }
 
 /** Build the durable JavaScript/TypeScript code-intelligence model for one tracked repository. */
-export function buildSemanticIndex(paths: { root: string }, graph: RepoGraph, options: BuildSemanticIndexOptions = {}): SemanticIndex {
+export function buildSemanticIndex(paths: { root: string; concepts?: string }, graph: RepoGraph, options: BuildSemanticIndexOptions = {}): SemanticIndex {
   const scanned = graphFiles(paths.root, graph, options.contents);
   const ctx = buildContext(paths.root, scanned.contents, scanned.roles);
   const symbols = [...ctx.recordById.values()];
@@ -1623,7 +1626,8 @@ export function buildSemanticIndex(paths: { root: string }, graph: RepoGraph, op
   const validations = collectValidations(ctx);
   const routes = collectRoutes(ctx, callResult.calls);
   const conceptEvidence = collectConceptEvidence(ctx, callResult.calls, returns, validations, routes);
-  const concepts = buildDataConcepts(conceptEvidence);
+  const staticConcepts = buildDataConcepts(conceptEvidence);
+  const concepts = paths.concepts ? applyConceptOverrides(staticConcepts, readConceptOverrides({ concepts: paths.concepts })).concepts : staticConcepts;
   const files: SemanticFileRecord[] = ctx.files.map((file) => ({
     file: file.file,
     role: file.role,
@@ -1648,6 +1652,7 @@ export function buildSemanticIndex(paths: { root: string }, graph: RepoGraph, op
     findings: callResult.findings,
     validations,
     routes,
+    staticConcepts,
     concepts,
     reachability,
     generatedAt: (options.now ?? new Date()).toISOString(),

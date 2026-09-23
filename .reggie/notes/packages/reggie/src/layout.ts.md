@@ -18,3 +18,7 @@ sources: low-risk-auto-approval
 New layouts create and explain notes/_symbols beside _entities, and document replaceable current understanding, fingerprints, explicit refresh, immutable history and retirement.
 sources: shared-repo-knowledge
 
+## how · 2026-09-23 · Codex via jacobpress · high
+Onboarding creates an empty versioned concept-override document and explains it in the repository-owned Reggie readme.
+sources: code-entity-pages
+

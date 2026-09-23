@@ -35,3 +35,16 @@ Decision: approved. Merged the task branch into repo-manager. All 14 criteria, r
 ### 01:37 · jacobpress · codex · code-entity-pages · plan
 Planned first-class symbol, route, and concept pages on the semantic and shared-knowledge contracts. The task includes exact declaration source, paged full files, safe editing and refresh, and durable manual concept overrides while leaving Data Flow cards for the next task.
 
+### 01:38 · jacobpress · codex · code-entity-pages · claim
+Claimed the task and started a branch from repo-manager in a separate worktree.
+
+### 02:59 · jacobpress · codex · code-entity-pages · execute
+Built dedicated symbol, endpoint, and data-concept pages on the semantic index, including exact declaration reading, call relationships, shared knowledge editing, manual concept grouping, and guarded source paging.
+
+### 02:59 · jacobpress · codex · code-entity-pages · review
+The automated and browser checks found and fixed same-file symbol source retention and a phone-width overflow; desktop and phone entity pages now stay synchronized with no console errors.
+
+### 03:20 · jacobpress · codex · code-entity-pages · review
+Hosted Linux and macOS CI passed the full typecheck, test, build, and documentation workflow; the completion evidence now records the run.
+evidence: full-verification.txt
+

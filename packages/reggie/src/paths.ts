@@ -16,6 +16,7 @@ export interface RepoPaths {
   cache: string;
   knowledgeJobs: string;
   knowledgeAgent: string;
+  concepts: string;
   journal: string;
   discussions: string;
   onboarding: string;
@@ -54,6 +55,7 @@ export function repoPaths(root: string): RepoPaths {
     cache: path.join(reggie, ".cache"),
     knowledgeJobs: path.join(reggie, ".cache", "knowledge-jobs"),
     knowledgeAgent: path.join(reggie, ".cache", "knowledge-agent"),
+    concepts: path.join(reggie, "concepts.json"),
     journal: path.join(reggie, "journal"),
     discussions: path.join(reggie, "discussions"),
     onboarding: path.join(reggie, "ONBOARDING.md"),
