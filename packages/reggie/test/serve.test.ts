@@ -258,8 +258,9 @@ describe("numeric query parameters are bounded", () => {
   // `commitsPerDayFor` builds one object per day in the window, so an unchecked `days` let a single
   // request size a ~1.3 GB allocation. Every numeric parameter is refused outside its range rather
   // than silently clamped, so a typo is visible instead of answered.
-  it("refuses an out-of-range or non-numeric days on every route that takes one", async () => {
-    for (const route of ["/api/history", "/api/story?scope=repo", "/api/explain?id=src/types/shape.ts"]) {
+  it.each(["/api/history", "/api/story?scope=repo", "/api/explain?id=src/types/shape.ts"])(
+    "refuses an out-of-range or non-numeric days on %s",
+    async (route) => {
       const sep = route.includes("?") ? "&" : "?";
       for (const bad of ["100000000", "0", "-5", "731", "abc", "1e9", "12.5", "999999999999999999999"]) {
         const { status, body } = await get(`${route}${sep}days=${encodeURIComponent(bad)}`);
@@ -268,7 +269,7 @@ describe("numeric query parameters are bounded", () => {
       }
       for (const good of ["1", "30", "730", ""]) expect((await get(`${route}${sep}days=${good}`)).status, `${route} days=${good}`).toBe(200);
     }
-  });
+  );
 
   it("bounds depth, limit and the journal window", async () => {
     expect((await get("/api/impact?id=src/types/shape.ts&depth=99")).status).toBe(400);

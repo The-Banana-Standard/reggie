@@ -22,3 +22,6 @@ sources: idea-from-every-page
 ## verify · 2026-09-22 · Codex via jacobpress · medium
 Server contract tests expect the TypeScript symbol engine and exercise semantic-index-backed search through the existing route.
 
+## gotcha · 2026-09-22 · Codex via jacobpress · medium
+Keep the numeric-days contract as one parameterized case per API route. Combining all 36 requests in one test makes an unrelated saturated CI worker consume the whole per-test timeout and hides which route failed.
+
