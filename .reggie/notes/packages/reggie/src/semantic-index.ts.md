@@ -13,3 +13,6 @@ sources: code-entity-pages
 ## gotcha · 2026-09-23 · Codex via jacobpress · medium
 Request bodies assigned after declaration, receiver-spanning service calls, and TypeScript JSDoc object literals require explicit AST handling so semantic values are not silently dropped.
 
+## how · 2026-09-23 · Codex via jacobpress · medium
+Fetch route discovery resolves source-declared string constants and imported object properties through compiler symbols with cycle protection; dynamic and mutable identifier values remain unresolved.
+

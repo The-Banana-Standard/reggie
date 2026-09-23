@@ -13,3 +13,6 @@ Keep the immutable repository fixture shared across this suite; rebuilding a com
 Semantic fixtures assert that the unmodified static concept grouping remains available beneath manual overrides.
 sources: code-entity-pages
 
+## verify · 2026-09-23 · Codex via jacobpress · medium
+The shared semantic fixture connects an imported configuration property to POST /api/chat while mutable and cyclic endpoint expressions produce no extra client calls.
+

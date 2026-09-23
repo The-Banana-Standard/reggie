@@ -61,13 +61,25 @@ describe("semantic code index", () => {
     repo.write(
       "src/ChatClient.jsx",
       [
+        "import { chatData } from './chatData';",
         "export function ChatClient() {",
-        "  const send = () => fetch('/api/chat', {",
+        "  const send = () => fetch(chatData.apiEndpoint, {",
         "    method: 'POST',",
         "    body: JSON.stringify({ message: 'hi', history: [], session_id: 's', model: 'm', temperature: 1, max_tokens: 20 }),",
         "  });",
         "  return <button onClick={send}>Send</button>;",
         "}",
+      ].join("\n"),
+    );
+    repo.write("src/chatData.js", "export const chatData = { apiEndpoint: '/api/chat' };\n");
+    repo.write(
+      "src/DynamicClient.ts",
+      [
+        "let runtimeEndpoint = '/api/chat';",
+        "const cycleA = cycleB;",
+        "const cycleB = cycleA;",
+        "export const sendRuntime = () => fetch(runtimeEndpoint, { method: 'POST' });",
+        "export const sendCycle = () => fetch(cycleA, { method: 'POST' });",
       ].join("\n"),
     );
     repo.write("app/api/health/route.ts", "export function GET(): Response { return Response.json({ ok: true }); }\n");
@@ -107,6 +119,8 @@ describe("semantic code index", () => {
       "migrations/001_seed.cts",
       "scripts/reindex.mts",
       "src/ChatClient.jsx",
+      "src/chatData.js",
+      "src/DynamicClient.ts",
       "src/legacy.cjs",
       "src/module.mjs",
       "src/schema.gen.ts",
@@ -183,6 +197,7 @@ describe("semantic code index", () => {
     expect(route?.handlerSymbolId).toBe(semanticSymbolId("functions/api/chat.tsx", "onRequestPost"));
     expect(route?.clientCalls).toHaveLength(1);
     expect(route?.clientCalls[0]?.callerId).toBe(semanticSymbolId("src/ChatClient.jsx", "ChatClient.send"));
+    expect(route?.clientCalls[0]?.path).toBe("/api/chat");
     expect(fieldNames(route?.requestShape ?? null)).toEqual(["message", "session_id", "name", "active", "history", "model", "temperature", "max_tokens"]);
     expect(route?.responseVariants.map((variant) => variant.status)).toEqual(["400", null]);
     expect(index.routes.find((item) => item.id === "route:GET:/api/health")).toMatchObject({ kind: "next", handlerSymbolId: "sym:app/api/health/route.ts::GET" });
