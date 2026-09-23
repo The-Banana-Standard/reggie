@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { formatRoute, parentRoute, parseRoute, renderConceptEntity, renderRouteEntity, renderSymbolEntity, renderValueTree, routeForNode } from "./app.js";
+import { cleanupOverview, formatRoute, parentRoute, parseRoute, renderConceptEntity, renderRouteEntity, renderSymbolEntity, renderValueTree, routeForNode } from "./app.js";
 import { resetDom } from "./test/dom-fixture.js";
 
 beforeEach(() => resetDom());
@@ -138,5 +138,42 @@ describe("code entity pages", () => {
     expect(form.querySelector(".form__error").textContent).toContain("still here");
     expect(Array.from(form.querySelectorAll("button")).find((button) => button.textContent === "Reload server version")?.hidden).toBe(false);
     vi.unstubAllGlobals();
+  });
+});
+
+describe("data-flow cleanup overview", () => {
+  beforeEach(() => resetDom('<main><div id="sections"></div></main>'));
+
+  it("groups both evidence kinds by code role and states the analyzer limitation", () => {
+    const card = cleanupOverview({
+      byRole: {
+        production: {
+          reachableFiles: ["src/live.ts"],
+          notReachableFiles: ["src/old.ts"],
+          reachableSymbols: ["sym:src/live.ts::live"],
+          notReachableSymbols: ["sym:src/old.ts::unused"],
+        },
+        test: {
+          reachableFiles: [],
+          notReachableFiles: ["test/old.test.ts"],
+          reachableSymbols: [],
+          notReachableSymbols: [],
+        },
+      },
+      noReferences: {
+        files: ["src/old.ts", "test/old.test.ts"],
+        symbols: ["sym:src/old.ts::unused"],
+      },
+      limitations: ["Dynamic imports and runtime callbacks may hide references."],
+    }, "demo");
+    document.getElementById("sections").append(card);
+
+    expect(card.textContent).toContain("Possible cleanup");
+    expect(card.textContent).toContain("Production · 2 not reachable · 2 with no references");
+    expect(card.textContent).toContain("Tests · 1 not reachable · 1 with no references");
+    expect(card.textContent).toContain("Neither result proves that removal is safe");
+    expect(card.textContent).toContain("Dynamic imports and runtime callbacks may hide references");
+    expect(card.querySelector('a[href="#/repo/demo/symbol/sym:src/old.ts::unused"]')).toBeTruthy();
+    expect(card.querySelector('a[href="#/repo/demo/file/src/old.ts"]')).toBeTruthy();
   });
 });

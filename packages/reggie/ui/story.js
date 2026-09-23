@@ -37,6 +37,8 @@ import {
   section as appSection,
   skeleton as appSkeleton,
   setSectionCollapsed as appSetSectionCollapsed,
+  renderValueTree,
+  renderReturns,
 } from "./app.js";
 
 // ---------------------------------------------------------------------------
@@ -459,6 +461,9 @@ export function renderParagraph(p, deps) {
   const d = deps && deps.entityLink && deps.GLOSSARY ? deps : resolveDeps(deps);
   let el;
   switch (p.kind) {
+    case "flow-step":
+      el = flowStepCard(p, d);
+      break;
     case "note":
       el = noteCard(p, d);
       break;
@@ -486,6 +491,99 @@ export function renderParagraph(p, deps) {
   el.dataset.kind = String(p.kind ?? "fact");
   wireRefs(el, p.refs, d);
   return el;
+}
+
+function flowDescription(knowledge, id) {
+  if (!knowledge?.exists || !id) return "No shared description yet.";
+  for (const key of ["parameters", "fields", "returns", "callSites"]) {
+    const description = knowledge.current?.[key]?.find?.((item) => item.id === id)?.description;
+    if (description) return description;
+  }
+  return "No shared description yet.";
+}
+
+function flowArgumentCard(item, detail, d) {
+  const value = item.value ?? {};
+  const declaredType = item.declaredType ?? value.explicitType ?? null;
+  const type = declaredType?.text ?? "not declared";
+  const summary = value.parameterName ? `${value.parameterName} ← ${value.expression}` : value.expression || `Argument ${Number(value.index ?? 0) + 1}`;
+  return h(
+    "details",
+    { class: "parameter-card flow-step__argument" },
+    h(
+      "summary",
+      {},
+      h("code", {}, summary),
+      h("span", { class: `value-tree__type${declaredType ? "" : " is-missing"}` }, `Type: ${type}`),
+    ),
+    h("p", { class: "value-tree__description" }, flowDescription(detail.knowledge, item.descriptionId)),
+    item.shape
+      ? renderValueTree(item.shape, {
+          prefix: `parameter:${value.index}`,
+          knowledge: detail.knowledge,
+          validations: detail.validations,
+          concepts: detail.concepts,
+          repo: d.repo,
+        })
+      : h("p", { class: "faint" }, "No nested structure was derived for this argument."),
+  );
+}
+
+function flowInputs(detail, d) {
+  if (!detail.inputs?.length) return h("p", { class: "empty__hint" }, "No arguments or boundary payload were found for this step.");
+  return h(
+    "div",
+    { class: "flow-step__inputs" },
+    detail.inputs.map((input) => h(
+      "div",
+      { class: "flow-step__input-group", dataset: { inputKind: input.label } },
+      h("h4", { class: "flow-step__subheading" }, input.label),
+      ...(input.arguments ?? []).map((argument) => flowArgumentCard(argument, { ...detail, knowledge: input.knowledge }, d)),
+      input.shape
+        ? renderValueTree(input.shape, {
+            prefix: input.prefix,
+            knowledge: input.knowledge,
+            validations: detail.validations,
+            concepts: detail.concepts,
+            repo: d.repo,
+          })
+        : null,
+    )),
+  );
+}
+
+function flowStepCard(p, d) {
+  const detail = p.flowStep ?? {};
+  const returns = (detail.returns ?? []).map((variant) => ({
+    ...variant,
+    explicitType: variant.explicitType ?? detail.declaredReturnType ?? null,
+  }));
+  return h(
+    "article",
+    { class: "card card--flow-step flow-step" },
+    h("p", { class: "flow-step__number" }, `Step ${detail.number ?? "?"}`),
+    h("p", { class: "flow-step__summary" }, detail.summary ?? p.text ?? "This step has no summary yet."),
+    h("p", { class: "flow-step__technical" }, linkifyWith(detail.technical ?? "", d)),
+    h(
+      "details",
+      { class: "flow-step__detail flow-step__callee" },
+      h("summary", {}, `What ${detail.calleeLabel ?? "this step"} does`, detail.calleeStale ? chipEl("Summary", "stale", { tone: "warn", tip: "The code changed after this summary was written." }, d) : null),
+      h("p", {}, detail.calleeSummary ?? "No shared explanation yet."),
+    ),
+    h("details", { class: "flow-step__detail flow-step__inputs-detail" }, h("summary", {}, "Inputs"), flowInputs(detail, d)),
+    h(
+      "details",
+      { class: "flow-step__detail flow-step__returns-detail" },
+      h("summary", {}, "Returns"),
+      renderReturns(returns, {
+        knowledge: detail.returnKnowledge,
+        validations: detail.validations,
+        concepts: detail.concepts,
+        repo: d.repo,
+      }),
+    ),
+    chipsRow(p.chips, d, "para__chips"),
+  );
 }
 
 function factPara(p, d, cls) {

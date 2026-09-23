@@ -10,3 +10,6 @@ sources: packages/reggie/src/flows.ts
 ## how · 2026-09-22 · Codex via jacobpress · medium
 Richer flow steps use compiler-backed actual arguments, boundary payload shapes, and all return variants while legacy input and output payloads remain temporarily for old readers.
 
+## how · 2026-09-23 · Codex via jacobpress · medium
+Flows now expose typed endpoint/function/method/class/file/service/response nodes and only compiler-backed arguments, boundary shapes, call-site IDs, and return variants; the legacy Payload input/output contract is gone.
+

@@ -21,8 +21,8 @@
 /* ---------- Paragraphs ---------- */
 /* Entity links flow with the prose: styles.css makes .link inline-flex (fine in chips and crumbs), but inside a
    62ch measure that keeps a link from wrapping and strands punctuation at line ends. */
-.sections .para .link, .sections .card__body .link, .sections .empty__text .link, .spot__sentence .link { display: inline; white-space: normal; }
-.sections .para .link .i, .sections .card__body .link .i, .sections .empty__text .link .i, .spot__sentence .link .i { margin-right: 3px; }
+.sections .para .link, .sections .card__body .link, .sections .empty__text .link, .flow-step__technical .link, .spot__sentence .link { display: inline; white-space: normal; }
+.sections .para .link .i, .sections .card__body .link .i, .sections .empty__text .link .i, .flow-step__technical .link .i, .spot__sentence .link .i { margin-right: 3px; }
 /* Inline code inside story text (backticks in the payload). */
 .para code.code, .card__body code.code, .empty__text code.code {
   font-family: var(--mono); font-size: 0.9em;

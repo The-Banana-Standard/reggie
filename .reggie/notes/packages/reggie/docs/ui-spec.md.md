@@ -19,3 +19,6 @@ sources: idea-from-every-page
 The UI specification promotes symbol, route, and concept pages from stretch aliases to first-class code-intelligence levels.
 sources: code-entity-pages
 
+## decision · 2026-09-23 · Codex via jacobpress · medium
+The UI specification now defines the Data Flow step-card experience, direct entity routing, recursive details, and role-aware cleanup warnings.
+

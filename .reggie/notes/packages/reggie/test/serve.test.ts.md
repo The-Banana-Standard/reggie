@@ -31,3 +31,6 @@ Exercise each valid numeric boundary as its own test. Repo-story generation is d
 ## decision · 2026-09-22 · Codex via jacobpress · medium
 Keep cold repo-story generation in the HTTP suite with a 60-second case-specific budget: its first request intentionally builds the compiler-backed flow index and may exceed the generic 20-second limit on a saturated two-core runner. All lightweight routes retain the default guard.
 
+## verify · 2026-09-23 · Codex via jacobpress · medium
+HTTP integration tests pin typed flow nodes, semantic request/service values, structured story steps, and removal of legacy input/output fields.
+

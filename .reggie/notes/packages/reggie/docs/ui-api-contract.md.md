@@ -45,3 +45,6 @@ sources: code-entity-pages
 The documented source-read boundary is tracked first-party JavaScript and TypeScript only, with repository internals and symlinks excluded.
 sources: code-entity-pages
 
+## decision · 2026-09-23 · Codex via jacobpress · medium
+The UI API contract removes Payload/input/output and documents entryNode, typed nodes, call-site IDs, semantic values, and returns.
+

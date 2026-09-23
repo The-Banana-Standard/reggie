@@ -1,0 +1,13 @@
+Manual browser acceptance — 2026-09-23
+
+PASS
+- Served the real Reggie repository at `http://127.0.0.1:4311` and exercised the actual browser UI.
+- Desktop: 1280 × 720, no document or story horizontal overflow.
+- Phone: 390 × 844, document/body/story widths stayed at 390 px with no horizontal overflow.
+- Cytoscape graph displayed typed ENDPOINT and FUNCTION nodes with entity name and secondary path.
+- Endpoint and function node taps opened their dedicated route and symbol pages.
+- Step cards rendered concise summaries, linked technical sentences, and expandable Inputs; a long 151-step flow remained usable.
+- Native anchors expose keyboard destinations, and map legend controls retain Enter/Space handlers.
+- Console warnings/errors: 0.
+
+Layout note: Cytoscape geometry and responsive rendering were checked manually because jsdom covers only the deterministic graph model and DOM contracts.

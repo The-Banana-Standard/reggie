@@ -22,3 +22,6 @@ Story routing tests require stable double-colon symbol IDs to open symbol routes
 Story route coverage expects canonical symbol, route, and concept entity URLs.
 sources: code-entity-pages
 
+## verify · 2026-09-23 · Codex via jacobpress · medium
+Story tests prove numbered structured flow steps, route/symbol/file links without line prose, request shapes, service explanations, and heuristic limitations.
+

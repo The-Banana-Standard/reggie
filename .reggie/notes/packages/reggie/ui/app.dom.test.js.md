@@ -10,3 +10,5 @@ Router DOM fixtures use stable double-colon symbol identities in flow data.
 ## verify · 2026-09-23 · Codex via jacobpress · high
 DOM coverage checks canonical entity routing, direct call links, recursive seven-field structures, route and concept pages, explicit editing states, retained conflict drafts, and stale warnings.
 sources: code-entity-pages
+## verify · 2026-09-23 · Codex via jacobpress · medium
+DOM coverage proves cleanup evidence is grouped by role with limitations and an explicit non-deletion warning.

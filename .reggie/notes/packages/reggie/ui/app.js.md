@@ -34,3 +34,6 @@ Flow symbol IDs split at the double-colon separator; the former hash separator i
 The web router treats symbols, endpoints, and data concepts as dedicated pages with direct links, recursive evidence, shared knowledge editing, stale refresh controls, and a centered call map.
 sources: code-entity-pages
 
+## how · 2026-09-23 · Codex via jacobpress · medium
+The Data Flow overview fetches role-aware reachability, keeps unreachable and no-reference evidence separate, and routes endpoint and symbol nodes to dedicated pages.
+

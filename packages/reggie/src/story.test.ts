@@ -9,6 +9,7 @@ import { repoHistory } from "./history.js";
 import { briefFile, repoPaths } from "./paths.js";
 import { loadConfig } from "./people.js";
 import { detectServices, type ServiceIndex } from "./services.js";
+import { buildSemanticIndex, type SemanticIndex } from "./semantic-index.js";
 import { traceFlow, type Flow } from "./flows.js";
 import {
   EMPTY_TEXT,
@@ -128,7 +129,7 @@ function parseRoute(hash: string): { level: string; repo: string | null; id: str
   if (segs.length === 2) return { ...out, level: "repo", repo };
   const rest = decodeURIComponent(segs.slice(3).join("/"));
   const kind = segs[2];
-  const levels: Record<string, string> = { area: "area", file: "file", symbol: "symbol", task: "task", person: "person", tasks: "tasks", people: "people", time: "time", services: "services", flows: "flows", flow: "flow" };
+  const levels: Record<string, string> = { area: "area", file: "file", symbol: "symbol", route: "route", concept: "concept", task: "task", person: "person", tasks: "tasks", people: "people", time: "time", services: "services", flows: "flows", flow: "flow" };
   const level = kind ? levels[kind] : undefined;
   if (!level) return { ...out, level: "unknown", repo };
   return { ...out, level, repo, id: rest || null };
@@ -136,7 +137,10 @@ function parseRoute(hash: string): { level: string; repo: string | null; id: str
 
 /** Every link in every paragraph parses, names this repo, and has a non-empty label. */
 function expectLinksWellFormed(story: Story, repo: string): void {
-  const texts = [...allParagraphs(story).map((p) => p.text), ...story.sections.flatMap((s) => (s.empty?.action?.route ? [s.empty.action.route] : []))];
+  const texts = [
+    ...allParagraphs(story).flatMap((p) => [p.text, p.flowStep?.technical].filter((text): text is string => Boolean(text))),
+    ...story.sections.flatMap((s) => (s.empty?.action?.route ? [s.empty.action.route] : [])),
+  ];
   let seen = 0;
   for (const text of texts) {
     // No half-open markup anywhere.
@@ -146,7 +150,7 @@ function expectLinksWellFormed(story: Story, repo: string): void {
       expect(label.trim().length, `empty label in: ${text}`).toBeGreaterThan(0);
       expect(route.startsWith("#/"), `route is not a hash route: ${route}`).toBe(true);
       const parsed = parseRoute(route);
-      expect(["repo", "area", "file", "symbol", "task", "tasks", "person", "workspace", "services", "flows", "flow"], `unparseable route ${route}`).toContain(parsed.level);
+      expect(["repo", "area", "file", "symbol", "route", "concept", "task", "tasks", "person", "workspace", "services", "flows", "flow"], `unparseable route ${route}`).toContain(parsed.level);
       if (parsed.level !== "workspace") expect(parsed.repo).toBe(repo);
     }
   }
@@ -162,7 +166,7 @@ function expectParagraphContract(story: Story): void {
     expect(p.id).toBeTruthy();
     expect(ids.has(p.id), `duplicate paragraph id ${p.id}`).toBe(false);
     ids.add(p.id);
-    expect(["fact", "note", "journal", "gap", "commit", "decision", "list"]).toContain(p.kind);
+    expect(["fact", "note", "journal", "gap", "commit", "decision", "list", "flow-step"]).toContain(p.kind);
     expect(Array.isArray(p.refs)).toBe(true);
     for (const r of p.refs) expect(typeof r === "string" && r.length > 0, `bad ref on ${p.id}`).toBe(true);
     expect(p.text.trim().length).toBeGreaterThan(0);
@@ -1129,6 +1133,7 @@ describe("servicesStory and flowStory", () => {
   let repo: TempRepo;
   let local: StoryContext;
   let index: ServiceIndex;
+  let semanticIndex: SemanticIndex;
   let flow: Flow;
 
   beforeAll(() => {
@@ -1180,7 +1185,8 @@ describe("servicesStory and flowStory", () => {
     local = contextFor(repo.root);
     const graph = buildGraph(repoPaths(repo.root));
     index = detectServices(repoPaths(repo.root), graph);
-    flow = traceFlow(repoPaths(repo.root), graph, "sym:functions/api/chat.js::onRequestPost", { services: index.services });
+    semanticIndex = buildSemanticIndex(repoPaths(repo.root), graph);
+    flow = traceFlow(repoPaths(repo.root), graph, "sym:functions/api/chat.js::onRequestPost", { services: index.services, semanticIndex });
   }, 60_000);
 
   it("puts the undeclared secret first, then the unused binding, then the shared writer", () => {
@@ -1234,16 +1240,22 @@ describe("servicesStory and flowStory", () => {
   });
 
   it("numbers every step and points each paragraph at its own step", () => {
-    const story = flowStory(local, flow, { services: index.services });
+    const story = flowStory(local, flow, { services: index.services, index: semanticIndex });
     expect(sectionIds(story)).toEqual(["steps", "not-derivable"]);
     const steps = sectionOf(story, "steps").paragraphs;
     expect(steps).toHaveLength(flow.steps.length);
-    expect(steps[0]?.text).toContain("Step one.");
-    expect(steps[0]?.text).toContain("The request arrives at");
-    // Rule 1 of the payload ladder, named as what it is.
-    expect(steps[0]?.text).toContain("{ message, sessionId }");
-    expect(steps[0]?.text).toContain("read from request.json()");
+    expect(steps[0]?.kind).toBe("flow-step");
+    expect(steps[0]?.flowStep?.number).toBe(1);
+    expect(steps[0]?.flowStep?.summary).toContain("endpoint hands the request");
+    expect(steps[0]?.flowStep?.technical).toContain("route:POST:/api/chat");
+    expect(steps[0]?.flowStep?.technical).toContain("POST /api/chat");
+    expect(steps[0]?.flowStep?.technical).toContain("onRequestPost");
+    expect(steps[0]?.flowStep?.technical).toContain("functions/api/chat.js");
+    expect(steps[0]?.flowStep?.technical).not.toContain("line ");
+    expect(steps[0]?.flowStep?.inputs[0]?.label).toBe("Request payload");
+    expect(steps[0]?.flowStep?.inputs[0]?.shape?.fields.map((field) => field.name)).toEqual(["message", "sessionId"]);
     steps.forEach((p, i) => {
+      expect(p.flowStep?.number).toBe(i + 1);
       expect(p.refs).toContain(flow.steps[i]?.from);
       expect(p.refs).toContain(flow.steps[i]?.to);
     });
@@ -1252,24 +1264,22 @@ describe("servicesStory and flowStory", () => {
   });
 
   it("names the service a step lands on and does not overstate a heuristic payload", () => {
-    const story = flowStory(local, flow, { services: index.services });
-    const texts = sectionOf(story, "steps").paragraphs.map((p) => p.text);
-    const write = texts.find((t) => t.includes("CHAT_LOGS.prepare"));
-    expect(write).toContain("writes to");
-    expect(write).toContain("the D1 database story-logs");
-    expect(write).toContain("arrived as the `db` parameter");
-    expect(write).toContain("inferred rather than read off `env`");
-    const put = texts.find((t) => t.includes("CACHE.put"));
-    expect(put).toContain("a KV namespace");
-    expect(put).toContain("writes to");
-    for (const text of texts) {
-      // A field list is never presented as data unless it was read from one.
-      if (text.includes("field names taken from")) expect(text).toContain("not from the data");
-    }
+    const story = flowStory(local, flow, { services: index.services, index: semanticIndex });
+    const steps = sectionOf(story, "steps").paragraphs;
+    const write = steps.find((paragraph) => paragraph.flowStep?.calleeId === "svc:database:CHAT_LOGS");
+    expect(write?.flowStep?.summary).toContain("writes data to CHAT_LOGS");
+    expect(write?.flowStep?.technical).toContain("CHAT_LOGS");
+    expect(write?.flowStep?.technical).toContain("logging.js");
+    expect(write?.flowStep?.technical).not.toContain("line ");
+    expect(write?.flowStep?.inputs.some((input) => input.label === "Service payload")).toBe(true);
+    expect(write?.chips?.find((item) => item.label === "Confidence")?.value).toBe("heuristic");
+    const put = steps.find((paragraph) => paragraph.flowStep?.calleeId === "svc:kv:CACHE");
+    expect(put?.flowStep?.summary).toContain("writes data to CACHE");
+    expect(put?.flowStep?.calleeSummary).toContain("KV namespace");
   });
 
   it("ends with what could not be derived, and why", () => {
-    const story = flowStory(local, flow, { services: index.services });
+    const story = flowStory(local, flow, { services: index.services, index: semanticIndex });
     const gaps = sectionOf(story, "not-derivable");
     const text = gaps.paragraphs.map((p) => p.text).join("\n");
     expect(text).toContain("was found only by following a binding handed over as a parameter");
@@ -1281,9 +1291,9 @@ describe("servicesStory and flowStory", () => {
   });
 
   it("says what a cap dropped, at which hop, when one bites", () => {
-    const shallow = traceFlow(repoPaths(repo.root), buildGraph(repoPaths(repo.root)), "sym:functions/api/chat.js::onRequestPost", { depth: 1, services: index.services });
+    const shallow = traceFlow(repoPaths(repo.root), buildGraph(repoPaths(repo.root)), "sym:functions/api/chat.js::onRequestPost", { depth: 1, services: index.services, semanticIndex });
     expect(shallow.truncated).toBe(true);
-    const text = sectionOf(flowStory(local, shallow, { services: index.services }), "not-derivable")
+    const text = sectionOf(flowStory(local, shallow, { services: index.services, index: semanticIndex }), "not-derivable")
       .paragraphs.map((p) => p.text)
       .join("\n");
     expect(text).toContain("The walk stopped short");

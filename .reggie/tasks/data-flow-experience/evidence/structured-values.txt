@@ -1,0 +1,10 @@
+Structured values — 2026-09-23
+
+PASS
+- Semantic request-body assignment discovery retains property reads after `payload = await request.json()`.
+- JSDoc object literals expose every property and preserve each explicitly declared member type.
+- The shared recursive renderer shows seven fixture fields, a nested child field, `not declared` where appropriate, validation facts, descriptions, and exact data-concept links.
+- Concept matching requires source/path agreement when both are available, preventing same-named fields from being joined by display text alone.
+- The corresponding graph edge remains compact as `7 fields` while the expanded card remains uncapped.
+
+Proof: `src/semantic-index.test.ts`, `src/flows.test.ts`, `ui/story.dom.test.js`, `ui/app.dom.test.js`, `ui/map.dom.test.js`.

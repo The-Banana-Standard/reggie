@@ -12,7 +12,8 @@ import { buildContext } from "./context.js";
 import { checkComposedFile, checkGeneratedBlock, composeAgentsMd, curatedSections, renderGeneratedBlock } from "./docs.js";
 import { DeriveError, deriveJournal, realRewriteRunner, type DeriveInput } from "./derive.js";
 import { collectFacts } from "./facts.js";
-import { detectFlows, MAX_FLOW_HOPS, traceFlow, type Payload } from "./flows.js";
+import { detectFlows, MAX_FLOW_HOPS, traceFlow } from "./flows.js";
+import { flowTraceLines } from "./flow-output.js";
 import { buildGraph, type RepoGraph } from "./graph.js";
 import { createIssue, createPullRequest, ghAvailable } from "./gh.js";
 import { currentBranch, defaultBranch, git, resolveCommit } from "./git.js";
@@ -1055,11 +1056,6 @@ program
     out(`${index.services.length} services, ${index.undeclared.length} undeclared, ${index.edges.length} edges. Detail: reggie services --json`);
   });
 
-function payloadText(p: Payload | null): string {
-  if (!p || p.fields.length === 0) return "not derivable";
-  return `{ ${p.fields.join(", ")} }${p.confidence === "heuristic" ? ` (${p.shape ?? "inferred"}, heuristic)` : ""}`;
-}
-
 program
   .command("flows [id]")
   .description("Where data enters and where it goes; with an id, one flow traced step by step")
@@ -1089,25 +1085,7 @@ program
 
     const flow = traceFlow(c.paths, graph, id, { depth, services });
     if (opts.json) return out(JSON.stringify(flow, null, 2));
-    out(`${flow.title}   ${flow.entry}`);
-    out(`${flow.steps.length} step${flow.steps.length === 1 ? "" : "s"}, ${flow.depth} hop${flow.depth === 1 ? "" : "s"}${flow.truncated ? "" : ", complete"}`);
-    out("");
-    flow.steps.forEach((s, i) => {
-      const via = s.via ? ` via ${s.via}` : "";
-      out(`${String(i + 1).padStart(3)}. ${s.kind.padEnd(8)} ${s.label}${via}   ${s.source.file}:${s.source.line}${s.confidence === "heuristic" ? "  [heuristic]" : ""}`);
-      out(`     in:  ${payloadText(s.input)}`);
-      out(`     out: ${payloadText(s.output)}`);
-    });
-    if (flow.services.length > 0) {
-      out("");
-      out(`Reaches: ${flow.services.join(", ")}`);
-    }
-    if (flow.truncated) {
-      out("");
-      for (const d of flow.dropped) {
-        out(d.reason === "depth" ? `Not followed: ${d.count} call${d.count === 1 ? "" : "s"} at hop ${d.hop} (the walk stops at ${d.hop - 1} hops)` : `Dropped: ${d.count} step${d.count === 1 ? "" : "s"} at hop ${d.hop} (${d.reason})`);
-      }
-    }
+    for (const line of flowTraceLines(flow)) out(line);
   });
 
 program.parseAsync(process.argv).catch((err: unknown) => {

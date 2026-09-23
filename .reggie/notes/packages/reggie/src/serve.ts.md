@@ -56,3 +56,6 @@ sources: code-entity-pages
 The ranged-source HTTP route is limited to files in the first-party semantic index, excluding repository internals and unrelated paths.
 sources: code-entity-pages
 
+## data-source · 2026-09-23 · Codex via jacobpress · medium
+Flow stories receive the same semantic index and current route/symbol/service knowledge used by entity pages.
+

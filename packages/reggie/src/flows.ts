@@ -8,12 +8,9 @@
  *
  * The TypeScript compiler supplies symbols, direct call bindings, actual argument
  * expressions, return variants, and recursive value shapes across JS/JSX/TS/TSX.
- * The original `Payload` fields remain as a temporary reader compatibility layer;
- * new consumers should use `arguments`, `requestPayload`, `servicePayload`, and
- * `returns`, which never turn parameter names into invented object payloads.
- *
- * The small masked-code scanners remain only for service binding detection and the
- * legacy payload fields while those older readers migrate to the semantic records.
+ * Consumers use `arguments`, `requestPayload`, `servicePayload`, and `returns`, which
+ * never turn parameter names into invented object payloads. Small masked-code scanners
+ * remain only where service and response call discovery still needs source ordering.
  */
 
 import path from "node:path";
@@ -25,6 +22,7 @@ import { isTestLike } from "./roles.js";
 import type { ServiceNode, SourceRef } from "./services.js";
 import {
   buildSemanticIndex,
+  routeRecordId,
   semanticSymbolId,
   type ArgumentValue,
   type CallSite as SemanticCallSite,
@@ -42,19 +40,6 @@ import { nowIso } from "./util.js";
 /** A file and 1-based line. Owned by services.ts (§1); re-exported so callers need one import. */
 export type { SourceRef };
 
-/**
- * What moves along one step. `fields` are the names actually found; `shape` names the
- * construct they came from (`request.json()`, `object literal`, `interface ChatInput`,
- * `parameters`), so the UI can explain itself. A `null` payload means not derivable —
- * never a guess.
- */
-export interface Payload {
-  fields: string[];
-  shape: string | null;
-  confidence: Confidence;
-  source: SourceRef | null;
-}
-
 export type FlowStepKind = "call" | "import" | "read" | "write" | "respond";
 
 export interface FlowStep {
@@ -62,8 +47,6 @@ export interface FlowStep {
   to: string;
   kind: FlowStepKind;
   label: string;
-  input: Payload | null;
-  output: Payload | null;
   /** Actual positional arguments and expressions from the call site. */
   arguments: ArgumentValue[];
   /** Boundary request body shape, separate from ordinary function arguments. */
@@ -72,9 +55,11 @@ export interface FlowStep {
   servicePayload: ValueShape | null;
   /** Every source-backed return branch on the called symbol or response step. */
   returns: ReturnVariant[];
+  /** Stable semantic call-site identity when this step came from a call expression. */
+  callSiteId: string | null;
   source: SourceRef;
   /**
-   * Additive to the spec: how sure the *step* is, which `Payload.confidence` does not say.
+   * How sure the step resolution is; value types and shapes retain their own source facts.
    * `heuristic` when the service was resolved through a name rather than a declaration —
    * a method-guessed binding, or a binding that arrived as a parameter (`via`).
    */
@@ -84,6 +69,17 @@ export interface FlowStep {
    * (`db` for a call site that passed `env.CHAT_LOGS`). `null` for every other step.
    */
   via: string | null;
+}
+
+export type FlowNodeKind = "endpoint" | "function" | "method" | "class" | "file" | "service" | "response";
+
+/** One entity drawn in a flow. Display and navigation never have to infer its kind from an id. */
+export interface FlowNode {
+  id: string;
+  kind: FlowNodeKind;
+  label: string;
+  path: string;
+  file: string | null;
 }
 
 /**
@@ -101,11 +97,15 @@ export interface FlowDrop {
 
 export interface Flow {
   id: string;
+  /** Handler symbol retained as the lookup-compatible semantic entry identity. */
   entry: string;
+  /** First graph node: a route entity for HTTP flows, otherwise the source file. */
+  entryNode: string;
   title: string;
   method: string | null;
   route: string | null;
   steps: FlowStep[];
+  nodes: FlowNode[];
   /** Services the returned steps actually reach. Never includes one a cap hid. */
   services: string[];
   /**
@@ -142,6 +142,7 @@ export interface FlowEntry {
 export interface FlowSummary {
   id: string;
   entry: string;
+  entryNode: string;
   title: string;
   kind: FlowEntryKind;
   method: string | null;
@@ -416,8 +417,6 @@ function normalizePath(p: string): string {
  * Exported so `services.ts` and the API layer can reuse the scan rather than repeat it.
  */
 export class Repo {
-  /** Resolved type declarations, per repo instance so two fixtures cannot share a key. */
-  readonly typeCache = new Map<string, { fields: string[]; source: SourceRef } | null>();
   /** Next.js conventions apply only when Next is actually a dependency. */
   readonly isNext: boolean;
   private readonly cache = new Map<string, FileInfo | null>();
@@ -502,7 +501,9 @@ export class Repo {
   }
 
   callAt(file: string, offset: number): SemanticCallSite | null {
-    return this.semantic().calls.find((call) => call.source.file === file && call.source.startOffset === offset) ?? null;
+    return this.semantic().calls
+      .filter((call) => call.source.file === file && call.source.startOffset <= offset && call.source.endOffset >= offset)
+      .sort((a, b) => (a.source.endOffset - a.source.startOffset) - (b.source.endOffset - b.source.startOffset))[0] ?? null;
   }
 }
 
@@ -906,352 +907,6 @@ function topLevelIndex(text: string, ch: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// Payload rule 1 — the destructured request body
-// ---------------------------------------------------------------------------
-
-const BODY_CALL = /\bawait\s+((?:[A-Za-z_$][\w$]*\s*\??\s*\.\s*)*[A-Za-z_$][\w$]*)\s*\??\s*\.\s*json\s*\(\s*\)/g;
-const REQUEST_RECEIVER = /(^|\.)(request|req)$/;
-
-/**
- * Rule 1: `const { a, b } = await request.json()` → `[a, b]`, `exact`.
- *
- * Also covers the same body bound to a name and read by property — `payload = await
- * request.json()` then `payload.message` — which is the shape the ground-truth repo
- * actually uses. Both are field names read from literals in the code, so both are
- * `exact`; `shape` says which spelling was found.
- */
-export function requestPayload(info: FileInfo, startLine: number, endLine: number): Payload | null {
-  const from = info.starts[startLine - 1] ?? 0;
-  const to = info.starts[endLine] ?? info.masked.length;
-  const region = info.masked.slice(from, to);
-  BODY_CALL.lastIndex = 0;
-  for (const m of region.matchAll(BODY_CALL)) {
-    const receiver = (m[1] ?? "").replace(/[\s?]/g, "");
-    if (!REQUEST_RECEIVER.test(receiver)) continue;
-    const at = from + (m.index ?? 0);
-    const line = lineAt(info.starts, at);
-    // Walk back over `const { … } = ` / `x = ` to the statement head.
-    const head = info.masked.slice(Math.max(from, at - 400), at);
-    const destructured = /(?:const|let|var)\s*(\{[^}]*\})\s*=\s*$/.exec(head);
-    if (destructured) {
-      const open = info.masked.lastIndexOf("{", at);
-      const close = open === -1 ? -1 : matchDelim(info.masked, open);
-      const keys = open !== -1 && close !== -1 ? objectLiteralKeys(info.masked, info.src, open, close + 1) : null;
-      if (keys && keys.keys.length > 0) {
-        return { fields: keys.keys, shape: `${receiver}.json()`, confidence: "exact", source: { file: info.file, line } };
-      }
-    }
-    const alias = /(?:(?:const|let|var)\s+)?([A-Za-z_$][\w$]*)\s*=\s*$/.exec(head);
-    const name = alias?.[1];
-    if (!name) continue;
-    const fields = propertyReads(info.masked, name, from, to);
-    if (fields.length > 0) {
-      return { fields, shape: `${receiver}.json() via ${name}`, confidence: "exact", source: { file: info.file, line } };
-    }
-  }
-  return null;
-}
-
-/** Property names read off `name` in `[from, to)`, in source order; method calls excluded. */
-function propertyReads(masked: string, name: string, from: number, to: number): string[] {
-  const re = new RegExp(`\\b${name}\\s*\\??\\s*\\.\\s*([A-Za-z_$][\\w$]*)`, "g");
-  const region = masked.slice(from, to);
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const m of region.matchAll(re)) {
-    const prop = m[1] ?? "";
-    const after = region.slice((m.index ?? 0) + m[0].length);
-    if (/^\s*\(/.test(after)) continue; // a method call, not a field
-    if (seen.has(prop)) continue;
-    seen.add(prop);
-    out.push(prop);
-  }
-  return out;
-}
-
-// ---------------------------------------------------------------------------
-// Payload rules 2–5
-// ---------------------------------------------------------------------------
-
-/** Rule 2: the first object literal among the call's arguments → its keys, `exact`. */
-export function callSitePayload(info: FileInfo, argsFrom: number, argsTo: number): Payload | null {
-  for (const [s, e] of splitArgs(info.masked, argsFrom, argsTo)) {
-    const keys = objectLiteralKeys(info.masked, info.src, s, e);
-    if (!keys || keys.keys.length === 0) continue;
-    return {
-      fields: keys.keys,
-      shape: keys.spread ? "object literal (+ spread)" : "object literal",
-      confidence: "exact",
-      source: { file: info.file, line: lineAt(info.starts, s) },
-    };
-  }
-  return null;
-}
-
-/**
- * Field names of `interface X { … }` or `type X = { … }`, resolved one level only: a
- * `type X = Y` alias returns null rather than chasing `Y`. Looks in `info` first, then
- * in the file `X` was imported from.
- */
-export function typeFields(repo: Repo, info: FileInfo, typeName: string): { fields: string[]; source: SourceRef } | null {
-  const name = typeName.replace(/\[\]$/, "").trim();
-  if (!IDENT_ONLY.test(name)) return null;
-  const key = `${info.file}|${name}`;
-  const cached = repo.typeCache.get(key);
-  if (cached !== undefined) return cached;
-  const search = (target: FileInfo): { fields: string[]; source: SourceRef } | null => {
-    const re = new RegExp(`\\b(?:interface\\s+${name}\\b[^{]*|type\\s+${name}\\s*=\\s*)`, "g");
-    for (const m of target.masked.matchAll(re)) {
-      const at = (m.index ?? 0) + m[0].length;
-      const open = skipSpace(target.masked, at);
-      if (target.masked.charAt(open) !== "{") continue;
-      const close = matchDelim(target.masked, open);
-      if (close === -1) continue;
-      const fields = typeMemberNames(target.masked, target.src, open, close);
-      if (fields.length === 0) continue;
-      return { fields, source: { file: target.file, line: lineAt(target.starts, m.index ?? 0) } };
-    }
-    return null;
-  };
-  let found = search(info);
-  if (!found) {
-    const from = info.imports.get(name);
-    const other = from ? repo.info(from) : null;
-    if (other) found = search(other);
-  }
-  repo.typeCache.set(key, found);
-  return found;
-}
-
-/** Members of a type body: `a: string; b?: number` → `[a, b]`. Nested objects contribute their own key only. */
-function typeMemberNames(masked: string, src: string, open: number, close: number): string[] {
-  const out: string[] = [];
-  let depth = 0;
-  let start = open + 1;
-  const flush = (end: number): void => {
-    const from = start;
-    start = end + 1;
-    const at = firstNonSpace(src, from, end);
-    if (at === -1) return;
-    const head = masked.slice(from, end).trim().split(/[?:(<]/)[0]?.trim() ?? "";
-    if (IDENT_ONLY.test(head)) out.push(head);
-    else if (masked.charAt(at) === " ") {
-      const lit = readStringLiteral(src, at);
-      if (lit) out.push(lit);
-    }
-  };
-  for (let i = open + 1; i < close; i += 1) {
-    const ch = masked.charAt(i);
-    if (ch === "{" || ch === "(" || ch === "[" || ch === "<") depth += 1;
-    else if (ch === "}" || ch === ")" || ch === "]" || ch === ">") depth -= 1;
-    else if ((ch === ";" || ch === "," || ch === "\n") && depth === 0) flush(i);
-  }
-  flush(close);
-  return Array.from(new Set(out));
-}
-
-/** Rule 4: the JSDoc block immediately above the declaration. `@param {T} opts.a` wins over `@param {T} opts`. */
-export function jsdocPayload(info: FileInfo, sym: CodeSymbol): Payload | null {
-  const declStart = info.starts[sym.line - 1] ?? 0;
-  const before = info.src.slice(0, declStart);
-  const closeAt = before.lastIndexOf("*/");
-  if (closeAt === -1) return null;
-  // Only a block that is directly above the declaration, whitespace apart.
-  if (before.slice(closeAt + 2).trim() !== "") return null;
-  const openAt = before.lastIndexOf("/**", closeAt);
-  if (openAt === -1) return null;
-  const block = before.slice(openAt, closeAt);
-  const dotted: string[] = [];
-  const plain: string[] = [];
-  for (const m of block.matchAll(/@param\s*(?:\{([^}]*)\})?\s*\[?([A-Za-z_$][\w$.]*)/g)) {
-    const braceType = m[1] ?? "";
-    const nameRaw = m[2] ?? "";
-    if (nameRaw.includes(".")) dotted.push(nameRaw.slice(nameRaw.indexOf(".") + 1));
-    else plain.push(nameRaw);
-    // `@param {{a: string, b: number}} input` — an inline object type carries the fields.
-    if (dotted.length === 0 && /^\s*\{/.test(braceType)) {
-      const inline = braceType.replace(/^\s*\{/, "").replace(/\}\s*$/, "");
-      for (const part of inline.split(",")) {
-        const head = part.split(":")[0]?.trim() ?? "";
-        if (IDENT_ONLY.test(head)) dotted.push(head);
-      }
-    }
-  }
-  const fields = dotted.length > 0 ? Array.from(new Set(dotted)) : Array.from(new Set(plain));
-  if (fields.length === 0) return null;
-  return {
-    fields,
-    shape: "JSDoc @param",
-    confidence: "exact",
-    source: { file: info.file, line: lineAt(info.starts, openAt) },
-  };
-}
-
-/**
- * Rules 3–5 over the callee's signature: an annotated parameter type resolved one level
- * (`exact`), then JSDoc (`exact`), then the parameter names themselves (`heuristic`).
- * Returns null when the signature gives nothing — an empty parameter list, or a callee
- * whose declaration could not be read.
- */
-export function signaturePayload(repo: Repo, info: FileInfo, sym: CodeSymbol): Payload | null {
-  const sig = signatureOf(info, sym);
-  const declLine = sym.line;
-
-  // Rule 3 — a type annotation, resolved one level into an interface or type alias.
-  for (const p of sig?.params ?? []) {
-    if (!p.type) continue;
-    if (p.type.startsWith("{")) {
-      const open = info.masked.indexOf("{", info.starts[declLine - 1] ?? 0);
-      const close = open === -1 ? -1 : matchDelim(info.masked, open);
-      const fields = open !== -1 && close !== -1 ? typeMemberNames(info.masked, info.src, open, close) : [];
-      if (fields.length > 0) {
-        return { fields, shape: "inline object type", confidence: "exact", source: { file: info.file, line: declLine } };
-      }
-      continue;
-    }
-    const resolved = typeFields(repo, info, p.type);
-    if (resolved) {
-      return { fields: resolved.fields, shape: `type ${p.type}`, confidence: "exact", source: resolved.source };
-    }
-  }
-
-  // Rule 4 — JSDoc.
-  const doc = jsdocPayload(info, sym);
-  if (doc) return doc;
-
-  // Rule 5 — parameter names. A destructured parameter contributes its field names.
-  if (sig) {
-    const destructured = sig.params.find((p) => p.name === null && p.fields.length > 0);
-    if (destructured) {
-      return { fields: destructured.fields, shape: "destructured parameter", confidence: "heuristic", source: { file: info.file, line: declLine } };
-    }
-    const names = sig.params.map((p) => p.name).filter((n): n is string => n !== null);
-    if (names.length > 0) {
-      return { fields: names, shape: "parameter names", confidence: "heuristic", source: { file: info.file, line: declLine } };
-    }
-  }
-  // Rule 6 — nothing derivable.
-  return null;
-}
-
-// ---------------------------------------------------------------------------
-// Outputs
-// ---------------------------------------------------------------------------
-
-const CLOSE_CACHE = new WeakMap<FileInfo, Map<number, number>>();
-
-/** Closer offset → its opener, derived from the pair table. */
-function openerOf(info: FileInfo): Map<number, number> {
-  const hit = CLOSE_CACHE.get(info);
-  if (hit) return hit;
-  const out = new Map<number, number>();
-  for (const [open, close] of delimiterPairs(info)) out.set(close, open);
-  CLOSE_CACHE.set(info, out);
-  return out;
-}
-
-/**
- * Does the `{` at `open` start a function body? True for `=> {` and for `function …(…) {`;
- * false for `if (…) {`, `for (…) {` and friends, because the word before the parenthesis
- * is a keyword rather than `function`.
- */
-function isFunctionBodyBrace(info: FileInfo, open: number): boolean {
-  const m = info.masked;
-  let i = open - 1;
-  while (i >= 0 && /\s/.test(m.charAt(i))) i -= 1;
-  if (i >= 1 && m.charAt(i) === ">" && m.charAt(i - 1) === "=") return true;
-  if (m.charAt(i) !== ")") return false;
-  const paren = openerOf(info).get(i);
-  if (paren === undefined) return false;
-  let j = paren - 1;
-  while (j >= 0 && /\s/.test(m.charAt(j))) j -= 1;
-  let end = j;
-  while (j >= 0 && /[\w$]/.test(m.charAt(j))) j -= 1;
-  const word = m.slice(j + 1, end + 1);
-  if (word === "function") return true;
-  if (!IDENT_ONLY.test(word)) return false;
-  // `function foo(…) {` — the name sits between `function` and the parameters.
-  while (j >= 0 && /\s/.test(m.charAt(j))) j -= 1;
-  end = j;
-  while (j >= 0 && /[\w$]/.test(m.charAt(j))) j -= 1;
-  return m.slice(j + 1, end + 1) === "function";
-}
-
-/**
- * Bodies of functions nested inside `[from, to)`, excluding the enclosing function's own
- * body at `bodyOpen`. A `return { … }` inside one of these belongs to the callback, not to
- * the symbol being described — the ground-truth chat handler has a `makeTrace` arrow whose
- * literal was otherwise reported as the handler's own response.
- */
-function nestedFunctionBodies(info: FileInfo, from: number, to: number, bodyOpen: number): Array<[number, number]> {
-  const out: Array<[number, number]> = [];
-  for (const [open, close] of delimiterPairs(info)) {
-    if (open <= from || open >= to || open === bodyOpen) continue;
-    if (info.masked.charAt(open) !== "{") continue;
-    if (isFunctionBodyBrace(info, open)) out.push([open, close]);
-  }
-  return out;
-}
-
-const RESPONSE_JSON = /\bResponse\s*\.\s*json\s*\(/g;
-const RESPONSE_STRINGIFY = /\bnew\s+Response\s*\(\s*JSON\s*\.\s*stringify\s*\(/g;
-const RETURN_OBJECT = /\breturn\s*(?=\{)/g;
-
-/**
- * What comes back, in the spec's order: `Response.json({…})`, `return {…}`, an annotated
- * return type, else null.
- *
- * `new Response(JSON.stringify({…}))` is read as the same construct as `Response.json`:
- * it is the older spelling of one literal object, and it is what the ground-truth repo
- * writes. Both stay `exact`; `shape` records which was found.
- */
-export function outputPayload(repo: Repo, info: FileInfo, sym: CodeSymbol): Payload | null {
-  const from = info.starts[sym.line - 1] ?? 0;
-  const to = info.starts[sym.endLine] ?? info.masked.length;
-  const candidates: Array<{ at: number; args: number; shape: string }> = [];
-  const collect = (re: RegExp, shape: string): void => {
-    re.lastIndex = 0;
-    for (const m of info.masked.slice(from, to).matchAll(re)) {
-      const at = from + (m.index ?? 0);
-      candidates.push({ at, args: at + (m[0]?.length ?? 0), shape });
-    }
-  };
-  collect(RESPONSE_JSON, "Response.json");
-  collect(RESPONSE_STRINGIFY, "new Response(JSON.stringify(…))");
-  collect(RETURN_OBJECT, "return object literal");
-  candidates.sort((a, b) => a.at - b.at);
-
-  // A plain `return { … }` only counts when it is this function's own return.
-  const sigForBody = signatureOf(info, sym);
-  const bodyOpen = info.masked.indexOf("{", sigForBody?.after ?? from);
-  const nested = nestedFunctionBodies(info, from, to, bodyOpen);
-  const inNested = (at: number): boolean => nested.some(([o, c]) => at > o && at < c);
-
-  for (const c of candidates) {
-    if (c.shape === "return object literal" && inNested(c.at)) continue;
-    const open = skipSpace(info.masked, c.args);
-    if (info.masked.charAt(open) !== "{") continue;
-    const close = matchDelim(info.masked, open);
-    if (close === -1) continue;
-    const keys = objectLiteralKeys(info.masked, info.src, open, close + 1);
-    if (!keys || keys.keys.length === 0) continue;
-    return {
-      fields: keys.keys,
-      shape: keys.spread ? `${c.shape} (+ spread)` : c.shape,
-      confidence: "exact",
-      source: { file: info.file, line: lineAt(info.starts, c.at) },
-    };
-  }
-  const sig = signatureOf(info, sym);
-  const ret = sig?.returnType?.replace(/^Promise\s*<\s*/, "").replace(/\s*>\s*$/, "").trim();
-  if (ret) {
-    const resolved = typeFields(repo, info, ret);
-    if (resolved) return { fields: resolved.fields, shape: `returns ${ret}`, confidence: "exact", source: resolved.source };
-  }
-  return null;
-}
-
-// ---------------------------------------------------------------------------
 // Call sites
 // ---------------------------------------------------------------------------
 
@@ -1644,7 +1299,6 @@ interface ResponseHit {
   at: number;
   line: number;
   label: string;
-  payload: Payload | null;
 }
 
 /** `Response.json({…})`, `new Response(…)` and `Response.redirect(…)` inside a span. */
@@ -1655,24 +1309,8 @@ function responseHits(info: FileInfo, startLine: number, endLine: number): Respo
   const out: ResponseHit[] = [];
   for (const m of region.matchAll(/\b(?:new\s+Response|Response\s*\.\s*(json|redirect))\s*\(/g)) {
     const at = from + (m.index ?? 0);
-    const argsFrom = at + (m[0]?.length ?? 0);
-    const close = matchDelim(info.masked, argsFrom - 1);
     const label = m[1] ? `Response.${m[1]}` : "new Response";
-    let payload: Payload | null = null;
-    if (close !== -1) {
-      const stringify = /^\s*JSON\s*\.\s*stringify\s*\(/.exec(info.masked.slice(argsFrom, Math.min(argsFrom + 60, close)));
-      const bodyFrom = stringify ? argsFrom + stringify[0].length : argsFrom;
-      const keys = objectLiteralKeys(info.masked, info.src, bodyFrom, close);
-      if (keys && keys.keys.length > 0) {
-        payload = {
-          fields: keys.keys,
-          shape: keys.spread ? `${label} (+ spread)` : label,
-          confidence: "exact",
-          source: { file: info.file, line: lineAt(info.starts, at) },
-        };
-      }
-    }
-    out.push({ at, line: lineAt(info.starts, at), label, payload });
+    out.push({ at, line: lineAt(info.starts, at), label });
   }
   return out;
 }
@@ -1742,24 +1380,6 @@ function clamp(value: number | undefined, fallback: number): number {
   return Math.max(1, Math.min(fallback, Math.floor(value)));
 }
 
-/**
- * The payload ladder for one step (spec §2), applied uniformly:
- * request body → object literal at the call site → parameter type → JSDoc → parameter
- * names → null. Rule 2 is skipped for the entry step, which has no call site.
- */
-function stepInput(repo: Repo, callee: Callee | null, site: { info: FileInfo; from: number; to: number } | null): Payload | null {
-  if (callee?.symbol) {
-    const body = requestPayload(callee.info, callee.symbol.line, callee.symbol.endLine);
-    if (body) return body;
-  }
-  if (site) {
-    const literal = callSitePayload(site.info, site.from, site.to);
-    if (literal) return literal;
-  }
-  if (callee?.symbol) return signaturePayload(repo, callee.info, callee.symbol);
-  return null;
-}
-
 function semanticCallee(repo: Repo, record: SymbolRecord): Callee | null {
   const info = repo.info(record.file);
   if (!info) return null;
@@ -1769,6 +1389,47 @@ function semanticCallee(repo: Repo, record: SymbolRecord): Callee | null {
 
 function semanticReturns(repo: Repo, symbolIdValue: string): ReturnVariant[] {
   return repo.semanticSymbol(symbolIdValue)?.returnVariants ?? [];
+}
+
+function symbolFlowKind(symbol: SymbolRecord): FlowNodeKind {
+  if (symbol.kind === "method" || symbol.kind === "constructor") return "method";
+  if (symbol.kind === "class") return "class";
+  return "function";
+}
+
+function flowNodes(repo: Repo, steps: readonly FlowStep[], entry: DetectedEntry, entryNode: string, respondTo: string, services: readonly ServiceRef[] = []): FlowNode[] {
+  const serviceById = new Map(services.map((service) => [service.id, service]));
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const step of steps) {
+    for (const id of [step.from, step.to]) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+  }
+  return ids.map((id): FlowNode => {
+    if (id === entryNode && id.startsWith("route:")) {
+      return { id, kind: "endpoint", label: entry.title, path: entry.route ?? entry.title, file: entry.file };
+    }
+    if (id === respondTo || id.startsWith("resp:")) {
+      return { id, kind: "response", label: "Response", path: `${entry.title} response`, file: entry.file };
+    }
+    if (id.startsWith("svc:")) {
+      const service = serviceById.get(id);
+      return { id, kind: "service", label: service?.binding || service?.name || id.split(":").slice(2).join(":"), path: service?.name ?? id, file: null };
+    }
+    if (id.startsWith("sym:")) {
+      const symbol = repo.semanticSymbol(id);
+      if (symbol) return { id, kind: symbolFlowKind(symbol), label: symbol.qualifiedName, path: symbol.file, file: symbol.file };
+      const rest = id.slice(4);
+      const split = rest.lastIndexOf("::");
+      const file = split === -1 ? rest : rest.slice(0, split);
+      return { id, kind: "function", label: split === -1 ? rest : rest.slice(split + 2), path: file, file };
+    }
+    return { id, kind: "file", label: path.basename(id), path: id, file: id };
+  });
 }
 
 function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
@@ -1785,25 +1446,26 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
 
   const entryInfo = repo.info(entry.file);
   if (!entryInfo) {
-    return { id: entry.id, entry: entry.node, title: entry.title, method: entry.method, route: entry.route, steps, services: [], servicesBeyondCap: [], depth: 0, truncated: false, dropped: [] };
+    const entryNode = entry.file;
+    return { id: entry.id, entry: entry.node, entryNode, title: entry.title, method: entry.method, route: entry.route, steps, nodes: [], services: [], servicesBeyondCap: [], depth: 0, truncated: false, dropped: [] };
   }
-  const entrySym = entryInfo.symbols.find((s) => s.name === entry.symbol) ?? null;
   const entryRecord = repo.semanticSymbol(entry.node);
-  const entryRoute = repo.semantic().routes.find((route) => route.handlerSymbolId === entry.node) ?? null;
+  const entryRoute = repo.semantic().routes.find((route) => route.handlerSymbolId === entry.node)
+    ?? repo.semantic().routes.find((route) => route.method === entry.method && route.path === entry.route)
+    ?? null;
+  const entryNode = entryRoute?.id ?? (entry.method && entry.route ? routeRecordId(entry.method, entry.route) : entry.file);
 
   // Step 0: the request arriving at the handler.
-  const entryCallee: Callee | null = entrySym ? { file: entry.file, symbol: entrySym, info: entryInfo } : null;
   steps.push({
-    from: entry.file,
+    from: entryNode,
     to: entry.node,
     kind: "call",
     label: entry.title,
-    input: stepInput(repo, entryCallee, null),
-    output: entrySym ? outputPayload(repo, entryInfo, entrySym) : null,
     arguments: [],
     requestPayload: entryRoute?.requestShape ?? null,
     servicePayload: null,
     returns: entryRecord?.returnVariants ?? [],
+    callSiteId: null,
     source: entry.source,
     confidence: "exact",
     via: null,
@@ -1842,12 +1504,11 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
           // `touch` has no step kind of its own; it stays a call to the service.
           kind: hit.op === "read" ? "read" : hit.op === "write" ? "write" : "call",
           label: hit.label,
-          input: callSitePayload(info, hit.argsFrom, hit.argsTo),
-          output: null,
           arguments: semanticCall?.arguments.map((argument) => ({ ...argument, category: "service-payload" })) ?? [],
           requestPayload: null,
           servicePayload: semanticCall?.arguments.find((argument) => argument.shape !== null)?.shape ?? null,
           returns: [],
+          callSiteId: semanticCall?.id ?? null,
           source: { file: info.file, line: hit.line },
           confidence: hit.confidence,
           via: hit.via,
@@ -1864,12 +1525,11 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
           to: respondTo,
           kind: "respond",
           label: r.label,
-          input: null,
-          output: r.payload,
           arguments: [],
           requestPayload: null,
           servicePayload: null,
           returns: responseVariants,
+          callSiteId: null,
           source: { file: info.file, line: r.line },
           confidence: "exact",
           via: null,
@@ -1891,12 +1551,11 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
         to,
         kind: "call",
         label: semanticCall.calleeExpression,
-        input: stepInput(repo, callee, site ? { info, from: site.argsFrom, to: site.argsTo } : null),
-        output: callee.symbol ? outputPayload(repo, callee.info, callee.symbol) : null,
         arguments: semanticCall.arguments,
         requestPayload: null,
         servicePayload: null,
         returns: target.returnVariants,
+        callSiteId: semanticCall.id,
         source: { file: info.file, line: semanticCall.source.startLine },
         confidence: "exact",
         via: null,
@@ -1961,10 +1620,12 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
   return {
     id: entry.id,
     entry: entry.node,
+    entryNode,
     title: entry.title,
     method: entry.method,
     route: entry.route,
     steps,
+    nodes: flowNodes(repo, steps, entry, entryNode, respondTo, opts.services),
     services: Array.from(reached).sort(),
     servicesBeyondCap: beyondCap,
     depth,
@@ -2004,6 +1665,7 @@ export function detectFlows(paths: RepoPaths, graph: RepoGraph, opts: DetectFlow
       flows.push({
         id: flow.id,
         entry: flow.entry,
+        entryNode: flow.entryNode,
         title: flow.title,
         kind: e.kind,
         method: flow.method,

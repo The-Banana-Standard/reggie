@@ -546,7 +546,8 @@ function emptyShape(kind: ValueShapeKind, reference: string | null = null): Valu
 
 function declaredType(file: string, sourceFile: ts.SourceFile, typeNode: ts.TypeNode | undefined, source: DeclaredTypeSource = "typescript"): DeclaredType | null {
   if (!typeNode) return null;
-  return { text: textOf(typeNode, sourceFile), source, declaration: nodeSpan(file, sourceFile, typeNode) };
+  const text = ts.isJSDocTypeLiteral(typeNode) ? (typeNode.isArrayType ? "Array" : "Object") : textOf(typeNode, sourceFile);
+  return { text, source, declaration: nodeSpan(file, sourceFile, typeNode) };
 }
 
 function jsdocParameterTypeNode(sourceFile: ts.SourceFile, parameter: ts.ParameterDeclaration): ts.TypeNode | null {
@@ -558,12 +559,12 @@ function jsdocParameterTypeNode(sourceFile: ts.SourceFile, parameter: ts.Paramet
 
 function jsdocParameterType(file: string, sourceFile: ts.SourceFile, parameter: ts.ParameterDeclaration): DeclaredType | null {
   const typeNode = jsdocParameterTypeNode(sourceFile, parameter);
-  return typeNode ? { text: textOf(typeNode, sourceFile), source: "jsdoc", declaration: nodeSpan(file, sourceFile, typeNode) } : null;
+  return typeNode ? declaredType(file, sourceFile, typeNode, "jsdoc") : null;
 }
 
 function jsdocReturnType(file: string, sourceFile: ts.SourceFile, owner: ts.SignatureDeclaration): DeclaredType | null {
   const typeNode = ts.getJSDocReturnType(owner);
-  return typeNode ? { text: textOf(typeNode, sourceFile), source: "jsdoc", declaration: nodeSpan(file, sourceFile, typeNode) } : null;
+  return typeNode ? declaredType(file, sourceFile, typeNode, "jsdoc") : null;
 }
 
 function unwrappedTypeNode(node: ts.TypeNode): ts.TypeNode {
@@ -575,6 +576,24 @@ function unwrappedTypeNode(node: ts.TypeNode): ts.TypeNode {
 function typeShape(typeNode: ts.TypeNode | undefined, sourceFile: ts.SourceFile, checker: ts.TypeChecker, seen = new Set<ts.Symbol>()): ValueShape | null {
   if (!typeNode) return null;
   const node = unwrappedTypeNode(typeNode);
+  if (ts.isJSDocTypeLiteral(node)) {
+    const shape = emptyShape(node.isArrayType ? "array" : "object");
+    for (const tag of node.jsDocPropertyTags ?? []) {
+      const parts = tag.name.getText(sourceFile).split(".").filter(Boolean);
+      const name = parts.at(-1);
+      if (!name) continue;
+      const memberType = tag.typeExpression?.type;
+      shape.fields.push({
+        name,
+        path: parts.length > 1 ? parts.slice(1) : [name],
+        explicitType: memberType ? declaredType(normalizeSourceFile(sourceFile), sourceFile, memberType, "jsdoc") : null,
+        shape: memberType ? typeShape(memberType, sourceFile, checker, new Set(seen)) : null,
+        optional: Boolean(tag.isBracketed),
+        source: nodeSpan(normalizeSourceFile(sourceFile), sourceFile, tag),
+      });
+    }
+    return shape;
+  }
   if (ts.isTypeLiteralNode(node)) {
     const shape = emptyShape("object");
     for (const member of node.members) {
@@ -1190,6 +1209,14 @@ function requestShapeFor(candidate: Candidate, ctx: BuildContext): ValueShape | 
         mergeFields(shape, explicit.fields);
         found = true;
       }
+    }
+    if (
+      ts.isBinaryExpression(node)
+      && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+      && ts.isIdentifier(node.left)
+      && isRequestBodyExpression(node.right, candidate.sourceFile)
+    ) {
+      payloadBindings.set(node.left.text, null);
     }
     node.forEachChild(visitBindings);
   };

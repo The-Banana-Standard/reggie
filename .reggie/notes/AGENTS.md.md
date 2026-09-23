@@ -17,3 +17,6 @@ Generated repository facts are refreshed after the semantic index and its tests 
 Generated repository facts were refreshed after adding the code-entity page modules and tests.
 sources: code-entity-pages
 
+## verify · 2026-09-23 · Codex via jacobpress · medium
+Generated repository facts now include the semantic flow formatter and its focused test; docs refresh remains the only way to update this block.
+

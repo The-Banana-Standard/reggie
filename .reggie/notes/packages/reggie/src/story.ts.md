@@ -40,3 +40,6 @@ Symbol links use only the stable double-colon identity and route directly to sym
 Story-generated symbol links retain the canonical sym prefix, and route and concept records link to their dedicated entity pages.
 sources: code-entity-pages
 
+## how · 2026-09-23 · Codex via jacobpress · medium
+Flow narration projects each semantic step into a numbered card with a concise summary, linked caller/callee/file sentence, expandable values, knowledge, validations, and concepts.
+

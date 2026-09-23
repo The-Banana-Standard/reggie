@@ -108,34 +108,35 @@ condition and HTTP status when present. A function with no declared return annot
 still has `explicitReturnType: null`, even when its returned expressions are visible.
 
 ```ts
-interface Payload { fields: string[]; shape: string | null; confidence: Confidence; source: SourceRef | null }
 interface FlowStep {
   from: string; to: string;            // node ids: file, symbol, or service
   kind: "call" | "import" | "read" | "write" | "respond";
   label: string;                       // the function or operation
-  input: Payload | null; output: Payload | null;
   arguments: ArgumentValue[];           // actual call-site expressions, in order
   requestPayload: ValueShape | null;    // only an HTTP/request boundary
   servicePayload: ValueShape | null;    // only an external-service boundary
   returns: ReturnVariant[];              // all source-backed branches
+  callSiteId: string | null;
   source: SourceRef;
   confidence: Confidence;              // the step itself, not its payload
   via: string | null;                  // parameter name a binding arrived under
 }
+type FlowNodeKind = "endpoint" | "function" | "method" | "class" | "file" | "service" | "response";
+interface FlowNode { id: string; kind: FlowNodeKind; label: string; path: string; file: string | null }
 interface FlowDrop { hop: number; count: number; reason: "hop-budget" | "step-cap" | "depth" }
 interface Flow {
-  id: string; entry: string; title: string;      // "POST /api/chat"
+  id: string; entry: string; entryNode: string; title: string; // handler symbol plus first graph node
   method: string | null; route: string | null;
-  steps: FlowStep[]; services: string[];         // services this flow reaches
+  steps: FlowStep[]; nodes: FlowNode[]; services: string[];
+  servicesBeyondCap: string[];
   depth: number; truncated: boolean;
   dropped: FlowDrop[];                           // what the caps cost, per hop
 }
 ```
 
-`Payload`, `input`, and `output` are a temporary migration contract for existing readers.
-They are not authoritative and may still contain the old signature-derived field list.
-New UI and CLI work consumes the structured fields above; the legacy fields are removed
-after every reader has migrated.
+There is no signature-derived compatibility payload. Every reader consumes the structured
+arguments, boundary shapes, and return variants above. Parameter names identify destinations;
+they never become invented data fields.
 
 Cap a flow at 6 hops of depth; say so with `truncated` rather than silently cutting. Cycles are visited once.
 
@@ -209,9 +210,11 @@ Clicking a service pins a Spotlight and filters the map to it. Clicking a file g
 
 The index lists the entry points grouped by kind, each with its route, its step count and the services it reaches. Choosing one opens the flow.
 
-A flow draws left to right, dagre `rankdir: LR`: the entry, then each function, then the services and the response. Edge labels stay compact, while the step detail exposes actual Arguments and recursive Request or Service payload shapes. The compatibility payload fields remain visible to older clients during migration. Service nodes use the same shapes as the Services page.
+A flow draws left to right, dagre `rankdir: LR`: an `ENDPOINT`, then explicitly labelled `FUNCTION`, `METHOD`, `CLASS`, or `FILE` nodes, then `SERVICE` and `RESPONSE`. The symbol or endpoint is prominent and its path is secondary. Route nodes open route pages; symbol nodes open symbol pages. Edge labels stay compact (`6 fields`, one expression, or a return count), while the step detail exposes actual Arguments and recursive Request or Service payload shapes. Service nodes use the same shapes as the Services page.
 
-Story: a numbered narration of the flow in plain English, one paragraph per step, naming what arrives, what the step does with it, and what leaves. Each paragraph's refs highlight its step, so reading the story walks the flow. A final paragraph lists what could not be derived and why.
+Story: **How the data moves** is a stack of cards headed `Step 1`, `Step 2`, and so on. Each card has a one-sentence summary, a linked technical sentence naming caller, callee, and file, then collapsed callee explanation, Inputs, and Returns details. Inputs are named precisely as Arguments, Request payload, or Service payload; recursive fields are never truncated and show explicit type or “not declared”, validations, knowledge descriptions, and concept links. Each card's refs highlight its step, so reading the story walks the flow. A final section lists what could not be derived and why.
+
+The overview ends with **Possible cleanup**, grouped into production, test, script, migration, and generated roles. “Not reachable from a role-specific root” and “No references found” remain separate evidence lists, followed by analyzer limitations and an explicit warning that neither result proves deletion is safe.
 
 Both pages join the existing lens control where it makes sense (Knowledge shows note coverage on the service and step nodes) and are reachable from the repo level: the "How the pieces talk" section gains links to both.
 
@@ -220,8 +223,8 @@ Both pages join the existing lens control where it makes sense (Knowledge shows 
 `reggie services` prints the undeclared secrets first, then every service with its declaring line
 and the files that touch it, then the declared-and-unused list. `reggie flows` lists the entry
 points grouped by kind with their step counts and the services they reach; `reggie flows <id>`
-traces one, printing each step with its payloads in and out, which payloads are heuristic, and
-what the caps dropped. Both take `--json`.
+traces one, printing actual arguments, Request and Service payload shapes, every return variant,
+explicit types or “not declared”, and what the caps dropped. Both take `--json`.
 
 ## 5. Acceptance
 

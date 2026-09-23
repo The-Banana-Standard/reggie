@@ -1521,6 +1521,8 @@ function onNodeTap(id, nd) {
   }
   if (route.level === "services" && nd?.svc === "file") return navigate(routeForNode(route.repo, sid));
   if (route.level === "flow" || route.level === "flows") {
+    if (sid.startsWith("route:") || sid.startsWith("sym:")) return navigate(routeForNode(route.repo, sid));
+    if (nd?.entityKind === "file" || nd?.kind === "file") return navigate(routeForNode(route.repo, nd?.file ?? sid));
     const path = nd?.file ?? (sid.startsWith("sym:") ? sid.slice(4).split("::")[0] : null);
     if (!path) return undefined;
     state.map?.select?.(sid);
@@ -1539,6 +1541,7 @@ function onNodeOpen(id, nd) {
   const sid = String(id);
   if (nd?.kind === "fold" || sid.startsWith("fold:")) return onNodeTap(sid, nd);
   if (sid.startsWith("flow:")) return navigate(formatRoute({ level: "flow", repo: route.repo, id: sid.slice(5), query: {} }));
+  if ((route.level === "flow" || route.level === "flows") && (sid.startsWith("route:") || sid.startsWith("sym:"))) return navigate(routeForNode(route.repo, sid));
   if ((route.level === "flow" || route.level === "flows") && nd?.file) return navigate(routeForNode(route.repo, nd.file));
   const repo = sid.startsWith("repo:") ? sid.slice(5) : route.repo;
   const target = routeForNode(repo, sid);
@@ -1721,10 +1724,13 @@ function typeFact(explicitType) {
 }
 
 function conceptsForField(concepts, field) {
-  const path = Array.isArray(field?.path) ? field.path.join(".") : field?.name;
+  const source = field?.source;
   return (concepts ?? []).filter((concept) => concept.occurrences?.some?.((occurrence) => {
-    const occurrencePath = Array.isArray(occurrence.path) ? occurrence.path.join(".") : occurrence.name;
-    return occurrencePath === path || occurrence.name === field?.name || occurrence.path?.at?.(-1) === field?.name;
+    if (source?.file && occurrence.source?.file && occurrence.source.file !== source.file) return false;
+    if (Number.isInteger(source?.startLine) && Number.isInteger(occurrence.source?.line) && occurrence.source.line !== source.startLine) return false;
+    const occurrencePath = occurrence.path?.length ? occurrence.path : [occurrence.name];
+    const fieldPath = field.path?.length ? field.path : [field.name];
+    return occurrencePath.length === fieldPath.length && occurrencePath.every((part, index) => part === fieldPath[index]);
   }));
 }
 
@@ -1771,7 +1777,7 @@ export function renderValueTree(shape, options = {}) {
   return renderShape(shape, [], 0);
 }
 
-function renderReturns(returns, options = {}) {
+export function renderReturns(returns, options = {}) {
   if (!returns?.length) return h("p", { class: "empty__hint" }, "No explicit return statements were found.");
   return h("div", { class: "return-list" }, returns.map((variant, index) => h(
     "details",
@@ -2622,7 +2628,11 @@ async function renderFlowsLevel(route, token) {
   const mapCol = $("map-col");
   const map = ensureMap();
   if (state.rendererOk) mapCol?.classList.add("is-loading");
-  const [flows, index] = await Promise.all([settle(api(withRepo("/api/flows"))), settle(api(withRepo("/api/services")))]);
+  const [flows, index, reachability] = await Promise.all([
+    settle(api(withRepo("/api/flows"))),
+    settle(api(withRepo("/api/services"))),
+    settle(api(withRepo("/api/reachability"))),
+  ]);
   if (token !== state.renderToken) return;
   renderCrumbs(crumbsFor(route));
   state.story = null;
@@ -2644,7 +2654,7 @@ async function renderFlowsLevel(route, token) {
       "p",
       { class: "story__subtitle muted" },
       list.length
-        ? `Data enters this repo at ${list.length} ${list.length === 1 ? "entry point" : "entry points"}. Each one is traced to the services it reaches, with the payload on every step.`
+        ? `Data enters this repo at ${list.length} ${list.length === 1 ? "entry point" : "entry points"}. Each one is traced to the services it reaches, with source-backed values on every step.`
         : "Nothing in this repo answers a request, runs a command or registers a tool, so there is no flow to trace.",
     ),
   );
@@ -2657,6 +2667,8 @@ async function renderFlowsLevel(route, token) {
   }
   const rest = list.filter((f) => !seen.has(f.id));
   if (rest.length) nodes.push(section("flows-other", "Other entry points", ...rest.map((f, i) => flowRow(f, repo, serviceLink, i))));
+  if (reachability.value) nodes.push(cleanupOverview(reachability.value, repo));
+  else if (reachability.error) nodes.push(section("possible-cleanup", "Possible cleanup", errorCard("/api/reachability", reachability.error.message, () => render(route))));
   if (!list.length) {
     nodes.push(
       section(
@@ -2686,6 +2698,64 @@ async function renderFlowsLevel(route, token) {
     }
   }
   return undefined;
+}
+
+const CLEANUP_ROLES = [
+  ["production", "Production"],
+  ["test", "Tests"],
+  ["script", "Scripts"],
+  ["migration", "Migrations"],
+  ["generated", "Generated code"],
+];
+
+function cleanupEntityList(items, repo) {
+  if (!items.length) return h("p", { class: "empty__hint" }, "None in this evidence category.");
+  return h(
+    "ul",
+    { class: "entity-list cleanup-list" },
+    items.map((id) => h(
+      "li",
+      {},
+      entityLink(id.startsWith("sym:") ? "symbol" : "file", routeForNode(repo, id), id.startsWith("sym:") ? id.slice(id.lastIndexOf("::") + 2) : id, { refs: id }),
+      id.startsWith("sym:") ? h("span", { class: "muted" }, ` · ${id.slice(4, id.lastIndexOf("::"))}`) : null,
+    )),
+  );
+}
+
+/** Role-aware review queue. Reachability and reference evidence stay separate and never become a delete claim. */
+export function cleanupOverview(reachability, repo) {
+  const noReferenceFiles = new Set(reachability?.noReferences?.files ?? []);
+  const noReferenceSymbols = new Set(reachability?.noReferences?.symbols ?? []);
+  const groups = [];
+  for (const [role, label] of CLEANUP_ROLES) {
+    const facts = reachability?.byRole?.[role] ?? {};
+    const roleFiles = new Set([...(facts.reachableFiles ?? []), ...(facts.notReachableFiles ?? [])]);
+    const roleSymbols = new Set([...(facts.reachableSymbols ?? []), ...(facts.notReachableSymbols ?? [])]);
+    const notReachable = [...(facts.notReachableFiles ?? []), ...(facts.notReachableSymbols ?? [])];
+    const noReferences = [...noReferenceFiles].filter((id) => roleFiles.has(id)).concat([...noReferenceSymbols].filter((id) => roleSymbols.has(id)));
+    if (!notReachable.length && !noReferences.length) continue;
+    groups.push(h(
+      "details",
+      { class: "cleanup-role" },
+      h("summary", {}, `${label} · ${notReachable.length} not reachable · ${noReferences.length} with no references`),
+      h("h4", { class: "flow-step__subheading" }, "Not reachable from a role-specific root"),
+      cleanupEntityList(notReachable, repo),
+      h("h4", { class: "flow-step__subheading" }, "No references found"),
+      cleanupEntityList(noReferences, repo),
+    ));
+  }
+  return section(
+    "possible-cleanup",
+    "Possible cleanup",
+    h("p", { class: "para para--gap cleanup-warning" }, "These are review leads, not deletion instructions. Neither result proves that removal is safe."),
+    ...groups,
+    h(
+      "details",
+      { class: "cleanup-limitations" },
+      h("summary", {}, "Analyzer limitations"),
+      h("ul", { class: "fact-list" }, (reachability?.limitations ?? []).map((text) => h("li", {}, text))),
+    ),
+  );
 }
 
 /** One entry point in the index: its title, where it is, how far it goes and what it reaches. */

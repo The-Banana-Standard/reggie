@@ -1430,19 +1430,26 @@ describe("GET /api/services, /api/service, /api/flows and /api/flow", () => {
     expect(flow.method).toBe("POST");
     expect(flow.route).toBe("/api/chat");
     expect(flow.title).toBe("POST /api/chat");
+    expect(flow.entryNode).toBe("route:POST:/api/chat");
     expect(flow.services).toEqual(expect.arrayContaining(["svc:database:CHAT_LOGS", "svc:kv:CACHE", "svc:api:api.openai.com"]));
     expect(flow.truncated).toBe(false);
     expect(flow.dropped).toEqual([]);
     expect(flow.source.file).toBe("functions/api/chat.js");
   });
 
-  it("traces one flow with its payloads, and reaches D1 through a binding passed as a parameter", async () => {
+  it("traces one flow with semantic values and typed nodes, and reaches D1 through a binding passed as a parameter", async () => {
     const body = await loadOk(`/api/flow?id=${FLOW_ID}`);
     expect(body.id).toBe(FLOW_ID);
-    // The request payload is read from the destructured body, marked exact.
-    expect(body.steps[0].input.fields).toEqual(["message", "sessionId"]);
-    expect(body.steps[0].input.confidence).toBe("exact");
-    expect(body.steps[0].input.shape).toBe("request.json()");
+    expect(body.entryNode).toBe("route:POST:/api/chat");
+    expect(body.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "route:POST:/api/chat", kind: "endpoint" }),
+      expect.objectContaining({ id: "sym:functions/api/chat.js::onRequestPost", kind: "function", file: "functions/api/chat.js" }),
+      expect.objectContaining({ id: "svc:database:CHAT_LOGS", kind: "service" }),
+      expect.objectContaining({ kind: "response" }),
+    ]));
+    expect(body.steps[0].requestPayload.fields.map((field: any) => field.name)).toEqual(["message", "sessionId"]);
+    expect(body.steps[0]).not.toHaveProperty("input");
+    expect(body.steps[0]).not.toHaveProperty("output");
 
     const write = body.steps.find((s: any) => s.to === "svc:database:CHAT_LOGS");
     expect(write.kind).toBe("write");
@@ -1450,14 +1457,16 @@ describe("GET /api/services, /api/service, /api/flows and /api/flow", () => {
     expect(write.via).toBe("db");
     expect(write.confidence).toBe("heuristic");
     expect(write.source.file).toBe("functions/chat/logging.js");
+    expect(write.arguments.map((argument: any) => argument.expression)).toContain("'INSERT INTO conversations (id, question) VALUES (?, ?)'");
+    expect(write.arguments.every((argument: any) => argument.category === "service-payload")).toBe(true);
     // Two hops: the handler calls the logger, the logger writes.
     expect(body.depth).toBeGreaterThanOrEqual(2);
     expect(body.services).toContain("svc:database:CHAT_LOGS");
-    // Every step is either shown or explicitly not derivable — never a guess.
     for (const step of body.steps) {
-      for (const p of [step.input, step.output]) {
-        if (p !== null) expect(["exact", "heuristic"]).toContain(p.confidence);
-      }
+      expect(Array.isArray(step.arguments)).toBe(true);
+      expect(Array.isArray(step.returns)).toBe(true);
+      expect(step).not.toHaveProperty("input");
+      expect(step).not.toHaveProperty("output");
     }
   });
 
@@ -1504,13 +1513,17 @@ describe("GET /api/services, /api/service, /api/flows and /api/flow", () => {
     expect(steps.paragraphs).toHaveLength(flow.steps.length);
     steps.paragraphs.forEach((p: any, i: number) => {
       expect(p.id).toBe(`step-${i + 1}`);
+      expect(p.kind).toBe("flow-step");
+      expect(p.flowStep.number).toBe(i + 1);
       expect(p.refs).toContain(flow.steps[i].from);
       expect(p.refs).toContain(flow.steps[i].to);
     });
-    expect(steps.paragraphs[0].text).toContain("Step one.");
-    // A heuristic payload says where the names came from instead of presenting them as data.
-    const guessed = steps.paragraphs.find((p: any) => p.text.includes("field names taken from"));
-    expect(guessed?.text).toContain("not from the data");
+    expect(steps.paragraphs[0].flowStep.summary).toContain("endpoint hands the request");
+    expect(steps.paragraphs[0].flowStep.technical).toContain("route:POST:/api/chat");
+    expect(steps.paragraphs[0].flowStep.technical).not.toContain("line ");
+    expect(steps.paragraphs[0].flowStep.inputs[0].label).toBe("Request payload");
+    const database = steps.paragraphs.find((p: any) => p.flowStep.calleeId === "svc:database:CHAT_LOGS");
+    expect(database.flowStep.inputs.some((input: any) => input.label === "Service payload")).toBe(true);
     // The inferred D1 write is named as inferred.
     const gaps = body.sections.find((s: any) => s.id === "not-derivable");
     expect(JSON.stringify(gaps)).toContain("db");
