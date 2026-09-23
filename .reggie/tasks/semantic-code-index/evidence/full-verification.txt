@@ -1,0 +1,26 @@
+Full verification
+Date: 2026-09-22
+
+Focused semantic suite:
+  6 files passed; 186 tests passed.
+
+Full suite:
+  TZ=UTC npm test
+  48 files passed; 1237 tests passed; 1 skipped.
+
+The UTC setting isolates a previously existing local-date rollover failure after 20:00 in
+America/New_York. That issue is recorded separately as local-date-task-age-rolls-over-early;
+the hosted CI environment is UTC. The semantic task does not alter that behavior.
+
+Other gates:
+  npm run typecheck                          PASS
+  npm run build                              PASS
+  reggie docs check                          PASS (CLAUDE.md and AGENTS.md fresh)
+  npm audit --json                           PASS (0 vulnerabilities at every severity)
+  git diff --check                           PASS
+  serve HTTP suite                           PASS (146/146)
+  router/map web-DOM suite                   PASS (15/15)
+  read-only personal_website chat probe      PASS
+
+The first documentation check was started concurrently with the build and correctly refused
+the then-stale dist output. It passed immediately after the build completed.

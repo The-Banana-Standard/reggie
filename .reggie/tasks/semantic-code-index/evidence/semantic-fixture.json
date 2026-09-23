@@ -1,0 +1,31 @@
+{
+  "symbol": {
+    "id": "sym:functions/lib/session.ts::resolveSessionId",
+    "kind": "function",
+    "explicitReturnType": null,
+    "returnExpressions": ["rawSessionId", "crypto.randomUUID()"]
+  },
+  "call": {
+    "callerId": "sym:functions/api/chat.tsx::onRequestPost",
+    "calleeId": "sym:functions/lib/session.ts::resolveSessionId",
+    "resolution": "exact",
+    "arguments": [
+      {
+        "index": 0,
+        "parameterName": "rawSessionId",
+        "expression": "payload.session_id",
+        "category": "argument",
+        "explicitType": null
+      }
+    ]
+  },
+  "route": {
+    "id": "route:POST:/api/chat",
+    "handlerSymbolId": "sym:functions/api/chat.tsx::onRequestPost",
+    "clientCallerId": "sym:src/ChatClient.jsx::ChatClient.send",
+    "requestFields": ["message", "session_id", "name", "active", "history", "model", "temperature", "max_tokens"],
+    "responseStatuses": ["400", null]
+  },
+  "findings": ["dynamic-dispatch", "unresolved-callback", "external-call", "unresolved-call"],
+  "deletionClaim": null
+}

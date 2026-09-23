@@ -1,0 +1,16 @@
+Semantic index focused verification
+Date: 2026-09-22
+
+Command:
+  npx vitest run src/semantic-index.test.ts src/data-concepts.test.ts src/reachability.test.ts src/flows.test.ts src/symbols.test.ts src/story.test.ts --project node
+
+Result:
+  Test Files  6 passed (6)
+  Tests       186 passed (186)
+
+The fixture includes tracked JS, JSX, TS, TSX, MJS, CJS, MTS, and CTS files; production,
+test, script, migration, and generated roles; ignored build output; imported aliases;
+same-file calls; constructors and methods; positional, spread, array, six-field, and nested
+arguments; direct/conditional/HTTP returns; TypeScript and JSDoc declarations; guard,
+schema, and assertion validations; Cloudflare, Next, and Hono routes; static fetch clients;
+proof-bearing concepts; and role-aware reachability.

@@ -113,7 +113,7 @@ describe("TypeScript declarations", () => {
     // `module.exports.Button = Button` exports the declaration itself: one row, now exported.
     expect(symbols.filter((s) => s.name === "Button")).toHaveLength(1);
     expect(m.get("Button")).toMatchObject({ kind: "function", line: 2, endLine: 4, exported: true });
-    expect(m.get("make")).toMatchObject({ kind: "function", line: 6, endLine: 6, exported: true });
+    expect(m.get("make")).toMatchObject({ kind: "arrow", line: 6, endLine: 6, exported: true });
     expect(m.get("Model")).toMatchObject({ kind: "class", line: 7, endLine: 7, exported: true });
     expect(m.get("build")).toMatchObject({ kind: "function", line: 8, endLine: 10, exported: true });
   });
@@ -133,24 +133,25 @@ describe("default exports", () => {
     expect(symbols[0]).toMatchObject({ name: "App", kind: "function", line: 1, endLine: 3, exported: true, isDefault: true });
   });
 
-  it("reports `export default <identifier>` as kind default when nothing local declares it", () => {
+  it("keeps the callable declaration behind `export default <identifier>`", () => {
     const symbols = extractSymbols("src/App.tsx", "const App = () => null;\nexport default App;\n");
     expect(symbols).toHaveLength(1);
-    expect(symbols[0]).toMatchObject({ name: "App", kind: "default", line: 2, endLine: 2, exported: true, isDefault: true });
+    expect(symbols[0]).toMatchObject({ name: "App", kind: "arrow", line: 1, endLine: 1, exported: true, isDefault: true });
   });
 
   it("names anonymous defaults `default`", () => {
-    for (const src of [
-      "export default function () {\n  return 1;\n}\n",
-      "export default class {}\n",
-      "export default async () => 1;\n",
-      "export default {\n  a: 1,\n};\n",
-      "export default 42;\n",
-      'export default "text";\n',
-    ]) {
+    const cases = [
+      ["export default function () {\n  return 1;\n}\n", "function"],
+      ["export default class {}\n", "class"],
+      ["export default async () => 1;\n", "arrow"],
+      ["export default {\n  a: 1,\n};\n", "default"],
+      ["export default 42;\n", "default"],
+      ['export default "text";\n', "default"],
+    ] as const;
+    for (const [src, kind] of cases) {
       const symbols = extractSymbols("src/anon.ts", src);
       expect(symbols).toHaveLength(1);
-      expect(symbols[0]).toMatchObject({ name: "default", kind: "default", exported: true, isDefault: true, line: 1 });
+      expect(symbols[0]).toMatchObject({ name: "default", kind, exported: true, isDefault: true, line: 1 });
     }
     expect(extractSymbols("src/anon.ts", "export default function () {\n  return 1;\n}\n")[0]?.endLine).toBe(3);
     expect(extractSymbols("src/anon.ts", "export default {\n  a: 1,\n};\n")[0]?.endLine).toBe(3);
@@ -552,10 +553,12 @@ describe("misc", () => {
     expect(symbolLang("Makefile")).toBeNull();
   });
 
-  it("reports the regex engine and a stub for calls()", () => {
-    expect(SYMBOL_ENGINE).toBe("regex");
+  it("reports the compiler engine and source-backed unresolved calls", () => {
+    expect(SYMBOL_ENGINE).toBe("typescript");
     const sym = extractSymbols("a.ts", "export function f() { g(); }")[0]!;
-    expect(calls("a.ts", "export function f() { g(); }", sym)).toEqual([]);
+    expect(calls("a.ts", "export function f() { g(); }", sym)).toEqual([
+      expect.objectContaining({ name: "g", line: 1, target: null, confidence: "heuristic" }),
+    ]);
     expect(CALL_STOPLIST.has("map")).toBe(true);
   });
 

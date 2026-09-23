@@ -6,17 +6,14 @@
  * MCP tool — and `traceFlow` walks one of them through call and import edges to its
  * sinks, extracting **what is actually passed at every step**.
  *
- * The payload ladder is the point of the module, and it is deliberately honest: a
- * field list is either read from a literal in the code (`exact`), inferred from a
- * signature (`heuristic`), or `null`. Nothing is invented. A confident wrong answer
- * about where data goes is worse than no answer (spec intro).
+ * The TypeScript compiler supplies symbols, direct call bindings, actual argument
+ * expressions, return variants, and recursive value shapes across JS/JSX/TS/TSX.
+ * The original `Payload` fields remain as a temporary reader compatibility layer;
+ * new consumers should use `arguments`, `requestPayload`, `servicePayload`, and
+ * `returns`, which never turn parameter names into invented object payloads.
  *
- * No parser dependency: `maskCode` from symbols.ts blanks strings and comments while
- * preserving offsets, so a small hand-written brace/paren scanner sees only code and
- * the original text is still available at the same offset for string literals.
- *
- * JavaScript first. The repo this is measured against is plain JS, so every rule that
- * needs a type annotation degrades to the next rung rather than failing.
+ * The small masked-code scanners remain only for service binding detection and the
+ * legacy payload fields while those older readers migrate to the semantic records.
  */
 
 import path from "node:path";
@@ -26,6 +23,16 @@ import type { RepoPaths } from "./paths.js";
 import { extractSymbols, maskCode, symbolLang, type CodeSymbol, type Confidence } from "./symbols.js";
 import { isTestLike } from "./roles.js";
 import type { ServiceNode, SourceRef } from "./services.js";
+import {
+  buildSemanticIndex,
+  semanticSymbolId,
+  type ArgumentValue,
+  type CallSite as SemanticCallSite,
+  type ReturnVariant,
+  type SemanticIndex,
+  type SymbolRecord,
+  type ValueShape,
+} from "./semantic-index.js";
 import { nowIso } from "./util.js";
 
 // ---------------------------------------------------------------------------
@@ -57,6 +64,14 @@ export interface FlowStep {
   label: string;
   input: Payload | null;
   output: Payload | null;
+  /** Actual positional arguments and expressions from the call site. */
+  arguments: ArgumentValue[];
+  /** Boundary request body shape, separate from ordinary function arguments. */
+  requestPayload: ValueShape | null;
+  /** Boundary/service message shape, separate from ordinary function arguments. */
+  servicePayload: ValueShape | null;
+  /** Every source-backed return branch on the called symbol or response step. */
+  returns: ReturnVariant[];
   source: SourceRef;
   /**
    * Additive to the spec: how sure the *step* is, which `Payload.confidence` does not say.
@@ -111,7 +126,7 @@ export type FlowEntryKind = "cloudflare" | "http-route" | "next-route" | "next-p
 export interface FlowEntry {
   /** URL-safe id, also the id of the flow traced from it. */
   id: string;
-  /** Node id of the handler symbol: `sym:<file>#<name>`. */
+  /** Node id of the handler symbol: `sym:<file>::<qualified-name>`. */
   node: string;
   file: string;
   symbol: string;
@@ -167,6 +182,8 @@ export interface TraceOptions {
   services?: readonly ServiceRef[] | readonly ServiceNode[];
   /** Pre-read file contents, repo-relative → text. Saves re-reading when the caller already has them. */
   contents?: ReadonlyMap<string, string>;
+  /** Repository-wide compiler model supplied by a host cache. */
+  semanticIndex?: SemanticIndex;
 }
 
 export interface DetectFlowsOptions extends TraceOptions {
@@ -405,12 +422,15 @@ export class Repo {
   readonly isNext: boolean;
   private readonly cache = new Map<string, FileInfo | null>();
   private readonly importsByFile = new Map<string, Map<string, string>>();
+  private semanticCache: SemanticIndex | null;
 
   constructor(
     readonly root: string,
     readonly graph: RepoGraph,
     private readonly provided: ReadonlyMap<string, string> | undefined,
+    semanticIndex?: SemanticIndex,
   ) {
+    this.semanticCache = semanticIndex ?? null;
     for (const e of graph.edges) {
       if (e.kind !== "import" && e.kind !== "tests") continue;
       const names = e.names ?? [];
@@ -467,6 +487,23 @@ export class Repo {
     this.cache.set(key, info);
     return info;
   }
+
+  semantic(): SemanticIndex {
+    if (!this.semanticCache) this.semanticCache = buildSemanticIndex({ root: this.root }, this.graph, this.provided ? { contents: this.provided } : {});
+    return this.semanticCache;
+  }
+
+  semanticSymbol(id: string): SymbolRecord | null {
+    return this.semantic().symbols.find((symbol) => symbol.id === id) ?? null;
+  }
+
+  callsFrom(symbol: string): SemanticCallSite[] {
+    return this.semantic().calls.filter((call) => call.callerId === symbol && call.resolution === "exact" && call.calleeId !== null);
+  }
+
+  callAt(file: string, offset: number): SemanticCallSite | null {
+    return this.semantic().calls.find((call) => call.source.file === file && call.source.startOffset === offset) ?? null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -474,7 +511,7 @@ export class Repo {
 // ---------------------------------------------------------------------------
 
 export function symbolId(file: string, name: string): string {
-  return `sym:${file}#${name}`;
+  return semanticSymbolId(file, name);
 }
 
 /** URL-safe id for a flow, from its file and handler. Stable across runs. */
@@ -770,7 +807,7 @@ function detectEntriesInternal(repo: Repo): DetectedEntry[] {
 
 /** Every entry point in the repo, sorted by file then line. */
 export function detectEntries(paths: RepoPaths, graph: RepoGraph, opts: TraceOptions = {}): FlowEntry[] {
-  const repo = new Repo(paths.root, graph, opts.contents);
+  const repo = new Repo(paths.root, graph, opts.contents, opts.semanticIndex);
   return detectEntriesInternal(repo).map(publicEntry);
 }
 
@@ -1723,6 +1760,17 @@ function stepInput(repo: Repo, callee: Callee | null, site: { info: FileInfo; fr
   return null;
 }
 
+function semanticCallee(repo: Repo, record: SymbolRecord): Callee | null {
+  const info = repo.info(record.file);
+  if (!info) return null;
+  const symbol = info.symbols.find((item) => item.id === record.id || item.name === record.qualifiedName) ?? null;
+  return { file: record.file, symbol, info };
+}
+
+function semanticReturns(repo: Repo, symbolIdValue: string): ReturnVariant[] {
+  return repo.semanticSymbol(symbolIdValue)?.returnVariants ?? [];
+}
+
 function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
   const maxSteps = clamp(opts.maxSteps, MAX_FLOW_STEPS);
   const maxHops = clamp(opts.depth, MAX_FLOW_HOPS);
@@ -1740,6 +1788,8 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
     return { id: entry.id, entry: entry.node, title: entry.title, method: entry.method, route: entry.route, steps, services: [], servicesBeyondCap: [], depth: 0, truncated: false, dropped: [] };
   }
   const entrySym = entryInfo.symbols.find((s) => s.name === entry.symbol) ?? null;
+  const entryRecord = repo.semanticSymbol(entry.node);
+  const entryRoute = repo.semantic().routes.find((route) => route.handlerSymbolId === entry.node) ?? null;
 
   // Step 0: the request arriving at the handler.
   const entryCallee: Callee | null = entrySym ? { file: entry.file, symbol: entrySym, info: entryInfo } : null;
@@ -1750,6 +1800,10 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
     label: entry.title,
     input: stepInput(repo, entryCallee, null),
     output: entrySym ? outputPayload(repo, entryInfo, entrySym) : null,
+    arguments: [],
+    requestPayload: entryRoute?.requestShape ?? null,
+    servicePayload: null,
+    returns: entryRecord?.returnVariants ?? [],
     source: entry.source,
     confidence: "exact",
     via: null,
@@ -1779,6 +1833,7 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
 
     for (const hit of hits) {
       services.add(hit.id);
+      const semanticCall = repo.callAt(info.file, hit.at);
       events.push({
         at: hit.at,
         step: {
@@ -1789,6 +1844,10 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
           label: hit.label,
           input: callSitePayload(info, hit.argsFrom, hit.argsTo),
           output: null,
+          arguments: semanticCall?.arguments.map((argument) => ({ ...argument, category: "service-payload" })) ?? [],
+          requestPayload: null,
+          servicePayload: semanticCall?.arguments.find((argument) => argument.shape !== null)?.shape ?? null,
+          returns: [],
           source: { file: info.file, line: hit.line },
           confidence: hit.confidence,
           via: hit.via,
@@ -1797,6 +1856,7 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
     }
 
     for (const r of responseHits(info, frame.start, frame.end)) {
+      const responseVariants = semanticReturns(repo, frame.node).filter((variant) => variant.kind === "http-response" && variant.source.startLine === r.line);
       events.push({
         at: r.at,
         step: {
@@ -1806,6 +1866,10 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
           label: r.label,
           input: null,
           output: r.payload,
+          arguments: [],
+          requestPayload: null,
+          servicePayload: null,
+          returns: responseVariants,
           source: { file: info.file, line: r.line },
           confidence: "exact",
           via: null,
@@ -1813,36 +1877,40 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
       });
     }
 
-    for (const site of sites) {
-      if (site.receiver !== null || serviceAt.has(site.at)) continue;
-      const callee = resolveCallee(repo, info, site.name);
+    for (const semanticCall of repo.callsFrom(frame.node)) {
+      if (!semanticCall.calleeId || serviceAt.has(semanticCall.source.startOffset)) continue;
+      const target = repo.semanticSymbol(semanticCall.calleeId);
+      if (!target) continue;
+      const callee = semanticCallee(repo, target);
       if (!callee) continue;
-      const to = callee.symbol ? symbolId(callee.file, callee.symbol.name) : callee.file;
+      const to = target.id;
       if (to === frame.node) continue;
+      const site = sites.find((candidate) => candidate.at === semanticCall.source.startOffset) ?? null;
       const step: FlowStep = {
         from: frame.node,
         to,
-        // A cross-file target we could not pin to a symbol is the module being entered.
-        kind: callee.symbol ? "call" : "import",
-        label: site.name,
-        input: stepInput(repo, callee, { info, from: site.argsFrom, to: site.argsTo }),
+        kind: "call",
+        label: semanticCall.calleeExpression,
+        input: stepInput(repo, callee, site ? { info, from: site.argsFrom, to: site.argsTo } : null),
         output: callee.symbol ? outputPayload(repo, callee.info, callee.symbol) : null,
-        source: { file: info.file, line: site.line },
+        arguments: semanticCall.arguments,
+        requestPayload: null,
+        servicePayload: null,
+        returns: target.returnVariants,
+        source: { file: info.file, line: semanticCall.source.startLine },
         confidence: "exact",
         via: null,
       };
-      const next: Frame | undefined = callee.symbol
-        ? {
+      const next: Frame = {
             node: to,
             file: callee.file,
-            symbol: callee.symbol.name,
-            start: callee.symbol.line,
-            end: callee.symbol.endLine,
+            symbol: target.qualifiedName,
+            start: target.declaration.startLine,
+            end: target.declaration.endLine,
             hop: frame.hop + 1,
-            bound: boundParams(info, site, callee, local),
-          }
-        : undefined;
-      events.push(next ? { at: site.at, step, next } : { at: site.at, step });
+            bound: site ? boundParams(info, site, callee, local) : EMPTY_BOUND,
+          };
+      events.push({ at: semanticCall.source.startOffset, step, next });
     }
 
     events.sort((a, b) => a.at - b.at);
@@ -1915,7 +1983,7 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
  * contributes its edge and terminates.
  */
 export function traceFlow(paths: RepoPaths, graph: RepoGraph, entryId: string, opts: TraceOptions = {}): Flow {
-  const repo = new Repo(paths.root, graph, opts.contents);
+  const repo = new Repo(paths.root, graph, opts.contents, opts.semanticIndex);
   const entries = detectEntriesInternal(repo);
   const entry = entries.find((e) => e.id === entryId || e.node === entryId);
   if (!entry) throw new Error(`No entry point "${entryId}". Run detectFlows to list them.`);
@@ -1927,7 +1995,7 @@ export function traceFlow(paths: RepoPaths, graph: RepoGraph, entryId: string, o
  * `trace: false` for the entry list alone when step counts are not needed.
  */
 export function detectFlows(paths: RepoPaths, graph: RepoGraph, opts: DetectFlowsOptions = {}): FlowIndex {
-  const repo = new Repo(paths.root, graph, opts.contents);
+  const repo = new Repo(paths.root, graph, opts.contents, opts.semanticIndex);
   const entries = detectEntriesInternal(repo);
   const flows: FlowSummary[] = [];
   if (opts.trace !== false) {

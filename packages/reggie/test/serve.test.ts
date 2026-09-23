@@ -492,7 +492,7 @@ describe("GET /api/file and /api/symbols", () => {
   it("returns symbols with the engine name", async () => {
     const body = await ok("/api/symbols?path=src/types/shape.ts");
     expect(body.path).toBe("src/types/shape.ts");
-    expect(body.engine).toBe("regex");
+    expect(body.engine).toBe("typescript");
     expect(body.symbols.map((s: any) => s.name).sort()).toEqual(["Shape", "emptyShape"]);
     expect((await get("/api/symbols?path=../package.json")).status).toBe(400);
     expect((await get("/api/symbols?path=src/nope.ts")).status).toBe(404);

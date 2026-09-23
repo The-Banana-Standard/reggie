@@ -1178,7 +1178,7 @@ describe("servicesStory and flowStory", () => {
     local = contextFor(repo.root);
     const graph = buildGraph(repoPaths(repo.root));
     index = detectServices(repoPaths(repo.root), graph);
-    flow = traceFlow(repoPaths(repo.root), graph, "sym:functions/api/chat.js#onRequestPost", { services: index.services });
+    flow = traceFlow(repoPaths(repo.root), graph, "sym:functions/api/chat.js::onRequestPost", { services: index.services });
   }, 60_000);
 
   it("puts the undeclared secret first, then the unused binding, then the shared writer", () => {
@@ -1279,7 +1279,7 @@ describe("servicesStory and flowStory", () => {
   });
 
   it("says what a cap dropped, at which hop, when one bites", () => {
-    const shallow = traceFlow(repoPaths(repo.root), buildGraph(repoPaths(repo.root)), "sym:functions/api/chat.js#onRequestPost", { depth: 1, services: index.services });
+    const shallow = traceFlow(repoPaths(repo.root), buildGraph(repoPaths(repo.root)), "sym:functions/api/chat.js::onRequestPost", { depth: 1, services: index.services });
     expect(shallow.truncated).toBe(true);
     const text = sectionOf(flowStory(local, shallow, { services: index.services }), "not-derivable")
       .paragraphs.map((p) => p.text)
@@ -1303,7 +1303,7 @@ describe("servicesStory and flowStory", () => {
   it("routes a service id to the services page and a flow step's symbol to its file", () => {
     expect(routeFor("r", "svc:kv:CACHE")).toBe("#/repo/r/services?service=svc%3Akv%3ACACHE");
     expect(routeFor("r", "flow:api-chat")).toBe("#/repo/r/flow/api-chat");
-    expect(routeFor("r", "sym:functions/api/chat.js#onRequestPost")).toBe("#/repo/r/file/functions/api/chat.js?symbol=onRequestPost");
+    expect(routeFor("r", "sym:functions/api/chat.js::onRequestPost")).toBe("#/repo/r/symbol/functions/api/chat.js::onRequestPost");
     // The graph's own `::` symbol ids are untouched.
     expect(routeFor("r", "sym:src/a.ts::thing")).toBe("#/repo/r/symbol/src/a.ts::thing");
   });

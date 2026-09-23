@@ -27,6 +27,7 @@ import { evaluateCompletion, type PolicyReport } from "./policy.js";
 import { currentPerson, handleFor, inferMode, loadPeople, type PeopleFile, type Person, type ReggieConfig } from "./people.js";
 import { roleOf } from "./roles.js";
 import { detectServices, type ServiceIndex, type ServiceNode } from "./services.js";
+import { buildSemanticIndex, type SemanticIndex } from "./semantic-index.js";
 import { areaStory, buildStoryContext, explain, fileStory, flowStory, repoStory, routeFor, servicesStory, taskStory, workspaceStory, type Lens, type Story, type StoryContext } from "./story.js";
 import { extractSymbols, fileSymbols, SYMBOL_ENGINE, symbolLang } from "./symbols.js";
 import { getTaskDetail, knownSlugs, listTasks, STATE_MACHINE, TASK_STATES, type PacketCriterion, type TaskDetail, type TaskInfo, type TaskState } from "./tasks.js";
@@ -323,9 +324,13 @@ interface SymbolHit {
 /** Exported symbols across the repo, for `/api/search`. Built at most once per HEAD sha. */
 function symbolIndexOf(c: RepoCtx): SymbolHit[] {
   return c.cached("symbolIndex", () => {
-    const out: SymbolHit[] = [];
+    const semantic = semanticIndexOf(c);
+    const generated = new Set(semantic.files.filter((file) => file.role === "generated").map((file) => file.file));
+    const out: SymbolHit[] = semantic.symbols
+      .filter((symbol) => symbol.exported && !generated.has(symbol.file))
+      .map((symbol) => ({ name: symbol.qualifiedName, kind: symbol.kind, file: symbol.file, line: symbol.declaration.startLine }));
     for (const n of graphOf(c).nodes) {
-      if (n.kind !== "file" || n.role === "generated" || !symbolLang(n.path)) continue;
+      if (n.kind !== "file" || n.role === "generated" || symbolLang(n.path) !== "rust") continue;
       const content = readText(path.join(c.root, n.path));
       if (content === null) continue;
       for (const s of extractSymbols(n.path, content)) {
@@ -348,12 +353,17 @@ function servicesOf(c: RepoCtx): ServiceIndex {
   return c.cached("services", () => detectServices(c.paths, graphOf(c), { notes: notesIndexOf(c) }));
 }
 
+/** One compiler program and semantic model per repository revision, shared by every reader. */
+function semanticIndexOf(c: RepoCtx): SemanticIndex {
+  return c.cached("semanticIndex", () => buildSemanticIndex(c.paths, graphOf(c)));
+}
+
 /**
  * Every entry point, each traced once. The declared services go in so a binding resolves to
  * the kind `wrangler.toml` gives it instead of the one its method suggests.
  */
 function flowsOf(c: RepoCtx): FlowIndex {
-  return c.cached("flows", () => detectFlows(c.paths, graphOf(c), { services: servicesOf(c).services }));
+  return c.cached("flows", () => detectFlows(c.paths, graphOf(c), { services: servicesOf(c).services, semanticIndex: semanticIndexOf(c) }));
 }
 
 /**
@@ -363,7 +373,7 @@ function flowsOf(c: RepoCtx): FlowIndex {
 function flowOf(c: RepoCtx, id: string, depth: number): Flow | null {
   const entry = flowsOf(c).entries.find((e) => e.id === id || e.node === id);
   if (!entry) return null;
-  return c.cached(`flow:${depth}:${entry.id}`, () => traceFlow(c.paths, graphOf(c), entry.id, { depth, services: servicesOf(c).services }));
+  return c.cached(`flow:${depth}:${entry.id}`, () => traceFlow(c.paths, graphOf(c), entry.id, { depth, services: servicesOf(c).services, semanticIndex: semanticIndexOf(c) }));
 }
 
 /** The files on each side of a service, from the §1 edges (contract: `/api/services`). */

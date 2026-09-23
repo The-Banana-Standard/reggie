@@ -9,6 +9,7 @@ import { buildGraph } from "../../src/graph.js";
 import { repoPaths } from "../../src/paths.js";
 import { detectFlows, traceFlow, type Payload } from "../../src/flows.js";
 import { detectServices } from "../../src/services.js";
+import type { ValueShape } from "../../src/semantic-index.js";
 
 const root = process.argv[2] ?? path.join(os.homedir(), "Desktop/Projects/personal_website");
 const want = process.argv[3] ?? "chat";
@@ -41,6 +42,12 @@ const show = (p: Payload | null): string => {
   return `${p.confidence.toUpperCase()} [${p.shape}] { ${p.fields.join(", ")} }${at}`;
 };
 
+const showShape = (shape: ValueShape | null): string => {
+  if (!shape) return "null (not derived)";
+  const fields = shape.fields.map((field) => `${field.name}${field.explicitType ? `: ${field.explicitType.text}` : ": not declared"}`);
+  return `${shape.kind}${fields.length ? ` { ${fields.join(", ")} }` : ""}`;
+};
+
 const target = index.entries.find((e) => e.id.includes(want) || e.route?.includes(want));
 if (!target) {
   console.log(`\nno entry matching "${want}"`);
@@ -60,6 +67,10 @@ flow.steps.forEach((s, i) => {
   console.log(` →  ${s.to}   (${s.source.file}:${s.source.line})`);
   console.log(`    in : ${show(s.input)}`);
   console.log(`    out: ${show(s.output)}`);
+  console.log(`    arguments: ${s.arguments.map((argument) => argument.expression).join(", ") || "(none)"}`);
+  if (s.requestPayload) console.log(`    request: ${showShape(s.requestPayload)}`);
+  if (s.servicePayload) console.log(`    service: ${showShape(s.servicePayload)}`);
+  console.log(`    returns: ${s.returns.map((variant) => variant.expression).join(" | ") || "(none)"}`);
   for (const p of [s.input, s.output]) {
     if (!p) none += 1;
     else if (p.confidence === "exact") exact += 1;

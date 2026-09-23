@@ -1,0 +1,16 @@
+Read-only personal_website flow probe
+Date: 2026-09-22
+
+Repository graph: 885 ms
+Flow analysis: 2562 ms
+Detected entries: 4
+
+POST /api/chat:
+- handler: sym:functions/api/chat.js::onRequestPost
+- 124 returned steps, depth 5, explicit truncation metadata
+- resolveSessionId argument: payload.session_id
+- resolveSessionId returns: rawSessionId | crypto.randomUUID()
+- services reached: api.openai.com, CHAT_LOGS, CACHE, RATE_LIMIT
+
+The existing legacy input still prints the signature-derived rawSessionId field. That field is
+documented as migration-only and is intentionally removed only after the richer UI and CLI land.

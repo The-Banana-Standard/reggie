@@ -4586,9 +4586,9 @@ function buildFlowModel(view, opts = {}) {
     }
     if (id.startsWith("sym:")) {
       const rest = id.slice(4);
-      const cut = rest.lastIndexOf("#");
+      const cut = rest.lastIndexOf("::");
       const file = cut > 0 ? rest.slice(0, cut) : rest;
-      const name = cut > 0 ? rest.slice(cut + 1) : rest;
+      const name = cut > 0 ? rest.slice(cut + 2) : rest;
       const entry = id === flow.entry;
       nodes.push(
         blankNode({

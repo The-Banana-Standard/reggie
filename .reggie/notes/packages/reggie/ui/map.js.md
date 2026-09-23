@@ -19,3 +19,6 @@ sources: packages/reggie/ui/map.js, graph-coverage-published
 The empty state card prefers a sentence the view brings with it, as an empty field holding text and a hint, over the one it would derive from the level. The file page uses it in diff mode for a path the graph never read, where saying that nothing imports the file would be a claim about imports nobody measured.
 sources: packages/reggie/ui/map.js, branch-diff-in-reader
 
+## gotcha · 2026-09-22 · Codex via jacobpress · medium
+Flow map labels and file extraction parse stable double-colon symbol IDs.
+

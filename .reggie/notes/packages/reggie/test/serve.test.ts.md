@@ -19,3 +19,6 @@ sources: derive-the-journal
 The idea-action block at the end starts its own server over a fresh fixture with the origin shapes added to it (a file with a space, one with non-ASCII letters, a symlink into the repo and one out of it, a file indexed but gone from disk, an ignored cache file), because adding those files to the shared fixture would move the file counts and section lists the earlier blocks pin. Its launch cases stub the platform away from darwin through one helper so nothing in it can open a Terminal window. The team-mode case connects over the machine's own network address with the minted key, and returns early when the machine has no non-internal interface.
 sources: idea-from-every-page
 
+## verify · 2026-09-22 · Codex via jacobpress · medium
+Server contract tests expect the TypeScript symbol engine and exercise semantic-index-backed search through the existing route.
+

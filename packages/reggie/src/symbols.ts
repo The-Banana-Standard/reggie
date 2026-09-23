@@ -1,35 +1,28 @@
 /**
  * Symbols (ui-spec §6.5): what a file declares, and who uses each declaration.
  *
- * Regex extraction for TypeScript/JavaScript and Rust — enough for the File
- * outline ("What it exports"), the reader's gutter marks and the Symbol level ⧗.
- * The TypeScript compiler-API and tree-sitter extractors are stretch work behind
- * the same interface; `SYMBOL_ENGINE` reports which one produced a result.
+ * TypeScript compiler extraction for JavaScript/TypeScript and the established
+ * masked scanner for Rust. The compiler-backed side shares identities and spans
+ * with the repository semantic index; the Rust side stays behind this legacy facade.
  *
- * How it works:
- *   1. `maskCode()` blanks strings and comments (newlines kept, so offsets and line
- *      numbers survive) with a small state machine. A `}` inside a template literal
- *      or a doc comment never moves a brace count, and no declaration is ever found
- *      inside a string.
- *   2. Declaration regexes run line by line over the masked text. Only top-level lines
- *      count: brace depth 0, or column 0 as a safety net against masking drift.
- *   3. `endLine` is the `;` or the closing `}` that ends the declaration, found by a
- *      nesting-aware scan that skips braces opened in type position (`: {`, `<{`).
- *      When neither shows up before the next top-level declaration, the span ends the
- *      line before it, trailing blank lines trimmed.
- *   4. `usedBy` is exact: it reads the `names` list on importer edges (named imports,
- *      IPC command names), matching the symbol name as-is.
+ * `maskCode()` and the line scanner below now serve Rust plus legacy import/service
+ * helpers only. JavaScript-family declaration and call discovery never falls back to
+ * regular expressions. `usedBy` remains graph-backed for this compatibility facade.
  *
  * Pure apart from the content-hash cache; no I/O.
  */
 
 import { createHash } from "node:crypto";
 import type { RepoGraph } from "./graph.js";
+import { analyzeSemanticSource, semanticDeclarations } from "./semantic-index.js";
 
 /** Contract `Symbol.kind` (ui-api-contract.md, GET /api/file). */
 export type SymbolKind =
   | "function"
   | "class"
+  | "constructor"
+  | "method"
+  | "arrow"
   | "const"
   | "let"
   | "var"
@@ -48,7 +41,7 @@ export type Confidence = "exact" | "heuristic";
 export type SymbolEngine = "regex" | "typescript" | "tree-sitter";
 
 /** The extractor behind `extractSymbols` (reported by GET /api/symbols as `engine`). */
-export const SYMBOL_ENGINE: SymbolEngine = "regex";
+export const SYMBOL_ENGINE: SymbolEngine = "typescript";
 
 export interface SymbolUse {
   file: string;
@@ -57,7 +50,11 @@ export interface SymbolUse {
 
 /** Contract `Symbol`. Named `CodeSymbol` here so it never shadows the global `Symbol`. */
 export interface CodeSymbol {
+  /** Stable repository identity shared by flows, routes, pages, and knowledge. */
+  id?: string;
   name: string;
+  qualifiedName?: string;
+  parentSymbolId?: string | null;
   kind: SymbolKind;
   /** 1-based line of the declaration. */
   line: number;
@@ -84,11 +81,12 @@ export interface NamedImports {
 
 /** ⧗ A call site inside a symbol's span, resolved by name (heuristic). */
 export interface CallRef {
+  id?: string;
   name: string;
   line: number;
-  /** Same-file symbol name or the imported file; null when unresolved. */
+  /** Stable symbol id where exact, or null when unresolved/dynamic/external. */
   target: string | null;
-  confidence: "heuristic";
+  confidence: Confidence;
 }
 
 /** The edge fields `usedBy` reads. `RepoGraph` satisfies this once graph.ts carries `names`. */
@@ -394,26 +392,6 @@ interface Decl {
   offset: number;
 }
 
-const IDENT = "[A-Za-z_$][\\w$]*";
-
-// export [default] [declare] [abstract] [async] function*|class|const enum|const|let|var|type|interface|enum NAME
-const JS_EXPORT_DECL = new RegExp(
-  `^\\s*export\\s+(?:default\\s+)?(?:declare\\s+)?(?:abstract\\s+)?(?:async\\s+)?` +
-    `(function|class|const\\s+enum|const|let|var|type|interface|enum)(?:\\s*\\*\\s*|\\s+)(${IDENT})`,
-);
-// export default [async] [function[*]] [NAME]
-const JS_DEFAULT = new RegExp(`^\\s*export\\s+default\\s+(?:async\\s+)?(?:function\\s*\\*?\\s*)?(${IDENT})?`);
-// export [type] {
-const JS_EXPORT_LIST = /^\s*export\s+(?:type\s+)?\{/;
-// export * [as NAME] from
-const JS_STAR_REEXPORT = new RegExp(`^\\s*export\\s+\\*\\s*(?:as\\s+(${IDENT}))?\\s+from\\b`);
-// [async] [abstract] function*|class NAME   (not exported)
-const JS_LOCAL_DECL = new RegExp(`^\\s*(?:async\\s+)?(?:abstract\\s+)?(function|class)(?:\\s*\\*\\s*|\\s+)(${IDENT})`);
-// module.exports.NAME = … / exports.NAME = …
-const CJS_EXPORT = new RegExp(`(?:^|[^\\w.$])(?:module\\.)?exports\\.(${IDENT})\\s*=(?!=)\\s*(.*)$`);
-// Things JS_DEFAULT can capture that are not a name.
-const JS_NOT_A_NAME = new Set(["class", "function", "async", "new", "await", "this", "null", "true", "false", "void", "typeof", "delete"]);
-
 // [pub[(…)]] [default] [const] [async] [unsafe] [extern] fn|struct|enum|trait|type|mod|const|static [mut] NAME
 const RUST_DECL =
   /^\s*(pub(?:\([^)]*\))?\s+)?(?:default\s+)?(?:const\s+)?(?:async\s+)?(?:unsafe\s+)?(?:extern\s+)?(fn|struct|enum|trait|type|mod|const|static)\s+(?:mut\s+)?([A-Za-z_]\w*)/;
@@ -430,12 +408,6 @@ const RUST_KIND: Record<string, SymbolKind> = {
   const: "const",
   static: "static",
 };
-
-function jsKind(keyword: string): SymbolKind {
-  if (keyword.startsWith("function")) return "function";
-  if (/^const\s+enum$/.test(keyword)) return "enum";
-  return keyword as SymbolKind;
-}
 
 function lineStartsOf(text: string): number[] {
   const starts = [0];
@@ -552,113 +524,6 @@ function decl(partial: Pick<Decl, "name" | "kind" | "line" | "exported" | "offse
   return { endLine: null, tauriCommand: false, isDefault: false, ...partial };
 }
 
-interface ExportSpec {
-  local: string;
-  exported: string;
-}
-
-/** `a, b as c, type D` → [{a,a},{b,c},{D,D}] */
-function parseExportSpecifiers(clause: string): ExportSpec[] {
-  const out: ExportSpec[] = [];
-  for (const raw of clause.split(",")) {
-    const spec = raw.trim().replace(/^type\s+/, "");
-    if (!spec) continue;
-    const m = /^(.*?)\s+as\s+(\S+)$/.exec(spec);
-    if (m) out.push({ local: (m[1] ?? "").trim(), exported: m[2] ?? "" });
-    else out.push({ local: spec, exported: spec });
-  }
-  return out.filter((s) => /^[\w$*]+$/.test(s.exported));
-}
-
-function jsSymbols(content: string): CodeSymbol[] {
-  const masked = maskCode(content, "js");
-  const lines = masked.split("\n");
-  const starts = lineStartsOf(masked);
-  const decls: Decl[] = [];
-  const lists: { specs: ExportSpec[]; line: number; endLine: number; from: boolean; offset: number }[] = [];
-  /** `export default NAME` / `module.exports.NAME = NAME` rows that may resolve to a local declaration. */
-  const aliases: { row: Decl; local: string; isDefault: boolean }[] = [];
-  let depth = 0;
-
-  for (let li = 0; li < lines.length; li += 1) {
-    const line = lines[li] ?? "";
-    const offset = starts[li] ?? 0;
-    const lineNo = li + 1;
-    const topLevel = depth === 0 || !/^\s/.test(line);
-    if (topLevel && line.trim() !== "") {
-      let m: RegExpExecArray | null;
-      if ((m = JS_EXPORT_DECL.exec(line))) {
-        decls.push(
-          decl({
-            name: m[2] ?? "",
-            kind: jsKind((m[1] ?? "").replace(/\s+/g, " ")),
-            line: lineNo,
-            exported: true,
-            isDefault: /^\s*export\s+default\b/.test(line),
-            offset,
-          }),
-        );
-      } else if ((m = JS_EXPORT_LIST.exec(line))) {
-        const braceAt = offset + m[0].length - 1;
-        const close = masked.indexOf("}", braceAt);
-        const end = close === -1 ? masked.length : close;
-        const nl = masked.indexOf("\n", end);
-        const rest = masked.slice(end + 1, nl === -1 ? masked.length : nl);
-        lists.push({
-          specs: parseExportSpecifiers(masked.slice(braceAt + 1, end)),
-          line: lineNo,
-          endLine: lineAt(starts, Math.min(end, masked.length - 1)),
-          from: /^\s*from\b/.test(rest),
-          offset,
-        });
-      } else if ((m = JS_STAR_REEXPORT.exec(line))) {
-        decls.push(decl({ name: m[1] ?? "*", kind: "reexport", line: lineNo, exported: true, endLine: lineNo, offset }));
-      } else if ((m = JS_DEFAULT.exec(line))) {
-        const captured = m[1];
-        const name = captured && !JS_NOT_A_NAME.has(captured) ? captured : "default";
-        const row = decl({ name, kind: "default", line: lineNo, exported: true, isDefault: true, offset });
-        decls.push(row);
-        if (name !== "default" && !/function/.test(m[0])) aliases.push({ row, local: name, isDefault: true });
-      } else if ((m = JS_LOCAL_DECL.exec(line))) {
-        decls.push(decl({ name: m[2] ?? "", kind: jsKind(m[1] ?? ""), line: lineNo, exported: false, offset }));
-      } else if ((m = CJS_EXPORT.exec(line))) {
-        const rhs = m[2] ?? "";
-        const kind: SymbolKind = /^(?:async\s+)?function\b/.test(rhs) || /=>/.test(rhs) ? "function" : /^class\b/.test(rhs) ? "class" : "const";
-        const row = decl({ name: m[1] ?? "", kind, line: lineNo, exported: true, offset });
-        decls.push(row);
-        const ident = /^([A-Za-z_$][\w$]*)\s*;?\s*$/.exec(rhs);
-        if (ident) aliases.push({ row, local: ident[1] ?? "", isDefault: false });
-      }
-    }
-    depth = Math.max(0, depth + countDelta(line, "{", "}"));
-  }
-
-  // `export default App` / `module.exports.App = App` where App is declared in this file:
-  // export the declaration itself rather than listing the name twice.
-  for (const alias of aliases) {
-    const local = decls.find((d) => d !== alias.row && d.kind !== "reexport" && d.kind !== "default" && d.name === alias.local);
-    if (!local) continue;
-    local.exported = true;
-    if (alias.isDefault) local.isDefault = true;
-    // `module.exports.make = helper` keeps its outward name as a row; same-name aliases collapse.
-    if (alias.row.name === local.name) decls.splice(decls.indexOf(alias.row), 1);
-  }
-
-  // `export { a, b as c }` without `from` exports locals; with `from` (or unknown names) it is a re-export.
-  for (const list of lists) {
-    for (const spec of list.specs) {
-      const local = list.from ? undefined : decls.find((d) => d.kind !== "reexport" && d.name === spec.local);
-      if (local) {
-        local.exported = true;
-        if (spec.exported === spec.local) continue;
-      }
-      decls.push(decl({ name: spec.exported, kind: "reexport", line: list.line, exported: true, endLine: list.endLine, offset: list.offset }));
-    }
-  }
-
-  return resolveEndLines(decls, masked, lines, starts);
-}
-
 function rustSymbols(content: string): CodeSymbol[] {
   const masked = maskCode(content, "rust");
   const lines = masked.split("\n");
@@ -736,7 +601,25 @@ export function extractSymbols(file: string, content: string): CodeSymbol[] {
     return copySymbols(hit.symbols);
   }
   cacheMisses += 1;
-  const symbols = lang === "rust" ? rustSymbols(content) : jsSymbols(content);
+  const symbols = lang === "rust" ? rustSymbols(content) : semanticDeclarations(file, content).map((record): CodeSymbol => {
+    let kind: SymbolKind;
+    if (record.kind === "variable") kind = record.defaultExport ? "default" : record.variableKind ?? "const";
+    else if (record.kind === "arrow") kind = "arrow";
+    else kind = record.kind;
+    return {
+      id: record.id,
+      name: record.qualifiedName,
+      qualifiedName: record.qualifiedName,
+      parentSymbolId: record.parentSymbolId,
+      kind,
+      line: record.declaration.startLine,
+      endLine: record.declaration.endLine,
+      exported: record.exported,
+      ...(record.defaultExport ? { isDefault: true } : {}),
+      usedBy: [],
+      confidence: "exact",
+    };
+  });
   cache.set(file, { hash, symbols });
   return copySymbols(symbols);
 }
@@ -899,15 +782,27 @@ export function parseUseNames(usePath: string): string[] {
 // Calls ⧗ STRETCH
 // ---------------------------------------------------------------------------
 
-/** Identifiers `calls()` will ignore once implemented (spec §6.5). */
+/** Legacy stoplist retained for callers that display a conservative single-file view. */
 export const CALL_STOPLIST: ReadonlySet<string> = new Set(["new", "run", "get", "set", "map", "filter", "then", "catch", "log"]);
 
 /**
- * ⧗ STRETCH — call sites inside `symbol`'s span.
- * TODO: scan `line..endLine` of the masked content for identifiers followed by `(`,
- * drop `CALL_STOPLIST`, resolve to same-file declarations or named imports, and return
- * them with `confidence: 'heuristic'`. Until then every symbol calls nothing.
+ * Calls from one symbol in a standalone file. Repository-wide callers should use the
+ * semantic index so imported aliases and cross-file declarations can resolve as well.
  */
-export function calls(_file: string, _content: string, _symbol: CodeSymbol): CallRef[] {
-  return [];
+export function calls(file: string, content: string, symbol: CodeSymbol): CallRef[] {
+  const analysis = analyzeSemanticSource(file, content);
+  const id = symbol.id ?? semanticSymbolIdCompat(file, symbol.qualifiedName ?? symbol.name);
+  return analysis.calls
+    .filter((call) => call.callerId === id)
+    .map((call) => ({
+      id: call.id,
+      name: call.calleeExpression,
+      line: call.source.startLine,
+      target: call.calleeId,
+      confidence: call.resolution === "exact" ? "exact" : "heuristic",
+    }));
+}
+
+function semanticSymbolIdCompat(file: string, name: string): string {
+  return `sym:${file.replace(/\\/g, "/").replace(/^\.\//, "")}::${name}`;
 }

@@ -56,19 +56,19 @@ describe("map model", () => {
         title: "POST /api/chat",
         method: "POST",
         route: "/api/chat",
-        entry: "sym:functions/chat.js#onRequestPost",
+        entry: "sym:functions/chat.js::onRequestPost",
         services: ["svc:api:openai"],
         steps: [
-          { from: "sym:functions/chat.js#onRequestPost", to: "sym:functions/chat.js#resolveSessionId", kind: "call", label: "calls", confidence: "exact", input },
-          { from: "sym:functions/chat.js#resolveSessionId", to: "resp:post-api-chat", kind: "respond", label: "returns", confidence: "exact", input: null },
+          { from: "sym:functions/chat.js::onRequestPost", to: "sym:functions/chat.js::resolveSessionId", kind: "call", label: "calls", confidence: "exact", input },
+          { from: "sym:functions/chat.js::resolveSessionId", to: "resp:post-api-chat", kind: "respond", label: "returns", confidence: "exact", input: null },
         ],
       },
       services: [],
     });
 
     expect(model.nodes.map((node) => [node.id, node.label])).toEqual([
-      ["sym:functions/chat.js#onRequestPost", "onRequestPost\nchat.js"],
-      ["sym:functions/chat.js#resolveSessionId", "resolveSessionId\nchat.js"],
+      ["sym:functions/chat.js::onRequestPost", "onRequestPost\nchat.js"],
+      ["sym:functions/chat.js::resolveSessionId", "resolveSessionId\nchat.js"],
       ["resp:post-api-chat", "Response"],
     ]);
     expect(model.edges[0]).toMatchObject({ label: "{ message, session_id }", stepIndex: 1, payload: "exact" });

@@ -30,7 +30,7 @@ describe("browser router", () => {
 
   it("maps graph entities to their current routes and preserves symbol compatibility", () => {
     expect(routeForNode("demo", "dir:src/api/", {})).toBe("#/repo/demo/area/src/api");
-    expect(routeForNode("demo", "sym:functions/chat.js#onRequestPost", {})).toBe("#/repo/demo/symbol/functions/chat.js::onRequestPost");
+    expect(routeForNode("demo", "sym:functions/chat.js::onRequestPost", {})).toBe("#/repo/demo/symbol/functions/chat.js::onRequestPost");
     expect(routeForNode("demo", "svc:binding:AI", { service: "old" })).toBe("#/repo/demo/services?service=svc%3Abinding%3AAI");
     expect(parentRoute(parseRoute("#/repo/demo/symbol/functions/chat.js%3A%3AonRequestPost"))).toEqual({ level: "file", repo: "demo", id: "functions/chat.js", query: {} });
   });
