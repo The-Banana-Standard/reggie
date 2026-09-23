@@ -26,3 +26,6 @@ The transaction review found and closed a post-commit index-refresh failure wind
 ### 01:05 · jacobpress · codex · shared-repo-knowledge · review
 The path review found lossy slug collisions between distinct route or concept identifiers. New entity notes now add a digest while exact legacy frontmatter retains its old path; batch writes also reject any residual target collision.
 
+### 01:20 · jacobpress · codex · shared-repo-knowledge · verify
+All local acceptance checks passed. Hosted Ubuntu passed immediately; an unchanged macOS rerun passed after the first runner lost a temporary Git fixture object directory.
+

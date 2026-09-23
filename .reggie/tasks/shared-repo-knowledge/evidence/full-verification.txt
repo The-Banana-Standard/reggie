@@ -39,4 +39,7 @@ Whitespace/error-marker check:
   git diff --check repo-manager
   Exit 0, no findings
 
-Hosted Linux/macOS CI is recorded in the completion packet after the task branch is pushed.
+Hosted CI (GitHub run 35821328232):
+  ubuntu-latest: PASS in 2m39s
+  macos-latest: PASS on unchanged rerun in 4m44s
+  The first macOS attempt hit an intermittent temporary Git-object creation failure while building the pre-existing server fixture; every new knowledge test passed in that attempt. The unchanged failed-job rerun completed typecheck, all tests, build, and docs check.

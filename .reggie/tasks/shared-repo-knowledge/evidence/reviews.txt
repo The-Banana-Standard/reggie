@@ -19,4 +19,4 @@ Simplification review: PASS
 - Legacy notes and exact legacy entity paths remain compatible. Temporary flow payload compatibility is intentionally left for the later data-flow task, as ordered by the program.
 - No redundant adapter-specific knowledge stores or alternate write paths remain.
 
-Hosted Linux/macOS CI: pending branch publication; final status belongs in the completion packet.
+Hosted Linux/macOS CI: PASS in GitHub run 35821328232. Ubuntu passed first run. The initial macOS job encountered a temporary Git-object creation error in the pre-existing server fixture; its unchanged failed-job rerun passed typecheck, all tests, build, and documentation checks.
