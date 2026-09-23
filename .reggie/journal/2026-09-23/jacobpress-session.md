@@ -32,3 +32,6 @@ All local acceptance checks passed. Hosted Ubuntu passed immediately; an unchang
 ### 01:27 · jacobpress · codex · shared-repo-knowledge · decide
 Decision: approved. Merged the task branch into repo-manager. All 14 criteria, required reviews, local verification, and final hosted Linux/macOS CI passed. Approved under the user's instruction to complete and merge the program tasks into repo-manager.
 
+### 01:37 · jacobpress · codex · code-entity-pages · plan
+Planned first-class symbol, route, and concept pages on the semantic and shared-knowledge contracts. The task includes exact declaration source, paged full files, safe editing and refresh, and durable manual concept overrides while leaving Data Flow cards for the next task.
+
