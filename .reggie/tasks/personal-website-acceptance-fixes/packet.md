@@ -66,4 +66,4 @@ Read this top to bottom to decide whether the work is done. Every claim should p
 
 ## Open risks
 - Code that mutates a configured object property after initialization can make the source initializer differ from runtime. Such code would appear as an assignment not modeled by this deliberately narrow resolver.
-- Hosted Linux/macOS CI is pending and must pass before the final criterion or merge.
+- No additional open implementation risk was found in local, real-repository, or hosted verification.

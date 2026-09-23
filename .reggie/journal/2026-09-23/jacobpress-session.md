@@ -75,3 +75,6 @@ Claimed the task and started a branch from repo-manager.
 ### 05:19 · jacobpress · codex · personal-website-acceptance-fixes · implement
 The compiler now follows source-declared fetch endpoint constants across imported configuration objects, with cycle protection and no evaluation of mutable runtime identifiers. The real chat route now connects to its requestChatResponse client and complete six-field request body.
 
+### 05:28 · jacobpress · codex · personal-website-acceptance-fixes · verify
+Hosted Ubuntu and macOS passed the complete workflow. The configured-endpoint repair now has fixture, full-suite, real-repository, browser, and hosted proof.
+

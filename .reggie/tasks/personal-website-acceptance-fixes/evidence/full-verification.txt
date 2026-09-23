@@ -12,4 +12,7 @@ PASS locally
 - Code, security, and simplification reviews: passed.
 - Real personal_website API and browser acceptance: passed.
 
-Hosted Ubuntu/macOS CI: pending until the task branch is pushed.
+Hosted CI: PASS
+- GitHub Actions run 35842602248.
+- Ubuntu passed in 2m32s.
+- macOS passed in 5m12s.
