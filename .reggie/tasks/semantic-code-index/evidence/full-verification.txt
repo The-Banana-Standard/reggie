@@ -22,9 +22,9 @@ Other gates:
   router/map web-DOM suite                   PASS (15/15)
   read-only personal_website chat probe      PASS
 
-Hosted CI (PR #17, run 35815118894, commit a703cb5):
-  ubuntu-latest                              PASS (1m35s)
-  macos-latest                               PASS (5m23s)
+Hosted CI (PR #17, run 35816002382, commit 1f421bb):
+  ubuntu-latest                              PASS (2m23s)
+  macos-latest                               PASS (4m42s)
   Both jobs passed tests, typecheck, build, and generated documentation checks.
 
 The compiler-backed fixtures reuse immutable semantic indexes, and the real server numeric-range
