@@ -41,3 +41,10 @@ sources: low-risk-auto-approval
 ## how · 2026-09-22 · Codex via jacobpress · medium
 Cache one semantic index per repository revision and share it between symbol search and flow tracing.
 
+## how · 2026-09-23 · Codex via jacobpress · high
+Knowledge HTTP routes expose inventory, entity records, previews and local job status; guarded POST routes save current text, create and run confirmed jobs, and retire records under the existing origin, size, attribution and loopback protections.
+sources: shared-repo-knowledge
+
+## data-source · 2026-09-23 · Codex via jacobpress · medium
+Knowledge detail responses omit append-only history unless history=1, while always returning historyCount so ordinary UI reads stay concise.
+

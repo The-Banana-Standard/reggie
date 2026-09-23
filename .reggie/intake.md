@@ -218,3 +218,5 @@ the item from then on. The task stays ungroomed until the brief is filled in.
 - local-date-task-age-rolls-over-early: A task captured today can appear one day old late in the local evening. (jacobpress, cli, 2026-09-22)
   > The task detail test fails after 20:00 America/New_York: today() writes a local YYYY-MM-DD, Date.parse reads it as UTC midnight, and ageInDays reports 1 before the local day ends. Make date-only age calculation timezone-consistent and deterministic.
   > Captured from the file `packages/reggie/src/tasks.ts`
+- harden-the-macos-test-fixture-against-intermitte: Harden the macOS test fixture against intermittent temporary Git object creation failures; PR 18 run 35821328232 first failed while constructing the existing server fixture, then passed unchanged on rerun. (jacobpress, cli, 2026-09-23)
+- triage-the-existing-github-dependabot-alerts-on: Triage the existing GitHub Dependabot alerts on the default branch; pushing PR 18 reported 22 alerts even though npm audit on the repo-manager Reggie package found zero vulnerabilities. (jacobpress, cli, 2026-09-23)

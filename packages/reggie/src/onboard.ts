@@ -3,6 +3,8 @@ import path from "node:path";
 import { applyAgentsMd, applyGeneratedBlock, claudeMdTemplate, composeAgentsMd, curatedSections, END_MARKER, renderGeneratedBlock, START_MARKER, type ApplyResult } from "./docs.js";
 import { collectFacts, detectName, type RepoFacts } from "./facts.js";
 import { isRepo } from "./git.js";
+import { buildKnowledgeInventory, buildRepositorySemanticIndex } from "./knowledge-jobs.js";
+import { readKnowledge, type KnowledgeRecord } from "./knowledge.js";
 import { ensureLayout, type LayoutResult } from "./layout.js";
 import { addNote, readNoteFile } from "./notes.js";
 import { repoPaths, type RepoPaths } from "./paths.js";
@@ -46,10 +48,11 @@ export function onboard(root: string): OnboardResult {
   const createdAgents = writeIfMissing(paths.agentsMd, composeAgentsMd(preName, "", provisional));
 
   const facts = collectFacts(root);
-  const claudeDoc = applyGeneratedBlock(paths.claudeMd, renderGeneratedBlock(facts, config, "claude"), claudeMdTemplate(facts.name));
+  const knowledge = repositoryKnowledgeForDocs(paths);
+  const claudeDoc = applyGeneratedBlock(paths.claudeMd, renderGeneratedBlock(facts, config, "claude", knowledge), claudeMdTemplate(facts.name));
   // AGENTS.md is composed from CLAUDE.md's curated half, so it is written after CLAUDE.md is final.
   const curated = curatedSections(readText(paths.claudeMd) ?? "");
-  const docs: ApplyResult[] = [claudeDoc, applyAgentsMd(paths.agentsMd, facts.name, curated, renderGeneratedBlock(facts, config, "codex"))];
+  const docs: ApplyResult[] = [claudeDoc, applyAgentsMd(paths.agentsMd, facts.name, curated, renderGeneratedBlock(facts, config, "codex", knowledge))];
   if (createdClaude && docs[0]) docs[0].action = "created";
   if (createdAgents && docs[1]) docs[1].action = "created";
 
@@ -77,10 +80,23 @@ export function refreshDocs(root: string): { results: ApplyResult[]; facts: Repo
   const facts = collectFacts(root);
   // CLAUDE.md is the source for curated prose; AGENTS.md is composed from it. Refresh CLAUDE.md
   // first so the mirror picks up any curated edits made in the same pass.
-  const claudeResult = applyGeneratedBlock(paths.claudeMd, renderGeneratedBlock(facts, config, "claude"), claudeMdTemplate(facts.name));
+  const knowledge = repositoryKnowledgeForDocs(paths);
+  const claudeResult = applyGeneratedBlock(paths.claudeMd, renderGeneratedBlock(facts, config, "claude", knowledge), claudeMdTemplate(facts.name));
   const curated = curatedSections(readText(paths.claudeMd) ?? "");
-  const results = [claudeResult, applyAgentsMd(paths.agentsMd, facts.name, curated, renderGeneratedBlock(facts, config, "codex"))];
+  const results = [claudeResult, applyAgentsMd(paths.agentsMd, facts.name, curated, renderGeneratedBlock(facts, config, "codex", knowledge))];
   return { results, facts };
+}
+
+/** The same active repo record used by generated Claude and Codex instructions. */
+export function repositoryKnowledgeForDocs(paths: RepoPaths): KnowledgeRecord | null {
+  const stored = readKnowledge(paths, "_repo");
+  if (!stored?.current || stored.retired) return stored;
+  try {
+    const repo = buildKnowledgeInventory(paths, buildRepositorySemanticIndex(paths)).find((item) => item.entity === "_repo");
+    return readKnowledge(paths, "_repo", repo?.fingerprint ?? null);
+  } catch {
+    return stored;
+  }
 }
 
 function ensureMcpConfig(paths: RepoPaths, config: ReggieConfig): boolean {

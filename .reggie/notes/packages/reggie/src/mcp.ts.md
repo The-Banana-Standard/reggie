@@ -14,3 +14,7 @@ sources: idea-from-every-page
 reggie_check wraps recordCheck exactly as the CLI verb does and is registered through the stale-build wrapper like every other tool. A refusal comes back as a tool error carrying the verb's own sentence, because an error result reaches the agent where stderr may not; called with no criterion, review or outcome it returns the policy report's text, which says it is a report. Like the journal tool it records the tool as agent when the environment does not say which. There is still no tool that decides, and a test asserts that no tool's name contains decide: a decision is a person's.
 sources: low-risk-auto-approval
 
+## how · 2026-09-23 · Codex via jacobpress · high
+reggie_get_knowledge renders the same active current understanding, stale state, dated notes, and optional immutable history as the CLI and context pack.
+sources: shared-repo-knowledge
+

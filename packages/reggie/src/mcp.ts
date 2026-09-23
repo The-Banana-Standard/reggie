@@ -6,6 +6,8 @@ import { capture, resolveCaptureOrigin, type CaptureOrigin } from "./capture.js"
 import { CheckError, recordCheck } from "./checks.js";
 import { buildContext } from "./context.js";
 import { appendJournal, detectTool, sessionName } from "./journal.js";
+import { buildKnowledgeInventory, buildRepositorySemanticIndex } from "./knowledge-jobs.js";
+import { readKnowledge, renderKnowledgeRecord } from "./knowledge.js";
 import { addNote, findNotes, NOTE_TYPES, renderNoteFile, staleEntries } from "./notes.js";
 import { briefFile, planFile, repoPaths, type RepoPaths } from "./paths.js";
 import { currentPerson, loadConfig, loadPeople, type Person, type ReggieConfig } from "./people.js";
@@ -127,7 +129,25 @@ export function createMcpServer(root: string, opts: McpServerOptions = {}): McpS
       const notes = findNotes(c.paths, query);
       if (notes.length === 0) return text(`No notes match "${query}". This area is undocumented; write the first note with reggie_add_note.`);
       const stale = new Set(staleEntries(c.paths).map((s) => `${s.entity}|${s.entry.date}|${s.entry.type}`));
-      return text(notes.map((n) => renderNoteFile(n, { markStale: stale })).join("\n\n"));
+      return text(notes.map((n) => {
+        const record = readKnowledge(c.paths, n.entity);
+        return record ? renderKnowledgeRecord(record, { markStale: stale }) : renderNoteFile(n, { markStale: stale });
+      }).join("\n\n"));
+    },
+  );
+
+  tool(
+    "reggie_get_knowledge",
+    {
+      title: "Get shared knowledge",
+      description: "Read one entity's active current understanding, revision, stale state, dated notes, provenance, and optionally immutable update history. Retired current text is identified but excluded from ordinary narration.",
+      inputSchema: { entity: z.string().min(1).max(500), history: z.boolean().optional() },
+    },
+    async ({ entity, history }) => {
+      const inventory = buildKnowledgeInventory(c.paths, buildRepositorySemanticIndex(c.paths)).find((item) => item.entity === entity);
+      const record = readKnowledge(c.paths, entity, inventory?.fingerprint ?? null);
+      if (!record) return text(`No knowledge exists for ${entity}.`);
+      return text(renderKnowledgeRecord(record, history ? { includeHistory: true } : {}));
     },
   );
 

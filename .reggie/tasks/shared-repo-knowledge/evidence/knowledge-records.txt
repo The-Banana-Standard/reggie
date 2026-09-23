@@ -1,0 +1,21 @@
+Shared repository knowledge record verification — 2026-09-23
+
+Command:
+  npx vitest run src/notes.test.ts src/knowledge.test.ts src/knowledge-agents.test.ts src/knowledge-jobs.test.ts --reporter=verbose
+
+Result:
+  4 test files passed; 31 tests passed.
+
+Representative proofs:
+- Legacy note-only Markdown parses as a compatible KnowledgeRecord.
+- The replaceable current block has a strict bounded schema; immutable update history records prior revision, actor/agent, code revision, fields changed, reason, and timestamp.
+- Changing indexed evidence marks current text stale without changing, hiding, or automatically refreshing it.
+- Retirement and supersession remove current text from ordinary narration without deleting current text or history.
+- Symbol `sym:src/auth/login.ts::Session.create` resolves to `.reggie/notes/_symbols/src/auth/login.ts/Session.create.md` and is indexed by the stable symbol ID.
+- Traversal, empty qualified symbols, and control-character metadata injection are rejected before path or frontmatter construction.
+- New free-form entity paths include a digest, so IDs such as `route:GET /a-b` and `route:GET /a/b` remain distinct; an exact legacy frontmatter match preserves the old path.
+- The inventory covers repository, folder, file, symbol, route, concept, service, store, and environment kinds.
+
+Focused suite summary:
+  Test Files  4 passed (4)
+  Tests       31 passed (31)

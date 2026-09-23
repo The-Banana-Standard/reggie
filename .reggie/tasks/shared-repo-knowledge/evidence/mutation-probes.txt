@@ -1,0 +1,18 @@
+Mutation and adversarial probes — 2026-09-23
+
+All probes passed:
+1. Held lock: a live PID lock blocks the writer and remains in place.
+2. Partial lock creation: an empty/unreadable lock blocks the writer and remains in place.
+3. Hostile entity: traversal, ambiguous symbol IDs, and control-character/frontmatter injection are rejected.
+4. Hostile model output: changed entity IDs/fingerprints, missing entities, extra entities, unexpected schema keys, invented explicit types, malformed JSON, and oversized text are rejected.
+5. Partial batch: a failed later chunk leaves no current knowledge files; successful local chunks can resume.
+6. Tampered resume cache: cached output is revalidated and cannot publish after its fingerprint is changed.
+7. Dirty repository: unrelated staged and unstaged files remain byte-for-byte in their original index/worktree state around a knowledge-only commit.
+8. Dirty target: an already modified knowledge note is rejected rather than overwritten.
+9. Wrong checkout: agent invocation and note mutation are both refused outside the configured integration checkout.
+10. HTTP boundary: wrong origin, missing attribution, unsafe entity/path, invalid revision/schema, and oversized request bodies fail without a write.
+11. Post-commit index failure: a real index lock forces the targeted refresh to fail; the integration ref rolls back and the newly written note is removed.
+12. Entity collision: formerly identical slug paths receive distinct digest-backed targets, and the batch layer independently refuses duplicate target files.
+
+Focused adversarial suite:
+  4 files passed; 31 tests passed.

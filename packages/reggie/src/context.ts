@@ -4,7 +4,9 @@ import { parseBrief, type ParsedBrief } from "./brief.js";
 import { collectFacts, summarizeFacts } from "./facts.js";
 import { recentCommits } from "./git.js";
 import { readJournal, renderJournalEntry } from "./journal.js";
-import { notesForPath, readNoteFile, renderNoteFile, staleEntriesFor, type NoteFile } from "./notes.js";
+import { buildKnowledgeInventory, buildRepositorySemanticIndex } from "./knowledge-jobs.js";
+import { readKnowledge, renderKnowledgeRecord } from "./knowledge.js";
+import { notesForPath, readNoteFile, staleEntriesFor, type NoteFile } from "./notes.js";
 import { briefFile, planFile, type RepoPaths } from "./paths.js";
 import type { ReggieConfig } from "./people.js";
 import { parsePlan } from "./plan.js";
@@ -59,7 +61,7 @@ export function buildContext(paths: RepoPaths, config: ReggieConfig, req: Contex
   const shown: NoteFile[] = [];
   const seen = new Set<string>();
   const repoNote = readNoteFile(paths, "_repo");
-  if (repoNote) {
+  if (repoNote && !repoNote.retired) {
     shown.push(repoNote);
     seen.add(repoNote.file);
   }
@@ -71,9 +73,22 @@ export function buildContext(paths: RepoPaths, config: ReggieConfig, req: Contex
     }
   }
   const stale = new Set(staleEntriesFor(paths, shown).map((s) => `${s.entity}|${s.entry.date}|${s.entry.type}`));
+  const basicKnowledge = new Map(shown.map((note) => [note.entity, readKnowledge(paths, note.entity)]));
+  let fingerprints = new Map<string, string>();
+  if ([...basicKnowledge.values()].some((record) => record?.current)) {
+    try {
+      fingerprints = new Map(buildKnowledgeInventory(paths, buildRepositorySemanticIndex(paths)).map((item) => [item.entity, item.fingerprint]));
+    } catch {
+      // Context must remain available when a repository cannot be semantically indexed. The
+      // stored current text still renders; only its fingerprint comparison is unavailable.
+    }
+  }
 
   out.push("## Notes to read first");
-  for (const note of shown) out.push(renderNoteFile(note, { markStale: stale }));
+  for (const note of shown) {
+    const record = readKnowledge(paths, note.entity, fingerprints.get(note.entity) ?? null);
+    if (record && !record.retired) out.push(renderKnowledgeRecord(record, { markStale: stale }));
+  }
   if (shown.length === 0) out.push("(no notes yet; this area is undocumented. Write the first `why` and `how` notes as you learn it.)");
   out.push("");
 

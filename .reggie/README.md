@@ -22,6 +22,9 @@ cache. If a file exists, it is meant to be read and committed.
   Information about the `src/auth/` folder lives at `notes/src/auth/_dir.md`.
   Repo-wide knowledge lives at `notes/_repo.md`. Things that are not files, such
   as databases, routes, and external services, live under `notes/_entities/`.
+  Symbol knowledge lives under `notes/_symbols/<source-path>/<qualified-symbol>.md`.
+  A note may carry one replaceable current-understanding block plus immutable dated
+  notes and update history; retirement keeps history while removing text from normal narration.
 - `journal/YYYY-MM-DD/<person>-<session>.md` — a plain-English record of what
   each person and each agent did, written as the work happens.
 - `discussions/` — conversations bigger than one task, such as direction or

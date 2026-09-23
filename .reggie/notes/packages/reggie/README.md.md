@@ -14,3 +14,7 @@ sources: idea-from-every-page
 ## how · 2026-09-22 · Codex via jacobpress · medium
 Development documentation distinguishes the Node and web-dom test projects and keeps Cytoscape geometry and responsive rendering as real-browser checks.
 
+## how · 2026-09-23 · Codex via jacobpress · medium
+The command reference lists knowledge show, preview, generate, refresh, run and status plus note retirement.
+sources: shared-repo-knowledge
+

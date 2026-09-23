@@ -37,6 +37,13 @@ npm link            # puts `reggie` on your PATH
 | `reggie note find [query]` | Notes whose entity contains the query. |
 | `reggie note path <file>` | The read-before-edit chain for a file. |
 | `reggie note stale` | Entries whose code changed after they were written. |
+| `reggie note retire <entity> --revision <token> --reason <text> [--superseded-by <entity>]` | Retire current text from ordinary narration without deleting its history; makes one knowledge-only commit. |
+| `reggie knowledge show <entity> [--history] [--json]` | Read the shared current understanding, declared-type gaps, revision, stale state, dated notes, and optional immutable update history. |
+| `reggie knowledge preview [entities...] [--agent codex\|claude] [--all]` | Show the exact new/stale scope, files, symbols, chunks, agent, and one-commit behavior without creating a job. |
+| `reggie knowledge generate [entities...] [--agent codex\|claude]` | Create a local resumable batch and print its preview. It does not run until the separate confirmation command. |
+| `reggie knowledge refresh <entities...> [--agent codex\|claude]` | Create an explicit incremental refresh, including fresh entities named by the user. |
+| `reggie knowledge run <job> --confirm` | Confirm once, run or resume read-only local-agent chunks, then create one knowledge-only commit after every chunk validates. |
+| `reggie knowledge status [job] [--json]` | Show local progress, failures, resumability, agent, and resulting commit. |
 | `reggie journal add <text> [--slug] [--stage] [--evidence a,b] [--session s]` | Append a plain-English entry. |
 | `reggie journal show [--days n] [--slug] [--person]` | Recent entries, newest first. |
 | `reggie journal derive <slug> [--session <uuid>] [--dry-run] [--rewrite]` | Write an entry from the task's commits and the closing words of its launched Claude sessions. Appends only what is new, prints every character it wrote, and never commits. See "The derived journal" below. |

@@ -1,0 +1,24 @@
+Knowledge interfaces verification — 2026-09-23
+
+Command:
+  npx vitest run test/knowledge-api.test.ts test/mcp.test.ts src/context.test.ts src/docs.test.ts --reporter=verbose
+
+Result:
+  4 test files passed; 33 tests passed.
+
+HTTP:
+- Inventory and source-backed previews are readable without mutation.
+- Inline save enforces loopback server rules, same-origin, attribution, strict schema, expected revision, repository path safety, and a knowledge-only commit.
+- Jobs expose confirmation and status, and execution is refused before confirmation.
+- Retirement excludes text from ordinary narration while explicit record/history retrieval preserves it.
+- The shared request-size limit applies to knowledge writes.
+- Ordinary detail reads omit history entries while retaining historyCount; `history=1` explicitly retrieves immutable history.
+
+CLI:
+- `knowledge show`, `preview`, `generate`, `refresh`, `run --confirm`, and `status` share the same services.
+- `note retire` uses the same guarded revision/commit path.
+- A real preview completed successfully; `knowledge show` correctly reported no generated record and `knowledge status` reported no local jobs.
+
+MCP:
+- `reggie_get_knowledge` is registered alongside the existing tool set and uses the same current record renderer.
+- Existing stale-build and write-safety wrappers continue to pass.

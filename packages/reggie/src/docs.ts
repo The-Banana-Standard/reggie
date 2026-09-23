@@ -1,4 +1,5 @@
 import type { RepoFacts } from "./facts.js";
+import type { KnowledgeRecord } from "./knowledge.js";
 import type { ReggieConfig } from "./people.js";
 import { readText, today, writeText } from "./util.js";
 
@@ -8,7 +9,7 @@ export const END_MARKER = "<!-- reggie:generated:end -->";
 export type Tool = "claude" | "codex";
 
 /** The block Reggie owns inside CLAUDE.md and AGENTS.md. Kept short on purpose: it is loaded into every session. */
-export function renderGeneratedBlock(facts: RepoFacts, config: ReggieConfig, tool: Tool): string {
+export function renderGeneratedBlock(facts: RepoFacts, config: ReggieConfig, tool: Tool, knowledge: KnowledgeRecord | null = null): string {
   const langs = facts.languages.slice(0, 5).map((l) => `${l.language} ${l.files}`).join(", ") || "none detected";
   const top = facts.topLevel
     .filter((d) => d.dir !== "(root)")
@@ -23,6 +24,13 @@ export function renderGeneratedBlock(facts: RepoFacts, config: ReggieConfig, too
   const mcp = tool === "claude"
     ? `The \`${config.mcpServerName}\` MCP server is configured in \`.mcp.json\`. Prefer its tools over re-deriving state.`
     : `Register the MCP server once with \`codex mcp add ${config.mcpServerName} -- reggie mcp\`. Prefer its tools over re-deriving state.`;
+  const activeKnowledge = knowledge && !knowledge.retired ? knowledge.current : null;
+  const knowledgeLines = activeKnowledge
+    ? [
+        `- ${activeKnowledge.summary}`,
+        `- State: **${knowledge?.stale ? "stale" : "current"}** at revision \`${knowledge?.revision.slice(0, 12)}\`; history has ${knowledge?.history.length} update${knowledge?.history.length === 1 ? "" : "s"}. Refresh is always explicit.`,
+      ]
+    : ["- No active current-understanding block exists yet; dated notes remain available under `.reggie/notes/`. Refresh is always explicit."];
 
   const lines = [
     START_MARKER,
@@ -35,11 +43,14 @@ export function renderGeneratedBlock(facts: RepoFacts, config: ReggieConfig, too
     `- Entry points: ${entries}`,
     `- Tests: ${tests}. CI: ${ci}.`,
     "",
+    "## Current repository understanding (generated)",
+    ...knowledgeLines,
+    "",
     "## Commands (generated)",
     commands,
     "",
     "## Where information lives (generated)",
-    "- Before editing a file, read its note at `.reggie/notes/<same path>.md`. Folder notes are `_dir.md`; repo-wide notes are `.reggie/notes/_repo.md`.",
+    "- Before editing a file, read its note at `.reggie/notes/<same path>.md`. Folder notes are `_dir.md`; repo-wide notes are `.reggie/notes/_repo.md`; symbol knowledge is under `_symbols/<source-path>/`.",
     "- After changing a file, add or correct its note: `reggie note add <path> --type <why|how|gotcha|verify|data-source|decision> \"text\"`.",
     "- Before starting a task, run `reggie context <slug>` (or `reggie context <path...>`). It gathers the notes, related tasks, recent commits, and active work for that area.",
     // One sentence on check records, in every onboarded repo: it is how a session learns that nothing is ticked by hand.

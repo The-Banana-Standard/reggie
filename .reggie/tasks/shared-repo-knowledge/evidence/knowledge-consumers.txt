@@ -1,0 +1,20 @@
+Shared consumer verification — 2026-09-23
+
+Focused consumer result:
+  test/knowledge-api.test.ts, test/mcp.test.ts, src/context.test.ts, and src/docs.test.ts
+  4 files passed; 33 tests passed.
+
+The same parsed current-understanding record now feeds:
+- normal note rendering and search;
+- `reggie context`;
+- `reggie_get_knowledge` over MCP;
+- guarded HTTP knowledge reads;
+- generated `CLAUDE.md` and `AGENTS.md` repository-understanding text.
+
+Consumer behavior proven by fixtures:
+- Active current text appears with its revision and source fingerprint.
+- Changed semantic evidence reports stale state and tells the reader that refresh is explicit.
+- Retired text is excluded from normal context and API narration.
+- Immutable history and retired/superseded text remain explicitly retrievable.
+- CLAUDE.md and AGENTS.md receive the same summary, revision, history availability, current/stale state, and explicit-refresh semantics.
+- Legacy notes remain readable and their dated prose is not polluted by encoded knowledge-update history.

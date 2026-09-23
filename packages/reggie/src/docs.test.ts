@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { makeTempRepo, type TempRepo } from "../test/helpers.js";
 import { checkComposedFile, checkGeneratedBlock, composeAgentsMd, curatedSections, END_MARKER, renderGeneratedBlock, replaceBlock, START_MARKER } from "./docs.js";
 import { collectFacts } from "./facts.js";
+import { git } from "./git.js";
+import { buildKnowledgeInventory, buildRepositorySemanticIndex } from "./knowledge-jobs.js";
+import { readKnowledge, saveKnowledge } from "./knowledge.js";
 import { onboard, refreshDocs } from "./onboard.js";
 import { repoPaths } from "./paths.js";
 import { loadConfig } from "./people.js";
@@ -86,6 +89,34 @@ describe("generated blocks", () => {
     expect(readText(paths.claudeMd)).toContain("keep functions small");
     refreshDocs(repo.root);
     expect(readText(paths.claudeMd)).toContain("keep functions small");
+  });
+
+  it("puts the same active repository understanding and stale state into both agent files", () => {
+    onboard(repo.root);
+    const paths = repoPaths(repo.root);
+    repo.commitAll("onboard");
+    const inventory = buildKnowledgeInventory(paths, buildRepositorySemanticIndex(paths));
+    const target = inventory.find((item) => item.entity === "_repo")!;
+    saveKnowledge(paths, loadConfig(paths), {
+      entity: "_repo",
+      expectedRevision: readKnowledge(paths, "_repo")!.revision,
+      current: { summary: "A fixture application used to verify shared repository guidance.", parameters: [], fields: [], returns: [], callSites: [] },
+      fingerprint: target.fingerprint,
+      actor: "human",
+      by: "Test Person",
+      codeRevision: git(["rev-parse", "HEAD"], { cwd: repo.root }).stdout.trim(),
+      reason: "Publish the repository overview.",
+    });
+    refreshDocs(repo.root);
+    expect(readText(paths.claudeMd)).toContain("A fixture application used to verify shared repository guidance.");
+    expect(readText(paths.agentsMd)).toContain("A fixture application used to verify shared repository guidance.");
+    expect(readText(paths.agentsMd)).toContain("State: **current**");
+
+    repo.write("src/index.ts", "export const changed = true;\n");
+    repo.commitAll("change source");
+    refreshDocs(repo.root);
+    expect(readText(paths.claudeMd)).toContain("State: **stale**");
+    expect(readText(paths.agentsMd)).toContain("State: **stale**");
   });
 
   it("mirrors CLAUDE.md's curated sections into AGENTS.md, because Codex never reads CLAUDE.md", () => {

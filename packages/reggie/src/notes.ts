@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { lastCommitDate } from "./git.js";
@@ -7,7 +8,7 @@ import { appendText, assertInside, escapeBodyLine, readText, relPosix, slugify, 
 export const NOTE_TYPES = ["why", "how", "gotcha", "verify", "data-source", "decision"] as const;
 export type NoteType = (typeof NOTE_TYPES)[number];
 export type Confidence = "high" | "medium" | "low";
-export type NoteKind = "file" | "dir" | "repo" | "entity";
+export type NoteKind = "file" | "dir" | "repo" | "symbol" | "entity";
 
 export interface NoteEntry {
   type: NoteType;
@@ -24,6 +25,8 @@ export interface NoteFile {
   kind: NoteKind;
   file: string;
   entries: NoteEntry[];
+  retired: boolean;
+  supersededBy: string | null;
 }
 
 export interface NoteTarget {
@@ -32,7 +35,7 @@ export interface NoteTarget {
   file: string;
 }
 
-const ENTITY_KINDS = ["store", "route", "service", "env", "concept"] as const;
+export const ENTITY_KINDS = ["store", "route", "service", "env", "environment", "concept"] as const;
 
 function isNoteType(value: string): value is NoteType {
   return (NOTE_TYPES as readonly string[]).includes(value);
@@ -41,21 +44,39 @@ function isNoteType(value: string): value is NoteType {
 /**
  * Resolve where the note for an entity lives.
  *  - "." / "_repo" / "repo"  -> notes/_repo.md
+ *  - "sym:src/a.ts::run"       -> notes/_symbols/src/a.ts/run.md
  *  - "store:users" etc.       -> notes/_entities/store/users.md
  *  - "src/auth/" or a dir     -> notes/src/auth/_dir.md
  *  - "src/auth/login.ts"      -> notes/src/auth/login.ts.md
  */
 export function resolveNoteTarget(paths: RepoPaths, rawEntity: string): NoteTarget {
   const entity = rawEntity.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  if (/[\u0000-\u001f\u007f]/.test(entity)) throw new Error("A note entity may not contain control characters.");
   if (entity === "" || entity === "." || entity === "_repo" || entity === "repo") {
     return { entity: "_repo", kind: "repo", file: path.join(paths.notes, "_repo.md") };
   }
+  const symbol = /^sym:([^:]+)::(.+)$/.exec(entity);
+  if (symbol) {
+    const sourcePath = cleanRepoPath(symbol[1] ?? "", rawEntity);
+    const qualifiedName = (symbol[2] ?? "").trim();
+    if (!qualifiedName || qualifiedName.includes("\0")) throw new Error(`"${rawEntity}" is not a valid symbol ID.`);
+    const file = path.join(paths.notes, "_symbols", sourcePath, `${symbolFileName(qualifiedName)}.md`);
+    return { entity: `sym:${sourcePath}::${qualifiedName}`, kind: "symbol", file: assertInside(paths.notes, file, "symbol note path") };
+  }
+  if (entity.startsWith("sym:")) throw new Error(`"${rawEntity}" is not a valid symbol ID. Use sym:<repo-path>::<qualified-name>.`);
   const kindMatch = /^([a-z-]+):(.+)$/.exec(entity);
   if (kindMatch && (ENTITY_KINDS as readonly string[]).includes(kindMatch[1] ?? "")) {
     const kind = kindMatch[1] ?? "concept";
     const name = kindMatch[2] ?? "";
-    const file = path.join(paths.notes, "_entities", kind, `${slugify(name, 80)}.md`);
-    return { entity: `${kind}:${name}`, kind: "entity", file: assertInside(paths.notes, file, "note path") };
+    const canonicalEntity = `${kind}:${name}`;
+    // Keep exact legacy files readable, but give every new free-form entity a digest-backed path.
+    // Slug-only names such as "GET /a-b" and "GET /a/b" otherwise alias one note file.
+    const legacy = path.join(paths.notes, "_entities", kind, `${slugify(name, 80)}.md`);
+    const legacyContent = readText(legacy);
+    const file = legacyContent !== null && parseNoteFile(legacy, legacyContent, { entity: canonicalEntity, kind: "entity" }).entity === canonicalEntity
+      ? legacy
+      : path.join(paths.notes, "_entities", kind, `${entityFileName(name)}.md`);
+    return { entity: canonicalEntity, kind: "entity", file: assertInside(paths.notes, file, "note path") };
   }
   const clean = entity.replace(/\/+$/, "");
   if (clean === "" || path.isAbsolute(clean) || clean.split("/").some((seg) => seg === "..")) {
@@ -75,6 +96,35 @@ export function resolveNoteTarget(paths: RepoPaths, rawEntity: string): NoteTarg
     return { entity: `${clean}/`, kind: "dir", file: assertInside(paths.notes, dirNote, "note path") };
   }
   return { entity: clean, kind: "file", file: assertInside(paths.notes, fileNote, "note path") };
+}
+
+function cleanRepoPath(value: string, original: string): string {
+  const clean = value.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
+  if (!clean || path.isAbsolute(clean) || clean.split("/").some((segment) => segment === "" || segment === "." || segment === "..")) {
+    throw new Error(`"${original}" is not a repo-relative symbol ID.`);
+  }
+  return clean;
+}
+
+/** A reversible filename for ordinary qualified names, bounded for filesystem safety. */
+function symbolFileName(qualifiedName: string): string {
+  const encoded = encodeURIComponent(qualifiedName).replace(/%/g, "~");
+  if (encoded.length <= 160) return encoded;
+  const digest = createHash("sha256").update(qualifiedName).digest("hex").slice(0, 16);
+  return `${encoded.slice(0, 140)}-${digest}`;
+}
+
+function entityFileName(name: string): string {
+  const digest = createHash("sha256").update(name).digest("hex").slice(0, 16);
+  return `${slugify(name, 60)}-${digest}`;
+}
+
+function qualifiedNameFromFileName(name: string): string {
+  try {
+    return decodeURIComponent(name.replace(/~/g, "%"));
+  } catch {
+    return name;
+  }
 }
 
 function renderHeader(entry: NoteEntry): string {
@@ -120,12 +170,16 @@ export function parseNoteFile(file: string, content: string, fallback: { entity:
   const { front, body } = splitFrontMatter(content);
   let entity = fallback.entity;
   let kind: NoteKind = fallback.kind;
+  let retired = false;
+  let supersededBy: string | null = null;
   if (front) {
     for (const line of front.split("\n")) {
-      const m = /^(\w+):\s*(.+)$/.exec(line.trim());
+      const m = /^([a-z][a-z-]*):\s*(.*)$/.exec(line.trim());
       if (!m) continue;
       if (m[1] === "entity" && m[2]) entity = m[2].trim();
-      if (m[1] === "kind" && m[2] && ["file", "dir", "repo", "entity"].includes(m[2].trim())) kind = m[2].trim() as NoteKind;
+      if (m[1] === "kind" && m[2] && ["file", "dir", "repo", "symbol", "entity"].includes(m[2].trim())) kind = m[2].trim() as NoteKind;
+      if (m[1] === "retired" && m[2]) retired = m[2].trim() === "true";
+      if (m[1] === "superseded-by" && m[2]?.trim()) supersededBy = m[2].trim();
     }
   }
   const entries: NoteEntry[] = [];
@@ -138,6 +192,9 @@ export function parseNoteFile(file: string, content: string, fallback: { entity:
     current = null;
   };
   for (const line of body.split("\n")) {
+    // Knowledge updates are immutable machine history beside the human-readable entries. They
+    // may follow an entry at EOF, but never become part of that entry's prose.
+    if (/^<!-- reggie:knowledge:update:[A-Za-z0-9_-]+ -->$/.test(line.trim())) continue;
     const m = headerRe.exec(line);
     if (m) {
       flush();
@@ -164,7 +221,7 @@ export function parseNoteFile(file: string, content: string, fallback: { entity:
     current.text += `${line}\n`;
   }
   flush();
-  return { entity, kind, file, entries };
+  return { entity, kind, file, entries, retired, supersededBy };
 }
 
 export function readNoteFile(paths: RepoPaths, rawEntity: string): NoteFile | null {
@@ -175,7 +232,7 @@ export function readNoteFile(paths: RepoPaths, rawEntity: string): NoteFile | nu
 }
 
 /** Every note file under .reggie/notes, excluding README.md. */
-export function allNoteFiles(paths: RepoPaths): NoteFile[] {
+export function allNoteFiles(paths: RepoPaths, options: { includeRetired?: boolean } = {}): NoteFile[] {
   const out: NoteFile[] = [];
   const walk = (dir: string) => {
     if (!existsSync(dir)) return;
@@ -190,7 +247,8 @@ export function allNoteFiles(paths: RepoPaths): NoteFile[] {
       const content = readText(full) ?? "";
       const rel = relPosix(paths.notes, full);
       const guess = guessEntityFromRel(rel);
-      out.push(parseNoteFile(full, content, guess));
+      const note = parseNoteFile(full, content, guess);
+      if (options.includeRetired || !note.retired) out.push(note);
     }
   };
   walk(paths.notes);
@@ -199,6 +257,11 @@ export function allNoteFiles(paths: RepoPaths): NoteFile[] {
 
 function guessEntityFromRel(rel: string): { entity: string; kind: NoteKind } {
   if (rel === "_repo.md") return { entity: "_repo", kind: "repo" };
+  if (rel.startsWith("_symbols/")) {
+    const parts = rel.slice("_symbols/".length).split("/");
+    const qualified = qualifiedNameFromFileName((parts.pop() ?? "symbol.md").replace(/\.md$/, ""));
+    return { entity: `sym:${parts.join("/")}::${qualified}`, kind: "symbol" };
+  }
   if (rel.startsWith("_entities/")) {
     const parts = rel.split("/");
     return { entity: `${parts[1] ?? "concept"}:${(parts[2] ?? "").replace(/\.md$/, "")}`, kind: "entity" };
@@ -228,16 +291,16 @@ export function notesForPath(paths: RepoPaths, filePath: string): NoteFile[] {
   const clean = filePath.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
   const chain: NoteFile[] = [];
   const repo = readNoteFile(paths, "_repo");
-  if (repo) chain.push(repo);
+  if (repo && !repo.retired) chain.push(repo);
   const segments = clean.split("/").filter(Boolean);
   for (let i = 1; i < segments.length; i += 1) {
     const dir = `${segments.slice(0, i).join("/")}/`;
     const note = readNoteFile(paths, dir);
-    if (note) chain.push(note);
+    if (note && !note.retired) chain.push(note);
   }
   const seen = new Set(chain.map((n) => n.file));
   for (const candidate of [readNoteFile(paths, `${clean}/`), readNoteFile(paths, clean)]) {
-    if (candidate && !seen.has(candidate.file)) {
+    if (candidate && !candidate.retired && !seen.has(candidate.file)) {
       chain.push(candidate);
       seen.add(candidate.file);
     }

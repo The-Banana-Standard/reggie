@@ -1,0 +1,22 @@
+Knowledge generator and job verification — 2026-09-23
+
+Adapter proofs:
+- Codex runs through `codex exec` with `--sandbox read-only`.
+- Claude runs with `--permission-mode plan`, JSON output, and no session persistence.
+- Both adapters use the same bounded KnowledgeRecord-generation schema and timeout boundary.
+- Validation rejects malformed JSON, hostile instructions, extra or missing entities, changed fingerprints, invented explicit types, oversized values, and timeouts.
+
+Job proofs:
+- Inventory includes every tracked first-party JavaScript/TypeScript role represented by fixtures and carries source-backed files, symbols, routes, concepts, recursive fields, parameters, return variants, and call sites.
+- Preview reports agent, new/stale entity counts, distinct files and symbols, expected chunks, entity IDs, and the one-commit publication rule.
+- One confirmation authorizes the whole job; unconfirmed execution is rejected.
+- Jobs persist local progress, completed chunks, failures, resumability, selected agent, and resulting commit outside committed policy.
+- Explicit refresh may include fresh entities; ordinary generation selects only new or stale entities.
+
+Real CLI preview from this task checkout:
+  Agent: codex
+  Scope: 1 entities (1 new, 0 stale), 1 files, 1 symbols, 1 chunks.
+  Commit: one knowledge-only commit after every chunk validates.
+  - sym:packages/reggie/src/knowledge.ts::readKnowledge
+
+No agent was invoked and no repository knowledge was generated during this preview.

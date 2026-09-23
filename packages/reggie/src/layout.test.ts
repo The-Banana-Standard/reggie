@@ -54,6 +54,8 @@ describe("the README every onboarded repo gets", () => {
       expect(written).toContain("- `tasks/<slug>/checks.jsonl` — what was verified, as data: one line per check");
       expect(written).toContain("written by `reggie check`. The packet's checklist");
       expect(written).toMatch(/A packet that cites a file which is not committed\s+here is refused when someone approves it\./);
+      expect(written).toContain("notes/_symbols/<source-path>/<qualified-symbol>.md");
+      expect(written).toContain("replaceable current-understanding block");
       const order = ["tasks/<slug>/packet.md", "tasks/<slug>/checks.jsonl", "tasks/<slug>/evidence/"].map((name) => written.indexOf(name));
       expect(order.every((i) => i > 0) && order[0]! < order[1]! && order[1]! < order[2]!).toBe(true);
     } finally {
