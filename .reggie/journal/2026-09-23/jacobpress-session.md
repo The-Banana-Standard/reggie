@@ -11,3 +11,6 @@ Resumed work on the task branch.
 ### 00:16 · jacobpress · codex · shared-repo-knowledge · build
 Built the durable knowledge record and Git transaction layer. Legacy notes remain valid, symbol knowledge has stable source-based storage, current text and immutable history are separate, and knowledge-only commits preserve unrelated staged and unstaged work. Focused tests and type checking pass.
 
+### 00:27 · jacobpress · codex · shared-repo-knowledge · build
+Added source-constrained Codex and Claude adapters plus resumable knowledge jobs. Every generated description is bound to semantic IDs and declared types, previews show the complete scope and commit behavior, confirmation happens once, failures publish nothing, and successful batches produce one knowledge-only commit. Focused adapter, job, record, and note tests pass with type checking.
+

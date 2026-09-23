@@ -406,7 +406,7 @@ function acquireKnowledgeLock(root: string): KnowledgeLock {
   throw new Error("Could not acquire the repository knowledge lock.");
 }
 
-function assertIntegrationCheckout(root: string, config: ReggieConfig): string {
+export function assertKnowledgeIntegrationCheckout(root: string, config: ReggieConfig): string {
   const integration = defaultBranch(root, config.defaultBranch);
   const branch = currentBranch(root);
   if (branch !== integration) throw new Error(`Knowledge writes must run from the configured integration checkout (${integration}); current branch is ${branch}.`);
@@ -489,7 +489,7 @@ function commitWrites(paths: RepoPaths, config: ReggieConfig, writes: PreparedWr
     if (entities.has(write.entity)) throw new Error(`Knowledge batch repeats ${write.entity}.`);
     entities.add(write.entity);
   }
-  const branch = assertIntegrationCheckout(paths.root, config);
+  const branch = assertKnowledgeIntegrationCheckout(paths.root, config);
   const lock = acquireKnowledgeLock(paths.root);
   let files: string[] = [];
   try {
