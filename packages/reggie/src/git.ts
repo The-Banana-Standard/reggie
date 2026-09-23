@@ -26,13 +26,15 @@ export interface ExecOptions {
    * request: a caller that turns output into rows says how much it is prepared to read.
    */
   maxBufferBytes?: number;
+  /** Additional environment entries for isolated Git indexes and bounded adapters. */
+  env?: NodeJS.ProcessEnv;
 }
 
 /** Run a command synchronously. Throws on non-zero exit unless allowFailure is set. */
 export function run(cmd: string, args: string[], opts: ExecOptions = {}): ExecResult {
   const spawnOpts: SpawnSyncOptionsWithStringEncoding = {
     encoding: "utf8",
-    env: process.env,
+    env: opts.env ? { ...process.env, ...opts.env } : process.env,
     maxBuffer: opts.maxBufferBytes ?? 64 * 1024 * 1024,
   };
   if (opts.cwd) spawnOpts.cwd = opts.cwd;

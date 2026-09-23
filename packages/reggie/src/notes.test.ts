@@ -23,6 +23,11 @@ describe("notes", () => {
     const store = resolveNoteTarget(paths, "store:Users Collection");
     expect(store.kind).toBe("entity");
     expect(store.file.endsWith("notes/_entities/store/users-collection.md")).toBe(true);
+    const symbol = resolveNoteTarget(paths, "sym:src/auth/login.ts::Session.create");
+    expect(symbol.kind).toBe("symbol");
+    expect(symbol.file.endsWith("notes/_symbols/src/auth/login.ts/Session.create.md")).toBe(true);
+    expect(() => resolveNoteTarget(paths, "sym:../outside.ts::run")).toThrow(/repo-relative symbol ID/);
+    expect(() => resolveNoteTarget(paths, "sym:src/auth/login.ts::")).toThrow(/valid symbol ID/);
   });
 
   it("adds entries and reads them back", () => {
@@ -44,6 +49,14 @@ describe("notes", () => {
     addNote(paths, "src/auth/login.ts", { type: "gotcha", text: "Client-side cap.", author: "test" });
     const chain = notesForPath(paths, "src/auth/login.ts");
     expect(chain.map((n) => n.entity)).toEqual(["_repo", "src/", "src/auth/login.ts"]);
+  });
+
+  it("stores symbol notes under their source path and indexes their stable ID", () => {
+    const paths = repoPaths(repo.root);
+    const id = "sym:src/auth/login.ts::Session.create";
+    addNote(paths, id, { type: "how", text: "Creates a session.", author: "test" });
+    expect(readNoteFile(paths, id)).toMatchObject({ entity: id, kind: "symbol" });
+    expect(findNotes(paths, "Session.create").map((note) => note.entity)).toEqual([id]);
   });
 
   it("finds by substring and marks stale entries", () => {

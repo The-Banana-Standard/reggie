@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { lastCommitDate } from "./git.js";
@@ -7,7 +8,7 @@ import { appendText, assertInside, escapeBodyLine, readText, relPosix, slugify, 
 export const NOTE_TYPES = ["why", "how", "gotcha", "verify", "data-source", "decision"] as const;
 export type NoteType = (typeof NOTE_TYPES)[number];
 export type Confidence = "high" | "medium" | "low";
-export type NoteKind = "file" | "dir" | "repo" | "entity";
+export type NoteKind = "file" | "dir" | "repo" | "symbol" | "entity";
 
 export interface NoteEntry {
   type: NoteType;
@@ -32,7 +33,7 @@ export interface NoteTarget {
   file: string;
 }
 
-const ENTITY_KINDS = ["store", "route", "service", "env", "concept"] as const;
+export const ENTITY_KINDS = ["store", "route", "service", "env", "environment", "concept"] as const;
 
 function isNoteType(value: string): value is NoteType {
   return (NOTE_TYPES as readonly string[]).includes(value);
@@ -41,6 +42,7 @@ function isNoteType(value: string): value is NoteType {
 /**
  * Resolve where the note for an entity lives.
  *  - "." / "_repo" / "repo"  -> notes/_repo.md
+ *  - "sym:src/a.ts::run"       -> notes/_symbols/src/a.ts/run.md
  *  - "store:users" etc.       -> notes/_entities/store/users.md
  *  - "src/auth/" or a dir     -> notes/src/auth/_dir.md
  *  - "src/auth/login.ts"      -> notes/src/auth/login.ts.md
@@ -50,6 +52,15 @@ export function resolveNoteTarget(paths: RepoPaths, rawEntity: string): NoteTarg
   if (entity === "" || entity === "." || entity === "_repo" || entity === "repo") {
     return { entity: "_repo", kind: "repo", file: path.join(paths.notes, "_repo.md") };
   }
+  const symbol = /^sym:([^:]+)::(.+)$/.exec(entity);
+  if (symbol) {
+    const sourcePath = cleanRepoPath(symbol[1] ?? "", rawEntity);
+    const qualifiedName = (symbol[2] ?? "").trim();
+    if (!qualifiedName || qualifiedName.includes("\0")) throw new Error(`"${rawEntity}" is not a valid symbol ID.`);
+    const file = path.join(paths.notes, "_symbols", sourcePath, `${symbolFileName(qualifiedName)}.md`);
+    return { entity: `sym:${sourcePath}::${qualifiedName}`, kind: "symbol", file: assertInside(paths.notes, file, "symbol note path") };
+  }
+  if (entity.startsWith("sym:")) throw new Error(`"${rawEntity}" is not a valid symbol ID. Use sym:<repo-path>::<qualified-name>.`);
   const kindMatch = /^([a-z-]+):(.+)$/.exec(entity);
   if (kindMatch && (ENTITY_KINDS as readonly string[]).includes(kindMatch[1] ?? "")) {
     const kind = kindMatch[1] ?? "concept";
@@ -75,6 +86,30 @@ export function resolveNoteTarget(paths: RepoPaths, rawEntity: string): NoteTarg
     return { entity: `${clean}/`, kind: "dir", file: assertInside(paths.notes, dirNote, "note path") };
   }
   return { entity: clean, kind: "file", file: assertInside(paths.notes, fileNote, "note path") };
+}
+
+function cleanRepoPath(value: string, original: string): string {
+  const clean = value.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
+  if (!clean || path.isAbsolute(clean) || clean.split("/").some((segment) => segment === "" || segment === "." || segment === "..")) {
+    throw new Error(`"${original}" is not a repo-relative symbol ID.`);
+  }
+  return clean;
+}
+
+/** A reversible filename for ordinary qualified names, bounded for filesystem safety. */
+function symbolFileName(qualifiedName: string): string {
+  const encoded = encodeURIComponent(qualifiedName).replace(/%/g, "~");
+  if (encoded.length <= 160) return encoded;
+  const digest = createHash("sha256").update(qualifiedName).digest("hex").slice(0, 16);
+  return `${encoded.slice(0, 140)}-${digest}`;
+}
+
+function qualifiedNameFromFileName(name: string): string {
+  try {
+    return decodeURIComponent(name.replace(/~/g, "%"));
+  } catch {
+    return name;
+  }
 }
 
 function renderHeader(entry: NoteEntry): string {
@@ -125,7 +160,7 @@ export function parseNoteFile(file: string, content: string, fallback: { entity:
       const m = /^(\w+):\s*(.+)$/.exec(line.trim());
       if (!m) continue;
       if (m[1] === "entity" && m[2]) entity = m[2].trim();
-      if (m[1] === "kind" && m[2] && ["file", "dir", "repo", "entity"].includes(m[2].trim())) kind = m[2].trim() as NoteKind;
+      if (m[1] === "kind" && m[2] && ["file", "dir", "repo", "symbol", "entity"].includes(m[2].trim())) kind = m[2].trim() as NoteKind;
     }
   }
   const entries: NoteEntry[] = [];
@@ -199,6 +234,11 @@ export function allNoteFiles(paths: RepoPaths): NoteFile[] {
 
 function guessEntityFromRel(rel: string): { entity: string; kind: NoteKind } {
   if (rel === "_repo.md") return { entity: "_repo", kind: "repo" };
+  if (rel.startsWith("_symbols/")) {
+    const parts = rel.slice("_symbols/".length).split("/");
+    const qualified = qualifiedNameFromFileName((parts.pop() ?? "symbol.md").replace(/\.md$/, ""));
+    return { entity: `sym:${parts.join("/")}::${qualified}`, kind: "symbol" };
+  }
   if (rel.startsWith("_entities/")) {
     const parts = rel.split("/");
     return { entity: `${parts[1] ?? "concept"}:${(parts[2] ?? "").replace(/\.md$/, "")}`, kind: "entity" };

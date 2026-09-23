@@ -19,3 +19,7 @@ sources: packages/reggie/src/git.ts, branch-diff-in-reader
 The reads the policy report adds all take full commit ids and throw before git is spawned for anything else, like the range readers above them: fileAtCommit goes by blob id so a path is never spliced into a revision, listTreeLong is one ls-tree -r -z -l of a folder under literal pathspecs, changedPathsNoRenames lists with rename detection off and -z so a file moved out of a risky folder still counts under its old name and an odd name comes back exactly, isAncestor and mergeTreeCheck answer without touching a checkout. mergeTreeCheck reads exit 0 as clean, exit 1 as a conflict with its paths, and anything else, an older git's unknown option included, as unknown. Each takes an optional runner so a test can see the arguments or fail one call. gitCommonDir answers one canonical spelling for every worktree, which is what lets two checkouts agree they share the landing lock.
 sources: low-risk-auto-approval
 
+## how · 2026-09-23 · Codex via jacobpress · high
+The shared runner accepts additive environment entries so knowledge commits can use a temporary GIT_INDEX_FILE without replacing the process environment.
+sources: shared-repo-knowledge
+

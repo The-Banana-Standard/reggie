@@ -8,3 +8,6 @@ Defined the shared knowledge contract around backward-compatible notes, guarded 
 ### 00:04 · jacobpress · codex · shared-repo-knowledge · claim
 Resumed work on the task branch.
 
+### 00:16 · jacobpress · codex · shared-repo-knowledge · build
+Built the durable knowledge record and Git transaction layer. Legacy notes remain valid, symbol knowledge has stable source-based storage, current text and immutable history are separate, and knowledge-only commits preserve unrelated staged and unstaged work. Focused tests and type checking pass.
+

@@ -30,6 +30,7 @@ Expose current knowledge and job status through CLI, MCP, server read APIs, repo
 - packages/reggie/src/notes.ts (MOD)
 - packages/reggie/src/notes.test.ts (MOD)
 - packages/reggie/src/paths.ts (MOD)
+- packages/reggie/src/git.ts (MOD)
 - packages/reggie/src/layout.ts (MOD)
 - packages/reggie/src/context.ts (MOD)
 - packages/reggie/src/context.test.ts (MOD)
