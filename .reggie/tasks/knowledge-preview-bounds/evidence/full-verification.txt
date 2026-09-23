@@ -19,3 +19,7 @@ Result: PASS — CLAUDE.md and AGENTS.md are fresh.
 
 Command: reggie plan lint knowledge-preview-bounds
 Result: PASS (non-blocking coverage-count warning only; every criterion names its evidence in the plan).
+
+Hosted CI: GitHub Actions run 35845358689
+- Ubuntu: PASS in 2m12s.
+- macOS: PASS in 6m05s.

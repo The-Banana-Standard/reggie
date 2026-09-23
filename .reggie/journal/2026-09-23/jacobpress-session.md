@@ -90,3 +90,6 @@ Prompt-only semantic evidence is now bounded without dropping output requirement
 ### 05:49 · jacobpress · codex · knowledge-preview-bounds · verify
 Focused and full checks pass, the real repository preview covers thousands of entities without writes, and review confirms the existing byte, schema, read-only, revision, and atomic-commit protections remain intact.
 
+### 05:58 · jacobpress · codex · knowledge-preview-bounds · verify
+Hosted Ubuntu and macOS checks passed, completing the task's local, documentation, review, and cross-platform verification.
+
