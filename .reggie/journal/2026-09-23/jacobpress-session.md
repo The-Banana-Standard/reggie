@@ -81,3 +81,12 @@ Hosted Ubuntu and macOS passed the complete workflow. The configured-endpoint re
 ### 05:39 · jacobpress · codex · knowledge-preview-bounds · plan
 The real repository preview exposed repeated semantic evidence in generator prompts; the repair will preserve every requested description while compacting prompt-only context within the existing safety limits.
 
+### 05:40 · jacobpress · codex · knowledge-preview-bounds · claim
+Claimed the task and started a branch from repo-manager.
+
+### 05:45 · jacobpress · codex · knowledge-preview-bounds · implement
+Prompt-only semantic evidence is now bounded without dropping output requirements, and the previously failing real repository preview succeeds without changing its code, notes, jobs, or revision.
+
+### 05:49 · jacobpress · codex · knowledge-preview-bounds · verify
+Focused and full checks pass, the real repository preview covers thousands of entities without writes, and review confirms the existing byte, schema, read-only, revision, and atomic-commit protections remain intact.
+

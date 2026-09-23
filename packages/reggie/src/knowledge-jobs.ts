@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import type { ConceptLink, ConceptOccurrence, DataConcept } from "./data-concepts.js";
 import { buildGraph } from "./graph.js";
 import { currentBranch, git } from "./git.js";
 import { generateKnowledge, validateGeneratedKnowledge, type GeneratedKnowledge, type KnowledgeAgent, type KnowledgePromptEntity } from "./knowledge-agents.js";
@@ -16,12 +17,23 @@ import {
 import { allNoteFiles } from "./notes.js";
 import type { RepoPaths } from "./paths.js";
 import type { ReggieConfig } from "./people.js";
-import { buildSemanticIndex, type CallSite, type SemanticIndex, type SymbolRecord, type ValueShape } from "./semantic-index.js";
+import {
+  buildSemanticIndex,
+  type CallSite,
+  type RouteRecord,
+  type SemanticIndex,
+  type SourceSpan,
+  type SymbolRecord,
+  type ValidationRule,
+  type ValueShape,
+} from "./semantic-index.js";
 import { ensureDir, readText, relPosix } from "./util.js";
 
 const MAX_ENTITY_SOURCE = 60_000;
 const MAX_CHUNK_ENTITIES = 8;
 const MAX_CHUNK_BYTES = 180_000;
+const MAX_PROMPT_EVIDENCE_ITEMS = 24;
+const MAX_PROMPT_TEXT = 240;
 
 export type KnowledgeState = "new" | "fresh" | "stale" | "retired";
 
@@ -157,6 +169,177 @@ function directoryNames(files: readonly string[]): string[] {
   return [...dirs].sort();
 }
 
+function boundedText(value: string | null, max = MAX_PROMPT_TEXT): string | null {
+  if (value === null || value.length <= max) return value;
+  return `${value.slice(0, max - 1)}…`;
+}
+
+function sourceLine(source: Pick<SourceSpan, "file" | "startLine"> | { file: string; line: number }): string {
+  return `${source.file}:${"startLine" in source ? source.startLine : source.line}`;
+}
+
+/** Keep evidence spread across its sorted source order, not only the first file or region. */
+function representativeEvidence<T, R>(items: readonly T[], project: (item: T) => R): { total: number; included: number; omitted: number; items: R[] } {
+  const limit = Math.min(items.length, MAX_PROMPT_EVIDENCE_ITEMS);
+  const selected: T[] = [];
+  if (limit === items.length) selected.push(...items);
+  else if (limit > 0) {
+    const seen = new Set<number>();
+    for (let index = 0; index < limit; index += 1) {
+      const position = limit === 1 ? 0 : Math.round(index * (items.length - 1) / (limit - 1));
+      if (!seen.has(position)) {
+        seen.add(position);
+        selected.push(items[position]!);
+      }
+    }
+  }
+  return { total: items.length, included: selected.length, omitted: items.length - selected.length, items: selected.map(project) };
+}
+
+function stringEvidence(items: readonly string[]): ReturnType<typeof representativeEvidence<string, string>> {
+  return representativeEvidence(items, (item) => item);
+}
+
+function promptCall(call: CallSite): unknown {
+  return {
+    id: call.id,
+    callerId: call.callerId,
+    calleeId: call.calleeId,
+    resolution: call.resolution,
+    calleeExpression: boundedText(call.calleeExpression, 120),
+    arguments: call.arguments.map((argument) => ({
+      index: argument.index,
+      parameterName: argument.parameterName,
+      expression: boundedText(argument.expression, 120),
+      category: argument.category,
+      explicitType: argument.explicitType?.text ?? null,
+    })),
+    source: sourceLine(call.source),
+  };
+}
+
+function promptValidation(validation: ValidationRule): unknown {
+  return {
+    id: validation.id,
+    kind: validation.kind,
+    expression: boundedText(validation.expression),
+    fieldPaths: validation.fieldPaths.map((parts) => parts.join(".")),
+    source: sourceLine(validation.source),
+  };
+}
+
+function promptSymbol(symbol: SymbolRecord, calls: readonly CallSite[], validations: readonly ValidationRule[]): unknown {
+  return {
+    symbol: {
+      id: symbol.id,
+      file: symbol.file,
+      name: symbol.name,
+      qualifiedName: symbol.qualifiedName,
+      parentSymbolId: symbol.parentSymbolId,
+      kind: symbol.kind,
+      exported: symbol.exported,
+      async: symbol.async,
+      parameters: symbol.parameters.map((parameter) => ({
+        index: parameter.index,
+        name: parameter.name,
+        bindingPaths: parameter.bindingPaths.map((parts) => parts.join(".")),
+        optional: parameter.optional,
+        rest: parameter.rest,
+        defaultExpression: boundedText(parameter.defaultExpression, 120),
+        explicitType: parameter.explicitType?.text ?? null,
+      })),
+      explicitReturnType: symbol.explicitReturnType?.text ?? null,
+      returnVariants: symbol.returnVariants.map((variant) => ({
+        id: variant.id,
+        expression: boundedText(variant.expression),
+        condition: boundedText(variant.condition),
+        status: variant.status,
+        explicitType: variant.explicitType?.text ?? null,
+      })),
+      directCallerCount: symbol.callerIds.length,
+      directCalleeCount: symbol.calleeIds.length,
+    },
+    callEvidence: representativeEvidence(calls, promptCall),
+    validationEvidence: representativeEvidence(validations, promptValidation),
+  };
+}
+
+function promptOccurrence(occurrence: ConceptOccurrence): unknown {
+  return {
+    id: occurrence.id,
+    name: occurrence.name,
+    path: occurrence.path.join("."),
+    kind: occurrence.kind,
+    source: sourceLine(occurrence.source),
+    symbolId: occurrence.symbolId,
+    explicitType: occurrence.explicitType,
+  };
+}
+
+function promptConceptLink(link: ConceptLink): unknown {
+  return {
+    from: link.from,
+    to: link.to,
+    kind: link.kind,
+    source: sourceLine(link.source),
+    transformation: boundedText(link.transformation),
+  };
+}
+
+function promptConcept(concept: DataConcept): unknown {
+  return {
+    id: concept.id,
+    canonicalName: concept.canonicalName,
+    aliases: stringEvidence(concept.aliases),
+    occurrenceEvidence: representativeEvidence(concept.occurrences, promptOccurrence),
+    linkEvidence: representativeEvidence(concept.links, promptConceptLink),
+    explicitTypeEvidence: representativeEvidence(concept.explicitTypes, (item) => item),
+    validationIds: stringEvidence(concept.validationIds),
+    transformations: representativeEvidence(concept.transformations, (item) => boundedText(item)),
+    routeIds: stringEvidence(concept.routeIds),
+    symbolIds: stringEvidence(concept.symbolIds),
+  };
+}
+
+function promptRoute(route: RouteRecord): unknown {
+  return {
+    id: route.id,
+    kind: route.kind,
+    method: route.method,
+    path: route.path,
+    handlerSymbolId: route.handlerSymbolId,
+    middlewareSymbolIds: stringEvidence(route.middlewareSymbolIds),
+    clientCallEvidence: representativeEvidence(route.clientCalls, (call) => ({
+      callSiteId: call.callSiteId,
+      callerId: call.callerId,
+      method: call.method,
+      path: call.path,
+      source: sourceLine(call.source),
+    })),
+    responseEvidence: representativeEvidence(route.responseVariants, (variant) => ({
+      id: variant.id,
+      expression: boundedText(variant.expression),
+      condition: boundedText(variant.condition),
+      status: variant.status,
+      explicitType: variant.explicitType?.text ?? null,
+      source: sourceLine(variant.source),
+    })),
+    source: sourceLine(route.source),
+  };
+}
+
+function promptEntity(item: KnowledgeInventoryEntry): KnowledgePromptEntity {
+  return {
+    entity: item.entity,
+    kind: item.kind,
+    fingerprint: item.fingerprint,
+    role: item.role,
+    source: item.source,
+    facts: item.facts,
+    expected: item.expected,
+  };
+}
+
 /** Build source-backed knowledge targets for every tracked first-party JS/TS role and existing non-code note entity. */
 export function buildKnowledgeInventory(paths: RepoPaths, index: SemanticIndex): KnowledgeInventoryEntry[] {
   const out: KnowledgeInventoryEntry[] = [];
@@ -169,7 +352,11 @@ export function buildKnowledgeInventory(paths: RepoPaths, index: SemanticIndex):
     fingerprint: repoFingerprint,
     role: null,
     source: "",
-    facts: { files: allFileProof, routes: index.routes.map((route) => route.id), concepts: index.concepts.map((concept) => concept.id) },
+    facts: {
+      files: representativeEvidence(allFileProof, (file) => ({ file: file.file, role: file.role })),
+      routes: stringEvidence(index.routes.map((route) => route.id)),
+      concepts: stringEvidence(index.concepts.map((concept) => concept.id)),
+    },
     expected: emptyExpected(),
     sourceFiles: index.files.map((file) => file.file),
     symbolIds: index.symbols.map((symbol) => symbol.id),
@@ -183,7 +370,7 @@ export function buildKnowledgeInventory(paths: RepoPaths, index: SemanticIndex):
       fingerprint: evidenceFingerprint(files.map((file) => ({ file: file.file, fingerprint: file.fingerprint }))),
       role: null,
       source: "",
-      facts: { files: files.map((file) => ({ file: file.file, role: file.codeRole })) },
+      facts: { files: representativeEvidence(files, (file) => ({ file: file.file, role: file.codeRole })) },
       expected: emptyExpected(),
       sourceFiles: files.map((file) => file.file),
       symbolIds: index.symbols.filter((symbol) => symbol.file.startsWith(directory)).map((symbol) => symbol.id),
@@ -198,7 +385,7 @@ export function buildKnowledgeInventory(paths: RepoPaths, index: SemanticIndex):
       fingerprint: file.fingerprint,
       role: file.codeRole,
       source: sourceSlice(paths, file.file),
-      facts: { symbols: symbols.map((symbol) => ({ id: symbol.id, kind: symbol.kind, exported: symbol.exported })) },
+      facts: { symbols: representativeEvidence(symbols, (symbol) => ({ id: symbol.id, kind: symbol.kind, exported: symbol.exported })) },
       expected: emptyExpected(),
       sourceFiles: [file.file],
       symbolIds: symbols.map((symbol) => symbol.id),
@@ -207,17 +394,14 @@ export function buildKnowledgeInventory(paths: RepoPaths, index: SemanticIndex):
 
   for (const symbol of index.symbols) {
     const calls = index.calls.filter((call) => call.callerId === symbol.id || call.calleeId === symbol.id);
+    const validations = index.validations.filter((validation) => validation.symbolId === symbol.id);
     out.push(entry({
       entity: symbol.id,
       kind: "symbol",
       fingerprint: symbol.fingerprint,
       role: fileByName.get(symbol.file)?.codeRole ?? null,
       source: sourceSlice(paths, symbol.file, symbol.documentedDeclaration.startOffset, symbol.documentedDeclaration.endOffset),
-      facts: {
-        symbol,
-        calls,
-        validations: index.validations.filter((validation) => validation.symbolId === symbol.id),
-      },
+      facts: promptSymbol(symbol, calls, validations),
       expected: expectedForSymbol(symbol, calls),
       sourceFiles: [symbol.file],
       symbolIds: [symbol.id],
@@ -232,7 +416,7 @@ export function buildKnowledgeInventory(paths: RepoPaths, index: SemanticIndex):
       fingerprint: evidenceFingerprint(route),
       role: "production",
       source: handler ? sourceSlice(paths, handler.file, handler.documentedDeclaration.startOffset, handler.documentedDeclaration.endOffset) : "",
-      facts: route,
+      facts: promptRoute(route),
       expected: {
         parameters: [],
         fields: uniqueDescriptions([
@@ -254,7 +438,7 @@ export function buildKnowledgeInventory(paths: RepoPaths, index: SemanticIndex):
       fingerprint: evidenceFingerprint(concept),
       role: null,
       source: "",
-      facts: concept,
+      facts: promptConcept(concept),
       expected: {
         parameters: [],
         fields: concept.occurrences.map((occurrence) => ({ id: occurrence.id, description: "", explicitType: occurrence.explicitType })),
@@ -278,8 +462,8 @@ export function buildKnowledgeInventory(paths: RepoPaths, index: SemanticIndex):
       kind: prefix === "env" ? "environment" : prefix,
       fingerprint,
       role: null,
-      source: sourceFiles.map((file) => `// ${file}\n${sourceSlice(paths, file)}`).join("\n\n"),
-      facts: { notes: note.entries },
+      source: truncateSource(sourceFiles.map((file) => `// ${file}\n${sourceSlice(paths, file)}`).join("\n\n")),
+      facts: { notes: representativeEvidence(note.entries, (item) => item) },
       expected: emptyExpected(),
       sourceFiles,
       symbolIds: [],
@@ -308,7 +492,7 @@ function chunkEntries(entries: KnowledgeInventoryEntry[]): KnowledgeInventoryEnt
   let current: KnowledgeInventoryEntry[] = [];
   let bytes = 0;
   for (const entry of entries) {
-    const size = Buffer.byteLength(JSON.stringify(entry));
+    const size = Buffer.byteLength(JSON.stringify(promptEntity(entry)));
     if (size > MAX_CHUNK_BYTES) throw new Error(`${entry.entity} exceeds the bounded knowledge chunk size.`);
     if (current.length > 0 && (current.length >= MAX_CHUNK_ENTITIES || bytes + size > MAX_CHUNK_BYTES)) {
       chunks.push(current);
@@ -453,7 +637,7 @@ export function runKnowledgeJob(
       return item;
     });
     try {
-      chunk.records = generate(job.agent, entities);
+      chunk.records = generate(job.agent, entities.map(promptEntity));
       chunk.status = "completed";
       chunk.error = null;
     } catch (error) {
@@ -478,7 +662,7 @@ export function runKnowledgeJob(
       const entities = chunk.entityIds.map((entity) => {
         const item = all.get(entity);
         if (!item) throw new Error(`Knowledge entity ${entity} disappeared after preview.`);
-        return item;
+        return promptEntity(item);
       });
       return validateGeneratedKnowledge({ records: chunk.records }, entities);
     });

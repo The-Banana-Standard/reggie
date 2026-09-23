@@ -9,3 +9,7 @@ sources: shared-repo-knowledge
 
 ## verify · 2026-09-23 · Codex via jacobpress · medium
 Revalidate every persisted completed chunk against the current inventory before a resumed job publishes, so editable cache files cannot bypass hostile-output validation.
+
+## how · 2026-09-23 · Codex via jacobpress · high
+Knowledge generation prompts retain every expected parameter, field, return, and call-site ID while bounding repeated semantic context to deterministic representative evidence with totals; static index data and fingerprints remain complete, and job-only metadata is excluded from prompt byte accounting.
+sources: knowledge-preview-bounds

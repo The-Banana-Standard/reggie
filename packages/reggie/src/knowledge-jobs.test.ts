@@ -1,8 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { makeTempRepo, type TempRepo } from "../test/helpers.js";
+import type { DataConcept } from "./data-concepts.js";
 import { git } from "./git.js";
-import type { GeneratedKnowledge, KnowledgeAgent, KnowledgePromptEntity } from "./knowledge-agents.js";
+import { validateGeneratedKnowledge, type GeneratedKnowledge, type KnowledgeAgent, type KnowledgePromptEntity } from "./knowledge-agents.js";
 import {
   buildKnowledgeInventory,
   buildRepositorySemanticIndex,
@@ -19,7 +20,7 @@ import { ensureLayout } from "./layout.js";
 import { resolveNoteTarget } from "./notes.js";
 import { repoPaths, type RepoPaths } from "./paths.js";
 import { parseConfig, type ReggieConfig } from "./people.js";
-import type { SemanticIndex } from "./semantic-index.js";
+import type { CallSite, SemanticIndex } from "./semantic-index.js";
 
 function generated(entities: KnowledgePromptEntity[]): GeneratedKnowledge[] {
   return entities.map((entity) => ({
@@ -98,6 +99,59 @@ describe("knowledge inventory and jobs", () => {
     ]));
     expect(route?.source).toContain("onRequestPost");
     expect(inventory.some((item) => item.kind === "concept")).toBe(true);
+  });
+
+  it("bounds high-cardinality prompt evidence without dropping any required descriptions", () => {
+    const symbolId = "sym:functions/lib/session.ts::resolveSessionId";
+    const baseCall = index.calls.find((call) => call.calleeId === symbolId)!;
+    const calls: CallSite[] = Array.from({ length: 480 }, (_, itemIndex) => ({
+      ...baseCall,
+      id: `call:file:test/high-cardinality-${itemIndex}.ts:${itemIndex}`,
+      callerId: `file:test/high-cardinality-${itemIndex}.ts`,
+      calleeId: symbolId,
+      source: { ...baseCall.source, file: `test/high-cardinality-${itemIndex}.ts`, startLine: itemIndex + 1, endLine: itemIndex + 1 },
+    }));
+    const occurrences = Array.from({ length: 480 }, (_, itemIndex) => ({
+      id: `occ:field:test/high-cardinality-${itemIndex}.ts:${itemIndex}:value`,
+      name: "value",
+      path: ["value"],
+      kind: "field" as const,
+      source: { file: `test/high-cardinality-${itemIndex}.ts`, line: itemIndex + 1 },
+      symbolId,
+      explicitType: null,
+      validationIds: [],
+      routeIds: [],
+    }));
+    const concept: DataConcept = {
+      id: "concept:high-cardinality",
+      canonicalName: "value",
+      aliases: ["value"],
+      occurrences,
+      links: occurrences.slice(1).map((occurrence, itemIndex) => ({
+        from: occurrences[itemIndex]!.id,
+        to: occurrence.id,
+        kind: "assignment",
+        source: occurrence.source,
+        transformation: null,
+      })),
+      explicitTypes: [],
+      validationIds: [],
+      transformations: [],
+      routeIds: [],
+      symbolIds: [symbolId],
+    };
+    const crowded: SemanticIndex = { ...index, calls: [...index.calls, ...calls], concepts: [...index.concepts, concept] };
+
+    const scope = previewKnowledgeJob(paths, crowded, { force: true, agent: "codex" });
+    const inventory = scope.entries.flat();
+    const symbol = inventory.find((item) => item.entity === symbolId)!;
+    const conceptEntry = inventory.find((item) => item.entity === concept.id)!;
+    expect(symbol.expected.callSites).toHaveLength(calls.length + index.calls.filter((call) => call.callerId === symbolId || call.calleeId === symbolId).length);
+    expect(conceptEntry.expected.fields).toHaveLength(occurrences.length);
+    expect((symbol.facts as { callEvidence: { included: number; omitted: number } }).callEvidence).toMatchObject({ included: 24, omitted: expect.any(Number) });
+    expect((conceptEntry.facts as { occurrenceEvidence: { included: number; omitted: number } }).occurrenceEvidence).toMatchObject({ included: 24, omitted: 456 });
+    expect(validateGeneratedKnowledge({ records: generated([symbol]) }, [symbol])[0]!.current.callSites).toHaveLength(symbol.expected.callSites.length);
+    expect(validateGeneratedKnowledge({ records: generated([conceptEntry]) }, [conceptEntry])[0]!.current.fields).toHaveLength(occurrences.length);
   });
 
   it("previews scope and requires exactly one confirmation before a one-commit batch", () => {
