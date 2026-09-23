@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { makeTempRepo, type TempRepo } from "../test/helpers.js";
 import { buildGraph, type RepoGraph } from "./graph.js";
 import { repoPaths, type RepoPaths } from "./paths.js";
@@ -18,9 +18,12 @@ import {
   readStringLiteral,
   splitArgs,
   traceFlow,
+  type DetectFlowsOptions,
   type Flow,
   type FlowStep,
+  type TraceOptions,
 } from "./flows.js";
+import { buildSemanticIndex, type SemanticIndex } from "./semantic-index.js";
 
 /** A step's payload fields, or `null` when nothing was derivable. */
 function inFields(step: FlowStep | undefined): string[] | null {
@@ -91,8 +94,9 @@ describe("a Cloudflare handler traced to its sinks", () => {
   let repo: TempRepo;
   let paths: RepoPaths;
   let graph: RepoGraph;
+  let semanticIndex: SemanticIndex;
 
-  beforeEach(() => {
+  beforeAll(() => {
     clearHistoryCache();
     repo = makeTempRepo("reggie-flows-");
     repo.write(
@@ -159,11 +163,20 @@ describe("a Cloudflare handler traced to its sinks", () => {
     paths = repoPaths(repo.root);
     ensureLayout(paths);
     graph = buildGraph(paths);
+    semanticIndex = buildSemanticIndex(paths, graph);
   });
-  afterEach(() => repo.cleanup());
+  afterAll(() => repo.cleanup());
+
+  function detect(options: DetectFlowsOptions = {}) {
+    return detectFlows(paths, graph, { ...options, semanticIndex });
+  }
+
+  function trace(entryId: string, options: TraceOptions = {}) {
+    return traceFlow(paths, graph, entryId, { ...options, semanticIndex });
+  }
 
   it("finds the entry with its route and method", () => {
-    const index = detectFlows(paths, graph);
+    const index = detect();
     const entry = index.entries.find((e) => e.file === "functions/api/chat.js");
     expect(entry).toBeDefined();
     expect(entry?.kind).toBe("cloudflare");
@@ -178,9 +191,9 @@ describe("a Cloudflare handler traced to its sinks", () => {
   });
 
   it("walks the whole chain, in order, without truncating", () => {
-    const index = detectFlows(paths, graph, { trace: false });
+    const index = detect({ trace: false });
     const entry = index.entries.find((e) => e.symbol === "onRequestPost");
-    const flow = traceFlow(paths, graph, entry?.id ?? "");
+    const flow = trace(entry?.id ?? "");
     expect(flow.truncated).toBe(false);
     expect(flow.title).toBe("POST /api/chat");
 
@@ -202,7 +215,7 @@ describe("a Cloudflare handler traced to its sinks", () => {
   });
 
   it("takes the request payload from the destructured body, marked exact", () => {
-    const flow = traceFlow(paths, graph, "sym:functions/api/chat.js::onRequestPost");
+    const flow = trace("sym:functions/api/chat.js::onRequestPost");
     const first = flow.steps[0];
     expect(first?.input?.fields).toEqual(["message", "history", "sessionId"]);
     expect(first?.input?.confidence).toBe("exact");
@@ -211,7 +224,7 @@ describe("a Cloudflare handler traced to its sinks", () => {
   });
 
   it("takes an object literal at the call site as exact keys", () => {
-    const flow = traceFlow(paths, graph, "sym:functions/api/chat.js::onRequestPost");
+    const flow = trace("sym:functions/api/chat.js::onRequestPost");
     const step = stepTo(flow, "sym:functions/chat/logging.js::logConversation");
     // The literal is the second argument; `env` before it is positional and contributes nothing.
     expect(step?.input?.fields).toEqual(["sessionId", "question", "history"]);
@@ -221,7 +234,7 @@ describe("a Cloudflare handler traced to its sinks", () => {
   });
 
   it("falls back to parameter names, marked heuristic, when the call site is positional", () => {
-    const flow = traceFlow(paths, graph, "sym:functions/api/chat.js::onRequestPost");
+    const flow = trace("sym:functions/api/chat.js::onRequestPost");
     const step = stepTo(flow, "sym:functions/chat/rateLimit.js::checkRateLimit");
     expect(step?.input?.fields).toEqual(["env", "identifier", "limit", "windowMs"]);
     expect(step?.input?.confidence).toBe("heuristic");
@@ -230,7 +243,7 @@ describe("a Cloudflare handler traced to its sinks", () => {
   });
 
   it("yields a real null when the signature gives nothing", () => {
-    const flow = traceFlow(paths, graph, "sym:functions/api/chat.js::onRequestPost");
+    const flow = trace("sym:functions/api/chat.js::onRequestPost");
     const step = stepTo(flow, "sym:functions/chat/ping.js::ping");
     expect(step).toBeDefined();
     expect(step?.input).toBeNull();
@@ -238,7 +251,7 @@ describe("a Cloudflare handler traced to its sinks", () => {
   });
 
   it("captures the response payload and the binding writes", () => {
-    const flow = traceFlow(paths, graph, "sym:functions/api/chat.js::onRequestPost");
+    const flow = trace("sym:functions/api/chat.js::onRequestPost");
     // A literal returned by a nested callback is that callback's, not the handler's.
     const nested = stepTo(flow, "sym:functions/chat/nested.js::withCallback");
     expect(nested?.output).toBeNull();
@@ -278,12 +291,12 @@ describe("a Cloudflare handler traced to its sinks", () => {
         resourceId: null,
       },
     ];
-    const flow = traceFlow(paths, graph, "sym:functions/api/chat.js::onRequestPost", { services: declared });
+    const flow = trace("sym:functions/api/chat.js::onRequestPost", { services: declared });
     expect(flow.services).toContain("svc:kv:RATE_LIMIT");
   });
 
   it("uses a declared service kind over the guess when §1 supplies one", () => {
-    const flow = traceFlow(paths, graph, "sym:functions/api/chat.js::onRequestPost", {
+    const flow = trace("sym:functions/api/chat.js::onRequestPost", {
       services: [{ id: "svc:bucket:RATE_LIMIT", kind: "bucket", binding: "RATE_LIMIT", name: "my-bucket" }],
     });
     expect(flow.services).toContain("svc:bucket:RATE_LIMIT");
@@ -291,7 +304,7 @@ describe("a Cloudflare handler traced to its sinks", () => {
   });
 
   it("every step carries a source file and line", () => {
-    const flow = traceFlow(paths, graph, "sym:functions/api/chat.js::onRequestPost");
+    const flow = trace("sym:functions/api/chat.js::onRequestPost");
     for (const step of flow.steps) {
       expect(step.source.file).toMatch(/\.js$/);
       expect(step.source.line).toBeGreaterThan(0);
