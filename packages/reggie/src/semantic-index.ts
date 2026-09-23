@@ -1148,10 +1148,61 @@ function nextPath(file: string): string | null {
   return joinRoute(segments);
 }
 
-function staticString(expression: ts.Expression | undefined): string | null {
+function staticStringFromSymbol(symbol: ts.Symbol, checker: ts.TypeChecker, seen: ReadonlySet<ts.Symbol>): string | null {
+  if (symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+  if (seen.has(symbol)) return null;
+  const nextSeen = new Set(seen).add(symbol);
+  const values = new Set<string>();
+  for (const declaration of symbol.declarations ?? (symbol.valueDeclaration ? [symbol.valueDeclaration] : [])) {
+    if (ts.isShorthandPropertyAssignment(declaration)) {
+      const valueSymbol = checker.getShorthandAssignmentValueSymbol(declaration);
+      const value = valueSymbol ? staticStringFromSymbol(valueSymbol, checker, nextSeen) : null;
+      if (value !== null) values.add(value);
+      continue;
+    }
+    let initializer: ts.Expression | undefined;
+    if (ts.isVariableDeclaration(declaration)) {
+      const declarationList = declaration.parent;
+      if (!ts.isVariableDeclarationList(declarationList) || !(declarationList.flags & ts.NodeFlags.Const)) continue;
+      initializer = declaration.initializer;
+    } else if (ts.isPropertyAssignment(declaration) || ts.isPropertyDeclaration(declaration) || ts.isEnumMember(declaration) || ts.isBindingElement(declaration)) {
+      initializer = declaration.initializer;
+    }
+    const value = staticString(initializer, checker, nextSeen);
+    if (value !== null) values.add(value);
+  }
+  return values.size === 1 ? [...values][0] ?? null : null;
+}
+
+function staticString(expression: ts.Expression | undefined, checker?: ts.TypeChecker, seen: ReadonlySet<ts.Symbol> = new Set()): string | null {
   if (!expression) return null;
   if (ts.isStringLiteralLike(expression) || ts.isNoSubstitutionTemplateLiteral(expression)) return expression.text;
-  return null;
+  if (ts.isParenthesizedExpression(expression) || ts.isAsExpression(expression) || ts.isTypeAssertionExpression(expression) || ts.isNonNullExpression(expression) || ts.isSatisfiesExpression(expression)) {
+    return staticString(expression.expression, checker, seen);
+  }
+  if (ts.isTemplateExpression(expression)) {
+    let value = expression.head.text;
+    for (const span of expression.templateSpans) {
+      const part = staticString(span.expression, checker, seen);
+      if (part === null) return null;
+      value += part + span.literal.text;
+    }
+    return value;
+  }
+  if (ts.isBinaryExpression(expression) && expression.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const left = staticString(expression.left, checker, seen);
+    const right = staticString(expression.right, checker, seen);
+    return left === null || right === null ? null : left + right;
+  }
+  if (!checker) return null;
+  let symbol: ts.Symbol | undefined;
+  if (ts.isPropertyAccessExpression(expression)) symbol = checker.getSymbolAtLocation(expression.name);
+  else if (ts.isElementAccessExpression(expression)) {
+    const key = staticString(expression.argumentExpression, checker, seen);
+    if (key !== null) symbol = checker.getTypeAtLocation(expression.expression).getProperty(key);
+  } else symbol = checker.getSymbolAtLocation(expression);
+  if (!symbol) return null;
+  return staticStringFromSymbol(symbol, checker, seen);
 }
 
 function recordForExpression(expression: ts.Expression, ctx: BuildContext): SymbolRecord | null {
@@ -1243,10 +1294,10 @@ function requestShapeFor(candidate: Candidate, ctx: BuildContext): ValueShape | 
   return found ? shape : null;
 }
 
-function methodFromOptions(expression: ts.Expression | undefined, sourceFile: ts.SourceFile): string {
+function methodFromOptions(expression: ts.Expression | undefined, sourceFile: ts.SourceFile, checker: ts.TypeChecker): string {
   if (!expression || !ts.isObjectLiteralExpression(expression)) return "GET";
   const property = expression.properties.find((item): item is ts.PropertyAssignment => ts.isPropertyAssignment(item) && propertyName(item.name, sourceFile) === "method");
-  return staticString(property?.initializer)?.toUpperCase() ?? "GET";
+  return staticString(property?.initializer, checker)?.toUpperCase() ?? "GET";
 }
 
 function bodyShapeFromOptions(expression: ts.Expression | undefined, sourceFile: ts.SourceFile, checker: ts.TypeChecker): ValueShape | null {
@@ -1295,7 +1346,7 @@ function collectRoutes(ctx: BuildContext, calls: readonly CallSite[]): RouteReco
     const visit = (node: ts.Node): void => {
       if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
         const method = node.expression.name.text.toUpperCase();
-        const routePath = staticString(node.arguments[0]);
+        const routePath = staticString(node.arguments[0], ctx.checker);
         if (HTTP_METHODS.has(method) && routePath) {
           const handlers = node.arguments.slice(1).map((argument) => recordForExpression(argument, ctx)).filter((item): item is SymbolRecord => item !== null);
           const handler = handlers.at(-1) ?? null;
@@ -1328,9 +1379,9 @@ function collectRoutes(ctx: BuildContext, calls: readonly CallSite[]): RouteReco
   for (const file of ctx.files) {
     const visit = (node: ts.Node): void => {
       if (ts.isCallExpression(node) && textOf(node.expression, file.sourceFile) === "fetch") {
-        const routePath = staticString(node.arguments[0]);
+        const routePath = staticString(node.arguments[0], ctx.checker);
         if (routePath) {
-          const method = methodFromOptions(node.arguments[1], file.sourceFile);
+          const method = methodFromOptions(node.arguments[1], file.sourceFile, ctx.checker);
           const call = callByStart.get(`${file.file}:${node.getStart(file.sourceFile)}`);
           const route = routeByKey.get(`${method}:${routePath}`) ?? [...routeByKey.values()].find((item) => item.path === routePath);
           if (call && route) {

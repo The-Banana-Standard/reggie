@@ -1,0 +1,15 @@
+Full verification — 2026-09-23
+
+PASS locally
+- Focused tests: 2 files, 22 tests passed.
+- Full suite: 56 files passed; 1,318 tests passed; 1 skipped.
+- Typecheck: passed.
+- Build: passed.
+- Generated documentation check: fresh.
+- Plan lint: passed.
+- Diff check: passed.
+- Production dependency audit: 0 vulnerabilities.
+- Code, security, and simplification reviews: passed.
+- Real personal_website API and browser acceptance: passed.
+
+Hosted Ubuntu/macOS CI: pending until the task branch is pushed.

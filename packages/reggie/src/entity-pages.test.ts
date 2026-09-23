@@ -54,9 +54,11 @@ describe("code entity page projections", () => {
       "  return Response.json({ reply: payload.message, session_id: id });",
       "}",
     ].join("\n"));
+    repo.write("src/chatConfig.ts", "export const chatConfig = { endpoint: '/api/chat' } as const;\n");
     repo.write("src/client.ts", [
+      "import { chatConfig } from './chatConfig';",
       "export function sendChat() {",
-      "  return fetch('/api/chat', { method: 'POST', body: JSON.stringify({",
+      "  return fetch(chatConfig.endpoint, { method: 'POST', body: JSON.stringify({",
       "    message: 'hi', session_id: 's', history: [], model: 'm', temperature: 1, max_tokens: 20,",
       "    profile: { name: 'Ada', flags: { active: true } },",
       "  }) });",
