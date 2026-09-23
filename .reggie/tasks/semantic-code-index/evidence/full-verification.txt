@@ -6,7 +6,7 @@ Focused semantic suite:
 
 Full suite:
   TZ=UTC npm test
-  48 files passed; 1237 tests passed; 1 skipped.
+  48 files passed; 1239 tests passed; 1 skipped.
 
 The UTC setting isolates a previously existing local-date rollover failure after 20:00 in
 America/New_York. That issue is recorded separately as local-date-task-age-rolls-over-early;
@@ -18,9 +18,18 @@ Other gates:
   reggie docs check                          PASS (CLAUDE.md and AGENTS.md fresh)
   npm audit --json                           PASS (0 vulnerabilities at every severity)
   git diff --check                           PASS
-  serve HTTP suite                           PASS (146/146)
+  serve HTTP suite                           PASS (160/160)
   router/map web-DOM suite                   PASS (15/15)
   read-only personal_website chat probe      PASS
+
+Hosted CI (PR #17, run 35815118894, commit a703cb5):
+  ubuntu-latest                              PASS (1m35s)
+  macos-latest                               PASS (5m23s)
+  Both jobs passed tests, typecheck, build, and generated documentation checks.
+
+The compiler-backed fixtures reuse immutable semantic indexes, and the real server numeric-range
+contract keeps each route and valid boundary request in its own test. This preserves every assertion
+and the 20-second per-test guard while avoiding an artificial shared timeout on saturated runners.
 
 The first documentation check was started concurrently with the build and correctly refused
 the then-stale dist output. It passed immediately after the build completed.
