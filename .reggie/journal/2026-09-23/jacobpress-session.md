@@ -66,3 +66,6 @@ Desktop and phone browser acceptance passed with dedicated route and symbol navi
 ### 04:53 · jacobpress · codex · data-flow-experience · review
 Hosted Ubuntu and macOS completed the full workflow successfully. The completion packet now has local, browser, and hosted proof for the final criterion.
 
+### 05:08 · jacobpress · codex · personal-website-acceptance-fixes · plan
+The real repository exposed one narrow semantic gap: a fetch URL stored in an imported configuration object was source-known but absent from the endpoint's client list. Planned a compiler-declaration resolution fix with dynamic values left unresolved.
+
