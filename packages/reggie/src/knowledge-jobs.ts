@@ -3,7 +3,7 @@ import { existsSync, readdirSync, renameSync, rmSync, writeFileSync } from "node
 import path from "node:path";
 import { buildGraph } from "./graph.js";
 import { currentBranch, git } from "./git.js";
-import { generateKnowledge, type GeneratedKnowledge, type KnowledgeAgent, type KnowledgePromptEntity } from "./knowledge-agents.js";
+import { generateKnowledge, validateGeneratedKnowledge, type GeneratedKnowledge, type KnowledgeAgent, type KnowledgePromptEntity } from "./knowledge-agents.js";
 import {
   assertKnowledgeIntegrationCheckout,
   evidenceFingerprint,
@@ -470,8 +470,18 @@ export function runKnowledgeJob(
     writeJob(paths, job);
   }
 
-  const generated = job.chunks.flatMap((chunk) => chunk.records);
   try {
+    // Revalidate cached completed chunks before publication. A failed job is resumable and its
+    // ignored JSON is user-writable; cached output never bypasses the same hostile-output checks as
+    // a fresh agent response.
+    const generated = job.chunks.flatMap((chunk) => {
+      const entities = chunk.entityIds.map((entity) => {
+        const item = all.get(entity);
+        if (!item) throw new Error(`Knowledge entity ${entity} disappeared after preview.`);
+        return item;
+      });
+      return validateGeneratedKnowledge({ records: chunk.records }, entities);
+    });
     const codeRevision = job.codeRevision;
     const result = saveKnowledgeBatch(paths, config, generated.map((record) => {
       const target = job.targets.find((candidate) => candidate.entity === record.entity);

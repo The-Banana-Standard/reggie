@@ -140,6 +140,13 @@ describe("shared repository knowledge", () => {
     expect(readFileSync(lock, "utf8")).toBe(body);
   });
 
+  it("never steals an unreadable lock that another writer may still be creating", () => {
+    const lock = knowledgeLockFile(repo.root);
+    writeFileSync(lock, "", "utf8");
+    expect(() => saveKnowledge(paths, config, edit("src/chat.ts"))).toThrow(/holds the repository lock/);
+    expect(existsSync(lock)).toBe(true);
+  });
+
   it("commits only knowledge while preserving unrelated staged and unstaged work", () => {
     repo.write("staged.txt", "before\n");
     repo.write("unstaged.txt", "before\n");

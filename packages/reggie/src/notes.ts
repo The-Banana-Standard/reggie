@@ -51,6 +51,7 @@ function isNoteType(value: string): value is NoteType {
  */
 export function resolveNoteTarget(paths: RepoPaths, rawEntity: string): NoteTarget {
   const entity = rawEntity.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  if (/[\u0000-\u001f\u007f]/.test(entity)) throw new Error("A note entity may not contain control characters.");
   if (entity === "" || entity === "." || entity === "_repo" || entity === "repo") {
     return { entity: "_repo", kind: "repo", file: path.join(paths.notes, "_repo.md") };
   }

@@ -34,3 +34,6 @@ Flow API steps expose structured ArgumentValue and ReturnVariant records under s
 The public contract documents KnowledgeRecord, inventory, preview, job and guarded write routes, including explicit confirmation, stale behavior, cache locality and knowledge-only commits.
 sources: shared-repo-knowledge
 
+## decision · 2026-09-23 · Codex via jacobpress · medium
+Knowledge detail reads expose historyCount but require history=1 to include immutable history entries in the response.
+

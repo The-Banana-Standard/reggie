@@ -17,3 +17,6 @@ Added source-constrained Codex and Claude adapters plus resumable knowledge jobs
 ### 00:45 · jacobpress · codex · shared-repo-knowledge · build
 Connected shared knowledge to context, note search, MCP, generated agent instructions, CLI commands, and guarded web APIs. Current and stale state now come from one record, retired text is excluded from normal narration, and explicit history remains readable. Interface, documentation, context, job, adapter, and Git-safety tests pass.
 
+### 00:54 · jacobpress · codex · shared-repo-knowledge · implement
+Hardened note identifiers, knowledge write locks, resumable job publication, and ordinary API reads. Cached agent output is revalidated at publication, concurrent writers retain ownership, and history is loaded only when explicitly requested.
+

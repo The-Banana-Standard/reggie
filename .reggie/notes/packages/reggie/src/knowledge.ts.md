@@ -11,3 +11,6 @@ sources: shared-repo-knowledge
 All repository knowledge writes are refused outside the configured integration branch before an agent runs or a note changes.
 sources: shared-repo-knowledge
 
+## gotcha · 2026-09-23 · Codex via jacobpress · medium
+Treat unreadable or partially written knowledge lock files as live; never steal a lock while another process may still be creating it.
+

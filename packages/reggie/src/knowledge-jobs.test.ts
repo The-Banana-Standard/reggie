@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { makeTempRepo, type TempRepo } from "../test/helpers.js";
 import { git } from "./git.js";
@@ -7,6 +7,7 @@ import {
   buildKnowledgeInventory,
   buildRepositorySemanticIndex,
   createKnowledgeJob,
+  knowledgeJobPath,
   previewKnowledgeJob,
   readKnowledgeJob,
   readLastKnowledgeAgent,
@@ -152,6 +153,26 @@ describe("knowledge inventory and jobs", () => {
       return generated(entities);
     } })).toThrow(/configured integration checkout/);
     expect(calls).toBe(0);
+  });
+
+  it("revalidates cached completed chunks before a resumed job can publish", () => {
+    const ids = buildKnowledgeInventory(paths, index).filter((item) => item.kind === "symbol").slice(0, 10).map((item) => item.entity);
+    const job = createKnowledgeJob(paths, index, { entities: ids });
+    let calls = 0;
+    const failed = runKnowledgeJob(paths, config, index, job.id, { confirm: true, generate: (_agent, entities) => {
+      calls += 1;
+      if (calls === 2) throw new Error("pause before publish");
+      return generated(entities);
+    } });
+    expect(failed.status).toBe("failed");
+    const file = `${repo.root}/${knowledgeJobPath(paths, job.id)}`;
+    const tampered = JSON.parse(readFileSync(file, "utf8")) as { chunks: Array<{ records: Array<{ fingerprint: string }> }> };
+    tampered.chunks[0]!.records[0]!.fingerprint = "tampered";
+    writeFileSync(file, `${JSON.stringify(tampered, null, 2)}\n`, "utf8");
+    const resumed = runKnowledgeJob(paths, config, index, job.id, { generate: (_agent, entities) => generated(entities) });
+    expect(resumed.status).toBe("failed");
+    expect(resumed.failures.join(" ")).toContain("changed the fingerprint");
+    expect(ids.every((id) => !existsSync(resolveNoteTarget(paths, id).file))).toBe(true);
   });
 
   it("reports stale versus fresh records and includes fresh entities only for explicit refresh", () => {

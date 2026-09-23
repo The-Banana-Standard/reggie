@@ -28,6 +28,7 @@ describe("notes", () => {
     expect(symbol.file.endsWith("notes/_symbols/src/auth/login.ts/Session.create.md")).toBe(true);
     expect(() => resolveNoteTarget(paths, "sym:../outside.ts::run")).toThrow(/repo-relative symbol ID/);
     expect(() => resolveNoteTarget(paths, "sym:src/auth/login.ts::")).toThrow(/valid symbol ID/);
+    expect(() => resolveNoteTarget(paths, "route:POST /api/chat\nretired: true")).toThrow(/control characters/);
   });
 
   it("adds entries and reads them back", () => {

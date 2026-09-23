@@ -2234,7 +2234,13 @@ function knowledgeRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
     const inventory = knowledgeInventoryOf(c).find((item) => item.entity === entity);
     const record = readKnowledge(c.paths, entity, inventory?.fingerprint ?? null);
     if (!record) return json(res, 404, { error: `no knowledge for ${entity}` });
-    return json(res, 200, { record, current: currentKnowledge(record), historyIncluded: qBool(url, "history") });
+    const historyIncluded = qBool(url, "history");
+    return json(res, 200, {
+      record: historyIncluded ? record : { ...record, history: [] },
+      current: currentKnowledge(record),
+      historyCount: record.history.length,
+      historyIncluded,
+    });
   } catch (err) {
     return json(res, 400, { error: err instanceof Error ? err.message : "bad knowledge entity" });
   }

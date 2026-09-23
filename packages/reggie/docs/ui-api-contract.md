@@ -319,7 +319,7 @@ Streams `.reggie/tasks/<slug>/evidence/<name>` with a content type by extension 
 
 ## Shared repository knowledge
 
-`GET /api/knowledge` lists source-backed inventory rows `{entity, kind, fingerprint, role, sourceFiles, symbolIds, revision, state}` for repo, folder, file, symbol, route, concept, and existing service/store/environment entities. `state` is `new|fresh|stale|retired`. `GET /api/knowledge?entity=<id>&history=1` returns `{record: KnowledgeRecord, current: KnowledgeCurrent|null, historyIncluded}`; `current` is null for retired records, while the immutable text remains on `record.current` and `record.history` for an explicit history view.
+`GET /api/knowledge` lists source-backed inventory rows `{entity, kind, fingerprint, role, sourceFiles, symbolIds, revision, state}` for repo, folder, file, symbol, route, concept, and existing service/store/environment entities. `state` is `new|fresh|stale|retired`. `GET /api/knowledge?entity=<id>&history=1` returns `{record: KnowledgeRecord, current: KnowledgeCurrent|null, historyCount, historyIncluded}`; without `history=1`, `record.history` is empty but `historyCount` remains. `current` is null for retired records, while the immutable text remains on `record.current` and, for an explicit history view, `record.history`.
 
 `GET /api/knowledge-preview?agent=codex|claude&entity=<id>&all=0|1` reports agent, new/stale entity counts, distinct files/symbols, expected chunks, entity IDs, and the exact one-commit behavior without creating a job. `GET /api/knowledge-jobs` lists local ignored job state; `GET /api/knowledge-job?id=<uuid>` reads one job with confirmation, chunk progress, failures, resumability, and resulting commit.
 

@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
   closeSync,
-  existsSync,
   openSync,
   readFileSync,
   renameSync,
@@ -152,10 +151,10 @@ function exactKeys(value: Record<string, unknown>, allowed: readonly string[], l
   if (extras.length > 0) throw new Error(`${label} has unsupported fields: ${extras.join(", ")}`);
 }
 
-function boundedString(value: unknown, label: string, allowEmpty = false): string {
+function boundedString(value: unknown, label: string): string {
   if (typeof value !== "string") throw new Error(`${label} must be text.`);
   const text = value.trim();
-  if (!allowEmpty && !text) throw new Error(`${label} must not be empty.`);
+  if (!text) throw new Error(`${label} must not be empty.`);
   if (text.length > MAX_TEXT) throw new Error(`${label} exceeds ${MAX_TEXT} characters.`);
   return text;
 }
@@ -424,13 +423,17 @@ function acquireKnowledgeLock(root: string): KnowledgeLock {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       let held: { pid?: number; at?: string } = {};
+      let readable = true;
       try {
         held = JSON.parse(readFileSync(file, "utf8")) as { pid?: number; at?: string };
       } catch {
-        // A creator may still be writing. Treat an unreadable fresh lock as live.
+        readable = false;
       }
-      const age = held.at ? Date.now() - Date.parse(held.at) : 0;
-      if ((held.pid && processAlive(held.pid) && age < LOCK_STALE_MS) || attempt > 0) {
+      const parsedAt = held.at ? Date.parse(held.at) : Number.NaN;
+      const age = Number.isFinite(parsedAt) ? Date.now() - parsedAt : 0;
+      // A creator may still be writing an unreadable lock. Never steal it, and treat a malformed
+      // timestamp as fresh when its process is alive.
+      if (!readable || (held.pid && processAlive(held.pid) && age < LOCK_STALE_MS) || attempt > 0) {
         throw new Error(`Another knowledge write holds the repository lock${held.pid ? ` (pid ${held.pid})` : ""}. Try again after it finishes.`);
       }
       const aside = `${file}.${token}.stale`;
@@ -459,7 +462,7 @@ function dirtyTargets(root: string, files: string[]): string[] {
   return result.stdout.split("\0").filter(Boolean);
 }
 
-function writeAtomically(writes: PreparedWrite[]): { restore(): void; discard(): void } {
+function writeAtomically(writes: PreparedWrite[]): { restore(): void } {
   const backups = new Map<string, string | null>();
   const temps: string[] = [];
   try {
@@ -494,7 +497,6 @@ function writeAtomically(writes: PreparedWrite[]): { restore(): void; discard():
         }
       }
     },
-    discard: () => undefined,
   };
 }
 
@@ -530,16 +532,14 @@ function commitWrites(paths: RepoPaths, config: ReggieConfig, writes: PreparedWr
   }
   const branch = assertKnowledgeIntegrationCheckout(paths.root, config);
   const lock = acquireKnowledgeLock(paths.root);
-  let files: string[] = [];
   try {
-    files = writes.map((write) => relPosix(paths.root, write.file));
+    const files = writes.map((write) => relPosix(paths.root, write.file));
     const dirty = dirtyTargets(paths.root, files);
     if (dirty.length > 0) throw new Error(`Knowledge targets already have uncommitted changes: ${dirty.join("; ")}. Commit or discard them before saving.`);
     const atomic = writeAtomically(writes);
     let commit: string;
     try {
       commit = commitOnly(paths.root, branch, files, message);
-      atomic.discard();
     } catch (error) {
       atomic.restore();
       throw error;
