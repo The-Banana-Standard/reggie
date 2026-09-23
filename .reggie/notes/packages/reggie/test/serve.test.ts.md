@@ -25,3 +25,6 @@ Server contract tests expect the TypeScript symbol engine and exercise semantic-
 ## gotcha · 2026-09-22 · Codex via jacobpress · medium
 Keep the numeric-days contract as one parameterized case per API route. Combining all 36 requests in one test makes an unrelated saturated CI worker consume the whole per-test timeout and hides which route failed.
 
+## verify · 2026-09-22 · Codex via jacobpress · medium
+Exercise each valid numeric boundary as its own test. Repo-story generation is deliberately real and can take several seconds on a saturated hosted runner, so unrelated boundary requests must not share one timeout budget.
+
