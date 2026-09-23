@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { buildGraph } from "../../src/graph.js";
 import { repoPaths } from "../../src/paths.js";
-import { detectFlows, traceFlow, type Payload } from "../../src/flows.js";
+import { detectFlows, traceFlow } from "../../src/flows.js";
 import { detectServices } from "../../src/services.js";
 import type { ValueShape } from "../../src/semantic-index.js";
 
@@ -36,12 +36,6 @@ for (const e of index.entries) {
   );
 }
 
-const show = (p: Payload | null): string => {
-  if (!p) return "null (not derivable)";
-  const at = p.source ? ` @ ${p.source.file}:${p.source.line}` : "";
-  return `${p.confidence.toUpperCase()} [${p.shape}] { ${p.fields.join(", ")} }${at}`;
-};
-
 const showShape = (shape: ValueShape | null): string => {
   if (!shape) return "null (not derived)";
   const fields = shape.fields.map((field) => `${field.name}${field.explicitType ? `: ${field.explicitType.text}` : ": not declared"}`);
@@ -58,27 +52,14 @@ console.log(`\n=== FLOW ${flow.title} (${flow.id}) ===`);
 console.log(`steps=${flow.steps.length} depth=${flow.depth} truncated=${flow.truncated}`);
 console.log(`services: ${flow.services.join(", ") || "(none)"}\n`);
 
-let exact = 0;
-let heuristic = 0;
-let none = 0;
 flow.steps.forEach((s, i) => {
   console.log(`${String(i).padStart(2)}. [${s.kind}] ${s.label}`);
   console.log(`    ${s.from}`);
   console.log(` →  ${s.to}   (${s.source.file}:${s.source.line})`);
-  console.log(`    in : ${show(s.input)}`);
-  console.log(`    out: ${show(s.output)}`);
   console.log(`    arguments: ${s.arguments.map((argument) => argument.expression).join(", ") || "(none)"}`);
   if (s.requestPayload) console.log(`    request: ${showShape(s.requestPayload)}`);
   if (s.servicePayload) console.log(`    service: ${showShape(s.servicePayload)}`);
   console.log(`    returns: ${s.returns.map((variant) => variant.expression).join(" | ") || "(none)"}`);
-  for (const p of [s.input, s.output]) {
-    if (!p) none += 1;
-    else if (p.confidence === "exact") exact += 1;
-    else heuristic += 1;
-  }
 });
-const total = exact + heuristic + none;
-console.log(`\npayload slots (input+output over ${flow.steps.length} steps): ${total}`);
-console.log(`  exact     ${exact} (${((exact / total) * 100).toFixed(0)}%)`);
-console.log(`  heuristic ${heuristic} (${((heuristic / total) * 100).toFixed(0)}%)`);
-console.log(`  null      ${none} (${((none / total) * 100).toFixed(0)}%)`);
+console.log("\n=== NODES ===");
+for (const node of flow.nodes) console.log(`${node.kind.toUpperCase().padEnd(9)} ${node.label} · ${node.path}`);

@@ -27,7 +27,10 @@ import type { RepoPaths } from "./paths.js";
 import { currentPerson, inferMode, loadPeople, type Mode, type PeopleFile, type ReggieConfig } from "./people.js";
 import { isTestLike } from "./roles.js";
 import type { ServiceIndex, ServiceKind, ServiceNode } from "./services.js";
-import type { Flow, FlowDrop, FlowStep, Payload } from "./flows.js";
+import type { Flow, FlowDrop, FlowStep } from "./flows.js";
+import type { DataConcept } from "./data-concepts.js";
+import type { KnowledgeCurrent } from "./knowledge.js";
+import type { ArgumentValue, DeclaredType, ReturnVariant, SemanticIndex, ValidationRule, ValueShape } from "./semantic-index.js";
 import { fileSymbols, type CodeSymbol } from "./symbols.js";
 import { STATE_MACHINE, getTaskDetail, listTasks, stateDefinition, type StateMachine, type TaskBriefDetail, type TaskDetail, type TaskInfo, type TaskState } from "./tasks.js";
 import { containerView, dirIdOf, dirPathOf, dirView, level1, resolveDirId, type Level1, type ViewGraph, type ViewNode } from "./views.js";
@@ -40,7 +43,7 @@ import type { WorkspaceSummary } from "./workspace.js";
 
 export type Lens = "structure" | "knowledge" | "tests" | "heat" | "owners" | "tasks";
 export type StoryScope = "repo" | "area" | "file" | "task" | "workspace";
-export type ParagraphKind = "fact" | "note" | "journal" | "gap" | "commit" | "decision" | "list";
+export type ParagraphKind = "fact" | "note" | "journal" | "gap" | "commit" | "decision" | "list" | "flow-step";
 export type ChipTone = "ok" | "warn" | "bad" | "info" | "muted";
 export type FormKind = "capture" | "note" | "journal";
 
@@ -87,6 +90,45 @@ export interface Paragraph {
   chips?: Chip[];
   source?: ParagraphSource;
   decision?: Decision;
+  flowStep?: FlowStepPresentation;
+}
+
+export interface FlowKnowledgeView {
+  current: KnowledgeCurrent;
+  stale: boolean;
+  exists: boolean;
+}
+
+export interface FlowArgumentPresentation {
+  value: ArgumentValue;
+  descriptionId: string;
+  declaredType: DeclaredType | null;
+  shape: ValueShape | null;
+}
+
+export interface FlowInputPresentation {
+  label: "Arguments" | "Request payload" | "Service payload";
+  arguments: FlowArgumentPresentation[];
+  shape: ValueShape | null;
+  prefix: string;
+  knowledge: FlowKnowledgeView | null;
+}
+
+/** Structured details rendered as one layered step card in the flow story. */
+export interface FlowStepPresentation {
+  number: number;
+  summary: string;
+  technical: string;
+  calleeId: string;
+  calleeLabel: string;
+  calleeSummary: string;
+  calleeStale: boolean;
+  inputs: FlowInputPresentation[];
+  returns: ReturnVariant[];
+  declaredReturnType: DeclaredType | null;
+  returnKnowledge: FlowKnowledgeView | null;
+  validations: ValidationRule[];
+  concepts: DataConcept[];
 }
 
 export interface StoryAction {
@@ -570,6 +612,7 @@ interface ParaExtra {
   chips?: Chip[];
   source?: ParagraphSource;
   decision?: Decision;
+  flowStep?: FlowStepPresentation;
 }
 
 function para(id: string, kind: ParagraphKind, text: string, refs: readonly (string | null | undefined)[], extra: ParaExtra = {}): Paragraph {
@@ -577,6 +620,7 @@ function para(id: string, kind: ParagraphKind, text: string, refs: readonly (str
   if (extra.chips && extra.chips.length > 0) p.chips = extra.chips;
   if (extra.source) p.source = extra.source;
   if (extra.decision) p.decision = extra.decision;
+  if (extra.flowStep) p.flowStep = extra.flowStep;
   return p;
 }
 
@@ -1149,7 +1193,7 @@ function talksSection(ctx: StoryContext, opts: RepoStoryOptions = {}): StorySect
       para(
         "talks-flows",
         "fact",
-        `Data enters at ${countPhrase(flows.length, "entry point")}. ${linkRoute(flowsRouteFor(ctx.repo), "Data flow")} traces each one to the services it reaches, with the payload on every step.`,
+        `Data enters at ${countPhrase(flows.length, "entry point")}. ${linkRoute(flowsRouteFor(ctx.repo), "Data flow")} traces each one to the services it reaches, with source-backed values on every step.`,
         [ROOT_DIR_ID],
       ),
     );
@@ -2714,6 +2758,11 @@ export function servicesStory(ctx: StoryContext, index: ServiceIndex): Story {
 /** A step's node id turned into the name a sentence can use. */
 function flowNodeLabel(id: string): string {
   const value = String(id ?? "");
+  if (value.startsWith("route:")) {
+    const rest = value.slice(6);
+    const split = rest.indexOf(":");
+    return split === -1 ? rest : `${rest.slice(0, split)} ${rest.slice(split + 1)}`;
+  }
   if (value.startsWith("sym:")) {
     const separator = value.indexOf("::", 4);
     return separator === -1 ? value.slice(4) : value.slice(separator + 2);
@@ -2734,75 +2783,133 @@ function flowNodeFile(id: string): string | null {
   return value || null;
 }
 
-/**
- * What a payload is, said without overstating it. An `exact` payload names the construct it
- * was read from; a `heuristic` one says the names came from the signature rather than the
- * data, which is the difference between knowing and guessing.
- */
-function payloadPhrase(p: Payload | null): string | null {
-  if (!p || p.fields.length === 0) return null;
-  const fields = `{ ${p.fields.join(", ")} }`;
-  return p.confidence === "heuristic"
-    ? `${fields} — field names taken from the ${p.shape ?? "signature"}, not from the data`
-    : `${fields}, read from ${p.shape ?? "a literal in the code"}`;
-}
-
-/** "What it sends is { a, b }, read from object literal." / "… is not derivable from the code." */
-function payloadClause(p: Payload | null, lead: string): string {
-  const phrase = payloadPhrase(p);
-  return phrase ? `${lead} is ${phrase}.` : `${lead} is not derivable from the code.`;
-}
-
-/** "carrying { a, b }, read from request.json()" — the mid-sentence form. */
-function carryingPhrase(p: Payload | null, verb = "carrying"): string {
-  const phrase = payloadPhrase(p);
-  return phrase ? `${verb} ${phrase}` : "and what it carries is not derivable from the code";
-}
-
 /** The service a step lands on, when §1 knows it. */
 function flowServiceOf(services: readonly ServiceNode[] | undefined, id: string): ServiceNode | undefined {
   return services?.find((s) => s.id === id);
 }
 
-function flowStepParagraph(ctx: StoryContext, step: FlowStep, i: number, services: readonly ServiceNode[] | undefined): Paragraph {
-  const number = `Step ${numberWord(i + 1)}.`;
-  const from = `\`${flowNodeLabel(step.from)}\``;
-  const toFile = flowNodeFile(step.to);
-  const site = step.source.file;
-  const at = `${link(ctx.repo, site, baseName(site))} at line ${step.source.line}`;
-  // Where the callee lives, said once: the same file, or the other one plus the call site.
-  const where = toFile === null || toFile === site ? `in ${at}` : `in ${link(ctx.repo, toFile, baseName(toFile))}, called from ${at}`;
-  const chips: Chip[] = [];
-  const bits: string[] = [number];
-
-  if (i === 0) {
-    bits.push(`The request arrives at \`${flowNodeLabel(step.to)}\` in ${at}, ${carryingPhrase(step.input)}.`);
-    bits.push(step.output ? payloadClause(step.output, "The first thing it returns") : "What it returns is not derivable from the body alone; the response steps below say what it sends.");
-  } else if (step.kind === "read" || step.kind === "write" || step.to.startsWith("svc:")) {
-    const node = flowServiceOf(services, step.to);
-    const what = node ? `, ${serviceDescription(node)},` : ", which no manifest declares,";
-    const verb = step.kind === "read" ? "reads from" : step.kind === "write" ? "writes to" : "touches";
-    const target = node ? serviceLink(ctx, node) : link(ctx.repo, step.to, flowNodeLabel(step.to));
-    bits.push(`${from} ${verb} ${target}${what} calling \`${step.label}\` in ${at}.`);
-    bits.push(payloadClause(step.input, "What it sends"));
-    if (step.via) bits.push(`The binding arrived as the \`${step.via}\` parameter, resolved through one call site, so this operation is inferred rather than read off \`env\`.`);
-  } else if (step.kind === "respond") {
-    bits.push(`${from} answers with \`${step.label}\` in ${at}, ${carryingPhrase(step.output)}.`);
-  } else if (step.kind === "import") {
-    bits.push(`${from} enters the module ${toFile ? link(ctx.repo, toFile, baseName(toFile)) : flowNodeLabel(step.to)}, called from ${at}. No symbol of that name was found there, so what it does is not derivable.`);
-  } else {
-    bits.push(`${from} calls \`${step.label}\` ${where}, passing ${payloadPhrase(step.input) ?? "arguments the code does not name"}.`);
-    bits.push(payloadClause(step.output, "What it returns"));
+function currentDescription(knowledge: FlowKnowledgeView | undefined, id: string | null): string | null {
+  if (!knowledge?.exists || !id) return null;
+  for (const key of ["parameters", "fields", "returns", "callSites"] as const) {
+    const description = knowledge.current[key].find((item) => item.id === id)?.description.trim();
+    if (description) return description.replace(/\s+/g, " ");
   }
+  return null;
+}
 
+function parameterDescriptionId(index: SemanticIndex | undefined, symbolId: string, argument: ArgumentValue): string {
+  const parameter = index?.symbols.find((symbol) => symbol.id === symbolId)?.parameters[argument.index];
+  const fallback = parameter?.bindingPaths.map((parts) => parts.join(".")).join("|") || "anonymous";
+  return `parameter:${argument.index}:${parameter?.name ?? fallback}`;
+}
+
+function argumentPresentation(index: SemanticIndex | undefined, symbolId: string, value: ArgumentValue): FlowArgumentPresentation {
+  const parameter = index?.symbols.find((symbol) => symbol.id === symbolId)?.parameters[value.index] ?? null;
+  return {
+    value,
+    descriptionId: parameterDescriptionId(index, symbolId, value),
+    declaredType: value.explicitType ?? parameter?.explicitType ?? null,
+    shape: value.shape ?? parameter?.shape ?? null,
+  };
+}
+
+function sourceBackedSummary(step: FlowStep, i: number, services: readonly ServiceNode[] | undefined): string {
+  const from = flowNodeLabel(step.from);
+  const to = flowNodeLabel(step.to);
+  if (i === 0) return step.from.startsWith("route:") ? `The endpoint hands the request to ${to}.` : `The entry point starts in ${to}.`;
+  if (step.kind === "read") return `${from} reads the data it needs from ${to}.`;
+  if (step.kind === "write") return `${from} writes data to ${to}.`;
+  if (step.to.startsWith("svc:")) {
+    const service = flowServiceOf(services, step.to);
+    return `${from} sends data to ${service?.binding || service?.name || to}.`;
+  }
+  if (step.kind === "respond") return `${from} sends a response back to the caller.`;
+  if (step.kind === "import") return `${from} continues in ${to}.`;
+  return `${from} calls ${to}.`;
+}
+
+function technicalSentence(ctx: StoryContext, step: FlowStep, i: number): string {
+  const from = link(ctx.repo, step.from, flowNodeLabel(step.from));
+  const to = link(ctx.repo, step.to, flowNodeLabel(step.to));
+  const file = link(ctx.repo, step.source.file, baseName(step.source.file));
+  if (i === 0) return step.from.startsWith("route:") ? `${from} routes the request to ${to} in ${file}.` : `${from} starts at ${to} in ${file}.`;
+  if (step.kind === "read") return `${from} reads from ${to} in ${file}.`;
+  if (step.kind === "write") return `${from} writes to ${to} in ${file}.`;
+  if (step.to.startsWith("svc:")) return `${from} calls ${to} in ${file}.`;
+  if (step.kind === "respond") return `${from} returns ${to} in ${file}.`;
+  if (step.kind === "import") return `${from} enters ${to} from ${file}.`;
+  return `${from} calls ${to} in ${file}.`;
+}
+
+function relevantConcepts(index: SemanticIndex | undefined, step: FlowStep): DataConcept[] {
+  if (!index) return [];
+  const symbols = new Set([step.from, step.to].filter((id) => id.startsWith("sym:")));
+  const routes = new Set([step.from, step.to].filter((id) => id.startsWith("route:")));
+  return index.concepts.filter((concept) => concept.symbolIds.some((id) => symbols.has(id)) || concept.routeIds.some((id) => routes.has(id)));
+}
+
+function flowStepParagraph(ctx: StoryContext, step: FlowStep, i: number, opts: FlowStoryOptions): Paragraph {
+  const knowledge = opts.knowledge ?? new Map<string, FlowKnowledgeView>();
+  const callerKnowledge = knowledge.get(step.from);
+  const calleeKnowledge = knowledge.get(step.to);
+  const callSummary = currentDescription(callerKnowledge, step.callSiteId) ?? currentDescription(calleeKnowledge, step.callSiteId);
+  const summary = callSummary ?? sourceBackedSummary(step, i, opts.services);
+  const calleeSummary = calleeKnowledge?.current.summary.trim() || (() => {
+    if (step.to.startsWith("svc:")) {
+      const service = flowServiceOf(opts.services, step.to);
+      return service ? `${flowNodeLabel(step.to)} is ${serviceDescription(service)}.` : "This step crosses a service boundary that has no shared description yet.";
+    }
+    if (step.to.startsWith("resp:")) return "This is the response boundary where data leaves the handler.";
+    return `No shared explanation has been written for ${flowNodeLabel(step.to)} yet.`;
+  })();
+  const calleeSymbol = opts.index?.symbols.find((symbol) => symbol.id === step.to) ?? null;
+  const returnOwner = calleeSymbol ?? (step.kind === "respond" ? opts.index?.symbols.find((symbol) => symbol.id === step.from) ?? null : null);
+  const inputs: FlowInputPresentation[] = [];
+  if (step.requestPayload) {
+    inputs.push({ label: "Request payload", arguments: [], shape: step.requestPayload, prefix: "request", knowledge: knowledge.get(step.from) ?? null });
+  }
+  const ordinary = step.arguments.filter((argument) => argument.category === "argument");
+  if (ordinary.length) {
+    inputs.push({
+      label: "Arguments",
+      arguments: ordinary.map((value) => argumentPresentation(opts.index, step.to, value)),
+      shape: null,
+      prefix: "parameter",
+      knowledge: calleeKnowledge ?? null,
+    });
+  }
+  const serviceArguments = step.arguments.filter((argument) => argument.category === "service-payload");
+  if (step.servicePayload || serviceArguments.length) {
+    inputs.push({
+      label: "Service payload",
+      arguments: serviceArguments.map((value) => argumentPresentation(opts.index, step.to, value)),
+      shape: step.servicePayload,
+      prefix: "service",
+      knowledge: knowledge.get(step.to) ?? calleeKnowledge ?? null,
+    });
+  }
+  const validationOwner = returnOwner?.id ?? (step.to.startsWith("sym:") ? step.to : step.from);
+  const detail: FlowStepPresentation = {
+    number: i + 1,
+    summary,
+    technical: technicalSentence(ctx, step, i),
+    calleeId: step.to,
+    calleeLabel: flowNodeLabel(step.to),
+    calleeSummary,
+    calleeStale: calleeKnowledge?.stale ?? false,
+    inputs,
+    returns: step.returns,
+    declaredReturnType: returnOwner?.explicitReturnType ?? null,
+    returnKnowledge: (returnOwner ? knowledge.get(returnOwner.id) : null) ?? null,
+    validations: opts.index?.validations.filter((validation) => validation.symbolId === validationOwner) ?? [],
+    concepts: relevantConcepts(opts.index, step),
+  };
+  const chips: Chip[] = [];
   if (step.confidence === "heuristic") chips.push(chip("Confidence", "heuristic", "warn", "Resolved through a name, not a declaration."));
-  const payload = step.input ?? step.output;
-  if (payload) chips.push(chip("Payload", payload.confidence, payload.confidence === "exact" ? "ok" : "warn", payload.shape ? `Read from: ${payload.shape}` : "Payload shape"));
-  else chips.push(chip("Payload", "not derivable", "muted", "Nothing in the code names what this step carries."));
-
-  return para(`step-${i + 1}`, "fact", bits.join(" "), [step.from, step.to, step.source.file], {
+  return para(`step-${i + 1}`, "flow-step", summary, [step.from, step.to, step.source.file], {
     chips,
     source: { file: step.source.file, confidence: step.confidence },
+    flowStep: detail,
   });
 }
 
@@ -2833,23 +2940,16 @@ function dropPhrase(drops: readonly FlowDrop[]): string {
 
 function flowGapsSection(ctx: StoryContext, flow: Flow): StorySection {
   const paragraphs: Paragraph[] = [];
-  const missing = flow.steps.filter((s) => !s.input && !s.output);
-  const guessed = flow.steps.filter((s) => s.input?.confidence === "heuristic" || s.output?.confidence === "heuristic");
+  const missing = flow.steps.filter((step) => step.arguments.length === 0 && !step.requestPayload && !step.servicePayload && step.returns.length === 0);
   const inferred = flow.steps.filter((s) => s.via !== null);
 
-  if (missing.length > 0 || guessed.length > 0) {
-    const bits: string[] = [];
-    if (missing.length > 0) {
-      bits.push(
-        `${capitalise(countPhrase(missing.length, "step"))} ${missing.length === 1 ? "carries" : "carry"} nothing this repo names: no object literal at the call site, no annotated parameter, no JSDoc, and no parameter list worth reading — so the payload is left empty rather than guessed (${fileLinks(ctx, uniqStrings(missing.map((s) => s.source.file)), 3)}).`,
-      );
-    }
-    if (guessed.length > 0) {
-      bits.push(
-        `${capitalise(countPhrase(guessed.length, "step"))} ${guessed.length === 1 ? "shows" : "show"} field names taken from the callee's signature, not from the data that actually flows: the names are real, the values may be anything.`,
-      );
-    }
-    paragraphs.push(para("not-derivable-1", "gap", bits.join(" "), uniqStrings([...missing, ...guessed].slice(0, 8).flatMap((s) => [s.from, s.to]))));
+  if (missing.length > 0) {
+    paragraphs.push(para(
+      "not-derivable-1",
+      "gap",
+      `${capitalise(countPhrase(missing.length, "step"))} ${missing.length === 1 ? "has" : "have"} no statically visible argument, boundary payload, or return expression. Reggie leaves those sections empty rather than turning parameter names into data (${fileLinks(ctx, uniqStrings(missing.map((s) => s.source.file)), 3)}).`,
+      uniqStrings(missing.slice(0, 8).flatMap((s) => [s.from, s.to])),
+    ));
   }
 
   if (inferred.length > 0) {
@@ -2872,13 +2972,17 @@ function flowGapsSection(ctx: StoryContext, flow: Flow): StorySection {
   }
 
   return section("not-derivable", "What could not be derived", paragraphs, {
-    text: "Nothing is missing: every step's payload was read from a literal in the code, and no cap bit.",
+    text: "Nothing is missing: every step has source-backed semantic values, and no cap bit.",
   });
 }
 
 export interface FlowStoryOptions {
   /** Declared services from §1, so a step can name the store it lands on. */
   services?: readonly ServiceNode[];
+  /** Compiler-backed facts used by expanded step details. */
+  index?: SemanticIndex;
+  /** Current shared knowledge by canonical route, symbol, or service id. */
+  knowledge?: ReadonlyMap<string, FlowKnowledgeView>;
 }
 
 /**
@@ -2886,7 +2990,7 @@ export interface FlowStoryOptions {
  * node ids, so reading the story walks the map.
  */
 export function flowStory(ctx: StoryContext, flow: Flow, opts: FlowStoryOptions = {}): Story {
-  const steps = flow.steps.map((step, i) => flowStepParagraph(ctx, step, i, opts.services));
+  const steps = flow.steps.map((step, i) => flowStepParagraph(ctx, step, i, opts));
   const reached = flow.services.map((id) => {
     const node = flowServiceOf(opts.services, id);
     return node ? serviceLink(ctx, node) : link(ctx.repo, id, flowNodeLabel(id));

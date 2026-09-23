@@ -1,0 +1,10 @@
+Layered step cards — 2026-09-23
+
+PASS
+- Story projection emits one structured `flow-step` paragraph per flow step in source order.
+- Each rendered card contains `Step N`, a one-sentence plain-English summary, and a linked technical sentence naming caller, callee, and file without line-number prose.
+- Every card exposes collapsed callee explanation, Inputs, and Returns sections.
+- Current call-site/callee knowledge takes precedence; stale knowledge stays visible with a warning; absent knowledge receives deterministic source-backed fallback wording.
+- Non-HTTP entries say “entry point” rather than pretending every flow begins at an endpoint.
+
+Proof: `src/story.test.ts`, `ui/story.dom.test.js`; manual 151-step browser flow rendered ordered responsive cards.

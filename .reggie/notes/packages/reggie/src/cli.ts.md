@@ -44,3 +44,6 @@ sources: low-risk-auto-approval
 Knowledge CLI commands show records, preview scope, create generate or refresh jobs, require a separate one-time confirmation to run, report resumable status, and retire notes through guarded knowledge-only commits.
 sources: shared-repo-knowledge
 
+## how · 2026-09-23 · Codex via jacobpress · medium
+The flows command delegates human trace rendering to flowTraceLines and JSON serializes the authoritative semantic Flow unchanged.
+

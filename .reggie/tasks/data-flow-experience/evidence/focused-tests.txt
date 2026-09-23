@@ -1,0 +1,13 @@
+Focused verification — 2026-09-23
+
+Command:
+`npm --prefix packages/reggie run test -- src/semantic-index.test.ts src/reachability.test.ts src/flows.test.ts src/story.test.ts src/cli.test.ts ui/map.dom.test.js ui/story.dom.test.js ui/app.dom.test.js test/serve.test.ts --reporter=dot`
+
+Result: PASS
+- Test files: 9 passed
+- Tests: 328 passed
+- Covers compiler-backed JS/TS/JSX/TSX facts, semantic flows, role-aware reachability, CLI output, story projection, graph model, step-card DOM, overview DOM, and HTTP projection.
+
+Additional focused runs completed during implementation:
+- Flow/story/CLI/map/story/app DOM: 6 files, 152 tests passed.
+- Server integration: 160 tests passed.

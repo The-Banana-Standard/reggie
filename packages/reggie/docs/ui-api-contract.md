@@ -414,6 +414,7 @@ interface FlowDrop { hop: number; count: number; reason: 'hop-budget'|'step-cap'
 interface FlowSummary {
   id: string;                  // url-safe, also the id of the traced flow
   entry: string;               // node id of the handler symbol: 'sym:<file>::<qualified-name>'
+  entryNode: string;           // route entity for HTTP, otherwise the source file
   title: string;               // 'POST /api/chat'
   kind: FlowEntryKind; method: string|null; route: string|null;
   steps: number; services: string[]; depth: number;
@@ -425,7 +426,6 @@ interface FlowSummary {
 ## GET /api/flow?id=<flowId|entryNodeId>&depth=1..6
 One traced flow. `depth` is validated like every numeric parameter (400 outside 1–99) and then clamped to 6 hops, which is as far as the tracer ever walks. 404 when no entry point has that id.
 ```ts
-interface Payload { fields: string[]; shape: string|null; confidence: Confidence; source: SourceRef|null }
 interface ArgumentValue {
   index: number; parameterName: string|null; expression: string;
   category: 'argument'|'request-payload'|'service-payload'; spread: boolean;
@@ -438,20 +438,23 @@ interface FlowStep {
   from: string; to: string;    // node ids: a file, 'sym:<file>::<qualified-name>', a service id, or 'resp:<flowId>'
   kind: 'call'|'import'|'read'|'write'|'respond';
   label: string;               // the function or the operation ('CHAT_LOGS.prepare')
-  input: Payload|null; output: Payload|null;   // null = not derivable; never a guess
   arguments: ArgumentValue[];  // actual positional call-site expressions
   requestPayload: ValueShape|null; servicePayload: ValueShape|null;
   returns: ReturnVariant[];    // every source-backed branch on the callee/response
+  callSiteId: string|null;
   source: SourceRef;
   confidence: Confidence;      // heuristic = the service was resolved through a name, not a declaration
   via: string|null }           // the local parameter name a binding arrived under ('db'), else null
-{ id: string; entry: string; title: string; method: string|null; route: string|null;
-  steps: FlowStep[]; services: string[]; depth: number; truncated: boolean; dropped: FlowDrop[] }
+type FlowNodeKind = 'endpoint'|'function'|'method'|'class'|'file'|'service'|'response';
+interface FlowNode { id: string; kind: FlowNodeKind; label: string; path: string; file: string|null }
+{ id: string; entry: string; entryNode: string; title: string; method: string|null; route: string|null;
+  steps: FlowStep[]; nodes: FlowNode[]; services: string[]; servicesBeyondCap: string[];
+  depth: number; truncated: boolean; dropped: FlowDrop[] }
 ```
-`input`, `output`, and `Payload` are retained only for reader compatibility during the
-semantic-index rollout. New readers use `arguments`, `requestPayload`, `servicePayload`,
-and `returns`; parameter names are never converted into payload objects there. A type is
-present only when explicitly declared through TypeScript, JSDoc, or a referenced type.
+All readers use `arguments`, `requestPayload`, `servicePayload`, and `returns`; parameter names
+are never converted into payload objects. A type is present only when explicitly declared through
+TypeScript, JSDoc, or a referenced type. Graph consumers use `nodes[].kind` rather than inferring
+entity kinds from labels.
 
 Caps: 200 steps in total, 6 hops, and a per-hop budget of `floor(199 / hops)` steps (33 at the default depth) so a wide entry point cannot spend the budget the deeper hops need. `dropped` says which hop lost how many steps and why.
 

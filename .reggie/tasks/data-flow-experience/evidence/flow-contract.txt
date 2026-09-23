@@ -1,0 +1,10 @@
+Semantic flow contract — 2026-09-23
+
+PASS
+- Flow fixtures serialize canonical `entryNode` and typed `nodes` records for endpoint, function, method, class, file, service, and response entities.
+- HTTP fixtures start at `route:POST:/api/chat`; non-HTTP fixtures retain a file entry node without changing the existing flow lookup ID.
+- The map model renders uppercase kind, primary label, and secondary path, while source-backed values produce compact edge labels such as `6 fields`.
+- CLI JSON asserts every step has `arguments`, `requestPayload`, `servicePayload`, `returns`, and `callSiteId`, with no `input` or `output` property.
+- Supported source, UI, probe, test, and documentation searches found no definition or reader of `Payload`, `FlowStep.input`, `FlowStep.output`, `payloadLabel`, `payloadClause`, or the former “field names taken from parameter names” copy.
+
+Proof: `src/flows.test.ts`, `src/cli.test.ts`, `ui/map.dom.test.js`; focused test group passed 328/328.

@@ -9,7 +9,7 @@ import { addIntakeDetail, capture, resolveCaptureOrigin, resolvePackPaths, type 
 import { changesPayload, DiffRowCache, fileDiff, listChanges, taskRange, type ChangeEntry, type RangeResult, type TaskChanges } from "./changes.js";
 import { applyConceptOverrides, mergeConcepts, readConceptOverrides, splitConcept } from "./concept-overrides.js";
 import { buildContext } from "./context.js";
-import { buildConceptEntityPage, buildRouteEntityPage, buildSymbolEntityPage, normalizeSourcePath, readSourcePage, SourceRevisionConflict } from "./entity-pages.js";
+import { buildConceptEntityPage, buildRouteEntityPage, buildSymbolEntityPage, entityKnowledge, normalizeSourcePath, readSourcePage, SourceRevisionConflict } from "./entity-pages.js";
 import { collectFacts, type RepoFacts } from "./facts.js";
 import { listEpisodes, makeEpisode, readEpisode, renderFeed } from "./episode.js";
 import { detectFlows, MAX_FLOW_HOPS, traceFlow, type Flow, type FlowIndex } from "./flows.js";
@@ -1261,7 +1261,16 @@ function buildStory(c: RepoCtx, registry: RepoRegistry, url: URL): { ok: true; s
     if (badId(id)) return { ok: false, status: 400, error: "bad id" };
     const depth = Math.min(qInt(url, "depth", MAX_FLOW_HOPS, 1, MAX_QUERY_DEPTH), MAX_FLOW_HOPS);
     const flow = flowOf(c, id, depth);
-    return flow ? { ok: true, story: flowStory(ctx, flow, { services: servicesOf(c).services }) } : { ok: false, status: 404, error: `unknown flow: ${id}` };
+    if (!flow) return { ok: false, status: 404, error: `unknown flow: ${id}` };
+    const knowledge = new Map();
+    const entities = new Set(flow.steps.flatMap((step) => [step.from, step.to]).filter((entity) => entity.startsWith("sym:") || entity.startsWith("route:") || entity.startsWith("svc:")));
+    for (const entity of entities) {
+      const entry = inventoryEntry(c, entity);
+      if (!entry) continue;
+      const view = entityKnowledge(c.paths, entry);
+      knowledge.set(entity, { current: view.current, stale: view.stale, exists: view.exists });
+    }
+    return { ok: true, story: flowStory(ctx, flow, { services: servicesOf(c).services, index: semanticIndexOf(c), knowledge }) };
   }
   if (scope === "area") {
     if (!id) return { ok: false, status: 400, error: "id is required for scope=area" };

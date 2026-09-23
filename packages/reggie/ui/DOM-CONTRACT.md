@@ -74,6 +74,13 @@ Icons: `repo area file symbol task person note journal entry test stale external
   - `.card.card--flow` — one entry point on the Data flow index: `.card__title` link, its route in
     `.flow-row__route`, chips (Method / Steps / Hops / Capped), and `.flow-row__body` naming the
     file it starts in and the services it reaches.
+  - `.card.card--flow-step.flow-step` — one numbered flow story step: `.flow-step__number`,
+    `.flow-step__summary`, `.flow-step__technical`, then collapsed `.flow-step__callee`,
+    `.flow-step__inputs-detail`, and `.flow-step__returns-detail`. Input groups carry
+    `data-input-kind="Arguments|Request payload|Service payload"`; recursive values reuse the
+    uncapped `.value-tree` contract and retain stale, validation, description, and concept facts.
+  - `#sec-possible-cleanup` — role-grouped `.cleanup-role` details with separate unreachable and
+    no-reference lists, a non-deletion `.cleanup-warning`, and collapsed `.cleanup-limitations`.
 - State classes on paragraphs/cards: `.is-reading` (IntersectionObserver), `.is-tinted` (map hover → left border `--info` 60%), `.is-hot` (background tint).
 - Card internals: `.card__head`, `.card__title`, `.card__body`, `.card__chips`, `.card__actions`.
 - Empty-state block: `.empty` > `.empty__text` + `.empty__hint` (command as secondary hint) + optional `.form`.
@@ -209,12 +216,12 @@ show options. `map.show({ level: 'services', index, areas, focus?, all?, tests? 
   pane) and `grid: true`, which deals a hop wider than `GRID_ROWS` into stacked columns inside its own
   rank. `fitWhole` on a model over 36 nodes asks `fit()` to hold the whole graph rather than clip at
   the readability floor, because at those zooms no label is drawn either way.
-- Node data: `svc` (`service | file | area | step | entry | response | fold`) and `svcKind` (the
-  `ServiceKind`) drive the stylesheet. Edge data: `op` (`read | write | touch`), `payload`
-  (`exact | heuristic | none`) and `labelColor`. Exact payloads are solid, heuristic dotted, and
-  "shape not derivable" is drawn back at 0.5 opacity — the distinction is the page.
+- Flow node data carries `entityKind` (`endpoint | function | method | class | file | service |
+  response`) and `svc`; the three-line label is uppercase entity kind, prominent entity name, then
+  path. Edge data carries `op`, `valueEvidence` (`structured | positional | none`), and
+  `labelColor`; labels stay compact while the adjacent story card owns the full semantic values.
 - Exports: `SERVICE_SHAPES`, `SERVICE_NOUNS`, `OP_COLORS`, `OP_VERBS`, `MAX_SERVICE_NODES`,
-  `serviceNoun`, `serviceShape`, `serviceLabel`, `declaredLine`, `payloadLabel`, `payloadClause`.
+  `serviceNoun`, `serviceShape`, `serviceLabel`, `declaredLine`, `valueShapeLabel`, `valueForStep`.
 
 `window.__reggieMap` — a debug handle (`{ cy, getModel, getLens, fit }`) set when the instance is
 created. For inspection from a browser session only; nothing in the app reads it.

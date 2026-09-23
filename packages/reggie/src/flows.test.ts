@@ -25,11 +25,6 @@ import {
 } from "./flows.js";
 import { buildSemanticIndex, type SemanticIndex } from "./semantic-index.js";
 
-/** A step's payload fields, or `null` when nothing was derivable. */
-function inFields(step: FlowStep | undefined): string[] | null {
-  return step?.input ? step.input.fields : null;
-}
-
 function stepTo(flow: Flow, to: string): FlowStep | undefined {
   return flow.steps.find((s) => s.to === to);
 }
@@ -198,8 +193,15 @@ describe("a Cloudflare handler traced to its sinks", () => {
     expect(flow.title).toBe("POST /api/chat");
 
     // The handler is reached first, then everything it calls, then the sinks below those.
-    expect(flow.steps[0]?.from).toBe("functions/api/chat.js");
+    expect(flow.steps[0]?.from).toBe("route:POST:/api/chat");
     expect(flow.steps[0]?.to).toBe("sym:functions/api/chat.js::onRequestPost");
+    expect(flow.entryNode).toBe("route:POST:/api/chat");
+    expect(flow.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "route:POST:/api/chat", kind: "endpoint", label: "POST /api/chat" }),
+      expect.objectContaining({ id: "sym:functions/api/chat.js::onRequestPost", kind: "function", path: "functions/api/chat.js" }),
+      expect.objectContaining({ kind: "service" }),
+      expect.objectContaining({ kind: "response" }),
+    ]));
     expect(labels(flow).slice(0, 6)).toEqual([
       "POST /api/chat",
       "checkRateLimit",
@@ -214,54 +216,44 @@ describe("a Cloudflare handler traced to its sinks", () => {
     expect(flow.depth).toBe(2);
   });
 
-  it("takes the request payload from the destructured body, marked exact", () => {
+  it("keeps the request body as an uncapped semantic request payload", () => {
     const flow = trace("sym:functions/api/chat.js::onRequestPost");
     const first = flow.steps[0];
-    expect(first?.input?.fields).toEqual(["message", "history", "sessionId"]);
-    expect(first?.input?.confidence).toBe("exact");
-    expect(first?.input?.shape).toBe("request.json()");
-    expect(first?.input?.source).toEqual({ file: "functions/api/chat.js", line: 8 });
+    expect(first?.requestPayload?.fields.map((field) => field.name)).toEqual(["message", "history", "sessionId"]);
+    expect(first?.arguments).toEqual([]);
   });
 
-  it("takes an object literal at the call site as exact keys", () => {
+  it("keeps actual positional expressions and the object argument's recursive shape", () => {
     const flow = trace("sym:functions/api/chat.js::onRequestPost");
     const step = stepTo(flow, "sym:functions/chat/logging.js::logConversation");
-    // The literal is the second argument; `env` before it is positional and contributes nothing.
-    expect(step?.input?.fields).toEqual(["sessionId", "question", "history"]);
-    expect(step?.input?.shape).toBe("object literal");
-    expect(step?.input?.confidence).toBe("exact");
-    expect(step?.input?.source).toEqual({ file: "functions/api/chat.js", line: 15 });
+    expect(step?.arguments.map((argument) => argument.expression)).toEqual(["env", "{ sessionId, question: message, history }"]);
+    expect(step?.arguments[1]?.shape?.fields.map((field) => field.name)).toEqual(["sessionId", "question", "history"]);
+    expect(step?.arguments[1]?.source.startLine).toBe(15);
   });
 
-  it("falls back to parameter names, marked heuristic, when the call site is positional", () => {
+  it("does not turn parameter names into a fake object for positional calls", () => {
     const flow = trace("sym:functions/api/chat.js::onRequestPost");
     const step = stepTo(flow, "sym:functions/chat/rateLimit.js::checkRateLimit");
-    expect(step?.input?.fields).toEqual(["env", "identifier", "limit", "windowMs"]);
-    expect(step?.input?.confidence).toBe("heuristic");
-    expect(step?.input?.shape).toBe("parameter names");
-    expect(step?.input?.source).toEqual({ file: "functions/chat/rateLimit.js", line: 1 });
+    expect(step?.arguments.map((argument) => argument.expression)).toEqual(["env", "sessionId", "20", "600000"]);
+    expect(step?.arguments.map((argument) => argument.parameterName)).toEqual(["env", "identifier", "limit", "windowMs"]);
+    expect(step?.arguments.every((argument) => argument.shape?.kind !== "object")).toBe(true);
   });
 
-  it("yields a real null when the signature gives nothing", () => {
+  it("keeps a zero-argument call empty instead of inventing values", () => {
     const flow = trace("sym:functions/api/chat.js::onRequestPost");
     const step = stepTo(flow, "sym:functions/chat/ping.js::ping");
     expect(step).toBeDefined();
-    expect(step?.input).toBeNull();
-    expect(inFields(step)).toBeNull();
+    expect(step?.arguments).toEqual([]);
   });
 
-  it("captures the response payload and the binding writes", () => {
+  it("captures source-backed return variants and the binding writes", () => {
     const flow = trace("sym:functions/api/chat.js::onRequestPost");
-    // A literal returned by a nested callback is that callback's, not the handler's.
     const nested = stepTo(flow, "sym:functions/chat/nested.js::withCallback");
-    expect(nested?.output).toBeNull();
+    expect(nested?.returns.map((variant) => variant.expression)).toEqual(expect.arrayContaining(["{ id: item.id, label: item.label }", "mapped"]));
 
     const respond = flow.steps.find((s) => s.kind === "respond");
-    expect(respond?.output?.fields).toEqual(["error"]);
-    expect(respond?.output?.confidence).toBe("exact");
-    expect(respond?.output?.shape).toBe("Response.json");
-    // The handler's own output is the first literal it returns.
-    expect(flow.steps[0]?.output?.fields).toEqual(["error"]);
+    expect(respond?.returns[0]?.shape?.fields.map((field) => field.name)).toEqual(["error"]);
+    expect(flow.steps[0]?.returns.map((variant) => variant.shape?.fields.map((field) => field.name))).toEqual(expect.arrayContaining([["error"], ["reply", "sessionId"]]));
 
     const kvRead = flow.steps.find((s) => s.label === "RATE_LIMIT.get");
     const kvWrite = flow.steps.find((s) => s.label === "RATE_LIMIT.put");
@@ -308,9 +300,8 @@ describe("a Cloudflare handler traced to its sinks", () => {
     for (const step of flow.steps) {
       expect(step.source.file).toMatch(/\.js$/);
       expect(step.source.line).toBeGreaterThan(0);
-      for (const p of [step.input, step.output]) {
-        if (p) expect(p.source?.line).toBeGreaterThan(0);
-      }
+      for (const argument of step.arguments) expect(argument.source.startLine).toBeGreaterThan(0);
+      for (const variant of step.returns) expect(variant.source.startLine).toBeGreaterThan(0);
     }
   });
 });
@@ -323,7 +314,7 @@ describe("a request body bound to a name", () => {
   let repo: TempRepo;
   afterEach(() => repo.cleanup());
 
-  it("reads the fields off the property reads, still exact", () => {
+  it("reads request fields through an aliased body binding", () => {
     clearHistoryCache();
     repo = makeTempRepo("reggie-flows-alias-");
     repo.write(
@@ -351,9 +342,7 @@ describe("a request body bound to a name", () => {
     const flow = traceFlow(paths, graphOf(paths), "sym:functions/api/feedback.js::onRequestPost");
     expect(flow.method).toBe("POST");
     // `note` is read as `payload.note.trim()` — the property is still a field, the method is not.
-    expect(flow.steps[0]?.input?.fields).toEqual(["conversation_id", "verdict", "note"]);
-    expect(flow.steps[0]?.input?.confidence).toBe("exact");
-    expect(flow.steps[0]?.input?.shape).toBe("request.json() via payload");
+    expect(flow.steps[0]?.requestPayload?.fields.map((field) => field.name)).toEqual(["conversation_id", "verdict", "note"]);
   });
 });
 
@@ -421,19 +410,17 @@ describe("TypeScript signatures", () => {
     expect(post?.route).toBe("/api/chat");
 
     const flow = traceFlow(paths, graph, "sym:app/api/chat/route.ts::POST");
-    expect(flow.steps[0]?.input?.fields).toEqual(["message", "history", "sessionId"]);
+    expect(flow.steps[0]?.requestPayload?.fields.map((field) => field.name)).toEqual(["message", "history", "sessionId"]);
     const step = stepTo(flow, "sym:src/answer.ts::answer");
-    expect(step?.input?.fields).toEqual(["message", "history", "sessionId"]);
-    expect(step?.input?.confidence).toBe("exact");
-    expect(step?.input?.shape).toBe("type ChatInput");
-    expect(step?.input?.source).toEqual({ file: "src/types.ts", line: 1 });
-    // No object literal is returned, so the annotated return type carries the shape.
-    expect(step?.output?.fields).toEqual(["reply", "usedDocs"]);
-    expect(step?.output?.shape).toBe("returns ChatResult");
-    expect(step?.output?.confidence).toBe("exact");
+    expect(step?.arguments.map((argument) => argument.expression)).toEqual(["input"]);
+    const answer = buildSemanticIndex(paths, graph).symbols.find((symbol) => symbol.id === "sym:src/answer.ts::answer");
+    expect(answer?.parameters[0]?.explicitType?.text).toBe("ChatInput");
+    expect(answer?.parameters[0]?.shape?.fields.map((field) => field.name)).toEqual(["message", "history", "sessionId"]);
+    expect(answer?.explicitReturnType?.text).toBe("ChatResult");
+    expect(answer?.returnVariants[0]?.shape?.fields.map((field) => field.name)).toEqual(["reply", "usedDocs"]);
   });
 
-  it("prefers JSDoc over parameter names in plain JavaScript", () => {
+  it("keeps JSDoc as a declaration while preserving the actual caller expression", () => {
     clearHistoryCache();
     repo = makeTempRepo("reggie-flows-jsdoc-");
     repo.write(
@@ -458,12 +445,14 @@ describe("TypeScript signatures", () => {
     repo.commitAll("jsdoc");
     const paths = repoPaths(repo.root);
     ensureLayout(paths);
-    const flow = traceFlow(paths, graphOf(paths), "sym:functions/api/x.js::onRequestPut");
+    const graph = graphOf(paths);
+    const semantic = buildSemanticIndex(paths, graph);
+    const flow = traceFlow(paths, graph, "sym:functions/api/x.js::onRequestPut", { semanticIndex: semantic });
     expect(flow.method).toBe("PUT");
     const step = stepTo(flow, "sym:functions/lib/save.js::save");
-    expect(step?.input?.fields).toEqual(["id", "at"]);
-    expect(step?.input?.shape).toBe("JSDoc @param");
-    expect(step?.input?.confidence).toBe("exact");
+    expect(step?.arguments.map((argument) => argument.expression)).toEqual(["context.data"]);
+    const save = semantic.symbols.find((symbol) => symbol.id === "sym:functions/lib/save.js::save");
+    expect(save?.parameters[0]?.explicitType?.text).toBe("Object");
   });
 });
 
@@ -509,6 +498,13 @@ describe("other entry kinds", () => {
     expect(byTitle.get("command build")?.kind).toBe("cli");
     expect(byTitle.get("command build")?.route).toBe("build");
     expect(byTitle.get("tool list_tasks")?.kind).toBe("mcp");
+
+    const routeFlow = traceFlow(paths, graphOf(paths), byTitle.get("POST /users/:id")!.id);
+    expect(routeFlow.entryNode).toBe("route:POST:/users/:id");
+    expect(routeFlow.nodes[0]).toMatchObject({ kind: "endpoint", label: "POST /users/:id" });
+    const cliFlow = traceFlow(paths, graphOf(paths), byTitle.get("command build")!.id);
+    expect(cliFlow.entryNode).toBe("src/cli.js");
+    expect(cliFlow.nodes[0]).toMatchObject({ kind: "file", path: "src/cli.js" });
   });
 
   it("does not invent a Next route from a plain React app's pages directory", () => {

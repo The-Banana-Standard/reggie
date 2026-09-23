@@ -85,6 +85,25 @@ The page opens the complete documented declaration (including attached JSDoc/dec
 
 `#/repo/<name>/route/route:<METHOD>:<path>` is an endpoint page: handler/middleware, static clients, complete recursive request fields, every response variant, reached flows/services, concepts, and editable knowledge. `#/repo/<name>/concept/concept:<slug>` shows canonical description, aliases, all occurrences with declared type or “not declared”, validations, transformations, routes, flows, symbols, and manual grouping history. Concept merge/split forms require a reason and current revision; the server performs a single override-only commit. An old merged URL resolves to the canonical page and says which retained ID redirected it.
 
+### Data flow experience
+
+The Data flow overview groups entry points by role and ends with **Possible cleanup**. Production,
+tests, scripts, migrations, and generated code each keep “not reachable from a role-specific root”
+separate from “no references found”; an analyzer-limitations disclosure and a permanent warning say
+that neither list proves safe deletion.
+
+One flow is a left-to-right graph whose nodes say `ENDPOINT`, `FUNCTION`, `METHOD`, `CLASS`, `FILE`,
+`SERVICE`, or `RESPONSE`; the entity name is prominent and its path is secondary. Endpoint nodes link
+to route pages and code nodes link to symbol pages. Edge labels are deliberately compact, such as
+`6 fields` or `payload.session_id`.
+
+Beside it, **How the data moves** is made of cards headed `Step 1`, `Step 2`, and so on. Each card has
+one plain-English sentence, then a linked technical sentence naming caller, callee, and parent file
+without line-number prose. Collapsed sections reveal what the callee does, Inputs, and Returns. Inputs
+are named Arguments, Request payload, or Service payload; expanded values use the full recursive field
+tree with explicit types or “not declared”, validations, shared descriptions, and data-concept links.
+Stale shared summaries remain visible with a warning.
+
 ### Cross-cutting lenses (recolour the current map; never change the element set)
 
 | Lens | Node fill rule | Legend rows (generated from the canvas) |

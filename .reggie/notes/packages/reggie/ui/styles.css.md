@@ -23,3 +23,6 @@ sources: idea-from-every-page
 Phone story columns must clear the desktop minimum width so entity pages never create page-level horizontal overflow.
 sources: code-entity-pages
 
+## how · 2026-09-23 · Codex via jacobpress · medium
+Flow step details and role-grouped cleanup sections use compact cards and wrapping layouts that remain phone-safe.
+

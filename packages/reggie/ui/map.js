@@ -1924,14 +1924,13 @@ function stylesheet() {
     // A service, a step and a response are all labelled *inside* the shape, in two lines: what it is
     // called, then what it is and who provides it. 11px is what fits 26 characters in 170px.
     {
-      selector: "node[svc = 'service'], node[svc = 'step'], node[svc = 'entry'], node[svc = 'response']",
+      selector: "node[svc = 'service'], node[svc = 'step'], node[svc = 'entry'], node[svc = 'endpoint'], node[svc = 'function'], node[svc = 'method'], node[svc = 'class'], node[svc = 'response']",
       style: { "font-size": 11, "font-weight": 600, "text-wrap": "wrap", "text-valign": "center", "text-halign": "center", "text-margin-y": 0, "text-background-opacity": 0, "min-zoomed-font-size": 6, "line-height": 1.3 },
     },
     { selector: "node.unused", style: { "border-style": "dashed" } },
-    // The payload channel (§4): exact solid, inferred dotted, and "not derivable" drawn back so the
-    // eye lands on the steps whose shape the repo does state.
-    { selector: "edge[payload = 'heuristic']", style: { "line-style": "dotted" } },
-    { selector: "edge[payload = 'none']", style: { opacity: 0.5 } },
+    // Edges without a source-backed semantic value are drawn back so the eye lands on the steps
+    // whose arguments, boundary shape, or return expressions the repo does state.
+    { selector: "edge[valueEvidence = 'none']", style: { opacity: 0.5 } },
     { selector: "edge[labelColor]", style: { color: "data(labelColor)" } },
     { selector: "edge[svc = 'step']", style: { "font-size": 11, "min-zoomed-font-size": 7, "text-max-width": 150, "text-wrap": "ellipsis", "text-background-opacity": 0.9 } },
     { selector: "edge[svc = 'op']", style: { "font-size": 11, "min-zoomed-font-size": 6, "font-weight": 600 } },
@@ -1961,7 +1960,7 @@ function stylesheet() {
     { selector: "node.hl[?ghost]", style: { opacity: 1 } },
     // A highlighted edge always shows its label, whatever the zoom — the same promise `.hl` makes for
     // a node's label. On the flow map that is what makes reading the story walk the flow: the step
-    // the paragraph is about lights up *with its payload*, at a zoom where nothing else is labelled.
+    // the paragraph is about lights up *with its value summary*, at a zoom where nothing else is labelled.
     { selector: "edge.hl", style: { "line-color": COLORS.edgeActive, "target-arrow-color": COLORS.edgeActive, "overlay-opacity": 0.18, opacity: 1, "min-zoomed-font-size": 0, "z-index": 10 } },
     { selector: "node:selected", style: { "border-color": COLORS.selection, "border-width": 2, "overlay-opacity": 0.25, "min-zoomed-font-size": 0, "z-index": 10 } },
     { selector: "edge:selected", style: { "line-color": COLORS.edgeActive, "target-arrow-color": COLORS.edgeActive } },
@@ -3057,6 +3056,7 @@ export function createMap(container, opts = {}) {
       // that has no business with them, so they are added rather than defaulted.
       ...(nd.svc ? { svc: nd.svc } : null),
       ...(nd.svcKind ? { svcKind: nd.svcKind } : null),
+      ...(nd.entityKind ? { entityKind: nd.entityKind } : null),
     };
   }
 
@@ -3076,7 +3076,7 @@ export function createMap(container, opts = {}) {
     return {
       ...(e.svc ? { svc: e.svc } : null),
       ...(e.op ? { op: e.op } : null),
-      ...(e.payload ? { payload: e.payload } : null),
+      ...(e.valueEvidence ? { valueEvidence: e.valueEvidence } : null),
       ...(e.labelColor ? { labelColor: e.labelColor } : null),
       id: e.id,
       source: e.source,
@@ -4522,10 +4522,9 @@ function serviceSubLine(s, declared, used) {
 }
 
 /**
- * The Data flow map (§4): dagre `rankdir: LR` from the entry through every function to the services
- * and the response, with each step's payload on its edge. Exact payloads are drawn solid, payloads
- * inferred from a signature dotted, and a step whose shape nothing in the repo states says so in
- * words — that difference is the page.
+ * The Data flow map (§4): dagre `rankdir: LR` from the endpoint through every function to the
+ * services and response. Edges carry compact summaries of compiler-backed arguments, boundary
+ * shapes, or returns; the story card beside the graph owns the complete recursive detail.
  *
  * `view`: { level:'flow', flow: Flow, services: ServiceNode[] }
  */
@@ -4533,6 +4532,7 @@ function buildFlowModel(view, opts = {}) {
   const flow = view.flow ?? { steps: [], services: [] };
   const steps = Array.isArray(flow.steps) ? flow.steps : [];
   const svcById = new Map((Array.isArray(view.services) ? view.services : []).map((s) => [s.id, s]));
+  const flowNodeById = new Map((Array.isArray(flow.nodes) ? flow.nodes : []).map((node) => [node.id, node]));
 
   const seen = new Map();
   const order = [];
@@ -4548,7 +4548,10 @@ function buildFlowModel(view, opts = {}) {
 
   const nodes = [];
   for (const id of order) {
-    if (id.startsWith("svc:")) {
+    const semantic = flowNodeById.get(id) ?? null;
+    const entityKind = semantic?.kind ?? (id.startsWith("svc:") ? "service" : id.startsWith("resp:") ? "response" : id.startsWith("route:") ? "endpoint" : id.startsWith("sym:") ? "function" : "file");
+    const kindLabel = entityKind.toUpperCase();
+    if (entityKind === "service") {
       const s = svcById.get(id) ?? { id, kind: id.split(":")[1] ?? "api", binding: null, name: id.split(":").slice(2).join(":"), declared: true, provider: null };
       const declared = s.declared !== false;
       nodes.push(
@@ -4556,14 +4559,15 @@ function buildFlowModel(view, opts = {}) {
           id,
           kind: "service",
           svc: "service",
+          entityKind,
           svcKind: s.kind,
-          label: `${serviceLabel(s)}\n${serviceSubLine(s, declared, true)}`,
+          label: `${kindLabel}\n${semantic?.label ?? serviceLabel(s)}\n${semantic?.path ?? serviceSubLine(s, declared, true)}`,
           labelLine1: serviceLabel(s),
           fullLabel: serviceLabel(s),
-          path: s.name ?? serviceLabel(s),
+          path: semantic?.path ?? s.name ?? serviceLabel(s),
           w: SERVICE_W,
-          h: SERVICE_H,
-          size: SERVICE_H,
+          h: 62,
+          size: 62,
           shape: serviceShape(s.kind),
           hue: COLORS.explorerFill,
           declared,
@@ -4575,35 +4579,37 @@ function buildFlowModel(view, opts = {}) {
       );
       continue;
     }
-    if (id.startsWith("resp:")) {
+    if (entityKind === "response") {
       nodes.push(
         blankNode({
           id,
           kind: "response",
           svc: "response",
-          label: "Response",
-          fullLabel: "Response",
-          path: flow.route ? `${flow.method ?? "GET"} ${flow.route} response` : "response",
-          w: 120,
-          h: 40,
+          entityKind,
+          label: `${kindLabel}\n${semantic?.label ?? "Response"}\n${semantic?.path ?? (flow.route ? `${flow.method ?? "GET"} ${flow.route}` : "response")}`,
+          fullLabel: semantic?.label ?? "Response",
+          path: semantic?.path ?? (flow.route ? `${flow.method ?? "GET"} ${flow.route} response` : "response"),
+          w: STEP_W,
+          h: 62,
           shape: "round-rectangle",
           hue: COLORS.ok,
         }),
       );
       continue;
     }
-    if (id.startsWith("sym:")) {
-      const rest = id.slice(4);
+    if (id.startsWith("sym:") || entityKind === "function" || entityKind === "method" || entityKind === "class") {
+      const rest = id.startsWith("sym:") ? id.slice(4) : id;
       const cut = rest.lastIndexOf("::");
-      const file = cut > 0 ? rest.slice(0, cut) : rest;
-      const name = cut > 0 ? rest.slice(cut + 2) : rest;
+      const file = semantic?.file ?? (cut > 0 ? rest.slice(0, cut) : rest);
+      const name = semantic?.label ?? (cut > 0 ? rest.slice(cut + 2) : rest);
       const entry = id === flow.entry;
       nodes.push(
         blankNode({
           id,
-          kind: "step",
-          svc: entry ? "entry" : "step",
-          label: `${name}\n${basename(file)}`,
+          kind: "symbol",
+          svc: entityKind,
+          entityKind,
+          label: `${kindLabel}\n${name}\n${file}`,
           labelLine1: name,
           fullLabel: name,
           path: file,
@@ -4611,27 +4617,29 @@ function buildFlowModel(view, opts = {}) {
           symbol: name,
           entry,
           w: STEP_W,
-          h: STEP_H,
+          h: 62,
           shape: "round-rectangle",
           hue: entry ? COLORS.info : COLORS.explorerFill,
         }),
       );
       continue;
     }
-    // A plain file id: the request's point of arrival (step one's `from`).
+    const label = semantic?.label ?? (entityKind === "endpoint" ? flow.title : basename(id));
+    const file = semantic?.file ?? (entityKind === "file" ? id : null);
     nodes.push(
       blankNode({
         id,
-        kind: "step",
-        svc: "entry",
-        label: `${flow.title ?? basename(id)}\n${basename(id)}`,
-        labelLine1: flow.title ?? basename(id),
-        fullLabel: id,
-        path: id,
-        file: id,
-        entry: true,
+        kind: entityKind === "endpoint" ? "route" : "file",
+        svc: entityKind,
+        entityKind,
+        label: `${kindLabel}\n${label}\n${semantic?.path ?? id}`,
+        labelLine1: label,
+        fullLabel: label,
+        path: semantic?.path ?? id,
+        file,
+        entry: id === flow.entryNode,
         w: STEP_W,
-        h: STEP_H,
+        h: 62,
         shape: "round-rectangle",
         hue: COLORS.info,
       }),
@@ -4644,8 +4652,7 @@ function buildFlowModel(view, opts = {}) {
     const base = `${s.from}->${s.to}:${s.kind}:${s.label}`;
     const n = (seenEdge.get(base) ?? 0) + 1;
     seenEdge.set(base, n);
-    const pay = s.input ?? null;
-    const text = payloadLabel(pay);
+    const value = valueForStep(s);
     edges.push({
       id: n > 1 ? `${base}#${n}` : base,
       source: s.from,
@@ -4653,17 +4660,17 @@ function buildFlowModel(view, opts = {}) {
       kind: s.kind === "read" || s.kind === "write" ? "uses" : s.kind === "respond" ? "respond" : "call",
       op: s.kind === "read" ? "read" : s.kind === "write" ? "write" : null,
       weight: 1,
-      names: pay?.fields ?? [],
+      names: value.names,
       via: [],
       confidence: s.confidence ?? "exact",
-      payload: pay ? pay.confidence : "none",
+      valueEvidence: value.evidence,
       cycle: false,
       cycleReturn: false,
       spoke: true,
       width: s.kind === "read" || s.kind === "write" ? 2 : 1.4,
-      label: text,
+      label: value.label,
       color: s.kind === "read" ? OP_COLORS.read : s.kind === "write" ? OP_COLORS.write : s.kind === "respond" ? COLORS.ok : COLORS.edge,
-      labelColor: !pay ? COLORS.faint : pay.confidence === "heuristic" ? COLORS.warn : COLORS.muted,
+      labelColor: value.evidence === "none" ? COLORS.faint : COLORS.muted,
       step: s,
       stepIndex: i + 1,
       svc: "step",
@@ -4799,25 +4806,56 @@ function buildFlowsModel(view, opts = {}) {
   });
 }
 
-/** The edge label for a payload: the field list when short, a count when long, and words when null. */
-export function payloadLabel(pay) {
-  if (!pay || !Array.isArray(pay.fields) || pay.fields.length === 0) return "shape not derivable";
-  const list = `{ ${pay.fields.join(", ")} }`;
-  const text = list.length <= 34 ? list : `${pay.fields.length} fields`;
-  return pay.confidence === "heuristic" ? `~ ${text}` : text;
+/** A recursive semantic shape reduced to one compact edge label. The card keeps the full tree. */
+export function valueShapeLabel(shape) {
+  if (!shape) return null;
+  const fields = Array.isArray(shape.fields) ? shape.fields.map((field) => field.name).filter(Boolean) : [];
+  if (fields.length >= 6) return `${fields.length} fields`;
+  if (fields.length) {
+    const list = `{ ${fields.join(", ")} }`;
+    return list.length <= 34 ? list : `${fields.length} fields`;
+  }
+  if (shape.reference) return String(shape.reference);
+  if (shape.kind === "array") return "array";
+  if (shape.kind === "tuple") return `${shape.elements?.length ?? 0} items`;
+  if (shape.kind === "union") return `${shape.variants?.length ?? 0} variants`;
+  return null;
 }
 
-/**
- * The clause behind a payload label — the fields, where they were read, and (when they were only
- * inferred from a signature) that they were. `null` when nothing was derivable, so the caller writes
- * that in its own words rather than presenting an empty list as a payload.
- */
-export function payloadClause(pay) {
-  if (!pay || !Array.isArray(pay.fields) || pay.fields.length === 0) return null;
-  const list = `{ ${pay.fields.join(", ")} }`;
-  const where = pay.source?.file ? ` (${pay.source.file}:${pay.source.line ?? 1})` : "";
-  if (pay.confidence === "heuristic") return `${list} — field names taken from the signature, not from the data${where}`;
-  return `${list} — read from ${pay.shape ?? "the code"}${where}`;
+function argumentLabel(values) {
+  if (!Array.isArray(values) || values.length === 0) return null;
+  if (values.length === 1) {
+    const value = values[0];
+    const shaped = valueShapeLabel(value?.shape);
+    if (shaped) return shaped;
+    const expression = String(value?.expression ?? "argument");
+    return expression.length <= 34 ? expression : "1 argument";
+  }
+  return `${values.length} arguments`;
+}
+
+function returnLabel(returns) {
+  if (!Array.isArray(returns) || returns.length === 0) return null;
+  if (returns.length > 1) return `${returns.length} returns`;
+  const variant = returns[0];
+  const shaped = valueShapeLabel(variant?.shape);
+  if (shaped) return shaped;
+  const expression = String(variant?.expression ?? "return");
+  return expression.length <= 34 ? expression : "1 return";
+}
+
+/** Authoritative structured value carried by an edge, in boundary-first order. */
+export function valueForStep(step) {
+  const boundary = valueShapeLabel(step?.requestPayload) ?? valueShapeLabel(step?.servicePayload);
+  if (boundary) {
+    const shape = step.requestPayload ?? step.servicePayload;
+    return { label: boundary, names: (shape?.fields ?? []).map((field) => field.name), evidence: "structured" };
+  }
+  const args = argumentLabel(step?.arguments);
+  if (args) return { label: args, names: (step.arguments ?? []).map((argument) => argument.expression), evidence: "positional" };
+  const returned = returnLabel(step?.returns);
+  if (returned) return { label: returned, names: (step.returns ?? []).map((variant) => variant.expression), evidence: "structured" };
+  return { label: "no values found", names: [], evidence: "none" };
 }
 
 /** Paint for the services and flow levels: the shape and the words say what a node is, the border what state it is in. */
@@ -4839,13 +4877,13 @@ function paintServiceNode(nd, lens) {
     out.bw = 2;
     return out;
   }
-  if (nd.svc === "entry") {
+  if (nd.svc === "entry" || nd.svc === "endpoint") {
     out.fill = COLORS.panel2;
     out.border = COLORS.info;
     out.bw = 2;
     return out;
   }
-  if (nd.svc === "step") {
+  if (nd.svc === "step" || nd.svc === "function" || nd.svc === "method" || nd.svc === "class") {
     out.fill = COLORS.panel2;
     out.border = COLORS.lineStrong;
     return out;
@@ -4881,10 +4919,10 @@ function serviceLegend(model, lens) {
     if (row.count > 0) rows.push(row);
   };
   if (model.level === "flow" || model.level === "flows") {
-    const byPayload = (p) => edges.filter((e) => e.payload === p);
-    push({ label: "Payload read from the code", color: COLORS.muted, kind: "edge", count: byPayload("exact").length, isolate: byPayload("exact").map((e) => e.id) });
-    push({ label: "Field names from the signature", color: COLORS.warn, kind: "edge-dotted", count: byPayload("heuristic").length, isolate: byPayload("heuristic").map((e) => e.id) });
-    push({ label: "Shape not derivable", color: COLORS.faint, kind: "edge", count: byPayload("none").length, isolate: byPayload("none").map((e) => e.id) });
+    const byEvidence = (value) => edges.filter((edge) => edge.valueEvidence === value);
+    push({ label: "Structured value read from code", color: COLORS.muted, kind: "edge", count: byEvidence("structured").length, isolate: byEvidence("structured").map((e) => e.id) });
+    push({ label: "Positional arguments", color: COLORS.info, kind: "edge", count: byEvidence("positional").length, isolate: byEvidence("positional").map((e) => e.id) });
+    push({ label: "No value structure found", color: COLORS.faint, kind: "edge", count: byEvidence("none").length, isolate: byEvidence("none").map((e) => e.id) });
     for (const [op, label] of [["read", "Reads a service"], ["write", "Writes to a service"]]) {
       const list = edges.filter((e) => e.op === op);
       push({ label, color: OP_COLORS[op], kind: "edge", count: list.length, isolate: list.map((e) => e.id) });
@@ -4893,7 +4931,7 @@ function serviceLegend(model, lens) {
     push({ label: "Service", color: COLORS.lineStrong, kind: "ring", count: svcNodes.length, isolate: svcNodes.map((n) => n.id) });
     const undeclared = svcNodes.filter((n) => n.declared === false);
     push({ label: "Declared nowhere", color: COLORS.bad, kind: "ring", count: undeclared.length, isolate: undeclared.map((n) => n.id) });
-    return { title: model.level === "flow" ? "Line = payload · Colour = operation" : "Ring = whether a manifest declares it", rows };
+    return { title: model.level === "flow" ? "Line = value · Colour = operation" : "Ring = whether a manifest declares it", rows };
   }
   // Services: the left column is coloured by area, the edges by operation, the borders by state.
   const areasSeen = new Map();
@@ -4952,8 +4990,8 @@ function serviceTip(nd) {
     const n = nd.outDegree ?? 0;
     return { path: nd.fullLabel, meta: [n ? `touches ${plural(n, "service")}` : null, nd.role === "test" ? "test file" : null].filter(Boolean) };
   }
-  if (nd.svc === "entry" || nd.svc === "step") {
-    return { path: nd.symbol ? `${nd.symbol} — ${nd.file}` : nd.path, meta: [nd.entry ? "the entry point" : null].filter(Boolean) };
+  if (["entry", "step", "endpoint", "function", "method", "class"].includes(nd.svc)) {
+    return { path: nd.symbol ? `${nd.entityKind?.toUpperCase() ?? "SYMBOL"}: ${nd.symbol} — ${nd.file}` : `${nd.entityKind?.toUpperCase() ?? "ENTRY"}: ${nd.path}`, meta: [nd.entry ? "the entry point" : null].filter(Boolean) };
   }
   if (nd.svc === "response") return { path: nd.path, meta: ["what the handler sends back"] };
   if (nd.svc === "fold") return { path: `${nd.foldCount} services with fewer callers`, meta: [nd.foldIds.slice(0, 6).map((id) => id.replace(/^svc:[^:]+:/, "")).join(", "), nd.foldIds.length > 6 ? "…" : null].filter(Boolean) };
@@ -4986,10 +5024,7 @@ function serviceEdgeSentence(e, nodeById) {
   const a = s?.fullLabel ?? e.source;
   const b = t?.fullLabel ?? e.target;
   const verb = step.kind === "read" ? "reads" : step.kind === "write" ? "writes to" : step.kind === "respond" ? "answers with" : "calls";
-  const at = step.source?.file ? ` (${step.source.file}:${step.source.line ?? 1})` : "";
-  const carried = payloadClause(step.input);
-  const returned = payloadClause(step.output);
-  const head = `Step ${e.stepIndex}. ${a} ${verb} ${b}${at}`;
-  const body = carried ? `${head}, carrying ${carried}.` : `${head}. What it carries is not derivable from the code.`;
-  return returned ? `${body} It returns ${returned}.` : body;
+  const at = step.source?.file ? ` in ${step.source.file}` : "";
+  const value = valueForStep(step);
+  return `Step ${e.stepIndex}. ${a} ${verb} ${b}${at}. ${value.label}.`;
 }

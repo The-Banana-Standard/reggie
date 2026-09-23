@@ -1,0 +1,10 @@
+Chat ground truth — 2026-09-23
+
+PASS
+- The request body contains all six fixture fields: `session_id`, `message`, `history`, `model`, `temperature`, and `options`.
+- The call into `resolveSessionId` carries one ordinary positional argument whose expression is exactly `payload.session_id`.
+- No output contains the synthetic object `{ rawSessionId }`.
+- The callee exposes both source return branches: `rawSessionId` under its condition and `crypto.randomUUID()` as the fallback.
+- Both variants correctly render `not declared` because the source has no explicit TypeScript or JSDoc return declaration.
+
+Proof: `src/flows.test.ts`, `src/cli.test.ts`, `src/story.test.ts`, `ui/story.dom.test.js`.

@@ -23,3 +23,6 @@ sources: low-risk-auto-approval
 The DOM contract documents first-class entity levels, declaration and full-file reader modes, recursive evidence, and explicit knowledge edit and conflict states.
 sources: code-entity-pages
 
+## decision · 2026-09-23 · Codex via jacobpress · medium
+The DOM contract now defines structured flow cards, semantic edge evidence, typed node labels, and role-aware cleanup sections.
+
