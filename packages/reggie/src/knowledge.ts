@@ -514,8 +514,15 @@ function commitOnly(root: string, branch: string, files: string[], message: stri
     const commit = git(["commit-tree", tree, "-p", head, "-m", message], { cwd: root, env }).stdout.trim();
     if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error("Knowledge commit did not produce a commit.");
     git(["update-ref", `refs/heads/${branch}`, commit, head], { cwd: root });
-    // The ordinary index may contain unrelated staged work. Refresh only the paths now committed.
-    git(["reset", "-q", "HEAD", "--", ...files], { cwd: root });
+    try {
+      // The ordinary index may contain unrelated staged work. Refresh only the paths now committed.
+      git(["reset", "-q", "HEAD", "--", ...files], { cwd: root });
+    } catch (error) {
+      // Moving the integration ref is the transaction's commit point. If the targeted index refresh
+      // cannot finish, put the ref back before the caller restores the note files.
+      git(["update-ref", `refs/heads/${branch}`, head, commit], { cwd: root });
+      throw error;
+    }
     return commit;
   } finally {
     rmSync(index, { force: true });
@@ -526,9 +533,13 @@ function commitOnly(root: string, branch: string, files: string[], message: stri
 function commitWrites(paths: RepoPaths, config: ReggieConfig, writes: PreparedWrite[], message: string): KnowledgeCommitResult {
   if (writes.length === 0) throw new Error("A knowledge write needs at least one record.");
   const entities = new Set<string>();
+  const targetFiles = new Map<string, string>();
   for (const write of writes) {
     if (entities.has(write.entity)) throw new Error(`Knowledge batch repeats ${write.entity}.`);
     entities.add(write.entity);
+    const prior = targetFiles.get(write.file);
+    if (prior) throw new Error(`Knowledge entities ${prior} and ${write.entity} resolve to the same note file.`);
+    targetFiles.set(write.file, write.entity);
   }
   const branch = assertKnowledgeIntegrationCheckout(paths.root, config);
   const lock = acquireKnowledgeLock(paths.root);

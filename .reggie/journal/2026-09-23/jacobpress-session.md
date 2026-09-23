@@ -20,3 +20,9 @@ Connected shared knowledge to context, note search, MCP, generated agent instruc
 ### 00:54 · jacobpress · codex · shared-repo-knowledge · implement
 Hardened note identifiers, knowledge write locks, resumable job publication, and ordinary API reads. Cached agent output is revalidated at publication, concurrent writers retain ownership, and history is loaded only when explicitly requested.
 
+### 01:02 · jacobpress · codex · shared-repo-knowledge · review
+The transaction review found and closed a post-commit index-refresh failure window. A compare-and-swap rollback now restores the integration ref before note restoration, with a real locked-index regression test.
+
+### 01:05 · jacobpress · codex · shared-repo-knowledge · review
+The path review found lossy slug collisions between distinct route or concept identifiers. New entity notes now add a digest while exact legacy frontmatter retains its old path; batch writes also reject any residual target collision.
+

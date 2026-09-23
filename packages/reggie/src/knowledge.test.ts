@@ -164,6 +164,14 @@ describe("shared repository knowledge", () => {
     expect(status).toContain(" M unstaged.txt");
   });
 
+  it("rolls the branch back when the ordinary index cannot be refreshed", () => {
+    const before = git(["rev-parse", "HEAD"], { cwd: repo.root }).stdout.trim();
+    writeFileSync(`${repo.root}/.git/index.lock`, "held by another git process\n", "utf8");
+    expect(() => saveKnowledge(paths, config, edit("src/chat.ts"), { now: NOW })).toThrow(/index\.lock|Unable to create/);
+    expect(git(["rev-parse", "HEAD"], { cwd: repo.root }).stdout.trim()).toBe(before);
+    expect(existsSync(resolveNoteTarget(paths, "src/chat.ts").file)).toBe(false);
+  });
+
   it("rejects dirty target notes instead of folding them into its commit", () => {
     addNote(paths, "src/chat.ts", { type: "how", text: "Uncommitted note.", author: "test" });
     expect(() => saveKnowledge(paths, config, edit("src/chat.ts", readKnowledge(paths, "src/chat.ts")?.revision))).toThrow(/already have uncommitted changes/);
@@ -181,6 +189,14 @@ describe("shared repository knowledge", () => {
     const after = git(["rev-list", "--count", "HEAD"], { cwd: repo.root }).stdout.trim();
     expect(Number(after) - Number(before)).toBe(1);
     expect(batch.records).toHaveLength(2);
-    expect(git(["show", "--format=", "--name-only", batch.commit], { cwd: repo.root }).stdout).toContain(".reggie/notes/_entities/route/post-api-chat.md");
+    expect(git(["show", "--format=", "--name-only", batch.commit], { cwd: repo.root }).stdout).toContain(".reggie/notes/_entities/route/post-api-chat-");
+  });
+
+  it("stores formerly colliding entity IDs in distinct note files", () => {
+    const result = saveKnowledgeBatch(paths, config, [edit("route:GET /a-b"), edit("route:GET /a/b")], { now: NOW });
+    expect(result.files).toHaveLength(2);
+    expect(new Set(result.files).size).toBe(2);
+    expect(existsSync(resolveNoteTarget(paths, "route:GET /a-b").file)).toBe(true);
+    expect(existsSync(resolveNoteTarget(paths, "route:GET /a/b").file)).toBe(true);
   });
 });

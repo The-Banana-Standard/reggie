@@ -1,0 +1,42 @@
+Shared repository knowledge verification — 2026-09-23
+
+Full suite:
+  npm test -- --run
+  Test Files  52 passed (52)
+  Tests       1285 passed | 1 skipped (1286)
+  Exit        0
+
+Focused knowledge core:
+  4 files passed; 31 tests passed.
+
+Focused HTTP/MCP/context/docs consumers:
+  4 files passed; 33 tests passed.
+
+Typecheck:
+  npm run typecheck
+  tsc -p tsconfig.json --noEmit
+  Exit 0
+
+Build:
+  npm run build
+  tsc -p tsconfig.json
+  Exit 0
+
+Dependency audit:
+  npm audit --audit-level=high
+  found 0 vulnerabilities
+
+Generated documentation:
+  node dist/cli.js -C ../.. docs check
+  fresh: CLAUDE.md
+  fresh: AGENTS.md
+
+Plan contract:
+  node dist/cli.js -C ../.. plan lint shared-repo-knowledge
+  PASS
+
+Whitespace/error-marker check:
+  git diff --check repo-manager
+  Exit 0, no findings
+
+Hosted Linux/macOS CI is recorded in the completion packet after the task branch is pushed.

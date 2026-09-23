@@ -1,3 +1,4 @@
+import { mkdirSync, writeFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { makeTempRepo, type TempRepo } from "../test/helpers.js";
 import { ensureLayout } from "./layout.js";
@@ -22,13 +23,23 @@ describe("notes", () => {
     expect(resolveNoteTarget(paths, "src/auth").kind).toBe("dir");
     const store = resolveNoteTarget(paths, "store:Users Collection");
     expect(store.kind).toBe("entity");
-    expect(store.file.endsWith("notes/_entities/store/users-collection.md")).toBe(true);
+    expect(store.file).toMatch(/notes\/_entities\/store\/users-collection-[0-9a-f]{16}\.md$/);
     const symbol = resolveNoteTarget(paths, "sym:src/auth/login.ts::Session.create");
     expect(symbol.kind).toBe("symbol");
     expect(symbol.file.endsWith("notes/_symbols/src/auth/login.ts/Session.create.md")).toBe(true);
     expect(() => resolveNoteTarget(paths, "sym:../outside.ts::run")).toThrow(/repo-relative symbol ID/);
     expect(() => resolveNoteTarget(paths, "sym:src/auth/login.ts::")).toThrow(/valid symbol ID/);
     expect(() => resolveNoteTarget(paths, "route:POST /api/chat\nretired: true")).toThrow(/control characters/);
+    expect(resolveNoteTarget(paths, "route:GET /a-b").file).not.toBe(resolveNoteTarget(paths, "route:GET /a/b").file);
+  });
+
+  it("keeps exact legacy entity note paths readable", () => {
+    const paths = repoPaths(repo.root);
+    mkdirSync(`${paths.notes}/_entities/service`, { recursive: true });
+    const legacy = `${paths.notes}/_entities/service/openai.md`;
+    writeFileSync(legacy, "---\nentity: service:openai\nkind: entity\n---\n", "utf8");
+    expect(resolveNoteTarget(paths, "service:openai").file).toBe(legacy);
+    expect(resolveNoteTarget(paths, "service:other").file).toMatch(/other-[0-9a-f]{16}\.md$/);
   });
 
   it("adds entries and reads them back", () => {

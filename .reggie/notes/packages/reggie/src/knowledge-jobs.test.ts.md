@@ -9,4 +9,3 @@ sources: shared-repo-knowledge
 
 ## verify · 2026-09-23 · Codex via jacobpress · medium
 Job tests tamper with a completed cached chunk and prove resume fails without publishing any knowledge notes.
-

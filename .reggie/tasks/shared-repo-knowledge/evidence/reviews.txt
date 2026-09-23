@@ -1,0 +1,22 @@
+Shared repository knowledge reviews — 2026-09-23
+
+Code review: PASS after fixes
+- Reviewed the complete `repo-manager...task/shared-repo-knowledge` diff, not only the final patch.
+- Found and fixed a transaction window where the integration ref could remain advanced if the targeted normal-index refresh failed after commit creation. The ref now rolls back with compare-and-swap before file restoration; a locked-index fixture proves it.
+- Found and fixed lossy slug collisions for free-form route/concept/entity note paths. New paths include a source-name digest, exact legacy frontmatter remains readable, and the batch layer refuses duplicate target files.
+- No remaining correctness findings. Full suite, focused suites, typecheck, build, docs check, plan lint, and diff check pass.
+
+Security review: PASS after fixes
+- Agent processes receive argv arrays without a shell, run in Codex read-only or Claude plan mode, have bounded prompt/output sizes and timeouts, and are told to treat source instructions as untrusted.
+- Output is strict-schema validated against the exact requested entity set, fingerprints, item IDs, and source-declared types. Persisted chunks are revalidated before publication.
+- HTTP writes retain loopback/key, same-origin, body-size, attribution, path, and optimistic-revision protections.
+- Entity IDs reject traversal/control characters; digest-backed paths prevent known slug aliasing. Shared locks, atomic replacements, isolated Git indexes, compare-and-swap refs, and dirty-target rejection protect concurrent repository state.
+- Dependency audit reports zero vulnerabilities. No remaining security findings.
+
+Simplification review: PASS
+- One KnowledgeRecord format, parser, renderer, inventory, validation path, and commit transaction serve human edits, both agent adapters, CLI, MCP, HTTP, context, and generated agent docs.
+- Current understanding stays in existing Markdown notes rather than introducing a second database. Ignored local JSON is limited to resumable job progress and selected-agent preference.
+- Legacy notes and exact legacy entity paths remain compatible. Temporary flow payload compatibility is intentionally left for the later data-flow task, as ordered by the program.
+- No redundant adapter-specific knowledge stores or alternate write paths remain.
+
+Hosted Linux/macOS CI: pending branch publication; final status belongs in the completion packet.

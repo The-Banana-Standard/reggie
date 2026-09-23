@@ -68,8 +68,15 @@ export function resolveNoteTarget(paths: RepoPaths, rawEntity: string): NoteTarg
   if (kindMatch && (ENTITY_KINDS as readonly string[]).includes(kindMatch[1] ?? "")) {
     const kind = kindMatch[1] ?? "concept";
     const name = kindMatch[2] ?? "";
-    const file = path.join(paths.notes, "_entities", kind, `${slugify(name, 80)}.md`);
-    return { entity: `${kind}:${name}`, kind: "entity", file: assertInside(paths.notes, file, "note path") };
+    const canonicalEntity = `${kind}:${name}`;
+    // Keep exact legacy files readable, but give every new free-form entity a digest-backed path.
+    // Slug-only names such as "GET /a-b" and "GET /a/b" otherwise alias one note file.
+    const legacy = path.join(paths.notes, "_entities", kind, `${slugify(name, 80)}.md`);
+    const legacyContent = readText(legacy);
+    const file = legacyContent !== null && parseNoteFile(legacy, legacyContent, { entity: canonicalEntity, kind: "entity" }).entity === canonicalEntity
+      ? legacy
+      : path.join(paths.notes, "_entities", kind, `${entityFileName(name)}.md`);
+    return { entity: canonicalEntity, kind: "entity", file: assertInside(paths.notes, file, "note path") };
   }
   const clean = entity.replace(/\/+$/, "");
   if (clean === "" || path.isAbsolute(clean) || clean.split("/").some((seg) => seg === "..")) {
@@ -105,6 +112,11 @@ function symbolFileName(qualifiedName: string): string {
   if (encoded.length <= 160) return encoded;
   const digest = createHash("sha256").update(qualifiedName).digest("hex").slice(0, 16);
   return `${encoded.slice(0, 140)}-${digest}`;
+}
+
+function entityFileName(name: string): string {
+  const digest = createHash("sha256").update(name).digest("hex").slice(0, 16);
+  return `${slugify(name, 60)}-${digest}`;
 }
 
 function qualifiedNameFromFileName(name: string): string {

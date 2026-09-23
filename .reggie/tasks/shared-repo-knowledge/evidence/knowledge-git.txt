@@ -1,0 +1,17 @@
+Knowledge write and Git transaction verification — 2026-09-23
+
+Covered by src/knowledge.test.ts and src/knowledge-jobs.test.ts:
+- Revision conflicts and writes from a task checkout fail before any note is touched.
+- A live lock is preserved and rejected; an unreadable partially written lock is also preserved rather than stolen.
+- Inline saves create one commit containing only the requested knowledge note while unrelated staged and unstaged files retain their exact state.
+- A dirty target note is rejected rather than silently folded into the knowledge commit.
+- If the integration ref moves but the targeted normal-index refresh then fails, a compare-and-swap restores the old ref before note files are restored; a real `.git/index.lock` fixture proves HEAD and the worktree both roll back.
+- Distinct entities are rejected if they ever resolve to one target file, while digest-backed free-form entity paths prevent known slug collisions.
+- Batch output is completely validated before any current record is published, and a valid batch creates exactly one commit.
+- A failed later chunk publishes no current knowledge. Completed local chunks remain resumable and are not regenerated.
+- Cached completed chunks are revalidated at publication; tampering a stored fingerprint makes resume fail and leaves all note targets absent.
+
+Implementation boundary:
+- An isolated temporary Git index constructs the knowledge-only tree and commit.
+- The shared integration branch ref is updated only after all atomic note replacements succeed.
+- The caller's normal index and unrelated working tree are not reset or rewritten.
