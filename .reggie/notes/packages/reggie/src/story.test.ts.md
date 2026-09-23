@@ -15,3 +15,6 @@ sources: packages/reggie/src/story.test.ts, graph-coverage-published
 The 'the add-note section' block is a mutation-tested pin, not a smoke test: delete the addNoteSection call from repoStory and 12 named tests fail, delete it from areaStory and 14 do, in both this file and test/serve.test.ts. Two of its assertions look redundant and are not. The non-empty empty-text case guards a client behaviour a server-only test cannot see: renderSection drops an empty section that carries no empty block, so a section with zero paragraphs and no empty.text would vanish from the page while the exact-array assertions still passed. The repo-root case pins areaStory(ctx, '.'), which is a real page whose hint must read _repo rather than ./. Keep the degenerate repos purpose-built. The one that matters most is the single _repo note with a why entry, because that is what reggie onboard writes, so it is the state nearly every repo is actually in; before this section existed no area page in such a repo had a note form while read-first printed a sentence saying nothing was written about the folder.
 sources: packages/reggie/src/story.test.ts, note-form-on-repo-and-area
 
+## verify · 2026-09-22 · Codex via jacobpress · medium
+Story routing tests require stable double-colon symbol IDs to open symbol routes and label flow nodes.
+

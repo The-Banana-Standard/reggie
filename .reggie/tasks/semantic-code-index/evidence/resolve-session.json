@@ -1,0 +1,24 @@
+{
+  "step": {
+    "from": "sym:functions/api/chat.js::onRequestPost",
+    "to": "sym:functions/api/chat.js::resolveSessionId",
+    "label": "resolveSessionId",
+    "arguments": [
+      {
+        "index": 0,
+        "parameterName": "rawSessionId",
+        "expression": "payload.session_id",
+        "category": "argument",
+        "explicitType": null
+      }
+    ],
+    "returns": [
+      { "expression": "rawSessionId", "explicitType": null },
+      { "expression": "crypto.randomUUID()", "explicitType": null }
+    ]
+  },
+  "legacyInput": {
+    "fields": ["rawSessionId"],
+    "status": "temporary compatibility field; not used by new readers"
+  }
+}

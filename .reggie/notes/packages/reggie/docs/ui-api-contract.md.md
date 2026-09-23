@@ -27,3 +27,6 @@ sources: idea-from-every-page
 The task route's section documents the policy object with every gate id and criterion status, what is read from which commit, the not-evaluated cases, and the checks file's record shape. The decide route's paragraph was rewritten to match what the route really answers: a solo approval lands the task and answers the merge, the release and captured, and every refusal is a 409 carrying its own sentence, the evidence gate and the landing lock among them. It also states the rule by which an evidence reference is read and when a reference is a citation. GateId, CriterionStatus and the record shape are copies of unions in policy.ts and checks.ts; change one and change the other in the same commit.
 sources: low-risk-auto-approval
 
+## decision · 2026-09-22 · Codex via jacobpress · medium
+Flow API steps expose structured ArgumentValue and ReturnVariant records under stable double-colon symbol IDs.
+

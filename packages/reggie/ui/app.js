@@ -1493,7 +1493,7 @@ function onNodeTap(id, nd) {
   }
   if (route.level === "services" && nd?.svc === "file") return navigate(routeForNode(route.repo, sid));
   if (route.level === "flow" || route.level === "flows") {
-    const path = nd?.file ?? (sid.startsWith("sym:") ? sid.slice(4).split("#")[0] : null);
+    const path = nd?.file ?? (sid.startsWith("sym:") ? sid.slice(4).split("::")[0] : null);
     if (!path) return undefined;
     state.map?.select?.(sid);
     pinSpotlight(path);

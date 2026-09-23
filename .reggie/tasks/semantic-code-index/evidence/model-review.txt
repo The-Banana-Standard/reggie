@@ -1,0 +1,16 @@
+Semantic model review
+Date: 2026-09-22
+
+- Symbol spans contain the complete declaration; documented spans begin at attached JSDoc.
+- Actual arguments retain positional index, parameter binding, exact source expression, spread
+  state, explicit declaration when one exists, and an uncapped recursive shape.
+- The wide-object fixture retains a, b, c, d, e, f, and nested; nested retains done.
+- The SessionPayload referenced type retains session_id and the nested profile.flags.active path.
+- Return collection skips nested function bodies and assigns those returns to the nested symbol.
+- new Response and Response.json variants retain payload shapes, branch conditions, and status.
+- Compiler inference is used for identity resolution only. Undeclared parameter and return types
+  remain null. Runtime checks are separate ValidationRule records.
+- Call findings remain outside the exact edge set.
+- Data concepts require proof-bearing links and retain occurrence-level types, validations,
+  transformations, routes, and symbol identities.
+- Reachability and no-reference evidence remain independent and carry explicit limitations.

@@ -10,3 +10,6 @@ sources: packages/reggie/src/docs.ts
 ## verify · 2026-09-22 · Codex via jacobpress · medium
 The generated repository facts include the browser-DOM test files; refresh and check these blocks after test inventory changes.
 
+## data-source · 2026-09-22 · Codex via jacobpress · medium
+Generated repository facts are refreshed after the semantic index and its tests are added.
+

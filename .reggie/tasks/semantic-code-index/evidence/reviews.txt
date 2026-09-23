@@ -1,0 +1,27 @@
+Code review
+Date: 2026-09-22
+
+PASS
+- One repository compiler model owns JavaScript-family identities and facts.
+- Existing flow and symbol facades adapt to the new records without duplicating semantic rules.
+- Server search and flow tracing share the revision cache.
+- Stable IDs are used consistently by source, story, router, map model, docs, and tests.
+- Existing graph and role facts were sufficient; the planned graph.ts and roles.ts edits were
+  unnecessary and were intentionally omitted.
+
+Security review
+PASS
+- The compiler reads paths supplied by the tracked repository graph; it does not accept request
+  paths, write target code, emit JavaScript, execute repository code, or access the network.
+- Existing loopback, same-origin, path, size, and attribution controls are unchanged.
+- No eval, Function constructor, child process, shell interpolation, or new write API was added.
+- Dependency audit reports zero vulnerabilities.
+
+Simplification review
+PASS
+- Removed the now-dead regular-expression JavaScript declaration scanner.
+- Kept the masked scanner only where Rust and migration-only service/payload readers still need it.
+- Removed unused compiler context fields and helper parameters.
+- Kept legacy Payload fields isolated and explicitly documented for removal after reader migration.
+- No source types were added to target repositories and no inferred checker type is presented as
+  an explicit declaration.

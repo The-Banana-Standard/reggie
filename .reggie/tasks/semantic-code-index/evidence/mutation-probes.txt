@@ -1,0 +1,18 @@
+Mutation probes
+Date: 2026-09-22
+
+Each mutation was applied to production code, its focused test was run and observed failing,
+then the mutation was restored. A final focused run passed 186/186 tests.
+
+1. Declaration: skipped SessionStore during candidate collection.
+   Expected failure: stable qualified IDs could not find SessionStore.
+2. Call target: cleared the resolved resolveSessionId callee.
+   Expected failure: imported-alias CallSite had calleeId null.
+3. Nested field: dropped flags while constructing an object shape.
+   Expected failure: profile fields contained only name instead of name and flags.
+4. Declared type: suppressed explicit string type nodes.
+   Expected failure: normalize's declared parameter type became absent.
+5. Concept link: suppressed argument-parameter links.
+   Expected failure: the session concept and its proof-bearing link disappeared.
+6. Role root: suppressed exported migration symbols from migration roots.
+   Expected failure: the up symbol was absent from the migration root set.

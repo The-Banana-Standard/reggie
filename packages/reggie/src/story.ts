@@ -338,9 +338,6 @@ export function routeFor(repo: string, nodeId: string, query: RouteQuery = {}): 
   if (id.startsWith("task:")) return withQuery(`${base}/task/${encodeRouteId(id.slice(5))}`, query);
   if (id.startsWith("person:")) return withQuery(`${base}/person/${encodeRouteId(id.slice(7))}`, query);
   if (id.startsWith("sym:")) {
-    // A flow step names a symbol as `sym:<file>#<name>`; the graph names one as `sym:<file>::<name>`.
-    const hash = id.indexOf("#");
-    if (hash !== -1) return withQuery(`${base}/file/${encodeRouteId(id.slice(4, hash))}`, { ...query, symbol: id.slice(hash + 1) });
     return withQuery(`${base}/symbol/${encodeRouteId(id.slice(4))}`, query);
   }
   if (id.startsWith("fold:") || id.startsWith("entity:")) return withQuery(base, query);
@@ -2716,8 +2713,8 @@ export function servicesStory(ctx: StoryContext, index: ServiceIndex): Story {
 function flowNodeLabel(id: string): string {
   const value = String(id ?? "");
   if (value.startsWith("sym:")) {
-    const hash = value.indexOf("#");
-    return hash === -1 ? value.slice(4) : value.slice(hash + 1);
+    const separator = value.indexOf("::", 4);
+    return separator === -1 ? value.slice(4) : value.slice(separator + 2);
   }
   if (value.startsWith("resp:")) return "the response";
   if (value.startsWith("svc:")) return value.slice(value.lastIndexOf(":") + 1);
@@ -2729,8 +2726,8 @@ function flowNodeFile(id: string): string | null {
   const value = String(id ?? "");
   if (value.startsWith("svc:") || value.startsWith("resp:")) return null;
   if (value.startsWith("sym:")) {
-    const hash = value.indexOf("#");
-    return hash === -1 ? value.slice(4) : value.slice(4, hash);
+    const separator = value.indexOf("::", 4);
+    return separator === -1 ? value.slice(4) : value.slice(4, separator);
   }
   return value || null;
 }

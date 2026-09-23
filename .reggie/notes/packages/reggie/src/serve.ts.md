@@ -38,3 +38,6 @@ sources: idea-from-every-page
 GET /api/task/<slug> carries policy: the object reggie check --json prints, for a task with a live task branch and a packet on it, and null otherwise. It is computed per request for that one page and never stored or cached, because it is a function of two commits and both move; building the task list calls the evaluation zero times, which a test proves with a counter. POST /api/decide answers captured on a solo approval, the slugs the approval captured inside the merge commit. It now answers 409 for one more reason, the evidence gate, and for the landing lock; every 409 carries the one sentence that says what to do, so the client shows it.
 sources: low-risk-auto-approval
 
+## how · 2026-09-22 · Codex via jacobpress · medium
+Cache one semantic index per repository revision and share it between symbol search and flow tracing.
+

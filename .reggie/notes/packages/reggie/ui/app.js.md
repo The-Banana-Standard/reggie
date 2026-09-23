@@ -27,3 +27,6 @@ sources: packages/reggie/ui/app.js, branch-diff-in-reader
 wireHeader mounts the idea trigger, which follows the route event on its own. A workspace tile is a div holding the link that wraps every fact and the idea button in its corner, because a button inside an anchor is invalid; the hover cross-highlight and the refs stay on the wrapper, and the whole-tile click is the link's click.
 sources: idea-from-every-page
 
+## gotcha · 2026-09-22 · Codex via jacobpress · medium
+Flow symbol IDs split at the double-colon separator; the former hash separator is no longer accepted.
+

@@ -5,3 +5,5 @@ kind: file
 
 ## verify · 2026-09-22 · Codex via jacobpress · medium
 The DOM map test imports map.js and pins deterministic repository, file-impact, and data-flow node and edge records without pretending jsdom validates Cytoscape geometry.
+## verify · 2026-09-22 · Codex via jacobpress · medium
+Map-model DOM fixtures verify labels and file extraction from stable double-colon symbol identities.

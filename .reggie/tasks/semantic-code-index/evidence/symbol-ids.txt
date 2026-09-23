@@ -1,0 +1,16 @@
+Stable symbol identity review
+Date: 2026-09-22
+
+Production implementation and fixtures were searched for the former hash-separated symbol
+form, split("#"), and indexOf("#"). No legacy symbol identity was found.
+
+Canonical form:
+  sym:<repo-relative-path>::<qualified-name>
+
+Covered examples:
+  sym:functions/lib/session.ts::SessionStore
+  sym:functions/lib/session.ts::SessionStore.constructor
+  sym:functions/lib/session.ts::SessionStore.save
+  sym:src/ChatClient.jsx::ChatClient.send
+
+Flow, story, router, and map-model tests all use the same form.

@@ -19,3 +19,15 @@ sources: derive-the-journal
 The idea-action block at the end starts its own server over a fresh fixture with the origin shapes added to it (a file with a space, one with non-ASCII letters, a symlink into the repo and one out of it, a file indexed but gone from disk, an ignored cache file), because adding those files to the shared fixture would move the file counts and section lists the earlier blocks pin. Its launch cases stub the platform away from darwin through one helper so nothing in it can open a Terminal window. The team-mode case connects over the machine's own network address with the minted key, and returns early when the machine has no non-internal interface.
 sources: idea-from-every-page
 
+## verify · 2026-09-22 · Codex via jacobpress · medium
+Server contract tests expect the TypeScript symbol engine and exercise semantic-index-backed search through the existing route.
+
+## gotcha · 2026-09-22 · Codex via jacobpress · medium
+Keep the numeric-days contract as one parameterized case per API route. Combining all 36 requests in one test makes an unrelated saturated CI worker consume the whole per-test timeout and hides which route failed.
+
+## verify · 2026-09-22 · Codex via jacobpress · medium
+Exercise each valid numeric boundary as its own test. Repo-story generation is deliberately real and can take several seconds on a saturated hosted runner, so unrelated boundary requests must not share one timeout budget.
+
+## decision · 2026-09-22 · Codex via jacobpress · medium
+Keep cold repo-story generation in the HTTP suite with a 60-second case-specific budget: its first request intentionally builds the compiler-backed flow index and may exceed the generic 20-second limit on a saturated two-core runner. All lightweight routes retain the default guard.
+

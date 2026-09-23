@@ -89,18 +89,23 @@ An entry point is where data enters: a Cloudflare handler (`onRequest`, `onReque
 
 A flow is the chain from one entry to the sinks it reaches: a directed path over call and import edges, ending at a service edge from §1, a `Response`, or a leaf.
 
-### Payloads — the hard part, and the honest part
+### Values — the hard part, and the honest part
 
-For each step, extract what is actually passed, in this order, stopping at the first that yields anything:
+The TypeScript compiler analyzes every tracked first-party JS, JSX, TS, and TSX file. A
+call step records its real positional argument expressions in source order. For example,
+`resolveSessionId(payload.session_id)` records one Argument whose expression is
+`payload.session_id`; it does not invent an object named `{ rawSessionId }` from the
+callee's parameter.
 
-1. **Destructured request body**: `const { a, b } = await request.json()` → fields `[a, b]`, confidence `exact`.
-2. **Object literal at the call site**: `doThing({ query, limit, sessionId })` → those keys, `exact`.
-3. **Type annotation** on the callee's parameter (TS only), resolved one level into an `interface`/`type` alias for its field names → `exact`.
-4. **JSDoc `@param {…}`** → `exact`.
-5. **Parameter names** of the callee → `heuristic`.
-6. Nothing derivable → `null`, and the UI says "not derivable" rather than guessing.
+Object literals, arrays, tuples, referenced declared types, request bodies, and service
+messages become recursive `ValueShape` trees. There is no field-count cutoff. A type is
+shown only when it is explicitly declared in TypeScript, JSDoc, or a referenced declared
+type; compiler inference is used to resolve code but is not presented as a declaration.
+Runtime guards, assertions, and schema checks are separate `ValidationRule` facts.
 
-Do the same for what comes back: `return Response.json({ … })`, `return { … }`, an annotated return type, else null.
+Every source-backed return branch is retained as a `ReturnVariant`, including its
+condition and HTTP status when present. A function with no declared return annotation
+still has `explicitReturnType: null`, even when its returned expressions are visible.
 
 ```ts
 interface Payload { fields: string[]; shape: string | null; confidence: Confidence; source: SourceRef | null }
@@ -109,6 +114,10 @@ interface FlowStep {
   kind: "call" | "import" | "read" | "write" | "respond";
   label: string;                       // the function or operation
   input: Payload | null; output: Payload | null;
+  arguments: ArgumentValue[];           // actual call-site expressions, in order
+  requestPayload: ValueShape | null;    // only an HTTP/request boundary
+  servicePayload: ValueShape | null;    // only an external-service boundary
+  returns: ReturnVariant[];              // all source-backed branches
   source: SourceRef;
   confidence: Confidence;              // the step itself, not its payload
   via: string | null;                  // parameter name a binding arrived under
@@ -122,6 +131,11 @@ interface Flow {
   dropped: FlowDrop[];                           // what the caps cost, per hop
 }
 ```
+
+`Payload`, `input`, and `output` are a temporary migration contract for existing readers.
+They are not authoritative and may still contain the old signature-derived field list.
+New UI and CLI work consumes the structured fields above; the legacy fields are removed
+after every reader has migrated.
 
 Cap a flow at 6 hops of depth; say so with `truncated` rather than silently cutting. Cycles are visited once.
 
@@ -195,7 +209,7 @@ Clicking a service pins a Spotlight and filters the map to it. Clicking a file g
 
 The index lists the entry points grouped by kind, each with its route, its step count and the services it reaches. Choosing one opens the flow.
 
-A flow draws left to right, dagre `rankdir: LR`: the entry, then each function, then the services and the response. **Every edge carries its payload as a label**: the field list when short (`{ message, history, sessionId }`), a count with the full list on hover when long, and a visibly muted "shape not derivable" when null. Heuristic payloads are drawn dotted and say "field names only, inferred from the signature" in the tooltip. Service nodes use the same shapes as the Services page.
+A flow draws left to right, dagre `rankdir: LR`: the entry, then each function, then the services and the response. Edge labels stay compact, while the step detail exposes actual Arguments and recursive Request or Service payload shapes. The compatibility payload fields remain visible to older clients during migration. Service nodes use the same shapes as the Services page.
 
 Story: a numbered narration of the flow in plain English, one paragraph per step, naming what arrives, what the step does with it, and what leaves. Each paragraph's refs highlight its step, so reading the story walks the flow. A final paragraph lists what could not be derived and why.
 
@@ -217,7 +231,7 @@ what the caps dropped. Both take `--json`.
 4. A declared binding that no code touches appears under What is not wired up.
 5. On the Reggie repo itself, Services finds no false positives: it must not invent a service from a comment or a test fixture.
 6. Flows lists the Cloudflare handlers in `functions/api/` with their routes.
-7. Opening the chat flow shows the request payload as field names taken from the destructured `request.json()`, marked exact, and every step's payload is either shown or explicitly marked not derivable.
-8. A heuristic payload is visually distinct from an exact one and says so on hover.
+7. Opening the chat flow shows the complete request shape and real call expressions; the `resolveSessionId` step shows `payload.session_id`, both return branches, and no declared return type.
+8. Runtime validation is shown separately from explicit types, and undeclared types remain visibly undeclared.
 9. Both pages: no element outside the canvas at 1600, 1280 and 1000 px, zero console messages.
 10. Typecheck clean and the whole suite green, with unit tests for both detectors over a fixture repo carrying a wrangler.toml, an undeclared secret, a fetch host, and a two-hop handler chain.

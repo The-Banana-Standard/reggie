@@ -33,3 +33,6 @@ The brief story's What happens next paragraph asks the task's own state rather t
 ## gotcha · 2026-09-15 · Claude via jacobpress · medium
 taskLine prints a capture date for an unclaimed ungroomed card, which is now often absent: triage takes the line. It falls back to the card's age, which the derivation fills from the brief's created. Any other place that reads t.intake for a date needs the same fallback.
 
+## decision · 2026-09-22 · Codex via jacobpress · medium
+Symbol links use only the stable double-colon identity and route directly to symbol pages.
+

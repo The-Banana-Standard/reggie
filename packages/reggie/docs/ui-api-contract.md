@@ -378,7 +378,7 @@ type FlowEntryKind = 'cloudflare'|'http-route'|'next-route'|'next-page'|'cli'|'m
 interface FlowDrop { hop: number; count: number; reason: 'hop-budget'|'step-cap'|'depth' }
 interface FlowSummary {
   id: string;                  // url-safe, also the id of the traced flow
-  entry: string;               // node id of the handler symbol: 'sym:<file>#<name>'
+  entry: string;               // node id of the handler symbol: 'sym:<file>::<qualified-name>'
   title: string;               // 'POST /api/chat'
   kind: FlowEntryKind; method: string|null; route: string|null;
   steps: number; services: string[]; depth: number;
@@ -391,18 +391,32 @@ interface FlowSummary {
 One traced flow. `depth` is validated like every numeric parameter (400 outside 1–99) and then clamped to 6 hops, which is as far as the tracer ever walks. 404 when no entry point has that id.
 ```ts
 interface Payload { fields: string[]; shape: string|null; confidence: Confidence; source: SourceRef|null }
+interface ArgumentValue {
+  index: number; parameterName: string|null; expression: string;
+  category: 'argument'|'request-payload'|'service-payload'; spread: boolean;
+  explicitType: DeclaredType|null; shape: ValueShape|null; source: SourceSpan }
+interface ReturnVariant {
+  id: string; symbolId: string; kind: 'return'|'http-response'|'implicit';
+  expression: string; condition: string|null; status: string|null;
+  explicitType: DeclaredType|null; shape: ValueShape|null; source: SourceSpan }
 interface FlowStep {
-  from: string; to: string;    // node ids: a file, 'sym:<file>#<name>', a service id, or 'resp:<flowId>'
+  from: string; to: string;    // node ids: a file, 'sym:<file>::<qualified-name>', a service id, or 'resp:<flowId>'
   kind: 'call'|'import'|'read'|'write'|'respond';
   label: string;               // the function or the operation ('CHAT_LOGS.prepare')
   input: Payload|null; output: Payload|null;   // null = not derivable; never a guess
+  arguments: ArgumentValue[];  // actual positional call-site expressions
+  requestPayload: ValueShape|null; servicePayload: ValueShape|null;
+  returns: ReturnVariant[];    // every source-backed branch on the callee/response
   source: SourceRef;
   confidence: Confidence;      // heuristic = the service was resolved through a name, not a declaration
   via: string|null }           // the local parameter name a binding arrived under ('db'), else null
 { id: string; entry: string; title: string; method: string|null; route: string|null;
   steps: FlowStep[]; services: string[]; depth: number; truncated: boolean; dropped: FlowDrop[] }
 ```
-A `Payload` with `confidence: 'heuristic'` carries field names read from the callee's signature, not from the data — the UI must say so rather than presenting them as the payload.
+`input`, `output`, and `Payload` are retained only for reader compatibility during the
+semantic-index rollout. New readers use `arguments`, `requestPayload`, `servicePayload`,
+and `returns`; parameter names are never converted into payload objects there. A type is
+present only when explicitly declared through TypeScript, JSDoc, or a referenced type.
 
 Caps: 200 steps in total, 6 hops, and a per-hop budget of `floor(199 / hops)` steps (33 at the default depth) so a wide entry point cannot spend the budget the deeper hops need. `dropped` says which hop lost how many steps and why.
 
