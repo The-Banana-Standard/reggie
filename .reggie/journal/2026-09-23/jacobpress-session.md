@@ -44,3 +44,7 @@ Built dedicated symbol, endpoint, and data-concept pages on the semantic index, 
 ### 02:59 · jacobpress · codex · code-entity-pages · review
 The automated and browser checks found and fixed same-file symbol source retention and a phone-width overflow; desktop and phone entity pages now stay synchronized with no console errors.
 
+### 03:20 · jacobpress · codex · code-entity-pages · review
+Hosted Linux and macOS CI passed the full typecheck, test, build, and documentation workflow; the completion evidence now records the run.
+evidence: full-verification.txt
+

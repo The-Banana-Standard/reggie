@@ -59,9 +59,9 @@ Read this top to bottom to decide whether the work is done. Every claim should p
 - [x] Router, reader, entity projection, override, HTTP, and DOM fixtures cover canonical IDs, classes/methods/constructors, documented source spans, depth/direction, paged full files, route clients and response variants, recursive fields, type absence, stale/edit/conflict/refresh states, redirects, merge/split history, hostile writes, and keyboard/phone-safe markup.
   evidence: .reggie/tasks/code-entity-pages/evidence/focused-tests.txt
   check: pass by jacobpress (codex) at 2026-09-23T07:12:28.163Z · c:433a5e5c62e3
-- [ ] From `packages/reggie`, focused tests, the full suite, typecheck, build, generated documentation checks, code review, security review, simplification review, manual desktop/phone browser acceptance, zero console errors, no horizontal overflow, and hosted Linux/macOS CI all pass.
-  evidence: (none)
-  check: none recorded · c:ce5af076d8ed
+- [x] From `packages/reggie`, focused tests, the full suite, typecheck, build, generated documentation checks, code review, security review, simplification review, manual desktop/phone browser acceptance, zero console errors, no horizontal overflow, and hosted Linux/macOS CI all pass.
+  evidence: .reggie/tasks/code-entity-pages/evidence/full-verification.txt, .reggie/tasks/code-entity-pages/evidence/browser-acceptance.txt, .reggie/tasks/code-entity-pages/evidence/reviews.txt
+  check: pass by jacobpress (codex) at 2026-09-23T07:20:47.205Z · c:ce5af076d8ed
 <!-- reggie:checks:end -->
 
 ## Evidence
@@ -170,9 +170,8 @@ Read this top to bottom to decide whether the work is done. Every claim should p
 - Ranged source reads were narrowed to tracked first-party JavaScript/TypeScript index files after security review. This is stricter than a generic repository-file reader and matches the program's first-language rollout.
 
 ## Discovered issues
-- none
+- GitHub reported 22 Dependabot alerts on the default branch while this task was pushed. The package-scoped production dependency audit remains clean, and the repository-wide alert triage was captured separately as `github-reports-22-dependabot-vulnerabilities-on` rather than expanded into this task.
 
 ## Open risks
 - Dynamic dispatch and unresolved callbacks remain explicit findings, so a call page can be incomplete without claiming the missing edge is exact; users see those sites in the unresolved section.
 - Unsupported languages still use the existing file-level experience; JavaScript/TypeScript is the only semantic entity implementation in this rollout.
-- Hosted Linux/macOS CI is the sole incomplete acceptance item in this preliminary packet and will be recorded after the pull request runs.

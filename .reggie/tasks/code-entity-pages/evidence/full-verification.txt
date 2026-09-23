@@ -18,4 +18,4 @@ From repository root:
 - git diff --check
   passed with no whitespace errors.
 
-Hosted Linux/macOS CI is recorded after the task branch is pushed in the final task evidence update.
+Hosted CI run 35830704147 passed on Ubuntu and macOS. Both jobs passed typecheck, the 1,313-test suite, build, and generated-documentation checks.
