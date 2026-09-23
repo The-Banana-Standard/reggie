@@ -670,6 +670,11 @@ export function buildModel(view, opts = {}) {
       shape = "round-rectangle";
       const count = n.foldCount ?? n.foldIds?.length ?? 0;
       label = n.label && /^\+/.test(n.label) ? n.label : level === "impact" && area ? `+${count} more in ${area.label}` : `+${count} more`;
+    } else if (level === "call") {
+      w = Math.max(170, Math.min(270, 90 + String(n.label ?? n.id).length * 3));
+      h = 58;
+      shape = "round-rectangle";
+      label = n.label ?? displayName(n);
     } else if (kind === "task") {
       w = 44;
       h = 44;
@@ -1070,6 +1075,8 @@ function layoutFor(level, hasEdges) {
       return { ...base, rankSep: 70, nodeSep: 28 };
     case "impact":
       return { ...base, rankSep: 64, nodeSep: 24 };
+    case "call":
+      return { ...base, rankDir: "LR", rankSep: 86, nodeSep: 32 };
     case "workspace":
       return hasEdges ? { ...base, rankDir: "LR", rankSep: 80, nodeSep: 48 } : { name: "row", gap: 48 };
     default:
@@ -1849,6 +1856,7 @@ function stylesheet() {
     { selector: "node[?ghost]", style: { "border-style": "dashed", "border-width": 1.5, opacity: 0.75, "font-size": 11, "font-weight": 500, "z-index": 3 } },
     { selector: "node[kind = 'fold']", style: { "border-style": "dashed", "border-width": 1.5, "font-size": 11, "font-weight": 500 } },
     { selector: "node[kind = 'task']", style: { shape: "diamond", "font-size": 11, "text-valign": "bottom", "text-margin-y": 4, color: COLORS.text, "text-background-opacity": 0.85, "text-background-padding": 3 } },
+    { selector: "node[kind = 'symbol']", style: { "font-size": 11, "font-weight": 600, "text-valign": "center", "text-halign": "center", "text-margin-y": 0, "text-background-opacity": 0, "text-wrap": "wrap", "text-max-width": 250 } },
     { selector: "node[?ghost]", style: { "text-background-opacity": 0.7 } },
     {
       selector: "node:parent",
@@ -3736,7 +3744,7 @@ export function createMap(container, opts = {}) {
       testsBtn.setAttribute("aria-pressed", shown ? "true" : "false");
       testsBtn.setAttribute("aria-label", `${label} (T)`);
       testsBtn.title = `${label} (T)`;
-      testsBtn.hidden = level === "workspace" || level === "flow" || level === "flows";
+      testsBtn.hidden = level === "workspace" || level === "flow" || level === "flows" || level === "call";
     }
     if (opts.wireToolbar && !toolbarWired) {
       toolbarWired = true;

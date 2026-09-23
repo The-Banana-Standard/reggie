@@ -15,3 +15,7 @@ sources: packages/reggie/ui/reader.js, branch-diff-in-reader
 In diff mode the reader's identity has a third part: the two commits the change was read between. Path and slug alone are the same before and after a task is sent back and fixed, and the first version kept what it had drawn, so the owner would have decided on the old change while the task page beside it showed the new counts. What is drawn is kept only when a fresh answer carries the same range; the page hands that answer in, and without one the reader asks for the first page again past the fetch cache. Paging compares every page's range with the first and starts over with a sentence in the banner rather than append rows of another change. Closing the reader forgets the way back to a change and redraws the button, because reopening the same plain file redraws nothing. Select to note is not offered on a file the page has no note form for.
 sources: packages/reggie/ui/reader.js, branch-diff-in-reader
 
+## gotcha · 2026-09-23 · Codex via jacobpress · high
+Declaration reader identity includes the exact source span as well as path and mode, so navigating between two symbols in one file cannot leave the prior declaration visible. Full-file mode pages by source revision.
+sources: code-entity-pages
+

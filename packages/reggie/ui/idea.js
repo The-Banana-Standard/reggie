@@ -34,7 +34,7 @@ export function originFor(route) {
     case "file":
       return { path: String(route.id ?? "") };
     case "symbol": {
-      const [file, ...rest] = String(route.id ?? "").split("::");
+      const [file, ...rest] = String(route.id ?? "").replace(/^sym:/, "").split("::");
       const name = rest.join("::");
       return rest.length > 0 && SYMBOL_NAME.test(name) ? { path: file, symbol: name } : { path: file };
     }
@@ -45,6 +45,8 @@ export function originFor(route) {
     case "services":
     case "flows":
     case "flow":
+    case "route":
+    case "concept":
     case "people":
     case "person":
     case "time":

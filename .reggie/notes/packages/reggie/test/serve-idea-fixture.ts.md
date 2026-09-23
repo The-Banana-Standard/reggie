@@ -11,3 +11,7 @@ sources: idea-from-every-page
 Moved here from the ui dev folder on 2026-09-18: everything under ui ships in the package and is served, and this file imports the test fixtures, which are not. It is outside the package tsconfig, whose root is src, so the package typecheck never sees it; it typechecks on its own with the command in its header. Its fixture holds a star re-export so the symbol page named with an asterisk exists, and a repo-name flag names the fixture in the workspace listing so the header can be measured with a real repo's name.
 sources: idea-from-every-page
 
+## verify · 2026-09-23 · Codex via jacobpress · high
+The browser fixture emits canonical symbol page URLs for captured idea origins.
+sources: code-entity-pages
+

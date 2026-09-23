@@ -15,3 +15,7 @@ sources: idea-from-every-page
 Three rules the 2026-09-18 code review added, each from a reproduced bug. Everything in submit after its first await reads a snapshot of the target taken at the top, and an open while a submit is in flight shows the popover without re-targeting it, because the launch that follows the capture must be built for the page the line came from and not the page the reader moved to. While busy, neither a route change nor a second click on the trigger closes it, and the result stays until the next submit clears it, because the toast tells the reader the command is there. And a description that resolves after the launch has answered is dropped through a settled flag, because on the single-threaded server it queues behind the launch in exactly the hang case and would overwrite the reason with a stale waiting sentence. originFor posts the file alone for a symbol name that is not an identifier: the code map names a star re-export with an asterisk and links a real page for it.
 sources: idea-from-every-page
 
+## how · 2026-09-23 · Codex via jacobpress · high
+Idea capture preserves canonical symbol IDs and recognizes route and concept entity origins.
+sources: code-entity-pages
+

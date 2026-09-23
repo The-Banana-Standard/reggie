@@ -1,0 +1,14 @@
+Inline editing and refresh evidence — 2026-09-23
+
+Verified by ui/app.dom.test.js and the existing knowledge suites:
+- Edit reveals the complete current summary and description form;
+- Cancel restores the server-backed text;
+- Save sends the complete source-backed KnowledgeCurrent shape;
+- a 409 conflict keeps the draft visible and reveals Reload server version;
+- stale current text remains visible with stored and current fingerprints;
+- refresh preview reports selected agent, new/stale counts, files, symbols, expected chunks, and one-commit behavior before confirmation;
+- Codex and Claude run read-only with schema validation;
+- hostile output, malformed output, timeouts, changed fingerprints, partial failures, and resume paths publish no invalid batch;
+- successful batches report progress and resulting commit.
+
+Browser check: Edit, Save, and Cancel controls were visible and keyboard-focus styling was present without performing a repository write from the acceptance session.

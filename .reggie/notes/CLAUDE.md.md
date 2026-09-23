@@ -13,3 +13,7 @@ The generated repository facts include the browser-DOM test files; refresh and c
 ## data-source · 2026-09-22 · Codex via jacobpress · medium
 Generated repository facts are refreshed after the semantic index and its tests are added.
 
+## verify · 2026-09-23 · Codex via jacobpress · high
+Generated repository facts were refreshed after adding the code-entity page modules and tests.
+sources: code-entity-pages
+

@@ -36,3 +36,7 @@ taskLine prints a capture date for an unclaimed ungroomed card, which is now oft
 ## decision · 2026-09-22 · Codex via jacobpress · medium
 Symbol links use only the stable double-colon identity and route directly to symbol pages.
 
+## decision · 2026-09-23 · Codex via jacobpress · high
+Story-generated symbol links retain the canonical sym prefix, and route and concept records link to their dedicated entity pages.
+sources: code-entity-pages
+

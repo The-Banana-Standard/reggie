@@ -38,3 +38,9 @@ Planned first-class symbol, route, and concept pages on the semantic and shared-
 ### 01:38 · jacobpress · codex · code-entity-pages · claim
 Claimed the task and started a branch from repo-manager in a separate worktree.
 
+### 02:59 · jacobpress · codex · code-entity-pages · execute
+Built dedicated symbol, endpoint, and data-concept pages on the semantic index, including exact declaration reading, call relationships, shared knowledge editing, manual concept grouping, and guarded source paging.
+
+### 02:59 · jacobpress · codex · code-entity-pages · review
+The automated and browser checks found and fixed same-file symbol source retention and a phone-width overflow; desktop and phone entity pages now stay synchronized with no console errors.
+

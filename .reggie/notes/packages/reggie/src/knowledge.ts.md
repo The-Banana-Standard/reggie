@@ -17,3 +17,6 @@ Treat unreadable or partially written knowledge lock files as live; never steal 
 If the targeted normal-index refresh fails after the integration ref moves, roll the ref back with compare-and-swap before the caller restores the knowledge files.
 ## gotcha · 2026-09-23 · Codex via jacobpress · medium
 Reject a batch if two prepared entities ever resolve to one note file, even though digest-backed entity paths prevent known slug collisions.
+## how · 2026-09-23 · Codex via jacobpress · high
+Knowledge-related JSON artifacts reuse the integration-checkout lock, atomic rollback, isolated Git index, dirty-target guard, and artifact-only commit transaction used by note edits.
+sources: code-entity-pages

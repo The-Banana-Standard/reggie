@@ -11,3 +11,7 @@ sources: docs/repo-manager-vision.md, CLAUDE.md
 The product is the TypeScript CLI, MCP server and web UI in packages/reggie. Build and test inside packages/reggie with npm run build and npm test, or from the repo root, which delegates there. Start the web view with reggie serve.
 sources: packages/reggie/package.json, packages/reggie/src/cli.ts
 
+## decision · 2026-09-23 · Codex via jacobpress · high
+Manual data-concept merges and splits live in a versioned concepts file; splits replay before merges, merged IDs remain redirects, and knowledge history is retained.
+sources: code-entity-pages
+

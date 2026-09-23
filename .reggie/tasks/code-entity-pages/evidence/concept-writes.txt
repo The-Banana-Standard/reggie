@@ -1,0 +1,16 @@
+Manual concept write evidence — 2026-09-23
+
+Command:
+  npx vitest run src/concept-overrides.test.ts test/entity-api.test.ts --reporter=verbose
+
+Verified:
+- split decisions replay before merge decisions;
+- source IDs remain durable redirects after merge;
+- action history remains append-only;
+- stale revisions, unknown occurrences, wrong task checkouts, dirty override targets, and same-origin violations are rejected;
+- a split that cannot be replayed before an earlier merge is rejected before publication;
+- unrelated staged and unstaged files survive unchanged;
+- each successful action commit contains only .reggie/concepts.json;
+- the integration-checkout lock, atomic write rollback, and isolated-index commit path is shared with knowledge writes.
+
+Result: 5 override unit cases and the guarded HTTP write case passed.

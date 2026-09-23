@@ -45,7 +45,7 @@
         {
           "id": "ex-1",
           "kind": "list",
-          "text": "[[#/repo/reggie/symbol/packages/reggie/src/paths.ts::repoPaths|repoPaths]] function, line 24, used by 19 files\n[[#/repo/reggie/symbol/packages/reggie/src/paths.ts::findRepoRoot|findRepoRoot]] function, line 61, used by four files\n[[#/repo/reggie/symbol/packages/reggie/src/paths.ts::RepoPaths|RepoPaths]] interface, line 8, used by 12 files",
+          "text": "[[#/repo/reggie/symbol/sym:packages/reggie/src/paths.ts::repoPaths|repoPaths]] function, line 24, used by 19 files\n[[#/repo/reggie/symbol/sym:packages/reggie/src/paths.ts::findRepoRoot|findRepoRoot]] function, line 61, used by four files\n[[#/repo/reggie/symbol/sym:packages/reggie/src/paths.ts::RepoPaths|RepoPaths]] interface, line 8, used by 12 files",
           "refs": ["packages/reggie/src/paths.ts"]
         }
       ]

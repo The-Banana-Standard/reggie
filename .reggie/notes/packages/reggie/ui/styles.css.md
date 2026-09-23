@@ -19,3 +19,7 @@ sources: idea-from-every-page
 The idea trigger's label shows from 1500 px, not 1440. The earlier note's two pixels to spare held only for a seven-character repo name; with forge-reggie in workspace mode the repo switcher widens too, and at 1440 the title keeps 106 of 126 px with no trigger, 62 beside the icon and 29 beside the label. A plain minimum width on the desktop title was tried and rejected: at the title's font twelve characters is 151 px, which crushed every earlier crumb to a letter. That earlier note's fallback is now the rule.
 sources: idea-from-every-page
 
+## gotcha · 2026-09-23 · Codex via jacobpress · high
+Phone story columns must clear the desktop minimum width so entity pages never create page-level horizontal overflow.
+sources: code-entity-pages
+

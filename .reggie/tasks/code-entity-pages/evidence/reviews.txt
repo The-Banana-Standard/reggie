@@ -1,0 +1,23 @@
+Code, security, and simplification reviews — 2026-09-23
+
+Code review: PASS
+- Exact semantic IDs remain canonical through server, story links, router, breadcrumbs, graph nodes, and entity links.
+- Symbol source spans, call grouping, route joins, concept redirects, retirement behavior, optimistic knowledge revisions, and reader mode transitions were traced end to end.
+- Findings fixed during review: same-file symbol navigation retained the prior declaration; retired prose could fall back into normal narration; an unreplayable post-merge split could be committed; call graphs exposed unrelated lens/test controls.
+- Regression tests cover each corrected behavior or its governing invariant.
+
+Security review: PASS
+- New writes inherit loopback/key enforcement, same-origin checks, the existing body limit, server-side attribution, bounded schema validation, integration-checkout enforcement, repository lock, dirty-target refusal, atomic replacement, rollback, and isolated Git index.
+- Canonical concept IDs, occurrence IDs, reasons, list sizes, text sizes, and revision tokens are validated server-side.
+- Source reads reject absolute/traversal/control-character paths, non-indexed repository internals, symlinks/non-files, invalid line bounds, and mixed revisions.
+- UI text is constructed as text nodes; entity IDs are encoded into hash routes rather than inserted as HTML.
+- npm audit --omit=dev: found 0 vulnerabilities.
+
+Simplification review: PASS
+- Entity-page data joins live in one pure server projection layer; the browser renders records instead of re-parsing source.
+- Concept JSON commits reuse the knowledge transaction rather than introducing a second lock/index/rollback implementation.
+- Recursive shape rendering is one uncapped function shared by parameters, routes, and returns.
+- The existing reader and Cytoscape map are extended with explicit modes/models rather than duplicated.
+- No temporary compatibility model was added; legacy flow-payload removal remains intentionally reserved for the next ordered task.
+
+Open findings: none.

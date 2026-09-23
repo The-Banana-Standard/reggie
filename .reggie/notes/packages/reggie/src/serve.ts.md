@@ -48,3 +48,11 @@ sources: shared-repo-knowledge
 ## data-source · 2026-09-23 · Codex via jacobpress · medium
 Knowledge detail responses omit append-only history unless history=1, while always returning historyCount so ordinary UI reads stay concise.
 
+## how · 2026-09-23 · Codex via jacobpress · high
+The loopback server exposes dedicated symbol, route, concept, reachability, and ranged-source reads plus guarded concept merge and split writes.
+sources: code-entity-pages
+
+## decision · 2026-09-23 · Codex via jacobpress · high
+The ranged-source HTTP route is limited to files in the first-party semantic index, excluding repository internals and unrelated paths.
+sources: code-entity-pages
+

@@ -98,6 +98,7 @@ describe("semantic code index", () => {
   afterAll(() => repo.cleanup());
 
   it("catalogs every tracked JavaScript/TypeScript extension and code role", () => {
+    expect(index.staticConcepts).toEqual(index.concepts);
     expect(index.files.map((file) => file.file)).toEqual([
       "app/api/health/route.ts",
       "functions/api/chat.tsx",

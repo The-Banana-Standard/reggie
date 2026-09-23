@@ -98,6 +98,17 @@ export interface KnowledgeCommitResult {
   files: string[];
 }
 
+export interface KnowledgeArtifactWrite {
+  file: string;
+  content: string;
+  label: string;
+}
+
+export interface KnowledgeArtifactCommitResult {
+  commit: string;
+  files: string[];
+}
+
 interface PreparedWrite {
   file: string;
   content: string;
@@ -462,7 +473,7 @@ function dirtyTargets(root: string, files: string[]): string[] {
   return result.stdout.split("\0").filter(Boolean);
 }
 
-function writeAtomically(writes: PreparedWrite[]): { restore(): void } {
+function writeAtomically(writes: Array<Pick<KnowledgeArtifactWrite, "file" | "content">>): { restore(): void } {
   const backups = new Map<string, string | null>();
   const temps: string[] = [];
   try {
@@ -530,16 +541,19 @@ function commitOnly(root: string, branch: string, files: string[], message: stri
   }
 }
 
-function commitWrites(paths: RepoPaths, config: ReggieConfig, writes: PreparedWrite[], message: string): KnowledgeCommitResult {
-  if (writes.length === 0) throw new Error("A knowledge write needs at least one record.");
-  const entities = new Set<string>();
+/** Commit repository-knowledge artifacts through the same lock, rollback, and isolated-index transaction as note edits. */
+export function commitKnowledgeArtifacts(paths: RepoPaths, config: ReggieConfig, writes: KnowledgeArtifactWrite[], message: string): KnowledgeArtifactCommitResult {
+  if (writes.length === 0) throw new Error("A knowledge write needs at least one artifact.");
   const targetFiles = new Map<string, string>();
   for (const write of writes) {
-    if (entities.has(write.entity)) throw new Error(`Knowledge batch repeats ${write.entity}.`);
-    entities.add(write.entity);
-    const prior = targetFiles.get(write.file);
-    if (prior) throw new Error(`Knowledge entities ${prior} and ${write.entity} resolve to the same note file.`);
-    targetFiles.set(write.file, write.entity);
+    const absolute = path.resolve(write.file);
+    if (absolute !== path.resolve(paths.reggie) && !absolute.startsWith(`${path.resolve(paths.reggie)}${path.sep}`)) {
+      throw new Error(`Knowledge artifact ${write.label} is outside .reggie/.`);
+    }
+    if (Buffer.byteLength(write.content) > 4 * 1024 * 1024) throw new Error(`Knowledge artifact ${write.label} exceeds 4 MiB.`);
+    const prior = targetFiles.get(absolute);
+    if (targetFiles.has(absolute)) throw new Error(`Knowledge artifacts ${prior} and ${write.label} resolve to the same file.`);
+    targetFiles.set(absolute, write.label);
   }
   const branch = assertKnowledgeIntegrationCheckout(paths.root, config);
   const lock = acquireKnowledgeLock(paths.root);
@@ -555,15 +569,25 @@ function commitWrites(paths: RepoPaths, config: ReggieConfig, writes: PreparedWr
       atomic.restore();
       throw error;
     }
-    const records = writes.map((write) => {
-      const record = readKnowledge(paths, write.entity, write.currentFingerprint);
-      if (!record) throw new Error(`Committed knowledge for ${write.entity} could not be read back.`);
-      return record;
-    });
-    return { commit, records, files };
+    return { commit, files };
   } finally {
     lock.release();
   }
+}
+
+function commitWrites(paths: RepoPaths, config: ReggieConfig, writes: PreparedWrite[], message: string): KnowledgeCommitResult {
+  const entities = new Set<string>();
+  for (const write of writes) {
+    if (entities.has(write.entity)) throw new Error(`Knowledge batch repeats ${write.entity}.`);
+    entities.add(write.entity);
+  }
+  const result = commitKnowledgeArtifacts(paths, config, writes.map((write) => ({ file: write.file, content: write.content, label: write.entity })), message);
+  const records = writes.map((write) => {
+    const record = readKnowledge(paths, write.entity, write.currentFingerprint);
+    if (!record) throw new Error(`Committed knowledge for ${write.entity} could not be read back.`);
+    return record;
+  });
+  return { ...result, records };
 }
 
 /** One inline edit, one knowledge-only commit. */

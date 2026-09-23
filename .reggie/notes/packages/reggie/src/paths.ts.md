@@ -9,3 +9,6 @@ sources: low-risk-auto-approval
 ## how · 2026-09-23 · Codex via jacobpress · medium
 Repository paths expose the ignored local cache locations for resumable knowledge jobs and the last selected generator.
 sources: shared-repo-knowledge
+## how · 2026-09-23 · Codex via jacobpress · high
+Repository paths include the tracked data-concept override file alongside local knowledge-job state.
+sources: code-entity-pages

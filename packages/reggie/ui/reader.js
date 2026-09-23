@@ -20,7 +20,7 @@
  *                                           now, a slug asks for that task's change again. app.js rewrites
  *                                           `?diff=` on the route; without the dep the reader reopens itself.
  *
- * open(path, { line?, endLine?, highlight?, symbols?, file?, fresh?, diff? })
+ * open(path, { line?, endLine?, highlight?, symbols?, file?, source?, full?, fresh?, diff? })
  *   `file` is a pre-fetched /api/file payload (skips the fetch); `symbols` overrides the payload's
  *   symbol list (e.g. from /api/symbols); `highlight` is a symbol name or { line, endLine }.
  *   `diff` is a task slug: the reader then shows what that task changed in the file, from
@@ -44,6 +44,7 @@ const MAP_MIN = 120; // px of canvas always kept above the drawer
 const STORAGE_KEY = "reggie.reader.height";
 const SHOWN_CHARS = 20_000; // spec: first 20 000 characters
 const FILE_ENDPOINT = "/api/file";
+const SOURCE_ENDPOINT = "/api/source";
 const DIFF_ENDPOINT = "/api/filediff";
 const STATUS_LABEL = { added: "Added", deleted: "Deleted", modified: "Modified", renamed: "Renamed", copied: "Copied", typechange: "Type changed" };
 const SIGN = { add: "+", del: "\u2212" };
@@ -181,6 +182,9 @@ export function createReader(container, deps = {}) {
     widest: 1, // diff mode: the largest line number drawn, which sizes the gutter
     lastDiff: null, // { where, slug } of the last change shown, so the plain file can offer the way back
     check: 0, // revalidation counter: a newer "has the branch moved?" question drops an older one's answer
+    sourceMode: "file", // file | symbol | full
+    symbolSource: null, // declaration page retained while full-file mode is open
+    sourceRevision: null,
   };
 
   // ---- DOM skeleton: handle, head, banner, body ---------------------------
@@ -205,9 +209,10 @@ export function createReader(container, deps = {}) {
   const pathEl = el("span", { class: "reader__path" }, dirEl, baseEl);
   const chipsEl = el("span", { class: "reader__chips" });
   const modeBtn = el("button", { class: "btn btn--small reader__mode", type: "button", hidden: true });
+  const fullBtn = el("button", { class: "btn btn--small reader__full", type: "button", hidden: true });
   const editorLink = el("a", { class: "btn btn--small reader__editor", rel: "noopener", hidden: true }, icon("external"), "Open in editor");
   const closeBtn = el("button", { class: "btn btn--tool btn--icon reader__close", type: "button", "aria-label": "Close the reader (Escape)", title: "Close (Esc)" }, icon("close", 16));
-  const head = el("div", { class: "reader__head" }, icon("file"), pathEl, chipsEl, el("span", { class: "reader__actions" }, modeBtn, editorLink, closeBtn));
+  const head = el("div", { class: "reader__head" }, icon("file"), pathEl, chipsEl, el("span", { class: "reader__actions" }, modeBtn, fullBtn, editorLink, closeBtn));
 
   const banner = el("div", { class: "reader__banner", role: "status", hidden: true });
 
@@ -395,6 +400,7 @@ export function createReader(container, deps = {}) {
     pathEl.title = path;
     chipsEl.replaceChildren();
     container.classList.toggle("is-diff", Boolean(st.diff));
+    container.classList.toggle("is-symbol", st.sourceMode === "symbol");
     setModeButton(path);
     if (st.diff) {
       chipsEl.append(chip("Task", st.diff, `What task ${st.diff} changed in this file`));
@@ -431,6 +437,19 @@ export function createReader(container, deps = {}) {
     else if (st.path) open(st.path, { diff: next });
   });
 
+  function setFullButton() {
+    fullBtn.hidden = !st.symbolSource;
+    if (fullBtn.hidden) return;
+    fullBtn.textContent = st.sourceMode === "full" ? "Show declaration" : "Show full file";
+    fullBtn.title = st.sourceMode === "full" ? "Return to this symbol's complete declaration" : "Read the complete parent file in line-ranged pages";
+  }
+
+  fullBtn.addEventListener("click", () => {
+    if (!st.path || !st.symbolSource) return;
+    if (st.sourceMode === "full") open(st.path, { source: st.symbolSource, symbolSource: st.symbolSource, fresh: true });
+    else open(st.path, { full: true, symbolSource: st.symbolSource, fresh: true });
+  });
+
   function setEditorLine(line) {
     // In diff mode the link follows the text on screen: the payload names the copy to open, or none.
     const base = st.diff ? (st.file?.editorUrl ? String(st.file.editorUrl) : null) : editorBase(st.file, st.path, deps);
@@ -447,6 +466,23 @@ export function createReader(container, deps = {}) {
 
   function setBanner(file) {
     banner.replaceChildren();
+    if (st.sourceMode === "symbol") {
+      banner.hidden = true;
+      return;
+    }
+    if (st.sourceMode === "full") {
+      const shownEnd = toInt(file?.endLine);
+      const totalLines = toInt(file?.totalLines);
+      const parts = [el("span", { class: "reader__banner-text" }, "Showing lines 1–", el("strong", {}, fmt(shownEnd)), " of ", el("strong", {}, fmt(totalLines)), ".")];
+      if (file?.hasAfter) {
+        const more = el("button", { class: "btn btn--small reader__source-more", type: "button" }, `Show the next ${fmt(Math.min(500, totalLines - shownEnd))} lines`);
+        more.addEventListener("click", () => loadMoreSource(more));
+        parts.push(more);
+      }
+      banner.append(...parts);
+      banner.hidden = false;
+      return;
+    }
     const text = typeof file?.text === "string" ? file.text : "";
     const truncated = file?.truncated === true || (file?.truncated === undefined && text.length >= SHOWN_CHARS);
     if (!truncated) {
@@ -521,6 +557,7 @@ export function createReader(container, deps = {}) {
     st.symbols = symbols;
     st.lines = typeof file.text === "string" ? splitLines(file.text) : [];
     st.rows = [];
+    st.byLine = new Map();
     hideNoteButton();
 
     setHead(st.path, file);
@@ -545,10 +582,12 @@ export function createReader(container, deps = {}) {
     }
 
     const code = el("div", { class: "reader__code" });
-    code.style.setProperty("--reader-gutter", `${String(st.lines.length).length}ch`);
+    const startLine = toInt(file.startLine) || 1;
+    const lastLine = startLine + st.lines.length - 1;
+    code.style.setProperty("--reader-gutter", `${String(Math.max(lastLine, toInt(file.totalLines))).length}ch`);
     const frag = document.createDocumentFragment();
     for (let i = 0; i < st.lines.length; i++) {
-      const n = i + 1;
+      const n = startLine + i;
       const syms = marks.get(n);
       let mark;
       if (syms) {
@@ -560,10 +599,62 @@ export function createReader(container, deps = {}) {
       }
       const row = el("div", { class: "reader__line", "data-line": String(n) }, el("span", { class: "reader__ln" }, mark, el("span", { class: "reader__num", "aria-hidden": "true" }, String(n))), el("code", { class: "reader__src" }, st.lines[i]));
       st.rows.push(row);
+      st.byLine.set(n, row);
       frag.append(row);
     }
     code.append(frag);
     body.replaceChildren(noteBtn, code);
+    setFullButton();
+  }
+
+  function sourceUrl(path, startLine, revision = null) {
+    let url = `${SOURCE_ENDPOINT}?path=${encodeURIComponent(path)}&startLine=${startLine}&lineCount=500`;
+    if (revision) url += `&revision=${encodeURIComponent(revision)}`;
+    if (typeof deps.withRepo === "function") return deps.withRepo(url);
+    if (deps.repo) url += `&repo=${encodeURIComponent(deps.repo)}`;
+    return url;
+  }
+
+  async function loadMoreSource(button) {
+    const token = st.token;
+    const path = st.path;
+    const nextLine = toInt(st.file?.endLine) + 1;
+    const revision = st.sourceRevision;
+    const hadFocus = document.activeElement === button;
+    button.disabled = true;
+    try {
+      const page = await fetchJson(sourceUrl(path, nextLine, revision), { fresh: true });
+      if (token !== st.token || st.sourceMode !== "full") return;
+      const code = body.querySelector(".reader__code");
+      if (!code) return;
+      const lines = splitLines(page.text ?? "");
+      const frag = document.createDocumentFragment();
+      let first = null;
+      lines.forEach((line, index) => {
+        const n = page.startLine + index;
+        const row = el("div", { class: "reader__line", "data-line": String(n) }, el("span", { class: "reader__ln" }, el("span", { class: "reader__mark reader__mark--none", "aria-hidden": "true" }), el("span", { class: "reader__num", "aria-hidden": "true" }, String(n))), el("code", { class: "reader__src" }, line));
+        if (!first) first = row;
+        st.rows.push(row);
+        st.byLine.set(n, row);
+        st.lines.push(line);
+        frag.append(row);
+      });
+      code.append(frag);
+      code.style.setProperty("--reader-gutter", `${String(page.totalLines).length}ch`);
+      st.file = page;
+      setBanner(page);
+      if (first) animateScroll(Math.max(0, first.offsetTop - 36));
+      if (hadFocus) (banner.querySelector(".reader__source-more") ?? first)?.focus?.({ preventScroll: true });
+    } catch (err) {
+      if (token !== st.token) return;
+      if (err?.status === 409) {
+        await open(path, { full: true, symbolSource: st.symbolSource, fresh: true });
+        bannerNote("The file changed while you were reading, so it was loaded again from the top.");
+      } else {
+        button.disabled = false;
+        bannerNote(`The next lines could not be read: ${err?.message || String(err)}`);
+      }
+    }
   }
 
   // ---- Diff mode: the rows /api/filediff built, drawn with the same line DOM --------------------
@@ -691,7 +782,7 @@ export function createReader(container, deps = {}) {
   }
 
   function rowFor(n) {
-    return st.diff ? st.byLine.get(n) : st.rows[n - 1];
+    return st.byLine.get(n);
   }
 
   body.addEventListener("click", (e) => {
@@ -860,7 +951,9 @@ export function createReader(container, deps = {}) {
     if (b > a && range.endOffset === 0) b -= 1;
     const from = Math.min(a, b);
     const to = Math.max(a, b);
-    const text = st.lines.slice(from - 1, to).join("\n");
+    const texts = [];
+    for (let line = from; line <= to; line += 1) texts.push(st.byLine.get(line)?.querySelector(".reader__src")?.textContent ?? "");
+    const text = texts.join("\n");
     if (!text.trim()) return hideNoteButton();
     st.selection = { from, to, text };
     noteBtn.textContent = from === to ? `Add a note about line ${from}` : `Add a note about lines ${from}–${to}`;
@@ -938,8 +1031,16 @@ export function createReader(container, deps = {}) {
     if (typeof path !== "string" || !path) return;
     reveal();
     const diff = typeof opts.diff === "string" && opts.diff ? opts.diff : null;
-    // The reader's identity is the path plus the mode: the same path in the other mode is a reload.
-    const drawn = st.path === path && st.diff === diff && st.file && !opts.fresh;
+    const requestedSourceMode = diff ? "file" : opts.full ? "full" : opts.source ? "symbol" : "file";
+    // File views are identified by path and mode. A declaration view also includes its exact source
+    // span: two symbols can share a parent file, and navigating between them must replace the reader
+    // even when the path and revision are unchanged.
+    const sameSource = !opts.source || (
+      st.file?.revision === opts.source.revision
+      && st.file?.startLine === opts.source.startLine
+      && st.file?.endLine === opts.source.endLine
+    );
+    const drawn = st.path === path && st.diff === diff && st.sourceMode === requestedSourceMode && st.file && sameSource && !opts.fresh;
     const highlightOnly = () => {
       const hl = resolveHighlight(opts, Array.isArray(opts.symbols) ? opts.symbols : st.symbols);
       if (hl) scrollTo(hl.line, hl.endLine);
@@ -965,6 +1066,11 @@ export function createReader(container, deps = {}) {
     }
     st.path = path;
     st.diff = diff;
+    st.sourceMode = requestedSourceMode;
+    if (opts.symbolSource) st.symbolSource = opts.symbolSource;
+    else if (opts.source) st.symbolSource = opts.source;
+    else if (!opts.full) st.symbolSource = null;
+    st.sourceRevision = null;
     if (diff) st.lastDiff = { where: fileUrl(path, null, 0), slug: diff };
     else if (st.lastDiff && st.lastDiff.where !== fileUrl(path, null, 0)) st.lastDiff = null;
     st.file = null;
@@ -978,10 +1084,12 @@ export function createReader(container, deps = {}) {
     setHead(path, null);
     showLoading();
 
-    let file = opts.file ?? null;
+    let file = opts.source ?? opts.file ?? null;
     if (!file) {
       try {
-        file = await fetchJson(fileUrl(path, diff, 0), opts.fresh ? { fresh: true } : undefined);
+        file = opts.full
+          ? await fetchJson(sourceUrl(path, 1), { fresh: true })
+          : await fetchJson(fileUrl(path, diff, 0), opts.fresh ? { fresh: true } : undefined);
       } catch (err) {
         if (token !== st.token) return;
         showError(err?.message || String(err), () => open(path, { ...opts, fresh: true }));
@@ -994,6 +1102,7 @@ export function createReader(container, deps = {}) {
       return;
     }
     const symbols = diff ? [] : Array.isArray(opts.symbols) ? opts.symbols : Array.isArray(file.symbols) ? file.symbols : [];
+    if (requestedSourceMode === "full") st.sourceRevision = file.revision ?? null;
     if (diff) renderDiff(file);
     else renderFile(file, symbols);
     const hl = st.pending || resolveHighlight(opts, symbols);
@@ -1007,6 +1116,6 @@ export function createReader(container, deps = {}) {
     close,
     scrollTo,
     isOpen: () => st.open,
-    current: () => ({ path: st.path, diff: st.diff, open: st.open, loaded: Boolean(st.file), height: st.heightPx }),
+    current: () => ({ path: st.path, diff: st.diff, mode: st.sourceMode, open: st.open, loaded: Boolean(st.file), height: st.heightPx }),
   };
 }

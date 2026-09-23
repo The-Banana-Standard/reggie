@@ -1,6 +1,6 @@
 # Reggie web API contract (v1)
 
-All endpoints are served by `packages/reggie/src/serve.ts` over `node:http`, bound to `127.0.0.1:4310` by default. Every `/api/*` endpoint accepts `?repo=<name>` (default: the only or first repo). All responses are `application/json; charset=utf-8` with `cache-control: no-store`. Errors: `{ "error": string }` with 400 (bad input), 404 (missing entity), 405 (method), 403 (POST origin check), 413 (body too large), 500. Paths in ids are repo-relative POSIX. `?` marks optional fields; `⧗` marks stretch endpoints (route reserved, may return 501 `{error:"not implemented"}` in Core).
+All endpoints are served by `packages/reggie/src/serve.ts` over `node:http`, bound to `127.0.0.1:4310` by default. Every `/api/*` endpoint accepts `?repo=<name>` (default: the only or first repo). All responses are `application/json; charset=utf-8` with `cache-control: no-store`. Errors: `{ "error": string }` with 400 (bad input), 404 (missing entity), 405 (method), 403 (POST origin check), 409 (revision/checkout/lock conflict), 413 (body too large), 500. Paths in ids are repo-relative POSIX. `?` marks optional fields; `⧗` marks stretch endpoints (route reserved, may return 501 `{error:"not implemented"}` in Core).
 
 ## Shared types
 
@@ -149,6 +149,26 @@ Section ids by scope — repo: `needs-you, what, made-of, starts, talks, flight,
 interface Symbol { name: string; kind: 'function'|'class'|'const'|'let'|'var'|'type'|'interface'|'enum'|'struct'|'trait'|'mod'|'static'|'reexport'|'default'; line: number; endLine: number; exported: boolean; tauriCommand?: boolean; usedBy: { file: string; line?: number }[]; confidence: Confidence }
 ```
 400 for `..`/absolute paths; 404 when missing.
+
+## GET /api/source?path=<file>&startLine=1&lineCount=300&revision=<sha256>
+
+Returns one line-ranged source page for a tracked first-party JavaScript/TypeScript index file: `{path,startLine,endLine,totalLines,text,revision,hasBefore,hasAfter}`. `lineCount` is 1–1000 and line coordinates are original-file coordinates. A later page passes the first page's `revision`; if the source changed, the route returns 409 rather than splicing two revisions. Traversal, absolute paths, control characters, repository internals or other non-indexed paths, symlinks/non-files, unknown files, and out-of-range integers fail explicitly.
+
+## GET /api/symbol?id=<sym:path::qualified-name>&depth=1|2|3&direction=up|down|both
+
+Returns an exact `SymbolEntityPage`: the semantic `symbol`, `parentFile`, complete documented declaration `source`, parameters, validations, every return variant, grouped exact callers/callees with their `CallSite`s, unresolved findings outside the proven graph, a bounded left-to-right `graph`, and the shared `knowledge` edit model. The canonical `sym:` prefix is required; legacy or guessed IDs are rejected.
+
+## GET /api/route?id=<route:METHOD:path>
+
+Returns a `RouteEntityPage`: handler and middleware symbols, static client callers, the recursive union of handler and client request evidence, all response variants, validations, concepts, reached flows/services, and shared knowledge. Value shapes are recursive and uncapped; explicit types appear only when the semantic record names a TypeScript, JSDoc, or referenced declaration.
+
+## GET /api/concept?id=<concept:slug>
+
+Returns a `ConceptEntityPage`: canonical name, aliases, all occurrences and occurrence-level explicit types, validations, transformations, routes, flows, symbols, shared knowledge, and manual override metadata. A merged source ID resolves to its canonical target and returns `redirectedFrom`; the source knowledge file and append-only history are not deleted.
+
+## GET /api/reachability
+
+Returns `ReachabilityResult`: `byRole` roots/reachable/not-reachable files and symbols for production, test, script, migration, and generated roles; separate `noReferences` evidence; analyzer `limitations`; and `deletionClaim: null`. Neither evidence category is a safe-deletion claim.
 
 ## GET /api/changes?slug=<slug>
 What a task changed, as a list. One range of two full commit ids stands for the change: a task that is not done and whose branch is ahead of the integration branch is read from the merge base to the branch tip (what a merge would land, and still right when the branch merged the base back in); otherwise the merge that landed it, against that merge's first parent (`taskLanding`); otherwise a branch that still resolves, from its merge base.
@@ -322,6 +342,8 @@ Streams `.reggie/tasks/<slug>/evidence/<name>` with a content type by extension 
 `GET /api/knowledge` lists source-backed inventory rows `{entity, kind, fingerprint, role, sourceFiles, symbolIds, revision, state}` for repo, folder, file, symbol, route, concept, and existing service/store/environment entities. `state` is `new|fresh|stale|retired`. `GET /api/knowledge?entity=<id>&history=1` returns `{record: KnowledgeRecord, current: KnowledgeCurrent|null, historyCount, historyIncluded}`; without `history=1`, `record.history` is empty but `historyCount` remains. `current` is null for retired records, while the immutable text remains on `record.current` and, for an explicit history view, `record.history`.
 
 `GET /api/knowledge-preview?agent=codex|claude&entity=<id>&all=0|1` reports agent, new/stale entity counts, distinct files/symbols, expected chunks, entity IDs, and the exact one-commit behavior without creating a job. `GET /api/knowledge-jobs` lists local ignored job state; `GET /api/knowledge-job?id=<uuid>` reads one job with confirmation, chunk progress, failures, resumability, and resulting commit.
+
+`POST /api/concept-merge` accepts `{expectedRevision,targetId,sourceIds,canonicalName?,reason}`. `POST /api/concept-split` accepts `{expectedRevision,sourceId,targetId,canonicalName,occurrenceIds,reason}`. Both inherit the loopback/key, same-origin, body-size, attribution, configured-integration-checkout, repository-lock, dirty-target, atomic-replacement, and isolated-index commit guards used by knowledge edits. Each successful action creates one `.reggie/concepts.json`-only commit. Splits are applied before merges; redirects and action history remain durable. A split that selects evidence introduced only by an earlier merge is rejected instead of recording an override that cannot be replayed.
 
 Fingerprints come from semantic source/evidence. A mismatch marks prose stale but never refreshes or hides it. Current text is the only generated prose used by normal context and narration; dated notes and update history stay append-only. Symbol files live under `.reggie/notes/_symbols/<source-path>/<qualified-symbol>.md`; routes and concepts remain under `_entities/`.
 

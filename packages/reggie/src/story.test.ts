@@ -226,7 +226,9 @@ describe("routeFor", () => {
     expect(routeFor("reggie", "dir:./")).toBe("#/repo/reggie");
     expect(routeFor("reggie", "dir:src/components/")).toBe("#/repo/reggie/area/src/components");
     expect(routeFor("reggie", "packages/reggie/src/graph.ts")).toBe("#/repo/reggie/file/packages/reggie/src/graph.ts");
-    expect(routeFor("reggie", "sym:src/a.ts::buildGraph")).toBe("#/repo/reggie/symbol/src/a.ts::buildGraph");
+    expect(routeFor("reggie", "sym:src/a.ts::buildGraph")).toBe("#/repo/reggie/symbol/sym:src/a.ts::buildGraph");
+    expect(routeFor("reggie", "route:POST:/api/chat")).toBe("#/repo/reggie/route/route:POST:/api/chat");
+    expect(routeFor("reggie", "concept:session-id")).toBe("#/repo/reggie/concept/concept:session-id");
     expect(routeFor("reggie", "task:cache-chain")).toBe("#/repo/reggie/task/cache-chain");
     expect(routeFor("reggie", "person:jacobpress")).toBe("#/repo/reggie/person/jacobpress");
     expect(routeFor("reggie", "ghost:up:dir:src/types/")).toBe("#/repo/reggie/area/src/types");
@@ -1303,9 +1305,9 @@ describe("servicesStory and flowStory", () => {
   it("routes a service id to the services page and a flow step's symbol to its file", () => {
     expect(routeFor("r", "svc:kv:CACHE")).toBe("#/repo/r/services?service=svc%3Akv%3ACACHE");
     expect(routeFor("r", "flow:api-chat")).toBe("#/repo/r/flow/api-chat");
-    expect(routeFor("r", "sym:functions/api/chat.js::onRequestPost")).toBe("#/repo/r/symbol/functions/api/chat.js::onRequestPost");
+    expect(routeFor("r", "sym:functions/api/chat.js::onRequestPost")).toBe("#/repo/r/symbol/sym:functions/api/chat.js::onRequestPost");
     // The graph's own `::` symbol ids are untouched.
-    expect(routeFor("r", "sym:src/a.ts::thing")).toBe("#/repo/r/symbol/src/a.ts::thing");
+    expect(routeFor("r", "sym:src/a.ts::thing")).toBe("#/repo/r/symbol/sym:src/a.ts::thing");
   });
 });
 

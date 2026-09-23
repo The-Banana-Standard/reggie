@@ -30,3 +30,7 @@ sources: idea-from-every-page
 ## gotcha · 2026-09-22 · Codex via jacobpress · medium
 Flow symbol IDs split at the double-colon separator; the former hash separator is no longer accepted.
 
+## how · 2026-09-23 · Codex via jacobpress · high
+The web router treats symbols, endpoints, and data concepts as dedicated pages with direct links, recursive evidence, shared knowledge editing, stale refresh controls, and a centered call map.
+sources: code-entity-pages
+

@@ -30,6 +30,8 @@ cache. If a file exists, it is meant to be read and committed.
   Symbol knowledge lives under \`notes/_symbols/<source-path>/<qualified-symbol>.md\`.
   A note may carry one replaceable current-understanding block plus immutable dated
   notes and update history; retirement keeps history while removing text from normal narration.
+- \`concepts.json\` — versioned manual data-concept merges, splits, redirects, and
+  append-only decision history. Static analysis remains the source evidence beneath it.
 - \`journal/YYYY-MM-DD/<person>-<session>.md\` — a plain-English record of what
   each person and each agent did, written as the work happens.
 - \`discussions/\` — conversations bigger than one task, such as direction or
@@ -104,6 +106,8 @@ An entry is stale when the code it describes changed after the entry was written
 Add an entry with \`reggie note add <path> --type gotcha "text"\` or ask your agent to.
 `;
 
+export const CONCEPT_OVERRIDES = `${JSON.stringify({ version: 1, revision: "missing", merges: [], splits: [], history: [] }, null, 2)}\n`;
+
 export interface LayoutResult {
   created: string[];
   gitignoreUpdated: boolean;
@@ -124,6 +128,7 @@ export function ensureLayout(paths: RepoPaths): LayoutResult {
     [paths.readme, REGGIE_README],
     [paths.intake, INTAKE_HEADER],
     [path.join(paths.notes, "README.md"), NOTES_README],
+    [paths.concepts, CONCEPT_OVERRIDES],
   ];
   for (const [file, content] of files) {
     if (writeIfMissing(file, content)) created.push(relPosix(paths.root, file));

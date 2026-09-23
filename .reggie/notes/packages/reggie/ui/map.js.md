@@ -22,3 +22,7 @@ sources: packages/reggie/ui/map.js, branch-diff-in-reader
 ## gotcha · 2026-09-22 · Codex via jacobpress · medium
 Flow map labels and file extraction parse stable double-colon symbol IDs.
 
+## how · 2026-09-23 · Codex via jacobpress · high
+Call graphs use a left-to-right symbol layout with full symbol and file labels; unrelated test controls stay hidden on that graph.
+sources: code-entity-pages
+

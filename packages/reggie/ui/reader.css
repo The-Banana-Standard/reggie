@@ -100,7 +100,7 @@
 /* ---------- Diff mode: what a task changed, drawn with the same line rows ----------
    Colour is never the only signal: every added and deleted row carries + or − in the sign column.
    The gutter is sticky and opaque, so a tinted row needs the tint mixed into --bg rather than laid over it. */
-.reader__mode { color: var(--info); }
+.reader__mode, .reader__full { color: var(--info); }
 .reader__sign { display: inline-block; width: 1ch; margin-left: var(--s-1); text-align: center; font-weight: 600; }
 .reader__line--add { background: #20281f; } /* --ok at 12 % over --bg */
 .reader__line--add .reader__ln { background: #20281f; }
