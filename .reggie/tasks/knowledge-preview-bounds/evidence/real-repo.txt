@@ -1,0 +1,18 @@
+Real-repository preview — personal_website — 2026-09-23
+
+Command: reggie -C /Users/jacobpress/Desktop/Projects/personal_website knowledge preview --agent codex
+Result: PASS.
+
+Agent: codex
+Scope: 3,681 entities (3,681 new, 0 stale)
+Files: 199
+Symbols: 1,349
+Expected chunks: 464
+Commit behavior: one knowledge-only commit after every chunk validates
+
+Before and after revision: fdb8c3721ac4cef474daa2d5755989a3c1a779c0
+Before and after status: byte-identical existing unrelated modifications and untracked files.
+Knowledge job files created: none.
+Knowledge notes or commits created: none.
+
+This was preview only. Generation remains blocked on the required user confirmation.

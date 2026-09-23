@@ -1,0 +1,25 @@
+Full local verification — 2026-09-23
+
+Command: npm test
+Result: PASS — 56 files; 1,319 tests passed; 1 skipped; 1,320 total.
+
+The first sandboxed attempt could not bind test-runner IPC sockets or loopback servers (EPERM). The same unchanged suite was rerun with the required local permissions and passed.
+
+Command: npm run typecheck
+Result: PASS.
+
+Command: npm run build
+Result: PASS.
+
+Command: git diff --check
+Result: PASS.
+
+Command: reggie docs check
+Result: PASS — CLAUDE.md and AGENTS.md are fresh.
+
+Command: reggie plan lint knowledge-preview-bounds
+Result: PASS (non-blocking coverage-count warning only; every criterion names its evidence in the plan).
+
+Hosted CI: GitHub Actions run 35845358689
+- Ubuntu: PASS in 2m12s.
+- macOS: PASS in 6m05s.

@@ -1,0 +1,15 @@
+Code review — PASS
+- Prompt byte accounting now measures only the object actually sent to the agent, not job-only revision, state, source-file, or symbol metadata.
+- Every output-contract ID remains complete; only repeated explanatory facts are sampled.
+- Repository, folder, file, symbol, route, concept, and existing note entities use the same bounded evidence shape.
+- Fingerprints continue to use complete semantic records, so staleness and conflict checks are unchanged.
+
+Security review — PASS
+- The 180,000-byte chunk ceiling, 220,000-byte adapter ceiling, read-only agent execution, hostile-source warning, exact schema validation, revision checks, and atomic knowledge-only publication are unchanged.
+- Source expressions are length-bounded before inclusion in compact evidence.
+- No new filesystem, process, network, route, or write authority is introduced.
+
+Simplification review — PASS
+- One generic deterministic evidence helper supplies totals and representative items across all entity kinds.
+- Type-specific projections retain only fields needed for prose generation; the static semantic index remains the single complete source of truth.
+- Splitting entities across resumable partial responses was rejected because current exact contracts fit within existing limits after removing duplication.
