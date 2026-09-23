@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { currentBranch, defaultBranch, git, gitCommonDir } from "./git.js";
-import { parseNoteFile, resolveNoteTarget, type NoteEntry, type NoteKind } from "./notes.js";
+import { parseNoteFile, renderNoteFile, resolveNoteTarget, type NoteEntry, type NoteKind } from "./notes.js";
 import type { RepoPaths } from "./paths.js";
 import type { ReggieConfig } from "./people.js";
 import { ensureDir, readText, relPosix, splitFrontMatter, upsertFrontMatter } from "./util.js";
@@ -255,6 +255,45 @@ export function readKnowledge(paths: RepoPaths, entity: string, currentFingerpri
 
 export function currentKnowledge(record: KnowledgeRecord | null): KnowledgeCurrent | null {
   return record && !record.retired ? record.current : null;
+}
+
+function noteKindForKnowledge(kind: KnowledgeKind): NoteKind {
+  if (kind === "folder") return "dir";
+  if (kind === "symbol") return "symbol";
+  if (kind === "repo" || kind === "file") return kind;
+  return "entity";
+}
+
+/** Render the same active current block for context, CLI, MCP, and text-only consumers. */
+export function renderKnowledgeRecord(record: KnowledgeRecord, options: { markStale?: Set<string>; includeHistory?: boolean } = {}): string {
+  const note = parseNoteFile(record.file, readText(record.file) ?? "", {
+    entity: record.entity,
+    kind: noteKindForKnowledge(record.kind),
+  });
+  if (record.retired) {
+    const redirect = record.supersededBy ? ` Superseded by ${record.supersededBy}.` : "";
+    return `### ${record.entity} (${record.kind})\nRetired.${redirect} Current text remains in history and is excluded from ordinary narration.`;
+  }
+  const lines = [`### ${record.entity} (${record.kind})`];
+  if (record.current) {
+    lines.push(`- **current understanding** (${record.stale ? "STALE · " : ""}revision ${record.revision.slice(0, 12)} · ${record.history.length} update${record.history.length === 1 ? "" : "s"}): ${record.current.summary}`);
+    for (const [label, values] of [
+      ["parameters", record.current.parameters],
+      ["fields", record.current.fields],
+      ["returns", record.current.returns],
+      ["call sites", record.current.callSites],
+    ] as const) {
+      if (values.length > 0) lines.push(`  ${label}: ${values.map((item) => `${item.id} — ${item.description} (${item.explicitType ?? "type not declared"})`).join("; ")}`);
+    }
+  }
+  const legacy = renderNoteFile(note, options.markStale ? { markStale: options.markStale } : {}).split("\n").slice(1);
+  if (!record.current && legacy.length === 0) lines.push("(no current understanding or dated notes)");
+  lines.push(...legacy);
+  if (options.includeHistory && record.history.length > 0) {
+    lines.push("  update history:");
+    for (const update of record.history) lines.push(`  - ${update.at} ${update.by} (${update.actor}) changed ${update.changedFields.join(", ")} at ${update.codeRevision}: ${update.reason}`);
+  }
+  return lines.join("\n");
 }
 
 function baseContent(paths: RepoPaths, entity: string): { target: ReturnType<typeof resolveNoteTarget>; content: string; record: KnowledgeRecord | null } {

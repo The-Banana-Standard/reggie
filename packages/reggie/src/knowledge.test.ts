@@ -89,6 +89,15 @@ describe("shared repository knowledge", () => {
     expect(second.records[0]?.history[1]).toMatchObject({ actor: "codex", changedFields: ["summary"] });
   });
 
+  it("keeps appended knowledge history out of legacy dated-note prose", () => {
+    addNote(paths, "src/chat.ts", { type: "how", text: "The original dated explanation.", author: "test" });
+    repo.commitAll("add dated note");
+    const previous = readKnowledge(paths, "src/chat.ts")!;
+    const saved = saveKnowledge(paths, config, edit("src/chat.ts", previous.revision), { now: NOW });
+    expect(saved.records[0]?.notes).toMatchObject([{ text: "The original dated explanation." }]);
+    expect(saved.records[0]?.notes[0]?.text).not.toContain("reggie:knowledge:update");
+  });
+
   it("marks changed fingerprints stale without changing or hiding current text", () => {
     const saved = saveKnowledge(paths, config, edit("src/chat.ts"), { now: NOW });
     const record = readKnowledge(paths, "src/chat.ts", "fingerprint-v2");

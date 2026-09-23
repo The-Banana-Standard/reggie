@@ -8,8 +8,13 @@ Find information about a path by opening the same path here:
 - `notes/_entities/<kind>/<name>.md` describes things that are not files:
   `store/` for databases and collections, `route/` for endpoints and screens,
   `service/` for external services, `env/` for environment variables.
+- `notes/_symbols/<source-path>/<qualified-symbol>.md` describes one function,
+  class, constructor, or method using its stable `sym:<path>::<qualified-name>` ID.
 
-Each note file holds dated entries. Each entry has a type, an author, a
+Each note file can hold a replaceable **current understanding** with a source
+fingerprint and revision token, followed by append-only dated entries and update
+history. A changed fingerprint marks current prose stale; only an explicit edit
+or generation request refreshes it. Each dated entry has a type, an author, a
 confidence, and the sources it came from. Types:
 
 - **why** — why this exists or is shaped this way

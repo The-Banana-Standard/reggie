@@ -17,12 +17,14 @@ import { buildGraph, type RepoGraph } from "./graph.js";
 import { createIssue, createPullRequest, ghAvailable } from "./gh.js";
 import { currentBranch, defaultBranch, git, resolveCommit } from "./git.js";
 import { appendJournal, detectTool, readJournal, renderJournalEntry, sessionName } from "./journal.js";
+import { buildKnowledgeInventory, buildRepositorySemanticIndex, createKnowledgeJob, listKnowledgeJobs, previewKnowledgeJob, readKnowledgeJob, runKnowledgeJob, type KnowledgePreview } from "./knowledge-jobs.js";
+import { readKnowledge, renderKnowledgeRecord, setKnowledgeRetired, type KnowledgeActor } from "./knowledge.js";
 import { contextFileRel, isLaunchMode, isLaunchTool, LAUNCH_MODES, LAUNCH_TOOLS, launchCommand, launchSession, MAX_LAUNCH_PATHS, mintSession, recordLaunch, resolveGoal, writeContextPacks, type LaunchGoal, type LaunchInput, type LaunchTask } from "./launch.js";
 import { startMcpServer } from "./mcp.js";
 import { startServer } from "./serve.js";
 import { detectServices, type ServiceNode } from "./services.js";
 import { addNote, findNotes, NOTE_TYPES, notesForPath, renderNoteFile, staleEntries, type Confidence, type NoteType } from "./notes.js";
-import { onboard, refreshDocs } from "./onboard.js";
+import { onboard, refreshDocs, repositoryKnowledgeForDocs } from "./onboard.js";
 import { defaultClaudeHome } from "./transcript.js";
 import { landTask, type LandResult } from "./land.js";
 import { assertTaskCheckout, decidePacket, evidenceGate, lintPacket, PacketError, renderChecklist, scaffoldPacket, type PacketResult } from "./packet.js";
@@ -70,6 +72,18 @@ function out(line: string): void {
 function fail(message: string): never {
   process.stderr.write(`reggie: ${message}\n`);
   process.exit(1);
+}
+
+function knowledgeActor(): KnowledgeActor {
+  const tool = detectTool();
+  return tool === "claude" || tool === "codex" ? tool : "human";
+}
+
+function printKnowledgePreview(preview: KnowledgePreview): void {
+  out(`Agent: ${preview.agent}`);
+  out(`Scope: ${preview.entities} entities (${preview.newEntities} new, ${preview.staleEntities} stale), ${preview.files} files, ${preview.symbols} symbols, ${preview.expectedChunks} chunks.`);
+  out(`Commit: ${preview.commitBehavior}.`);
+  for (const entity of preview.entityIds) out(`- ${entity}`);
 }
 
 const program = new Command();
@@ -132,9 +146,10 @@ docs
     // AGENTS.md is composed whole from CLAUDE.md's curated half, so checking only its generated
     // block would miss the drift that matters most: rules Codex never gets to read.
     const curated = curatedSections(readText(c.paths.claudeMd) ?? "");
+    const knowledge = repositoryKnowledgeForDocs(c.paths);
     const results = [
-      checkGeneratedBlock(c.paths.claudeMd, renderGeneratedBlock(facts, c.config, "claude")),
-      checkComposedFile(c.paths.agentsMd, composeAgentsMd(facts.name, curated, renderGeneratedBlock(facts, c.config, "codex"))),
+      checkGeneratedBlock(c.paths.claudeMd, renderGeneratedBlock(facts, c.config, "claude", knowledge)),
+      checkComposedFile(c.paths.agentsMd, composeAgentsMd(facts.name, curated, renderGeneratedBlock(facts, c.config, "codex", knowledge))),
     ];
     let bad = false;
     for (const r of results) {
@@ -558,7 +573,10 @@ note
     const notes = findNotes(c.paths, query ?? "");
     if (notes.length === 0) return out("No notes yet.");
     const stale = new Set(staleEntries(c.paths).map((s) => `${s.entity}|${s.entry.date}|${s.entry.type}`));
-    out(notes.map((n) => renderNoteFile(n, { markStale: stale })).join("\n\n"));
+    out(notes.map((n) => {
+      const record = readKnowledge(c.paths, n.entity);
+      return record ? renderKnowledgeRecord(record, { markStale: stale }) : renderNoteFile(n, { markStale: stale });
+    }).join("\n\n"));
   });
 note
   .command("path <file>")
@@ -567,7 +585,10 @@ note
     const c = ctx(program.opts<{ root?: string }>().root);
     const chain = notesForPath(c.paths, file);
     if (chain.length === 0) return out(`No notes on the way to ${file}. Write the first one: reggie note add ${file} --type how "..."`);
-    out(chain.map((n) => renderNoteFile(n)).join("\n\n"));
+    out(chain.map((n) => {
+      const record = readKnowledge(c.paths, n.entity);
+      return record ? renderKnowledgeRecord(record) : renderNoteFile(n);
+    }).join("\n\n"));
   });
 note
   .command("stale")
@@ -577,6 +598,102 @@ note
     const stale = staleEntries(c.paths);
     if (stale.length === 0) return out("No stale notes.");
     for (const s of stale) out(`${s.entity}: ${s.entry.type} from ${s.entry.date} by ${s.entry.author}; code changed ${s.codeChanged}`);
+  });
+note
+  .command("retire <entity>")
+  .description("Retire a note from ordinary narration while retaining its current text and history")
+  .requiredOption("--revision <token>", "the revision returned by knowledge show")
+  .requiredOption("--reason <text>", "why this note is retired")
+  .option("--superseded-by <entity>", "the entity that replaces it")
+  .action((entity: string, opts: { revision: string; reason: string; supersededBy?: string }) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    const result = setKnowledgeRetired(c.paths, c.config, {
+      entity,
+      expectedRevision: opts.revision,
+      retired: true,
+      supersededBy: opts.supersededBy ?? null,
+      actor: knowledgeActor(),
+      by: c.person.handle,
+      codeRevision: git(["rev-parse", "HEAD"], { cwd: c.root }).stdout.trim(),
+      reason: opts.reason,
+    });
+    out(`Retired ${result.records[0]?.entity ?? entity} in knowledge-only commit ${result.commit}.`);
+  });
+
+const knowledge = program.command("knowledge").description("Shared current understanding and guarded local-agent generation");
+knowledge
+  .command("show <entity>")
+  .description("Show current understanding, dated notes, revision, staleness metadata, and optional update history")
+  .option("--history", "include immutable update history")
+  .option("--json", "print the record as JSON")
+  .action((entity: string, opts: { history?: boolean; json?: boolean }) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    const index = buildRepositorySemanticIndex(c.paths);
+    const inventory = buildKnowledgeInventory(c.paths, index).find((item) => item.entity === entity);
+    const record = readKnowledge(c.paths, entity, inventory?.fingerprint ?? null);
+    if (!record) return out(`No knowledge exists for ${entity}.`);
+    out(opts.json ? JSON.stringify(record, null, 2) : renderKnowledgeRecord(record, opts.history ? { includeHistory: true } : {}));
+  });
+knowledge
+  .command("preview [entities...]")
+  .description("Show generation scope without creating or running a job")
+  .option("--agent <agent>", "codex or claude")
+  .option("--all", "include fresh entities as well as new and stale ones")
+  .action((entities: string[], opts: { agent?: string; all?: boolean }) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    if (opts.agent && opts.agent !== "codex" && opts.agent !== "claude") fail("agent must be codex or claude");
+    const scoped = previewKnowledgeJob(c.paths, buildRepositorySemanticIndex(c.paths), {
+      ...(opts.agent ? { agent: opts.agent as "codex" | "claude" } : {}),
+      ...(entities.length > 0 ? { entities } : {}),
+      ...(opts.all ? { force: true } : {}),
+    });
+    printKnowledgePreview(scoped.preview);
+  });
+
+function createKnowledgeFromCli(entities: string[], opts: { agent?: string; all?: boolean }): void {
+  const c = ctx(program.opts<{ root?: string }>().root);
+  if (opts.agent && opts.agent !== "codex" && opts.agent !== "claude") fail("agent must be codex or claude");
+  const job = createKnowledgeJob(c.paths, buildRepositorySemanticIndex(c.paths), {
+    ...(opts.agent ? { agent: opts.agent as "codex" | "claude" } : {}),
+    ...(entities.length > 0 ? { entities } : {}),
+    ...(opts.all ? { force: true } : {}),
+  });
+  printKnowledgePreview(job.preview);
+  out(`Job ${job.id} is waiting for confirmation. Review the scope above, then run: reggie knowledge run ${job.id} --confirm`);
+}
+
+knowledge
+  .command("generate [entities...]")
+  .description("Create a batch job and show its scope; a separate confirmation runs it")
+  .option("--agent <agent>", "codex or claude")
+  .option("--all", "include fresh entities as well as new and stale ones")
+  .action(createKnowledgeFromCli);
+knowledge
+  .command("refresh <entities...>")
+  .description("Create an incremental refresh job for explicit entities")
+  .option("--agent <agent>", "codex or claude")
+  .action((entities: string[], opts: { agent?: string }) => createKnowledgeFromCli(entities, opts));
+knowledge
+  .command("run <job>")
+  .description("Confirm and run a previewed job, or resume one that was already confirmed")
+  .option("--confirm", "confirm the previewed scope once")
+  .action((id: string, opts: { confirm?: boolean }) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    const result = runKnowledgeJob(c.paths, c.config, buildRepositorySemanticIndex(c.paths), id, { ...(opts.confirm ? { confirm: true } : {}) });
+    out(`Job ${id}: ${result.status}; ${result.completedChunks}/${result.chunks.length} chunks; ${result.failures.length} failures.`);
+    if (result.commit) out(`Knowledge-only commit: ${result.commit}`);
+    if (result.status === "failed") fail(result.failures.join("; ") || "knowledge generation failed");
+  });
+knowledge
+  .command("status [job]")
+  .description("Show one job or list recent local jobs")
+  .option("--json", "print JSON")
+  .action((id: string | undefined, opts: { json?: boolean }) => {
+    const c = ctx(program.opts<{ root?: string }>().root);
+    const jobs = id ? [readKnowledgeJob(c.paths, id)].filter((job): job is NonNullable<typeof job> => job !== null) : listKnowledgeJobs(c.paths);
+    if (opts.json) return out(JSON.stringify(id ? (jobs[0] ?? null) : jobs, null, 2));
+    if (jobs.length === 0) return out("No local knowledge jobs.");
+    for (const job of jobs) out(`${job.id}: ${job.status}; ${job.completedChunks}/${job.chunks.length} chunks; ${job.agent}; ${job.commit ?? "no commit"}`);
   });
 
 const journal = program.command("journal").description("Plain-English record of what happened");

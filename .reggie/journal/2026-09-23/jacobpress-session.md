@@ -14,3 +14,6 @@ Built the durable knowledge record and Git transaction layer. Legacy notes remai
 ### 00:27 · jacobpress · codex · shared-repo-knowledge · build
 Added source-constrained Codex and Claude adapters plus resumable knowledge jobs. Every generated description is bound to semantic IDs and declared types, previews show the complete scope and commit behavior, confirmation happens once, failures publish nothing, and successful batches produce one knowledge-only commit. Focused adapter, job, record, and note tests pass with type checking.
 
+### 00:45 · jacobpress · codex · shared-repo-knowledge · build
+Connected shared knowledge to context, note search, MCP, generated agent instructions, CLI commands, and guarded web APIs. Current and stale state now come from one record, retired text is excluded from normal narration, and explicit history remains readable. Interface, documentation, context, job, adapter, and Git-safety tests pass.
+

@@ -14,3 +14,7 @@ sources: derive-the-journal
 The generated block's line about plans and packets gained one sentence: verified criteria are recorded with reggie check, and the packet's checklist is built from those records. It travels into every onboarded repo's CLAUDE.md and AGENTS.md, so change it in the same commit as the verb and refresh the blocks on a clean tree afterwards.
 sources: low-risk-auto-approval
 
+## how · 2026-09-23 · Codex via jacobpress · high
+Generated Claude and Codex blocks include the active repository summary, revision, update count, and current or stale state; refresh remains explicit.
+sources: shared-repo-knowledge
+

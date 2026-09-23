@@ -14,3 +14,7 @@ INTAKE_HEADER and the state list in REGGIE_README state the same rule the code d
 REGGIE_README names tasks/<slug>/checks.jsonl between the packet and the evidence folder, says the packet's checklist is built from it and nobody ticks a box by hand, and says a packet that cites a file which is not committed is refused when someone approves it. This repo's own .reggie/README.md is not regenerated from the template and was edited by hand to match.
 sources: low-risk-auto-approval
 
+## how · 2026-09-23 · Codex via jacobpress · high
+New layouts create and explain notes/_symbols beside _entities, and document replaceable current understanding, fingerprints, explicit refresh, immutable history and retirement.
+sources: shared-repo-knowledge
+

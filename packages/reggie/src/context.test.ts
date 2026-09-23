@@ -1,8 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { makeTempRepo } from "../test/helpers.js";
 import { capture, resolveCaptureOrigin } from "./capture.js";
 import { buildContext } from "./context.js";
-import { briefFile } from "./paths.js";
-import { currentPerson } from "./people.js";
+import { git } from "./git.js";
+import { readKnowledge, saveKnowledge, setKnowledgeRetired } from "./knowledge.js";
+import { ensureLayout } from "./layout.js";
+import { addNote } from "./notes.js";
+import { briefFile, repoPaths } from "./paths.js";
+import { currentPerson, parseConfig } from "./people.js";
 import { writeText } from "./util.js";
 import { makeFixtureRepo, type FixtureRepo } from "../test/fixtures.js";
 
@@ -85,6 +90,49 @@ describe("buildContext", () => {
     const pack = buildContext(fx.paths, fx.config, { slug: fx.slugs.inProcess });
     expect(pack).not.toContain("What the user is asking for");
     expect(pack).toContain("## Plan:");
+  });
+
+  it("uses active current understanding and excludes retired text from ordinary context", () => {
+    const repo = makeTempRepo("reggie-context-knowledge-");
+    try {
+      const paths = repoPaths(repo.root);
+      ensureLayout(paths);
+      repo.write("src/session.ts", "export function session(value) { return value; }\n");
+      addNote(paths, "src/session.ts", { type: "how", text: "Legacy session note.", author: "test" });
+      repo.commitAll("knowledge context fixture");
+      const config = parseConfig("mode: solo\ndefaultBranch: main\n");
+      const revision = readKnowledge(paths, "src/session.ts")!.revision;
+      const saved = saveKnowledge(paths, config, {
+        entity: "src/session.ts",
+        expectedRevision: revision,
+        current: { summary: "Returns the supplied session value.", parameters: [], fields: [], returns: [], callSites: [] },
+        fingerprint: "source-v1",
+        actor: "human",
+        by: "Test Person",
+        codeRevision: git(["rev-parse", "HEAD"], { cwd: repo.root }).stdout.trim(),
+        reason: "Add current context.",
+      });
+      const active = buildContext(paths, config, { paths: ["src/session.ts"] });
+      expect(active).toContain("**current understanding**");
+      expect(active).toContain("Returns the supplied session value.");
+      expect(active).toContain("Legacy session note.");
+
+      setKnowledgeRetired(paths, config, {
+        entity: "src/session.ts",
+        expectedRevision: saved.records[0]!.revision,
+        retired: true,
+        supersededBy: null,
+        actor: "human",
+        by: "Test Person",
+        codeRevision: git(["rev-parse", "HEAD"], { cwd: repo.root }).stdout.trim(),
+        reason: "The file is no longer part of normal guidance.",
+      });
+      const retired = buildContext(paths, config, { paths: ["src/session.ts"] });
+      expect(retired).not.toContain("Returns the supplied session value.");
+      expect(retired).not.toContain("Legacy session note.");
+    } finally {
+      repo.cleanup();
+    }
   });
 });
 

@@ -40,3 +40,7 @@ sources: idea-from-every-page
 reggie check <slug> <criterion> <pass|fail> records a check through recordCheck, with --review <name> in place of the criterion, --evidence and --note; with no outcome and no --review it prints the policy report, --json prints the object, and the exit code is 0 only for would pass. It is a top-level command and does not collide with reggie docs check, which is a subcommand. reggie packet says whether it created, rewrote, refreshed or left the checklist, or that the packet predates check records; --lint runs the packet contract and resolves citations on HEAD, adding for a missing file that is on disk that it is on disk but not committed, and writes nothing. Every run of reggie packet ends with the same last line, that nothing was decided and the policy's verdict is a report in this version: the verb must never evaluate, decide or merge until the second slice. reggie decide prints the slugs an approval captured, and reggie people prints the policy and where each key came from.
 sources: low-risk-auto-approval
 
+## how · 2026-09-23 · Codex via jacobpress · high
+Knowledge CLI commands show records, preview scope, create generate or refresh jobs, require a separate one-time confirmation to run, report resumable status, and retire notes through guarded knowledge-only commits.
+sources: shared-repo-knowledge
+

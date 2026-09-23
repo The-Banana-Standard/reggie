@@ -39,7 +39,7 @@ describe("mcp server", () => {
     const tools = await client.listTools();
     const names = tools.tools.map((t) => t.name).sort();
     expect(names).toEqual(
-      ["reggie_add_note", "reggie_capture", "reggie_check", "reggie_context", "reggie_find_notes", "reggie_journal", "reggie_lint_plan", "reggie_people", "reggie_plan_new", "reggie_task", "reggie_tasks"].sort(),
+      ["reggie_add_note", "reggie_capture", "reggie_check", "reggie_context", "reggie_find_notes", "reggie_get_knowledge", "reggie_journal", "reggie_lint_plan", "reggie_people", "reggie_plan_new", "reggie_task", "reggie_tasks"].sort(),
     );
 
     const captured = await client.callTool({ name: "reggie_capture", arguments: { text: "Something to do later" } });
@@ -50,6 +50,9 @@ describe("mcp server", () => {
 
     const note = await client.callTool({ name: "reggie_add_note", arguments: { entity: "_repo", type: "how", text: "This is a fixture repository used by tests." } });
     expect(JSON.stringify(note.content)).toContain("Added how note");
+
+    const knowledge = await client.callTool({ name: "reggie_get_knowledge", arguments: { entity: "_repo", history: true } });
+    expect(JSON.stringify(knowledge.content)).toContain("This is a fixture repository used by tests.");
 
     const ctx = await client.callTool({ name: "reggie_context", arguments: { slug: "something-to-do-later" } });
     expect(JSON.stringify(ctx.content)).toContain("Context pack for something-to-do-later");
@@ -80,7 +83,7 @@ describe("mcp server", () => {
     // terminal on the serving machine and is a human act.
     const names = (await client.listTools()).tools.map((t) => t.name);
     expect(names.some((n) => /launch/i.test(n))).toBe(false);
-    expect(names).toHaveLength(11);
+    expect(names).toHaveLength(12);
   });
 });
 

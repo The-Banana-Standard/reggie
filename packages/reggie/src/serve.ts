@@ -15,6 +15,8 @@ import { currentBranch, defaultBranch, fileAtRef, git } from "./git.js";
 import { buildGraph, flatGraph, jsImports, type GraphEdge, type GraphNode, type RepoGraph } from "./graph.js";
 import { commitsPerDayFor, historyFor, historyLogArgs, parseNumstatLog, recentFor, repoHistory, taskLanding, type CommitInfo, type HistoryIndex, type LogCommit, type TaskLanding } from "./history.js";
 import { appendJournal, readJournal, type JournalEntry } from "./journal.js";
+import { buildKnowledgeInventory, createKnowledgeJob, listKnowledgeJobs, previewKnowledgeJob, readKnowledgeJob, runKnowledgeJob, type KnowledgeInventoryEntry } from "./knowledge-jobs.js";
+import { currentKnowledge, readKnowledge, saveKnowledge, setKnowledgeRetired, validateKnowledgeCurrent, type KnowledgeActor } from "./knowledge.js";
 import { claimTask } from "./claim.js";
 import { pendingSetup } from "./deps.js";
 import { LandError, landTask } from "./land.js";
@@ -356,6 +358,11 @@ function servicesOf(c: RepoCtx): ServiceIndex {
 /** One compiler program and semantic model per repository revision, shared by every reader. */
 function semanticIndexOf(c: RepoCtx): SemanticIndex {
   return c.cached("semanticIndex", () => buildSemanticIndex(c.paths, graphOf(c)));
+}
+
+/** Source-backed entities joined to current note revisions; HEAD and the short note TTL both invalidate it. */
+function knowledgeInventoryOf(c: RepoCtx): KnowledgeInventoryEntry[] {
+  return c.cached("knowledgeInventory", () => buildKnowledgeInventory(c.paths, semanticIndexOf(c)), { ttlMs: STATE_TTL_MS });
 }
 
 /**
@@ -1010,6 +1017,14 @@ function route(req: IncomingMessage, res: ServerResponse, url: URL, registry: Re
       return notesRoute(res, c);
     case "/api/note":
       return noteRoute(res, c, url);
+    case "/api/knowledge":
+      return knowledgeRoute(res, c, url);
+    case "/api/knowledge-preview":
+      return knowledgePreviewRoute(res, c, url);
+    case "/api/knowledge-jobs":
+      return json(res, 200, { jobs: listKnowledgeJobs(c.paths) });
+    case "/api/knowledge-job":
+      return knowledgeJobRoute(res, c, url);
     case "/api/journal":
       return journalRoute(res, c, url);
     case "/api/people":
@@ -2208,12 +2223,56 @@ function contextRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
   return json(res, 200, { text: buildContext(c.paths, c.config, req) });
 }
 
+function knowledgeRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
+  const entity = url.searchParams.get("entity");
+  if (!entity) {
+    return json(res, 200, {
+      entities: knowledgeInventoryOf(c).map(({ entity: id, kind, fingerprint, role, sourceFiles, symbolIds, revision, state }) => ({ entity: id, kind, fingerprint, role, sourceFiles, symbolIds, revision, state })),
+    });
+  }
+  try {
+    const inventory = knowledgeInventoryOf(c).find((item) => item.entity === entity);
+    const record = readKnowledge(c.paths, entity, inventory?.fingerprint ?? null);
+    if (!record) return json(res, 404, { error: `no knowledge for ${entity}` });
+    return json(res, 200, { record, current: currentKnowledge(record), historyIncluded: qBool(url, "history") });
+  } catch (err) {
+    return json(res, 400, { error: err instanceof Error ? err.message : "bad knowledge entity" });
+  }
+}
+
+function knowledgePreviewRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
+  const agent = url.searchParams.get("agent");
+  if (agent && agent !== "codex" && agent !== "claude") return json(res, 400, { error: "agent must be codex or claude" });
+  const entities = url.searchParams.getAll("entity");
+  try {
+    const result = previewKnowledgeJob(c.paths, semanticIndexOf(c), {
+      ...(agent ? { agent } as { agent: "codex" | "claude" } : {}),
+      ...(entities.length > 0 ? { entities } : {}),
+      ...(qBool(url, "all") ? { force: true } : {}),
+    });
+    return json(res, 200, result.preview);
+  } catch (err) {
+    return json(res, 400, { error: err instanceof Error ? err.message : "bad knowledge preview" });
+  }
+}
+
+function knowledgeJobRoute(res: ServerResponse, c: RepoCtx, url: URL): void {
+  const id = url.searchParams.get("id");
+  if (!id) return json(res, 400, { error: "id is required" });
+  try {
+    const job = readKnowledgeJob(c.paths, id);
+    return job ? json(res, 200, job) : json(res, 404, { error: `unknown knowledge job: ${id}` });
+  } catch (err) {
+    return json(res, 400, { error: err instanceof Error ? err.message : "bad knowledge job ID" });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // POST routes
 // ---------------------------------------------------------------------------
 
 async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, registry: RepoRegistry, port: number, keyed = false): Promise<void> {
-  const routes = new Set(["/api/capture", "/api/intake", "/api/note", "/api/decide", "/api/journal", "/api/triage", "/api/launch", "/api/episode"]);
+  const routes = new Set(["/api/capture", "/api/intake", "/api/note", "/api/knowledge", "/api/knowledge-generate", "/api/knowledge-run", "/api/knowledge-retire", "/api/decide", "/api/journal", "/api/triage", "/api/launch", "/api/episode"]);
   if (!routes.has(url.pathname)) {
     const readOnly = new Set([
       "/api/facts",
@@ -2234,6 +2293,10 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
       "/api/history",
       "/api/notes",
       "/api/note",
+      "/api/knowledge",
+      "/api/knowledge-preview",
+      "/api/knowledge-jobs",
+      "/api/knowledge-job",
       "/api/journal",
       "/api/people",
       "/api/search",
@@ -2271,6 +2334,88 @@ async function handlePost(req: IncomingMessage, res: ServerResponse, url: URL, r
   }
 
   switch (url.pathname) {
+    case "/api/knowledge": {
+      const entity = str(body.value, "entity");
+      const expectedRevision = str(body.value, "expectedRevision");
+      const fingerprint = str(body.value, "fingerprint");
+      const reason = str(body.value, "reason");
+      if (!entity || !expectedRevision || !fingerprint || !reason) return json(res, 400, { error: "entity, expectedRevision, fingerprint, and reason are required" });
+      let current;
+      try {
+        current = validateKnowledgeCurrent(body.value.current);
+      } catch (err) {
+        return json(res, 400, { error: err instanceof Error ? err.message : "current understanding is invalid" });
+      }
+      try {
+        const result = saveKnowledge(c.paths, c.config, {
+          entity,
+          expectedRevision,
+          current,
+          fingerprint,
+          actor: "human",
+          by: `${person.handle} (web)`,
+          codeRevision: c.headSha(),
+          reason,
+        });
+        c.invalidate();
+        return json(res, 200, result);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "knowledge save failed";
+        return json(res, /revision conflict|configured integration checkout|repository lock|uncommitted changes/.test(message) ? 409 : 400, { error: message });
+      }
+    }
+    case "/api/knowledge-generate": {
+      const agent = str(body.value, "agent");
+      if (agent && agent !== "codex" && agent !== "claude") return json(res, 400, { error: "agent must be codex or claude" });
+      const entities = strList(body.value, "entities");
+      try {
+        const job = createKnowledgeJob(c.paths, semanticIndexOf(c), {
+          ...(agent ? { agent } as { agent: "codex" | "claude" } : {}),
+          ...(entities.length > 0 ? { entities } : {}),
+          ...(body.value.all === true ? { force: true } : {}),
+        });
+        return json(res, 201, job);
+      } catch (err) {
+        return json(res, 400, { error: err instanceof Error ? err.message : "could not preview knowledge generation" });
+      }
+    }
+    case "/api/knowledge-run": {
+      const id = str(body.value, "id");
+      if (!id) return json(res, 400, { error: "id is required" });
+      try {
+        const job = runKnowledgeJob(c.paths, c.config, semanticIndexOf(c), id, { ...(body.value.confirm === true ? { confirm: true } : {}) });
+        if (job.commit) c.invalidate();
+        return json(res, job.status === "failed" ? 409 : 200, job);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "knowledge job failed";
+        return json(res, /confirmation|previewed|configured integration checkout/.test(message) ? 409 : 400, { error: message });
+      }
+    }
+    case "/api/knowledge-retire": {
+      const entity = str(body.value, "entity");
+      const expectedRevision = str(body.value, "expectedRevision");
+      const reason = str(body.value, "reason");
+      if (!entity || !expectedRevision || !reason) return json(res, 400, { error: "entity, expectedRevision, and reason are required" });
+      const rawActor = str(body.value, "actor");
+      const actor: KnowledgeActor = rawActor === "codex" || rawActor === "claude" ? rawActor : "human";
+      try {
+        const result = setKnowledgeRetired(c.paths, c.config, {
+          entity,
+          expectedRevision,
+          retired: body.value.retired !== false,
+          supersededBy: str(body.value, "supersededBy"),
+          actor,
+          by: `${person.handle} (web)`,
+          codeRevision: c.headSha(),
+          reason,
+        });
+        c.invalidate();
+        return json(res, 200, result);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "knowledge retirement failed";
+        return json(res, /revision conflict|configured integration checkout|repository lock|uncommitted changes/.test(message) ? 409 : 400, { error: message });
+      }
+    }
     case "/api/capture": {
       const text = str(body.value, "text");
       if (!text) return json(res, 400, { error: "text is required" });

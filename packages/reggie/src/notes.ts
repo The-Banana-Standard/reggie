@@ -25,6 +25,8 @@ export interface NoteFile {
   kind: NoteKind;
   file: string;
   entries: NoteEntry[];
+  retired: boolean;
+  supersededBy: string | null;
 }
 
 export interface NoteTarget {
@@ -155,12 +157,16 @@ export function parseNoteFile(file: string, content: string, fallback: { entity:
   const { front, body } = splitFrontMatter(content);
   let entity = fallback.entity;
   let kind: NoteKind = fallback.kind;
+  let retired = false;
+  let supersededBy: string | null = null;
   if (front) {
     for (const line of front.split("\n")) {
-      const m = /^(\w+):\s*(.+)$/.exec(line.trim());
+      const m = /^([a-z][a-z-]*):\s*(.*)$/.exec(line.trim());
       if (!m) continue;
       if (m[1] === "entity" && m[2]) entity = m[2].trim();
       if (m[1] === "kind" && m[2] && ["file", "dir", "repo", "symbol", "entity"].includes(m[2].trim())) kind = m[2].trim() as NoteKind;
+      if (m[1] === "retired" && m[2]) retired = m[2].trim() === "true";
+      if (m[1] === "superseded-by" && m[2]?.trim()) supersededBy = m[2].trim();
     }
   }
   const entries: NoteEntry[] = [];
@@ -173,6 +179,9 @@ export function parseNoteFile(file: string, content: string, fallback: { entity:
     current = null;
   };
   for (const line of body.split("\n")) {
+    // Knowledge updates are immutable machine history beside the human-readable entries. They
+    // may follow an entry at EOF, but never become part of that entry's prose.
+    if (/^<!-- reggie:knowledge:update:[A-Za-z0-9_-]+ -->$/.test(line.trim())) continue;
     const m = headerRe.exec(line);
     if (m) {
       flush();
@@ -199,7 +208,7 @@ export function parseNoteFile(file: string, content: string, fallback: { entity:
     current.text += `${line}\n`;
   }
   flush();
-  return { entity, kind, file, entries };
+  return { entity, kind, file, entries, retired, supersededBy };
 }
 
 export function readNoteFile(paths: RepoPaths, rawEntity: string): NoteFile | null {
@@ -210,7 +219,7 @@ export function readNoteFile(paths: RepoPaths, rawEntity: string): NoteFile | nu
 }
 
 /** Every note file under .reggie/notes, excluding README.md. */
-export function allNoteFiles(paths: RepoPaths): NoteFile[] {
+export function allNoteFiles(paths: RepoPaths, options: { includeRetired?: boolean } = {}): NoteFile[] {
   const out: NoteFile[] = [];
   const walk = (dir: string) => {
     if (!existsSync(dir)) return;
@@ -225,7 +234,8 @@ export function allNoteFiles(paths: RepoPaths): NoteFile[] {
       const content = readText(full) ?? "";
       const rel = relPosix(paths.notes, full);
       const guess = guessEntityFromRel(rel);
-      out.push(parseNoteFile(full, content, guess));
+      const note = parseNoteFile(full, content, guess);
+      if (options.includeRetired || !note.retired) out.push(note);
     }
   };
   walk(paths.notes);
@@ -268,16 +278,16 @@ export function notesForPath(paths: RepoPaths, filePath: string): NoteFile[] {
   const clean = filePath.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
   const chain: NoteFile[] = [];
   const repo = readNoteFile(paths, "_repo");
-  if (repo) chain.push(repo);
+  if (repo && !repo.retired) chain.push(repo);
   const segments = clean.split("/").filter(Boolean);
   for (let i = 1; i < segments.length; i += 1) {
     const dir = `${segments.slice(0, i).join("/")}/`;
     const note = readNoteFile(paths, dir);
-    if (note) chain.push(note);
+    if (note && !note.retired) chain.push(note);
   }
   const seen = new Set(chain.map((n) => n.file));
   for (const candidate of [readNoteFile(paths, `${clean}/`), readNoteFile(paths, clean)]) {
-    if (candidate && !seen.has(candidate.file)) {
+    if (candidate && !candidate.retired && !seen.has(candidate.file)) {
       chain.push(candidate);
       seen.add(candidate.file);
     }

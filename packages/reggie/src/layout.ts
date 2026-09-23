@@ -27,6 +27,9 @@ cache. If a file exists, it is meant to be read and committed.
   Information about the \`src/auth/\` folder lives at \`notes/src/auth/_dir.md\`.
   Repo-wide knowledge lives at \`notes/_repo.md\`. Things that are not files, such
   as databases, routes, and external services, live under \`notes/_entities/\`.
+  Symbol knowledge lives under \`notes/_symbols/<source-path>/<qualified-symbol>.md\`.
+  A note may carry one replaceable current-understanding block plus immutable dated
+  notes and update history; retirement keeps history while removing text from normal narration.
 - \`journal/YYYY-MM-DD/<person>-<session>.md\` — a plain-English record of what
   each person and each agent did, written as the work happens.
 - \`discussions/\` — conversations bigger than one task, such as direction or
@@ -79,8 +82,13 @@ Find information about a path by opening the same path here:
 - \`notes/_entities/<kind>/<name>.md\` describes things that are not files:
   \`store/\` for databases and collections, \`route/\` for endpoints and screens,
   \`service/\` for external services, \`env/\` for environment variables.
+- \`notes/_symbols/<source-path>/<qualified-symbol>.md\` describes one function,
+  class, constructor, or method using its stable \`sym:<path>::<qualified-name>\` ID.
 
-Each note file holds dated entries. Each entry has a type, an author, a
+Each note file can hold a replaceable **current understanding** with a source
+fingerprint and revision token, followed by append-only dated entries and update
+history. A changed fingerprint marks current prose stale; only an explicit edit
+or generation request refreshes it. Each dated entry has a type, an author, a
 confidence, and the sources it came from. Types:
 
 - **why** — why this exists or is shaped this way
@@ -105,7 +113,7 @@ export interface LayoutResult {
 /** Create the .reggie/ tree and its explanatory files if missing. Idempotent. */
 export function ensureLayout(paths: RepoPaths): LayoutResult {
   const created: string[] = [];
-  const dirs = [paths.reggie, paths.tasks, paths.notes, paths.journal, paths.discussions, path.join(paths.notes, "_entities")];
+  const dirs = [paths.reggie, paths.tasks, paths.notes, paths.journal, paths.discussions, path.join(paths.notes, "_entities"), path.join(paths.notes, "_symbols")];
   for (const dir of dirs) {
     if (!existsSync(dir)) {
       ensureDir(dir);
@@ -120,7 +128,7 @@ export function ensureLayout(paths: RepoPaths): LayoutResult {
   for (const [file, content] of files) {
     if (writeIfMissing(file, content)) created.push(relPosix(paths.root, file));
   }
-  for (const dir of [paths.tasks, paths.journal, paths.discussions, path.join(paths.notes, "_entities")]) {
+  for (const dir of [paths.tasks, paths.journal, paths.discussions, path.join(paths.notes, "_entities"), path.join(paths.notes, "_symbols")]) {
     writeIfMissing(path.join(dir, ".gitkeep"), "");
   }
   const gitignoreUpdated = ensureGitignore(paths.root);
