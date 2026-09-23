@@ -78,3 +78,6 @@ The compiler now follows source-declared fetch endpoint constants across importe
 ### 05:28 · jacobpress · codex · personal-website-acceptance-fixes · verify
 Hosted Ubuntu and macOS passed the complete workflow. The configured-endpoint repair now has fixture, full-suite, real-repository, browser, and hosted proof.
 
+### 05:39 · jacobpress · codex · knowledge-preview-bounds · plan
+The real repository preview exposed repeated semantic evidence in generator prompts; the repair will preserve every requested description while compacting prompt-only context within the existing safety limits.
+
