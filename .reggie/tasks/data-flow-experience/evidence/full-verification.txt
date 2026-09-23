@@ -14,4 +14,7 @@ PASS
 - Simplification review: passed.
 - Desktop and phone browser acceptance: passed with zero console errors and no horizontal overflow.
 
-Hosted Linux/macOS CI: pending until the task branch is pushed; this evidence file will be updated with the final workflow result before merge.
+Hosted CI: PASS
+- GitHub Actions run 35839310727.
+- Ubuntu passed in 2m12s.
+- macOS passed in 3m52s.

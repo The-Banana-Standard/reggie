@@ -153,4 +153,4 @@ Read this top to bottom to decide whether the work is done. Every claim should p
 
 ## Open risks
 - Static analysis intentionally leaves dynamic dispatch and unresolved callbacks outside resolved flow edges; users see analyzer limitations and would notice an absent edge rather than a fabricated one.
-- Hosted Linux/macOS CI is still pending at this packet revision and must pass before criterion 12 is recorded or the task is merged.
+- The remaining generic client-helper route false positive is visible in intake and analyzer limitations; it does not alter the source-backed flow values delivered here.
