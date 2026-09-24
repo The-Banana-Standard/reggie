@@ -16,3 +16,6 @@ Request bodies assigned after declaration, receiver-spanning service calls, and 
 ## how · 2026-09-23 · Codex via jacobpress · medium
 Fetch route discovery resolves source-declared string constants and imported object properties through compiler symbols with cycle protection; dynamic and mutable identifier values remain unresolved.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+Record native JSX event and imported React effect bindings with compiler symbol identities. Call conditions are lexical evidence; anonymous callback spans prevent treating callback execution as synchronous execution by the enclosing function.
+

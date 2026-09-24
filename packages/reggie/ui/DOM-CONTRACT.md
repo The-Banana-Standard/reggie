@@ -11,7 +11,7 @@ Every container below exists on first paint and is never replaced, only filled.
 | `app` | Root wrapper; gets `is-map-open` on a phone when the map overlay is up | app.js |
 | `header` | 48px header | app.js |
 | `crumbs` | Breadcrumb `<nav>`; rendered from `story.crumbs` (`renderCrumbs`) | app.js |
-| `nav` | Header navigation `<nav>`: Overview / Services / Data flow / Tasks for the current repo (`renderNav`); empty on the workspace level, hidden by CSS at ≤1100px where the header row is already full | app.js |
+| `nav` | Header navigation `<nav>`: primary Data flow / Tasks, then secondary Overview / Services separated by a rule (`renderNav`); empty on workspace, bottom navigation on phones | app.js |
 | `idea-trigger` | The idea action's header button (first in `.header__tools`; `aria-haspopup="dialog"`, `aria-expanded`; `hidden` on the workspace and home levels; its "Idea" label shows from 1500px). Opens the `.idea` popover for the current page | idea.js |
 | `search-trigger` | "Search ⌘K" button | app.js |
 | `lens` | Lens segmented control (`role=radiogroup`) | app.js |
@@ -50,7 +50,9 @@ Icons: `repo area file symbol task person note journal entry test stale external
 - `.tabs`, `.tabs__tab`, `.tabs__tab.is-active`.
 - `.crumbs`, `.crumbs__item`, `.crumbs__item.is-muted` (greyed Workspace crumb), `.crumbs__sep`, `.crumbs__last` (page title, 22px/600). Below 760px only the last three children (the parent crumb, its separator, the title) are shown; the parent ellipsises first and the title keeps at least six characters.
 - `.crumbs--mini` on `#mini-crumbs` — `display: none` above 1100px, a one-line crumb tail below it.
-- `.nav` > `.nav__item` (`.is-active` for the level in view) — the header's page navigation.
+- `.nav` > `.nav__item` (`.is-active` for the level in view) — the header's page navigation. Primary items use `nav__item--primary`; quieter items use `nav__item--secondary` with `nav__item--divider` on Overview. All have accessible labels even when visible labels are hidden.
+- Bare `#/repo/<name>` URLs, initial repository load and workspace tiles open Data Flow. `#/repo/<name>/overview` preserves the Overview page; explicit `/flows` URLs remain valid.
+- `client-flow.js` renders `#sec-client-origins` above the shared server story. A labelled native `#client-origin` selector switches source-backed client paths and upstream map nodes, without filtering server branches. `.client-flow__step` cards link symbols/files and expand actual arguments or the complete request tree. `.client-flow__conditions` shows lexical server if-conditions and `.client-flow__limits` states callback, role, state/prop and cap limitations. Values are text nodes, never HTML. `withClientJourney` projects the selected path without mutating the server response; `CLIENT EVENT` and `CLIENT EFFECT` nodes open their source file.
 - `.app` sets `grid-template-columns: minmax(0, 1fr)`: an `auto` track is floored by its items'
   min-content, so a long breadcrumb widened the whole page and pushed the header tools off the right
   edge. With a 0 floor the breadcrumb shrinks and ellipsises instead.
@@ -90,6 +92,8 @@ Icons: `repo area file symbol task person note journal entry test stale external
 - The idea popover (idea.js; one per page, appended to `body`, `position: fixed`): `.idea` (`role="dialog"`, `aria-label`, `hidden` when closed) > `.idea__head` (`.idea__where`, the sentence naming the repo and the entity; `.idea__close`) + `form.form--idea` (`.idea__input`, `.idea__error`, `.idea__actions` > `.launch.idea__launch` > `.idea__go` (the main button, `.btn--primary`) + `.launch__caret.idea__caret` + `.idea__menu` (`role="menu"`, `.idea__tool` rows, absolute rather than fixed) and `.idea__hint`) + `.idea__result` (`.idea__task`, the link to the new task; `.idea__remote`, the sentence for a keyed page; then the board's `.launch-cmd` command field). Below 760px it spans the width under the header.
 
 ### Services and Data flow (`services-and-flows-spec.md` §4)
+
+Client flows default to a compact top-to-bottom **Request path** map, with a native **Full server flow** radio option restoring the complete left-to-right graph. Only the map projection changes; server story cards and truncation notices remain visible. The compact layout uses wider nodes and path break opportunities; canonical IDs and links are unchanged.
 - `.declared` > `.declared__file` > `.declared__list` > `.declared__row` (`.declared__what`,
   `.declared__line`) — the "Declared in this repo" index at the foot of the Services story: every
   declared service grouped by the manifest that names it, with its line. It exists because the

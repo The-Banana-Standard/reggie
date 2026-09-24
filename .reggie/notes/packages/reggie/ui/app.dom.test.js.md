@@ -12,3 +12,5 @@ DOM coverage checks canonical entity routing, direct call links, recursive seven
 sources: code-entity-pages
 ## verify · 2026-09-23 · Codex via jacobpress · medium
 DOM coverage proves cleanup evidence is grouped by role with limitations and an explicit non-deletion warning.
+## how · 2026-09-24 · Codex via jacobpress · medium
+Router and navigation tests assert the new Data Flow default, explicit Overview route and primary/secondary grouping with accessible labels.

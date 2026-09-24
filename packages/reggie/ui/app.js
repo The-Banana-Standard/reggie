@@ -11,6 +11,7 @@ import { createMap, SERVICE_NOUNS } from "./map.js";
 import { createReader, diffUrl } from "./reader.js";
 import { renderBoard, renderTaskPage, unmountBoard } from "./board.js";
 import { ideaButtonFor, mountIdeaTrigger } from "./idea.js";
+import { clientFlowSection, withClientJourney } from "./client-flow.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -224,11 +225,13 @@ export function parseRoute(hash) {
   if (segs[0] === "ws") return { ...route, level: "workspace" };
   if (segs[0] !== "repo" || segs.length < 2) return route;
   route.repo = decodeId(segs[1]);
-  route.level = "repo";
+  route.level = "flows";
   if (segs.length === 2) return route;
   const kind = segs[2];
   const rest = decodeId(segs.slice(3).join("/"));
   switch (kind) {
+    case "overview":
+      return { ...route, level: "repo" };
     case "area":
       return { ...route, level: "area", id: rest.replace(/\/+$/, "") };
     case "file":
@@ -274,7 +277,7 @@ export function formatRoute(route) {
       path = "/ws";
       break;
     case "repo":
-      path = `/repo/${encodeId(route.repo)}`;
+      path = `/repo/${encodeId(route.repo)}/overview`;
       break;
     case "area":
       path = `/repo/${encodeId(route.repo)}/area/${encodeId(route.id)}`;
@@ -334,6 +337,8 @@ export function routeForNode(repo, nodeId, query) {
   if (id.startsWith("resp:")) return formatRoute({ ...base, level: "flow", id: id.slice(5) });
   if (id.startsWith("route:")) return formatRoute({ ...base, level: "route", id });
   if (id.startsWith("concept:")) return formatRoute({ ...base, level: "concept", id });
+  if (id.startsWith("client:")) return formatRoute({ ...base, level: "file", id: id.slice(7, id.lastIndexOf(":")) });
+  if (id.startsWith("file:")) return formatRoute({ ...base, level: "file", id: id.slice(5) });
   if (id.startsWith("sym:")) {
     const rest = id.slice(4);
     const cut = rest.lastIndexOf("#");
@@ -1170,20 +1175,20 @@ function wireHeader() {
   // The idea action: the trigger follows the route and hides itself on the workspace level.
   mountIdeaTrigger();
   $("repo-select")?.addEventListener("change", (ev) => {
-    navigate({ level: "repo", repo: ev.target.value, query: {} });
+    navigate({ level: "flows", repo: ev.target.value, query: {} });
   });
   $("tab-map")?.addEventListener("click", () => setQuery({ tab: null }));
 }
 
 /** The repo-level pages, in the header, with the current one marked (§4). */
 const NAV_ITEMS = [
-  ["repo", "Overview", "repo"],
-  ["services", "Services", "service"],
   ["flows", "Data flow", "flow"],
   ["tasks", "Tasks", "task"],
+  ["repo", "Overview", "repo"],
+  ["services", "Services", "service"],
 ];
 const NAV_ACTIVE = { repo: "repo", area: "repo", file: "repo", symbol: "repo", concept: "repo", route: "flows", services: "services", flows: "flows", flow: "flows", tasks: "tasks", task: "tasks" };
-function renderNav(route) {
+export function renderNav(route) {
   const nav = $("nav");
   if (!nav) return;
   const repo = route.repo ?? state.facts?.facts?.name ?? null;
@@ -1198,10 +1203,11 @@ function renderNav(route) {
       h(
         "a",
         {
-          class: `nav__item${level === active ? " is-active" : ""}`,
+          class: `nav__item nav__item--${level === "flows" || level === "tasks" ? "primary" : "secondary"}${level === "repo" ? " nav__item--divider" : ""}${level === active ? " is-active" : ""}`,
           href: formatRoute({ level, repo, query: {} }),
           "aria-current": level === active ? "page" : null,
           title: label,
+          "aria-label": label,
         },
         icon(glyph),
         h("span", {}, label),
@@ -1398,12 +1404,12 @@ export async function render(route) {
 
   // Home redirect (spec §2): single-repo → #/repo/<name>; workspace → #/ws.
   if (route.level === "home") {
-    const target = state.facts.workspace ? { level: "workspace", query: {} } : { level: "repo", repo: state.facts.facts?.name ?? "repo", query: {} };
+    const target = state.facts.workspace ? { level: "workspace", query: {} } : { level: "flows", repo: state.facts.facts?.name ?? "repo", query: {} };
     navigate({ ...target, query: route.query ?? {} }, { replace: true });
     return;
   }
   if (route.level === "repo" && !route.repo) {
-    navigate({ level: "repo", repo: state.facts.facts?.name ?? "repo", query: route.query ?? {} }, { replace: true });
+    navigate({ level: "flows", repo: state.facts.facts?.name ?? "repo", query: route.query ?? {} }, { replace: true });
     return;
   }
 
@@ -2338,7 +2344,7 @@ function renderWorkspaceTiles(ws, route) {
       // opens the repo; the hover cross-highlight and the refs stay on the wrapper.
       const link = h(
         "a",
-        { class: "ws-tile__link", href: formatRoute({ level: "repo", repo: r.name, query: {} }) },
+        { class: "ws-tile__link", href: formatRoute({ level: "flows", repo: r.name, query: {} }) },
         h("div", { class: "ws-tile__name" }, icon("repo"), h("span", {}, r.name)),
         // Every fact is a labelled chip with a tooltip; "TypeScript · 224 code files" left the reader
         // to guess which half was which (§5.2).
@@ -2765,6 +2771,7 @@ function flowRow(f, repo, serviceLink, i) {
     f.method ? chip("Method", f.method, { tone: "info" }) : null,
     chip("Steps", String(f.steps), { tone: f.truncated ? "warn" : "muted" }),
     chip("Hops", String(f.depth), { tone: "muted" }),
+    f.clientOrigins ? chip("Client origins", String(f.clientOrigins), { tone: "info" }) : null,
     f.truncated ? chip("Capped", "yes", { tone: "warn", tip: "A cap hid some steps; the flow page says which" }) : null,
   ].filter(Boolean);
   const row = h(
@@ -2837,6 +2844,17 @@ async function renderFlowLevel(route, token) {
   }
 
   mapCol?.classList.remove("is-loading");
+  let clientId = flow.value?.clients?.paths?.[0]?.id ?? null;
+  let requestOnly = true;
+  const drawClientPath = (id) => {
+    clientId = id;
+    mapCol?.classList.toggle("is-request-path", Boolean(clientId) && requestOnly);
+    if (flow.value && map && state.rendererOk) map.show({ level: "flow", flow: withClientJourney(flow.value, clientId, { requestOnly }), services: index.value?.services ?? [] }, { level: "flow", lens: state.lens, repo: route.repo ?? "repo", depth });
+  };
+  if (flow.value) sections.prepend(clientFlowSection(flow.value, route.repo, { selected: clientId, onSelect: drawClientPath, onScope: (scope) => {
+    requestOnly = scope === "request";
+    drawClientPath(clientId);
+  } }));
   if (!state.rendererOk) {
     $("map-footer").textContent = "map unavailable";
   } else if (flow.error) {
@@ -2844,7 +2862,7 @@ async function renderFlowLevel(route, token) {
     $("map-footer").textContent = "the flow payload failed; the story is unaffected";
   } else if (flow.value && map) {
     try {
-      map.show({ level: "flow", flow: flow.value, services: index.value?.services ?? [] }, { level: "flow", lens: state.lens, repo: route.repo ?? "repo", depth });
+      drawClientPath(clientId);
     } catch (err) {
       console.error("map.show failed", err);
       toast("The map could not draw this flow; the story is unaffected.", { tone: "warn" });

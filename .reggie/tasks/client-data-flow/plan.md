@@ -36,6 +36,8 @@ Add a client-origin selector and expandable client step cards above the shared s
 - .reggie/notes/ (MOD)
 - .reggie/journal/ (MOD)
 - .reggie/tasks/client-data-flow/ (MOD)
+- AGENTS.md (MOD)
+- CLAUDE.md (MOD)
 
 ## Acceptance criteria
 - [ ] Bare repository URLs, initial load and repository switching lead to Data Flow; explicit Overview and Services remain accessible, with Data Flow and Tasks visually primary.
@@ -48,8 +50,10 @@ Add a client-origin selector and expandable client step cards above the shared s
 
 ## Verification strategy
 - Criterion 1: DOM router and navigation tests plus initial-load browser check.
-- Criteria 2–3: JS/JSX/TSX fixtures for imported aliases, multiple triggers, inline callbacks, conditions, dynamic targets, cycles and bounded traversal.
-- Criteria 4–5: DOM and graph-model tests for origin selection, canonical links, full payloads and safe text rendering.
+- Criterion 2: JS/JSX/TSX fixtures for imported aliases, multiple triggers and inline callbacks.
+- Criterion 3: unit fixtures for callback boundaries, shadowed effects, cycles, role filtering and bounded traversal.
+- Criterion 4: DOM and graph-model tests for origin selection and canonical links.
+- Criterion 5: DOM tests for full payloads, explicit/missing types and safe text rendering.
 - Criterion 6: inspect real local API payload and browser against personal_website, recording source evidence and known state/prop analysis limits.
 - Criterion 7: record commands and outcomes in evidence/verification.md; record self-reviews and browser acceptance in evidence/review.md; lint plan and completion packet before landing.
 

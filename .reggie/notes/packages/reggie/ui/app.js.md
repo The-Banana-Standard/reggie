@@ -37,3 +37,6 @@ sources: code-entity-pages
 ## how · 2026-09-23 · Codex via jacobpress · medium
 The Data Flow overview fetches role-aware reachability, keeps unreachable and no-reference evidence separate, and routes endpoint and symbol nodes to dedicated pages.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+Bare repository hashes, startup and repository selection land on Data Flow. Overview remains explicit at /overview. Data Flow and Tasks are primary navigation; Overview and Services are secondary.
+

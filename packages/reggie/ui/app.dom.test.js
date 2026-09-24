@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanupOverview, formatRoute, parentRoute, parseRoute, renderConceptEntity, renderRouteEntity, renderSymbolEntity, renderValueTree, routeForNode } from "./app.js";
+import { cleanupOverview, formatRoute, parentRoute, parseRoute, renderConceptEntity, renderRouteEntity, renderSymbolEntity, renderValueTree, renderNav, routeForNode } from "./app.js";
 import { resetDom } from "./test/dom-fixture.js";
 
 beforeEach(() => resetDom());
@@ -7,7 +7,7 @@ beforeEach(() => resetDom());
 describe("browser router", () => {
   const routes = [
     [{ level: "workspace", query: {} }, "#/ws"],
-    [{ level: "repo", repo: "personal site", query: {} }, "#/repo/personal%20site"],
+    [{ level: "repo", repo: "personal site", query: {} }, "#/repo/personal%20site/overview"],
     [{ level: "area", repo: "demo", id: "src/api", query: { lens: "heat" } }, "#/repo/demo/area/src/api?lens=heat"],
     [{ level: "file", repo: "demo", id: "functions/chat.js", query: { line: "42" } }, "#/repo/demo/file/functions/chat.js?line=42"],
     [{ level: "symbol", repo: "demo", id: "sym:functions/chat.js::onRequestPost", query: {} }, "#/repo/demo/symbol/sym:functions/chat.js::onRequestPost"],
@@ -28,6 +28,16 @@ describe("browser router", () => {
   it("keeps path separators readable while escaping route-breaking values", () => {
     const route = parseRoute("#/repo/my%20repo/file/src/a%23b.ts?lens=tests&diff=one%20two");
     expect(route).toMatchObject({ level: "file", repo: "my repo", id: "src/a#b.ts", query: { lens: "tests", diff: "one two" } });
+  });
+
+  it("makes Data Flow the bare-repo default with primary and secondary navigation", () => {
+    expect(parseRoute("#/repo/demo")).toMatchObject({ level: "flows", repo: "demo" });
+    resetDom('<nav id="nav"></nav>');
+    renderNav({ level: "flow", repo: "demo" });
+    expect([...document.querySelectorAll(".nav__item--primary")].map((node) => node.textContent)).toEqual(["Data flow", "Tasks"]);
+    expect([...document.querySelectorAll(".nav__item--secondary")].map((node) => node.textContent)).toEqual(["Overview", "Services"]);
+    expect(document.querySelector('[aria-current="page"]').textContent).toBe("Data flow");
+    expect(document.querySelector('[aria-label="Overview"]').getAttribute("href")).toBe("#/repo/demo/overview");
   });
 
   it("maps graph entities to canonical entity routes", () => {

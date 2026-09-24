@@ -32,6 +32,7 @@ import {
   type ValueShape,
 } from "./semantic-index.js";
 import { nowIso } from "./util.js";
+import { clientJourneys, type ClientJourneys } from "./client-journeys.js";
 
 // ---------------------------------------------------------------------------
 // Contract types (spec §2)
@@ -69,6 +70,7 @@ export interface FlowStep {
    * (`db` for a call site that passed `env.CHAT_LOGS`). `null` for every other step.
    */
   via: string | null;
+  condition?: string | null;
 }
 
 export type FlowNodeKind = "endpoint" | "function" | "method" | "class" | "file" | "service" | "response";
@@ -96,6 +98,7 @@ export interface FlowDrop {
 }
 
 export interface Flow {
+  clients?: ClientJourneys;
   id: string;
   /** Handler symbol retained as the lookup-compatible semantic entry identity. */
   entry: string;
@@ -140,6 +143,7 @@ export interface FlowEntry {
 }
 
 export interface FlowSummary {
+  clientOrigins?: number;
   id: string;
   entry: string;
   entryNode: string;
@@ -1616,6 +1620,8 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
     if (step.from.startsWith("svc:")) reached.add(step.from);
   }
   const beyondCap = Array.from(services).filter((id) => !reached.has(id)).sort();
+  const semanticCalls = new Map(repo.semantic().calls.map((call) => [call.id, call]));
+  for (const step of steps) step.condition = step.callSiteId ? semanticCalls.get(step.callSiteId)?.condition ?? null : null;
 
   return {
     id: entry.id,
@@ -1631,6 +1637,7 @@ function traceFrom(repo: Repo, entry: DetectedEntry, opts: TraceOptions): Flow {
     depth,
     truncated: !drops.empty,
     dropped: drops.list(),
+    clients: entryRoute ? clientJourneys(repo.semantic(), entryRoute) : { paths: [], limitations: [], truncated: false },
   };
 }
 
@@ -1676,6 +1683,7 @@ export function detectFlows(paths: RepoPaths, graph: RepoGraph, opts: DetectFlow
         truncated: flow.truncated,
         dropped: flow.dropped,
         source: e.source,
+        clientOrigins: flow.clients?.paths.length ?? 0,
       });
     }
   }

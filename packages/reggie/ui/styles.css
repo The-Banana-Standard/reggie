@@ -246,6 +246,16 @@ button { cursor: pointer; }
 .nav__item.is-active { color: var(--text); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--brand-line); }
 .nav__item.is-active .i { opacity: 1; color: var(--brand); }
 .nav__item:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.nav__item--primary { color: var(--text); font-weight: 650; }
+.nav__item--secondary { font-weight: 400; }
+.nav__item--divider { margin-left: 10px; border-left: 1px solid var(--line); border-top-left-radius: 0; border-bottom-left-radius: 0; padding-left: 14px; }
+.client-flow__select { width: 100%; max-width: 100%; margin: 8px 0 14px; padding: 10px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.client-flow__step { margin: 10px 0; }
+.client-flow__step code, .client-flow__conditions code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.client-flow__conditions, .client-flow__limits { margin: 12px 0; }
+.client-flow__select:focus-visible { outline: 2px solid var(--brand); }
+.client-flow__scope { border: 1px solid var(--line); border-radius: 6px; margin: 14px 0; padding: 10px; }
+.client-flow__scope label { display: inline-block; margin: 4px 16px 4px 0; }
 /* The labels go first and the glyphs stay, so the row keeps its four targets while the breadcrumb
    and the lens keep their width. */
 @media (max-width: 1240px) { .nav__item span { display: none; } .nav__item { padding: 0 6px; } }
@@ -253,6 +263,12 @@ button { cursor: pointer; }
    measure ~980px of a 1000px row, so the nav steps out rather than pushing the row into a
    horizontal scroll. Both pages stay reachable from the breadcrumb and from the repo story. */
 @media (max-width: 1100px) { .nav { display: none; } }
+@media (min-width: 761px) and (max-width: 1100px) {
+  .nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 44px; justify-content: center; background: var(--panel); border-top: 1px solid var(--line); z-index: 40; }
+  .nav__item span { display: inline; }
+  .main { padding-bottom: 44px; }
+  .main[data-level="flow"] .map-col.is-request-path { flex: 0 0 auto; height: min(80vh, 760px); position: relative; top: auto; }
+}
 .kbd {
   font-family: var(--font); font-size: var(--fs-sub); color: var(--muted);
   border: 1px solid var(--line-strong); border-radius: 4px; padding: 0 4px; line-height: 16px;
@@ -867,6 +883,8 @@ details.cmds summary { cursor: pointer; color: var(--muted); font-size: var(--fs
   .nav__item { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 3px; height: auto; padding: 6px 2px; border-radius: 8px; font-size: var(--fs-sub); }
   .nav__item span { display: inline; }
   .nav__item .i { width: 20px; height: 20px; }
+  .nav__item--primary { flex-grow: 1.25; }
+  .nav__item--divider { margin-left: 4px; padding-left: 2px; }
   .story { --story-pad: var(--s-3); min-width: 0; padding-top: var(--s-4); padding-bottom: calc(var(--s-7) + var(--tabbar-h) + env(safe-area-inset-bottom, 0px)); }
   .app.is-map-open .map-col { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px)); }
   .map-col { display: none; }
