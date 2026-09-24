@@ -14,3 +14,6 @@ Reviewed compiler evidence, safe rendering and graph scope. Fixed callback bound
 ### 10:29 · jacobpress · codex · client-data-flow · decide
 Decision: approved. Merged the task branch into repo-manager. Completed the requested client-first Data Flow build and real personal-website acceptance. Local validation and Linux/macOS CI passed: https://github.com/The-Banana-Standard/reggie/actions/runs/36012312069
 
+### 10:41 · jacobpress · codex · complete-data-flow-view · claim
+Claimed the task and started a branch from repo-manager in a separate worktree.
+
