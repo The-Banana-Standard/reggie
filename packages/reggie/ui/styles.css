@@ -256,6 +256,8 @@ button { cursor: pointer; }
 .client-flow__select:focus-visible { outline: 2px solid var(--brand); }
 .client-flow__scope { border: 1px solid var(--line); border-radius: 6px; margin: 14px 0; padding: 10px; }
 .client-flow__scope label { display: inline-block; margin: 4px 16px 4px 0; }
+.flow-all-link { margin-bottom: 16px; }
+.flow-row__clients { margin: 10px 0; overflow-wrap: anywhere; }
 /* The labels go first and the glyphs stay, so the row keeps its four targets while the breadcrumb
    and the lens keep their width. */
 @media (max-width: 1240px) { .nav__item span { display: none; } .nav__item { padding: 0 6px; } }
@@ -267,7 +269,7 @@ button { cursor: pointer; }
   .nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 44px; justify-content: center; background: var(--panel); border-top: 1px solid var(--line); z-index: 40; }
   .nav__item span { display: inline; }
   .main { padding-bottom: 44px; }
-  .main[data-level="flow"] .map-col.is-request-path { flex: 0 0 auto; height: min(80vh, 760px); position: relative; top: auto; }
+  .main[data-level="flow"] .map-col.is-request-path { flex: 0 0 auto; height: min(65vh, 600px); position: relative; top: auto; }
 }
 .kbd {
   font-family: var(--font); font-size: var(--fs-sub); color: var(--muted);

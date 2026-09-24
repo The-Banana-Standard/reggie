@@ -93,7 +93,11 @@ Icons: `repo area file symbol task person note journal entry test stale external
 
 ### Services and Data flow (`services-and-flows-spec.md` §4)
 
-Client flows default to a compact top-to-bottom **Request path** map, with a native **Full server flow** radio option restoring the complete left-to-right graph. Only the map projection changes; server story cards and truncation notices remain visible. The compact layout uses wider nodes and path break opportunities; canonical IDs and links are unchanged.
+The all-flows map connects known client origins → every entry point → reached services. Unmatched endpoints remain visible; flow cards expose source links and missing/capped client evidence. Endpoint map nodes open their flow on a single click.
+
+Flow pages default to **Clients + server**: all detected upstream paths plus the existing server trace. **Highlight client origin** changes the blue upstream edges and adjacent details, not the nodes shown. **Focus on this path** explicitly isolates the chosen browser-to-handler handoff. Shared call-site edges are deduplicated. The **← All flows** link returns to the complete entry-point index. Server story cards, depth controls, and truncation notices remain available in both modes.
+
+Genuinely linear acyclic graphs use a responsive alternating-row layout (left-to-right, down, right-to-left); narrow panes stack. Branches, joins, cycles and disconnected graphs keep the hierarchical layout. Source strings are safe text and canonical IDs/paths are unchanged.
 - `.declared` > `.declared__file` > `.declared__list` > `.declared__row` (`.declared__what`,
   `.declared__line`) — the "Declared in this repo" index at the foot of the Services story: every
   declared service grouped by the manifest that names it, with its line. It exists because the
@@ -216,10 +220,12 @@ show options. `map.show({ level: 'services', index, areas, focus?, all?, tests? 
   their Level-1 area compounds, the services on the right ranked by fan-in and wrapped into columns.
   Every *declared* service is drawn whatever its rank; the tail folds into `fold:services`, which the
   toolbar's "Show all" button and a tap both unfold (`?all=1`).
-- Flow is dagre `rankDir: 'LR'` with `fixedDir` (a flow is not re-ranked into a column for a portrait
+- Branching flow is dagre `rankDir: 'LR'` with `fixedDir` (a flow is not re-ranked into a column for a portrait
   pane) and `grid: true`, which deals a hop wider than `GRID_ROWS` into stacked columns inside its own
   rank. `fitWhole` on a model over 36 nodes asks `fit()` to hold the whole graph rather than clip at
   the readability floor, because at those zooms no label is drawn either way.
+- A single chain uses `layout.name = 'serpentine'` with graph-derived `order`, not step-list order.
+  Pure `linearChain` and `serpentinePositions` helpers are exported for geometry regression tests.
 - Flow node data carries `entityKind` (`endpoint | function | method | class | file | service |
   response`) and `svc`; the three-line label is uppercase entity kind, prominent entity name, then
   path. Edge data carries `op`, `valueEvidence` (`structured | positional | none`), and

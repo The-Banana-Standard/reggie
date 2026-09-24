@@ -44,7 +44,8 @@ Default each flow to all detected client paths plus the existing server graph. S
 - [ ] Focused tests, full suite, typecheck, build, docs checks, code/security/simplification reviews, and the completion packet are recorded before landing into repo-manager.
 
 ## Verification strategy
-- Criteria 1–2: flow summary fixtures and DOM/model tests for every entry, unmatched origins, shared client identities, additive edges, source links and default controls.
+- Criterion 1: flow summary fixtures and DOM/model tests for every entry, unmatched origins and shared client identities.
+- Criterion 2: DOM/model tests for additive edges, source links and default controls.
 - Criterion 3: deterministic geometry tests for row direction and wrapping, narrow screens, and rejection of branching, cyclic or disconnected chains; real Cytoscape browser inspection.
 - Criterion 4: regression tests for metadata preservation, payload details and hostile labels; compare server steps before and after projection.
 - Criterion 5: local API and browser acceptance against personal_website at 1600, 1280, 1000 and 390 pixels, with actual endpoint and call evidence.

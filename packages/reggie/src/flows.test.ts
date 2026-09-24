@@ -154,6 +154,8 @@ describe("a Cloudflare handler traced to its sinks", () => {
         "",
       ].join("\n"),
     );
+    repo.write("src/Chat.jsx", "export function Chat() { function submit() { return fetch('/api/chat', {method: 'POST'}); } return <form onSubmit={submit} />; }");
+    repo.write("functions/api/admin.js", "export function onRequestGet() { return Response.json({ok:true}); }");
     repo.commitAll("cloudflare chain");
     paths = repoPaths(repo.root);
     ensureLayout(paths);
@@ -169,6 +171,16 @@ describe("a Cloudflare handler traced to its sinks", () => {
   function trace(entryId: string, options: TraceOptions = {}) {
     return traceFlow(paths, graph, entryId, { ...options, semanticIndex });
   }
+
+  it("publishes compact source-backed origins without dropping unmatched endpoints", () => {
+    const index = detect();
+    const chat = index.flows.find((flow) => flow.route === "/api/chat");
+    expect(chat?.clients).toEqual([expect.objectContaining({kind:"client event", file:"src/Chat.jsx",label:expect.stringContaining("Submit")})]);
+    expect(chat?.clientOrigins).toBe(1);
+    expect(chat?.clientsTruncated).toBe(false);
+    const admin = index.flows.find((flow) => flow.route === "/api/admin");
+    expect(admin).toMatchObject({clients:[],clientOrigins:0,clientsTruncated:false});
+  });
 
   it("finds the entry with its route and method", () => {
     const index = detect();

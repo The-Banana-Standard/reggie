@@ -29,3 +29,7 @@ Flow step details and role-grouped cleanup sections use compact cards and wrappi
 ## how · 2026-09-24 · Codex via jacobpress · medium
 Navigation hierarchy uses weight and a divider, retaining accessible labels and phone tab-bar targets. Client expressions wrap inside expandable cards.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+Flow origin lists wrap long labels, the All flows link is prominent, and focused tablet maps use a shorter frame appropriate to alternating rows.
+sources: complete-data-flow-view
+

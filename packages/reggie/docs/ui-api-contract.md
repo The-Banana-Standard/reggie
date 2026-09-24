@@ -418,10 +418,17 @@ interface FlowSummary {
   title: string;               // 'POST /api/chat'
   kind: FlowEntryKind; method: string|null; route: string|null;
   steps: number; services: string[]; depth: number;
+  clientOrigins?: number;      // bounded detected paths, possibly sharing an origin node
+  clients?: { id: string; label: string; kind: 'client event'|'client effect'|'function'; file: string }[];
+  clientsTruncated?: boolean;  // more origins may exist beyond the client traversal limits
   truncated: boolean; dropped: FlowDrop[];    // dropped is empty exactly when truncated is false
   source: SourceRef }
 { flows: FlowSummary[]; generatedAt: string }
 ```
+The compact `clients` list deduplicates source-backed origin IDs per flow; a shared origin can
+connect to multiple endpoints. Every entry remains present, including those without matched
+clients. Empty client evidence does not prove no callers. Full paths and limitations stay on
+`/api/flow`; the summary does not duplicate argument/return trees.
 
 ## GET /api/flow?id=<flowId|entryNodeId>&depth=1..6
 One traced flow. `depth` is validated like every numeric parameter (400 outside 1–99) and then clamped to 6 hops, which is as far as the tracer ever walks. 404 when no entry point has that id.

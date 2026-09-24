@@ -144,6 +144,9 @@ export interface FlowEntry {
 
 export interface FlowSummary {
   clientOrigins?: number;
+  /** Compact, deduplicated origin nodes for the all-flows map; full evidence stays on Flow. */
+  clients?: { id: string; label: string; kind: "client event" | "client effect" | "function"; file: string }[];
+  clientsTruncated?: boolean;
   id: string;
   entry: string;
   entryNode: string;
@@ -1684,6 +1687,16 @@ export function detectFlows(paths: RepoPaths, graph: RepoGraph, opts: DetectFlow
         dropped: flow.dropped,
         source: e.source,
         clientOrigins: flow.clients?.paths.length ?? 0,
+        clients: [...new Map((flow.clients?.paths ?? []).map((path) => {
+          const first = path.calls[0]!;
+          const id = path.trigger?.id ?? first.callerId;
+          return [id, {
+            id, label: path.title,
+            kind: path.trigger ? (path.trigger.kind === "ui-event" ? "client event" : "client effect") : "function",
+            file: path.trigger?.source.file ?? first.source.file,
+          }] as const;
+        })).values()],
+        clientsTruncated: flow.clients?.truncated ?? false,
       });
     }
   }

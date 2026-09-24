@@ -12,3 +12,7 @@ Share the immutable semantic index across the Cloudflare flow fixture. Rebuildin
 ## verify · 2026-09-23 · Codex via jacobpress · medium
 Flow fixtures prove canonical route entry nodes, non-HTTP file entries, positional expressions, recursive request shapes, return variants, JSDoc declarations, and service payloads without legacy fields.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+A shared compiler fixture verifies matched JSX client summaries while preserving a Cloudflare endpoint without detected clients.
+sources: complete-data-flow-view
+

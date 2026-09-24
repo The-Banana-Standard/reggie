@@ -2432,6 +2432,8 @@ export function createMap(container, opts = {}) {
       // The Services map (§4): "the files on the left, grouped; the services on the right, ranked"
       // *is* the layout, so the builder places every node and nothing here re-derives it.
       for (const nd of next.nodes) if (nd.pos && !nd.compound) target[nd.id] = { ...nd.pos };
+    } else if (spec.name === "serpentine") {
+      Object.assign(target, serpentinePositions(spec.order, Math.max(1, cy.width() - 60)));
     } else {
       // The graph should be shaped like the canvas it has to fit in: a wide, short map column wants
       // ranks running left to right, a tall one wants them top to bottom (F04). Guessing from the
@@ -4646,12 +4648,6 @@ function buildFlowModel(view, opts = {}) {
     );
   }
 
-  if (flow.requestPathOnly) for (const node of nodes) {
-    node.w = 320;
-    node.h = 76;
-    // Display-only break opportunities; canonical IDs and navigable paths remain untouched.
-    node.label = node.label.replaceAll("/", "/\u200b");
-  }
   const edges = [];
   const seenEdge = new Map();
   steps.forEach((s, i) => {
@@ -4673,9 +4669,9 @@ function buildFlowModel(view, opts = {}) {
       cycle: false,
       cycleReturn: false,
       spoke: true,
-      width: s.kind === "read" || s.kind === "write" ? 2 : 1.4,
+      width: s.clientPathSelected ? 3 : s.kind === "read" || s.kind === "write" ? 2 : 1.4,
       label: value.label,
-      color: s.kind === "read" ? OP_COLORS.read : s.kind === "write" ? OP_COLORS.write : s.kind === "respond" ? COLORS.ok : COLORS.edge,
+      color: s.clientPathSelected ? COLORS.info : s.kind === "read" ? OP_COLORS.read : s.kind === "write" ? OP_COLORS.write : s.kind === "respond" ? COLORS.ok : COLORS.edge,
       labelColor: value.evidence === "none" ? COLORS.faint : COLORS.muted,
       step: s,
       stepIndex: i + 1,
@@ -4684,23 +4680,62 @@ function buildFlowModel(view, opts = {}) {
     });
   });
 
+  const chain = linearChain(nodes, edges);
+  if (chain) for (const node of nodes) {
+    node.w = 260;
+    node.h = 100;
+  }
   return baseModel({
     view,
     level: "flow",
-    root: `flow:${flow.id ?? "?"}`,
+    root: `flow:${flow.id ?? "?"}:${flow.requestPathOnly ? "focus" : "all"}:v2`,
     nodes,
     edges,
     counts: { steps: steps.length, services: (flow.services ?? []).length, depth: flow.depth ?? 0, dropped: (flow.dropped ?? []).reduce((a, d) => a + (d.count ?? 0), 0) },
     // A flow this size only fits at a zoom where no label is drawn anyway, so the readability floor
     // buys nothing and costs the shape: hold the whole walk, and let the reader zoom into a hop.
     fitWhole: nodes.length > 36,
-    layout: { name: "dagre", rankDir: flow.requestPathOnly ? "TB" : "LR", fixedDir: true, shaped: true, grid: !flow.requestPathOnly, fill: !flow.requestPathOnly, ranker: "network-simplex", nodeDimensionsIncludeLabels: false, fit: false, animate: true, animationDuration: dur(MOTION.move), animationEasing: "ease-out", padding: 30, spacingFactor: 1, rankSep: flow.requestPathOnly ? 38 : 150, nodeSep: 22 },
+    layout: chain ? { name: "serpentine", order: chain, shaped: true } : { name: "dagre", rankDir: "LR", fixedDir: true, shaped: true, grid: true, fill: true, ranker: "network-simplex", nodeDimensionsIncludeLabels: false, fit: false, animate: true, animationDuration: dur(MOTION.move), animationEasing: "ease-out", padding: 30, spacingFactor: 1, rankSep: 150, nodeSep: 22 },
     flow,
     opts,
   });
 }
 
-/** The Data flow index (§4): every entry point on the left, the services each one reaches on the right. */
+/** Return source order only for a single directed chain. Never linearize a branch or cycle. */
+export function linearChain(nodes, edges) {
+  if (!nodes.length) return null;
+  const incoming = new Map(nodes.map((n) => [n.id, new Set()]));
+  const outgoing = new Map(nodes.map((n) => [n.id, new Set()]));
+  for (const edge of edges) {
+    if (!incoming.has(edge.target) || !outgoing.has(edge.source)) return null;
+    incoming.get(edge.target).add(edge.source);
+    outgoing.get(edge.source).add(edge.target);
+  }
+  if ([...incoming.values(), ...outgoing.values()].some((set) => set.size > 1)) return null;
+  const roots = nodes.filter((n) => !incoming.get(n.id).size);
+  if (roots.length !== 1) return null;
+  const order = [];
+  const seen = new Set();
+  let id = roots[0].id;
+  while (id != null && !seen.has(id)) {
+    order.push(id);
+    seen.add(id);
+    id = [...outgoing.get(id)][0];
+  }
+  return order.length === nodes.length && id == null ? order : null;
+}
+
+/** Fixed-size readable cards, alternating row direction with vertical turns at each row's end. */
+export function serpentinePositions(order, width) {
+  const cols = Math.min(order.length, width < 480 ? 1 : Math.max(2, Math.min(4, Math.floor((width + 110) / 370))));
+  return Object.fromEntries(order.map((id, i) => {
+    const row = Math.floor(i / cols);
+    const col = row % 2 ? cols - 1 - i % cols : i % cols;
+    return [id, { x: col * 370, y: row * 180 }];
+  }));
+}
+
+/** The overview keeps every entry between known client origins and its reached services. */
 function buildFlowsModel(view, opts = {}) {
   const flows = Array.isArray(view.flows) ? view.flows : [];
   const svcById = new Map((Array.isArray(view.services) ? view.services : []).map((s) => [s.id, s]));
@@ -4708,7 +4743,8 @@ function buildFlowsModel(view, opts = {}) {
   for (const f of flows) for (const id of f.services ?? []) reached.set(id, (reached.get(id) ?? 0) + 1);
 
   const nodes = [];
-  const ROW = 66;
+  const ROW = 100;
+  const clients = [...new Map(flows.flatMap((f) => (f.clients ?? []).map((client) => [client.id, client]))).values()];
   const services = Array.from(reached.keys()).sort((a, b) => (reached.get(b) ?? 0) - (reached.get(a) ?? 0) || a.localeCompare(b));
   // Both sides wrap into columns: a repo with fifty entry points is a wall, not a list, and one
   // column of fifty fits only at a zoom where nothing on it can be read.
@@ -4719,29 +4755,40 @@ function buildFlowsModel(view, opts = {}) {
   const eRows = Math.max(1, Math.ceil(flows.length / eCols));
   const sCols = Math.max(1, Math.ceil(services.length / ROWS));
   const sRows = Math.max(1, Math.ceil(Math.max(1, services.length) / sCols));
-  const height = Math.max(eRows, sRows) * ROW;
+  const cCols = Math.ceil(clients.length / ROWS);
+  const cRows = Math.max(1, Math.ceil(clients.length / Math.max(1, cCols)));
+  const height = Math.max(eRows, sRows, clients.length ? cRows : 0) * ROW;
+  const cShift = (height - cRows * ROW) / 2;
   const eShift = (height - eRows * ROW) / 2;
   const sShift = (height - sRows * ROW) / 2;
-  const gap = services.length ? 200 : 0;
-  const rightX = eCols * ECOL_W + gap;
+  const gap = services.length ? 100 : 0;
+  const entryX = clients.length ? cCols * 290 + 60 : 0;
+  const rightX = entryX + eCols * ECOL_W + gap;
+  clients.forEach((client, i) => nodes.push(blankNode({
+    id: client.id, kind: client.id.startsWith("sym:") ? "symbol" : "file", svc: client.kind,
+    entityKind: client.kind, label: `${client.kind.toUpperCase()}\n${client.label}\n${client.file}`,
+    fullLabel: client.label, labelLine1: client.label, path: client.file, file: client.file,
+    w: 260, h: 84, shape: "round-rectangle", hue: COLORS.info, raw: client,
+    pos: { x: Math.floor(i / cRows) * 290, y: (i % cRows) * ROW + cShift },
+  })));
   flows.forEach((f, i) => {
     nodes.push(
       blankNode({
         id: `flow:${f.id}`,
         kind: "step",
         svc: "entry",
-        label: `${f.title}\n${f.steps} step${f.steps === 1 ? "" : "s"} · ${basename(f.source?.file ?? "")}`,
+        label: `${f.route ? "ENDPOINT" : "ENTRY POINT"}\n${f.title}\n${basename(f.source?.file ?? "")}`,
         labelLine1: f.title,
         fullLabel: f.title,
         path: f.source?.file ?? "",
         file: f.source?.file ?? "",
         entry: true,
         w: 200,
-        h: STEP_H,
+        h: 76,
         shape: "round-rectangle",
         hue: COLORS.info,
         raw: f,
-        pos: { x: Math.floor(i / eRows) * ECOL_W, y: (i % eRows) * ROW + eShift },
+        pos: { x: entryX + Math.floor(i / eRows) * ECOL_W, y: (i % eRows) * ROW + eShift },
       }),
     );
   });
@@ -4773,6 +4820,14 @@ function buildFlowsModel(view, opts = {}) {
   });
   const edges = [];
   for (const f of flows) {
+    for (const client of new Map((f.clients ?? []).map((c) => [c.id, c])).values()) {
+      edges.push({
+        id: `${client.id}->flow:${f.id}`, source: client.id, target: `flow:${f.id}`,
+        kind: "call", weight: 1, names: [], via: [], confidence: "exact", cycle: false,
+        cycleReturn: false, spoke: true, width: 1.4, label: "requests", color: COLORS.info,
+        labelColor: COLORS.muted, svc: "client-request", raw: client,
+      });
+    }
     for (const id of f.services ?? []) {
       if (!reached.has(id)) continue;
       edges.push({
@@ -4800,13 +4855,13 @@ function buildFlowsModel(view, opts = {}) {
   return baseModel({
     view,
     level: "flows",
-    root: "flows",
+    root: "flows:clients-v2",
     nodes,
     edges,
-    counts: { flows: flows.length, services: services.length },
+    counts: { flows: flows.length, services: services.length, clients: clients.length },
     // Same reasoning as the flow map: past this many entry points the readability floor would clip
     // the last columns off a picture whose whole point is "here is everything that starts a flow".
-    fitWhole: flows.length + services.length > 36,
+    fitWhole: nodes.length > 36,
     layout: { name: "bipartite", shaped: true },
     opts,
   });
@@ -4979,7 +5034,7 @@ function serviceFooter(model) {
     if (c.dropped) parts.push(`${c.dropped} more not drawn`);
     return parts.filter(Boolean).join(" · ");
   }
-  if (model.level === "flows") return [plural(c.flows ?? 0, "entry point"), plural(c.services ?? 0, "service")].join(" · ");
+  if (model.level === "flows") return [plural(c.flows ?? 0, "entry point"), c.clients != null ? `${c.clients} known client origins` : null, plural(c.services ?? 0, "service")].filter(Boolean).join(" · ");
   const parts = [];
   if (c.folded) parts.push(`${c.shown} of ${c.services} services`);
   else parts.push(plural(c.shown ?? 0, "service"));

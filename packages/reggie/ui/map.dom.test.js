@@ -1,7 +1,53 @@
 import { describe, expect, it } from "vitest";
-import { buildModel, valueForStep, valueShapeLabel } from "./map.js";
+import { buildModel, linearChain, serpentinePositions, valueForStep, valueShapeLabel } from "./map.js";
 
 describe("map model", () => {
+  it("keeps unmatched endpoints and program entries alongside shared client connections", () => {
+    const client = {id:"client:src/Chat.jsx:10",label:"Submit form",kind:"client event",file:"src/Chat.jsx"};
+    const flows = [
+      {id:"chat",title:"POST /api/chat",route:"/api/chat",steps:30,clients:[client],services:["svc:kv:CACHE"],source:{file:"functions/api/chat.js"}},
+      {id:"feedback",title:"POST /api/feedback",route:"/api/feedback",steps:4,clients:[client],services:[],source:{file:"functions/api/feedback.js"}},
+      {id:"admin",title:"GET /api/admin-stats",route:"/api/admin-stats",steps:2,clients:[],services:[],source:{file:"functions/api/admin-stats.js"}},
+      {id:"main",title:"main",steps:1,clients:[],services:[],source:{file:"src/index.js"}},
+    ];
+    const model = buildModel({level:"flows",flows,services:[]});
+    expect(model.nodes.filter((n) => n.id === client.id)).toHaveLength(1);
+    expect(model.nodes.filter((n) => n.id.startsWith("flow:"))).toHaveLength(4);
+    expect(model.nodeById.get("flow:admin").label).toContain("ENDPOINT");
+    expect(model.nodeById.get("flow:main").label).toContain("ENTRY POINT");
+    expect(model.edges.filter((e) => e.source === client.id).map((e) => e.target)).toEqual(["flow:chat","flow:feedback"]);
+    expect(model.nodeById.get(client.id).pos.x).toBeLessThan(model.nodeById.get("flow:chat").pos.x);
+    expect(model.nodeById.get("flow:chat").pos.x).toBeLessThan(model.nodeById.get("svc:kv:CACHE").pos.x);
+  });
+
+  it("wraps a real chain across alternating rows and stacks on narrow screens", () => {
+    const nodes = ["a","b","c","d","e","f"].map((id) => ({id}));
+    const edges = nodes.slice(1).map((node,i) => ({source:nodes[i].id,target:node.id}));
+    const order = linearChain([...nodes].reverse(), edges);
+    expect(order).toEqual(nodes.map((n) => n.id));
+    const p = serpentinePositions(order, 680);
+    expect(p.a.x).toBeLessThan(p.b.x);
+    expect(p.b.x).toBe(p.c.x);
+    expect(p.c.y).toBeGreaterThan(p.b.y);
+    expect(p.c.x).toBeGreaterThan(p.d.x);
+    expect(p.d.x).toBe(p.e.x);
+    expect(new Set(Object.values(p).map((v) => JSON.stringify(v))).size).toBe(nodes.length);
+    const narrow = Object.values(serpentinePositions(order, 320));
+    expect(new Set(narrow.map((v) => v.x)).size).toBe(1);
+    expect(narrow.map((v) => v.y)).toEqual([0,180,360,540,720,900]);
+    expect(serpentinePositions(order, 680)).toEqual(p);
+  });
+
+  it("refuses to fold forks, joins, cycles, disconnected nodes or unknown targets into a chain", () => {
+    const nodes = ["a","b","c"].map((id) => ({id}));
+    for (const pairs of [
+      [["a","b"],["a","c"]], [["a","c"],["b","c"]],
+      [["a","b"],["b","a"]], [["a","b"]],
+      [["a","b"],["b","c"],["c","a"]], [["a","b"],["b","missing"]],
+    ]) expect(linearChain(nodes,pairs.map(([source,target]) => ({source,target})))).toBeNull();
+    expect(linearChain([],[])).toBeNull();
+    expect(linearChain([{id:"a"}],[])).toEqual(["a"]);
+  });
   it("builds stable repository nodes and import edges", () => {
     const model = buildModel({
       level: "container",
