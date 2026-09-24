@@ -9,6 +9,7 @@
 - Final DOM regression run: `npm test -- --project web-dom` in packages/reggie: 5 files, 40 tests passed. An initial invocation from the delegating root script did not forward the option; rerunning in the package selected the project correctly.
 - `reggie docs refresh`, `reggie docs check`, and `reggie plan lint complete-data-flow-view`: fresh/pass.
 - Packet lint is recorded in the completion workflow before landing.
+- The installed global Reggie finish hook ran once, falling back to doctor: zero errors and three existing native-layout warnings (HANDOFF, Codex knowledge router, generic evidence path).
 
 ## Real repository acceptance
 Target: personal_website, served read-only by the task build at 127.0.0.1:4311. Its pre-existing dirty files were not edited or staged.
@@ -16,6 +17,7 @@ Target: personal_website, served read-only by the task build at 127.0.0.1:4311. 
 - All-flows index retains GET /api/admin-stats (7 server steps), POST /api/chat (124), POST /api/feedback (8), and the src/index.js program entry.
 - Overview maps four unique client origins to the matching endpoints, then to five reached services. Chat has three paths/origins; feedback has two paths sharing one origin. Path and unique-origin counts are labelled separately.
 - Admin-stats remains listed and navigable despite no matched client, with an explicit explanation that external or dynamic callers may exist. Its server story and COST_TRACKER remain available.
+- Feedback opens with Clients + server checked, 10 combined steps, two services and all eight server story cards.
 - Chat opens with Clients + server checked and a 132-step combined graph, four services and the existing 17 omitted server steps disclosed. All 124 server story cards remain available.
 - Selecting the React effect changes client details to initialQuestion but leaves the combined step count, services and server story unchanged.
 - Keyboard ArrowRight on the native scope radio selects Focus on this path. The explicit focus shows five edges joining the browser event, submit, handlePrompt, requestChatResponse, POST /api/chat and onRequestPost.
