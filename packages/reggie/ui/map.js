@@ -1924,8 +1924,8 @@ function stylesheet() {
     // A service, a step and a response are all labelled *inside* the shape, in two lines: what it is
     // called, then what it is and who provides it. 11px is what fits 26 characters in 170px.
     {
-      selector: "node[svc = 'service'], node[svc = 'step'], node[svc = 'entry'], node[svc = 'endpoint'], node[svc = 'function'], node[svc = 'method'], node[svc = 'class'], node[svc = 'response']",
-      style: { "font-size": 11, "font-weight": 600, "text-wrap": "wrap", "text-valign": "center", "text-halign": "center", "text-margin-y": 0, "text-background-opacity": 0, "min-zoomed-font-size": 6, "line-height": 1.3 },
+      selector: "node[svc = 'service'], node[svc = 'step'], node[svc = 'entry'], node[svc = 'endpoint'], node[svc = 'function'], node[svc = 'method'], node[svc = 'class'], node[svc = 'response'], node[svc = 'client event'], node[svc = 'client effect']",
+      style: { "font-size": 11, "font-weight": 600, "text-wrap": "wrap", "text-max-width": "data(textMax)", "text-valign": "center", "text-halign": "center", "text-margin-y": 0, "text-background-opacity": 0, "min-zoomed-font-size": 6, "line-height": 1.3 },
     },
     { selector: "node.unused", style: { "border-style": "dashed" } },
     // Edges without a source-backed semantic value are drawn back so the eye lands on the steps
@@ -4646,6 +4646,12 @@ function buildFlowModel(view, opts = {}) {
     );
   }
 
+  if (flow.requestPathOnly) for (const node of nodes) {
+    node.w = 320;
+    node.h = 76;
+    // Display-only break opportunities; canonical IDs and navigable paths remain untouched.
+    node.label = node.label.replaceAll("/", "/\u200b");
+  }
   const edges = [];
   const seenEdge = new Map();
   steps.forEach((s, i) => {
@@ -4688,7 +4694,7 @@ function buildFlowModel(view, opts = {}) {
     // A flow this size only fits at a zoom where no label is drawn anyway, so the readability floor
     // buys nothing and costs the shape: hold the whole walk, and let the reader zoom into a hop.
     fitWhole: nodes.length > 36,
-    layout: { name: "dagre", rankDir: "LR", fixedDir: true, shaped: true, grid: true, fill: true, ranker: "network-simplex", nodeDimensionsIncludeLabels: false, fit: false, animate: true, animationDuration: dur(MOTION.move), animationEasing: "ease-out", padding: 30, spacingFactor: 1, rankSep: 150, nodeSep: 22 },
+    layout: { name: "dagre", rankDir: flow.requestPathOnly ? "TB" : "LR", fixedDir: true, shaped: true, grid: !flow.requestPathOnly, fill: !flow.requestPathOnly, ranker: "network-simplex", nodeDimensionsIncludeLabels: false, fit: false, animate: true, animationDuration: dur(MOTION.move), animationEasing: "ease-out", padding: 30, spacingFactor: 1, rankSep: flow.requestPathOnly ? 38 : 150, nodeSep: 22 },
     flow,
     opts,
   });

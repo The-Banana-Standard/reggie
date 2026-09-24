@@ -26,3 +26,6 @@ sources: code-entity-pages
 ## decision · 2026-09-23 · Codex via jacobpress · medium
 The DOM contract now defines structured flow cards, semantic edge evidence, typed node labels, and role-aware cleanup sections.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+Documents the Data Flow default, explicit Overview route, primary navigation classes, client origin selector and client graph projection.
+

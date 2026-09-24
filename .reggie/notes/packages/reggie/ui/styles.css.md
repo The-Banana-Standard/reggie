@@ -26,3 +26,6 @@ sources: code-entity-pages
 ## how · 2026-09-23 · Codex via jacobpress · medium
 Flow step details and role-grouped cleanup sections use compact cards and wrapping layouts that remain phone-safe.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+Navigation hierarchy uses weight and a divider, retaining accessible labels and phone tab-bar targets. Client expressions wrap inside expandable cards.
+

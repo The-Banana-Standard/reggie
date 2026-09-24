@@ -29,3 +29,6 @@ sources: code-entity-pages
 ## how · 2026-09-23 · Codex via jacobpress · medium
 Flow maps consume typed nodes and semantic values; labels show uppercase kind, entity name, and path while edges stay compact.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+Compact request-path graphs use a top-to-bottom dagre chain so browser-to-handler labels remain readable in the narrow map pane. Full server flows retain their left-to-right layout.
+

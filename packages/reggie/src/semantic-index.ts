@@ -119,6 +119,20 @@ export interface CallSite {
   resolution: CallResolution;
   arguments: ArgumentValue[];
   source: SourceSpan;
+  /** Lexical if-conditions, not a simulation of runtime branch selection. */
+  condition?: string | null;
+  /** Anonymous callback boundary; do not mistake this for synchronous execution by callerId. */
+  callback?: SourceSpan | null;
+}
+
+export interface ClientTrigger {
+  id: string;
+  kind: "ui-event" | "react-effect";
+  label: string;
+  event: string;
+  targetSymbolId: string | null;
+  callSiteIds: string[];
+  source: SourceSpan;
 }
 
 export type CallFindingKind = "dynamic-dispatch" | "unresolved-callback" | "external-call" | "unresolved-call";
@@ -187,6 +201,7 @@ export interface SemanticIndex {
   concepts: DataConcept[];
   reachability: ReachabilityResult;
   generatedAt: string;
+  clientTriggers?: ClientTrigger[];
 }
 
 export interface BuildSemanticIndexOptions {
@@ -943,6 +958,10 @@ function collectCalls(ctx: BuildContext): { calls: CallSite[]; findings: CallFin
       const ordinal = (ordinalByCaller.get(nextOwner) ?? 0) + 1;
       ordinalByCaller.set(nextOwner, ordinal);
       const id = `call:${nextOwner}:${ordinal}`;
+      let boundary: ts.Node = node.parent;
+      while (boundary.parent && !ts.isFunctionLike(boundary)) boundary = boundary.parent;
+      const callback = ts.isFunctionLike(boundary) && !ctx.recordByNode.has(boundary)
+        && !ctx.recordByNode.has(boundary.parent) ? nodeSpan(file.file, file.sourceFile, boundary) : null;
       const call: CallSite = {
         id,
         callerId: nextOwner,
@@ -952,6 +971,8 @@ function collectCalls(ctx: BuildContext): { calls: CallSite[]; findings: CallFin
         resolution,
         arguments: callArguments(node, callee, file.sourceFile, ctx.checker),
         source: nodeSpan(file.file, file.sourceFile, node),
+        condition: ancestorCondition(node, boundary, file.sourceFile),
+        callback,
       };
       calls.push(call);
       if (!callee) {
@@ -984,6 +1005,50 @@ function collectCalls(ctx: BuildContext): { calls: CallSite[]; findings: CallFin
   return { calls, findings };
 }
 
+/** Only native JSX events and imported React effects are labelled as triggers. */
+function collectClientTriggers(ctx: BuildContext, calls: readonly CallSite[]): ClientTrigger[] {
+  const triggers: ClientTrigger[] = [];
+  for (const file of ctx.files) {
+    const add = (node: ts.Node, expression: ts.Expression, kind: ClientTrigger["kind"], event: string, label: string): void => {
+      const inline = ts.isArrowFunction(expression) || ts.isFunctionExpression(expression);
+      const target = inline ? null : recordForExpression(expression, ctx);
+      const source = nodeSpan(file.file, file.sourceFile, node);
+      const callSiteIds = inline ? calls.filter((call) => call.source.file === file.file && call.callback?.startOffset === expression.getStart(file.sourceFile)).map((call) => call.id) : [];
+      if (target || callSiteIds.length) triggers.push({ id: `client:${file.file}:${source.startOffset}`, kind, event, label, targetSymbolId: target?.id ?? null, callSiteIds, source });
+    };
+    const visit = (node: ts.Node): void => {
+      if (ts.isJsxAttribute(node) && /^on[A-Z]/.test(node.name.getText(file.sourceFile)) && node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression) {
+        const opening = node.parent.parent;
+        if (ts.isJsxOpeningElement(opening) || ts.isJsxSelfClosingElement(opening)) {
+          const tag = opening.tagName.getText(file.sourceFile);
+          if (/^[a-z][a-z0-9-]*$/.test(tag)) {
+            const event = node.name.getText(file.sourceFile);
+            const aria = opening.attributes.properties.find((attribute): attribute is ts.JsxAttribute => ts.isJsxAttribute(attribute) && attribute.name.getText(file.sourceFile) === "aria-label");
+            const name = aria?.initializer && ts.isStringLiteral(aria.initializer) ? aria.initializer.text : tag;
+            const verb = event === "onSubmit" ? "Submit" : event === "onClick" ? "Click" : event.slice(2);
+            add(node, node.initializer.expression, "ui-event", event, `${verb} ${name}`);
+          }
+        }
+      }
+      if (ts.isCallExpression(node) && node.arguments[0]) {
+        const expr = node.expression;
+        const symbol = ctx.checker.getSymbolAtLocation(ts.isPropertyAccessExpression(expr) ? expr.expression : expr);
+        const imported = symbol?.declarations?.some((declaration) => {
+          let ancestor: ts.Node | undefined = declaration;
+          while (ancestor && !ts.isImportDeclaration(ancestor)) ancestor = ancestor.parent;
+          if (!ancestor || !ts.isStringLiteral(ancestor.moduleSpecifier) || ancestor.moduleSpecifier.text !== "react") return false;
+          const name = ts.isImportSpecifier(declaration) ? (ts.isIdentifier(expr) ? (declaration.propertyName ?? declaration.name).text : "") : ts.isPropertyAccessExpression(expr) ? expr.name.text : "";
+          return name === "useEffect" || name === "useLayoutEffect";
+        });
+        if (imported) add(node, node.arguments[0], "react-effect", "effect", "React effect");
+      }
+      node.forEachChild(visit);
+    };
+    file.sourceFile.forEachChild(visit);
+  }
+  return triggers;
+}
+
 function responseDetails(expression: ts.Expression, sourceFile: ts.SourceFile, checker: ts.TypeChecker): { kind: ReturnVariantKind; shape: ValueShape | null; status: string | null } {
   let call: ts.CallExpression | ts.NewExpression | null = null;
   if (ts.isCallExpression(expression) || ts.isNewExpression(expression)) call = expression;
@@ -1009,7 +1074,8 @@ function ancestorCondition(node: ts.Node, boundary: ts.Node, sourceFile: ts.Sour
   while (current && current !== boundary) {
     if (ts.isIfStatement(current)) {
       const inElse = current.elseStatement && node.pos >= current.elseStatement.pos && node.end <= current.elseStatement.end;
-      conditions.push(inElse ? `not (${textOf(current.expression, sourceFile)})` : textOf(current.expression, sourceFile));
+      const inThen = node.pos >= current.thenStatement.pos && node.end <= current.thenStatement.end;
+      if (inElse || inThen) conditions.push(inElse ? `not (${textOf(current.expression, sourceFile)})` : textOf(current.expression, sourceFile));
     }
     current = current.parent;
   }
@@ -1734,5 +1800,6 @@ export function buildSemanticIndex(paths: { root: string; concepts?: string }, g
     concepts,
     reachability,
     generatedAt: (options.now ?? new Date()).toISOString(),
+    clientTriggers: collectClientTriggers(ctx, callResult.calls),
   };
 }

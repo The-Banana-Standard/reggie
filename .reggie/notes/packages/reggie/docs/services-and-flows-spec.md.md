@@ -9,3 +9,6 @@ The flow contract distinguishes actual arguments, request payloads, service payl
 ## decision · 2026-09-23 · Codex via jacobpress · medium
 The services and flows specification now makes semantic values the sole contract and defines typed nodes, step cards, and cleanup evidence.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+Documents bounded production client journeys, compiler trigger evidence, lexical conditions and honest React state/prop limitations.
+

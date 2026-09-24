@@ -13,3 +13,6 @@ Richer flow steps use compiler-backed actual arguments, boundary payload shapes,
 ## how · 2026-09-23 · Codex via jacobpress · medium
 Flows now expose typed endpoint/function/method/class/file/service/response nodes and only compiler-backed arguments, boundary shapes, call-site IDs, and return variants; the legacy Payload input/output contract is gone.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+HTTP flows expose additive client journeys and lexical call conditions; flow summaries count client origins. Server steps remain the shared static trace rather than a runtime branch simulation.
+

@@ -208,7 +208,13 @@ Clicking a service pins a Spotlight and filters the map to it. Clicking a file g
 
 ### Data flow (`#/repo/<name>/flows`, one flow at `#/repo/<name>/flow/<id>`)
 
-The index lists the entry points grouped by kind, each with its route, its step count and the services it reaches. Choosing one opens the flow.
+Data Flow is the default for bare repository URLs and repository selection. Navigation puts Data Flow and Tasks first; Overview (now at `/overview`) and Services remain a separate, quieter pair.
+
+HTTP flows include additive `clients: ClientJourneys` and summaries include `clientOrigins`. The compiler records native JSX event bindings, imported React effects, anonymous callback boundaries, and lexical if-conditions on call sites. Reverse exact calls from statically matched fetch requests yield source-backed client paths (up to 24 paths, six calls and 500 search visits). Only production-code callers appear as visitor origins; other roles remain in symbol pages. Paths retain actual positional expressions, complete request shapes, canonical symbol IDs and source spans. Unknown callbacks, cycles and caps are reported rather than bridged by name.
+
+Before the server story, **Client → endpoint** offers a native origin selector and expandable client steps. The selected path adds `CLIENT EVENT` or `CLIENT EFFECT` and function nodes upstream of the same endpoint. Server conditions remain expandable evidence: this is a static map of possible calls, not a runtime recording. React state/prop handoffs are explicitly not traced. A detected initial-question effect is not labelled as a proven suggested-message click. Missing matches never imply an endpoint has no clients.
+
+The index lists the entry points grouped by kind, each with its route, its step count, detected client-origin count and the services it reaches. Choosing one opens the flow. When clients are detected, the map defaults to a compact top-to-bottom **Request path** from the chosen origin to the handler. **Full server flow** restores the complete left-to-right graph and hop controls; neither mode hides server story cards. This prevents a wide server graph from making the client path unreadably small.
 
 A flow draws left to right, dagre `rankdir: LR`: an `ENDPOINT`, then explicitly labelled `FUNCTION`, `METHOD`, `CLASS`, or `FILE` nodes, then `SERVICE` and `RESPONSE`. The symbol or endpoint is prominent and its path is secondary. Route nodes open route pages; symbol nodes open symbol pages. Edge labels stay compact (`6 fields`, one expression, or a return count), while the step detail exposes actual Arguments and recursive Request or Service payload shapes. Service nodes use the same shapes as the Services page.
 
