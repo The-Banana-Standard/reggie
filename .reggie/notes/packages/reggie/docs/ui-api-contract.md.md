@@ -48,3 +48,7 @@ sources: code-entity-pages
 ## decision · 2026-09-23 · Codex via jacobpress · medium
 The UI API contract removes Payload/input/output and documents entryNode, typed nodes, call-site IDs, semantic values, and returns.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+Documents optional compact client summaries, unique-origin versus path counts and bounded client detection on the flow index.
+sources: complete-data-flow-view
+

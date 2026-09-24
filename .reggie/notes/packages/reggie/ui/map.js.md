@@ -32,3 +32,7 @@ Flow maps consume typed nodes and semantic values; labels show uppercase kind, e
 ## how · 2026-09-24 · Codex via jacobpress · medium
 Compact request-path graphs use a top-to-bottom dagre chain so browser-to-handler labels remain readable in the narrow map pane. Full server flows retain their left-to-right layout.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+All-flows maps retain every entry between known clients and reached services. Only a single directed acyclic chain uses responsive alternating rows; branches, joins and disconnected graphs retain hierarchy. Cache roots distinguish the new full and focus layouts.
+sources: complete-data-flow-view
+

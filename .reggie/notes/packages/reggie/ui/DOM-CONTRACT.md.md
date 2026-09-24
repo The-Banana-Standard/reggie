@@ -29,3 +29,7 @@ The DOM contract now defines structured flow cards, semantic edge evidence, type
 ## how · 2026-09-24 · Codex via jacobpress · medium
 Documents the Data Flow default, explicit Overview route, primary navigation classes, client origin selector and client graph projection.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+Defines additive client selection, full-server default, explicit focus, all-entry overview and chain-only alternating-row layout.
+sources: complete-data-flow-view
+

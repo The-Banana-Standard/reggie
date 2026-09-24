@@ -12,3 +12,6 @@ Map-model coverage centers the selected symbol between callers and callees with 
 sources: code-entity-pages
 ## verify · 2026-09-23 · Codex via jacobpress · medium
 Map-model tests cover all flow node kinds, route/function labels, six-field summaries, positional expressions, and return counts.
+## how · 2026-09-24 · Codex via jacobpress · medium
+Pure model tests cover shared clients, unmatched endpoints, alternating row geometry, narrow panes, deterministic placement and rejection of forks, joins, cycles and disconnected chains.
+sources: complete-data-flow-view

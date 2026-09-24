@@ -40,3 +40,7 @@ The Data Flow overview fetches role-aware reachability, keeps unreachable and no
 ## how · 2026-09-24 · Codex via jacobpress · medium
 Bare repository hashes, startup and repository selection land on Data Flow. Overview remains explicit at /overview. Data Flow and Tasks are primary navigation; Overview and Services are secondary.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+Flow pages default to Clients plus server. The all-flows list distinguishes detected paths from unique origins, reports unmatched or capped clients, and exposes canonical origin links; clicking an overview endpoint opens its flow.
+sources: complete-data-flow-view
+

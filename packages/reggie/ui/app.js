@@ -1527,6 +1527,7 @@ function onNodeTap(id, nd) {
   }
   if (route.level === "services" && nd?.svc === "file") return navigate(routeForNode(route.repo, sid));
   if (route.level === "flow" || route.level === "flows") {
+    if (sid.startsWith("flow:")) return navigate(formatRoute({ level: "flow", repo: route.repo, id: sid.slice(5), query: {} }));
     if (sid.startsWith("route:") || sid.startsWith("sym:")) return navigate(routeForNode(route.repo, sid));
     if (nd?.entityKind === "file" || nd?.kind === "file") return navigate(routeForNode(route.repo, nd?.file ?? sid));
     const path = nd?.file ?? (sid.startsWith("sym:") ? sid.slice(4).split("::")[0] : null);
@@ -2660,7 +2661,7 @@ async function renderFlowsLevel(route, token) {
       "p",
       { class: "story__subtitle muted" },
       list.length
-        ? `Data enters this repo at ${list.length} ${list.length === 1 ? "entry point" : "entry points"}. Each one is traced to the services it reaches, with source-backed values on every step.`
+        ? `All ${list.length} entry points are shown, including those without a matched client. The map connects known client origins → endpoints → reached services. Open a flow to explore its functions and values. Client detection is static and may be incomplete.`
         : "Nothing in this repo answers a request, runs a command or registers a tool, so there is no flow to trace.",
     ),
   );
@@ -2765,13 +2766,13 @@ export function cleanupOverview(reachability, repo) {
 }
 
 /** One entry point in the index: its title, where it is, how far it goes and what it reaches. */
-function flowRow(f, repo, serviceLink, i) {
+export function flowRow(f, repo, serviceLink, i) {
   const to = formatRoute({ level: "flow", repo, id: f.id, query: {} });
   const chips = [
     f.method ? chip("Method", f.method, { tone: "info" }) : null,
     chip("Steps", String(f.steps), { tone: f.truncated ? "warn" : "muted" }),
     chip("Hops", String(f.depth), { tone: "muted" }),
-    f.clientOrigins ? chip("Client origins", String(f.clientOrigins), { tone: "info" }) : null,
+    f.clientOrigins ? chip("Client paths", String(f.clientOrigins), { tone: "info" }) : null,
     f.truncated ? chip("Capped", "yes", { tone: "warn", tip: "A cap hid some steps; the flow page says which" }) : null,
   ].filter(Boolean);
   const row = h(
@@ -2784,6 +2785,12 @@ function flowRow(f, repo, serviceLink, i) {
       f.route ? h("code", { class: "flow-row__route" }, f.route) : null,
     ),
     h("div", { class: "card__chips chips" }, chips),
+    f.route ? h("div", { class: "flow-row__clients" },
+      f.clients?.length ? h("details", {}, h("summary", {}, `Known client origins (${f.clients.length})`),
+        h("ul", {}, f.clients.map((client) => h("li", {},
+          h("a", { href: routeForNode(repo, client.id.startsWith("sym:") ? client.id : client.file) }, client.label)))))
+        : h("p", { class: "muted" }, "No statically matched client — external or dynamic callers may still reach this endpoint."),
+      f.clientsTruncated ? h("p", { class: "muted" }, "Client analysis reached its limit; additional origins may be missing.") : null) : null,
     h(
       "div",
       { class: "card__body flow-row__body" },
@@ -2845,7 +2852,7 @@ async function renderFlowLevel(route, token) {
 
   mapCol?.classList.remove("is-loading");
   let clientId = flow.value?.clients?.paths?.[0]?.id ?? null;
-  let requestOnly = true;
+  let requestOnly = false;
   const drawClientPath = (id) => {
     clientId = id;
     mapCol?.classList.toggle("is-request-path", Boolean(clientId) && requestOnly);

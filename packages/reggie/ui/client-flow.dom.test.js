@@ -44,7 +44,9 @@ describe("client flow", () => {
   it("draws the selected client path before the same server nodes without mutating the source", () => {
     const combined = withClientJourney(flow,"submit");
     expect(flow.steps).toHaveLength(1);
-    expect(combined.steps).toHaveLength(4);
+    expect(combined.steps).toHaveLength(5);
+    expect(combined.steps.filter((step) => step.callSiteId === "call:fetch")).toHaveLength(1);
+    expect(combined.steps.some((step) => step.from === effect.trigger.id)).toBe(true);
     const model = buildModel({level:"flow",flow:combined,services:[]});
     expect(model.nodeById.get(first.trigger.id).label).toContain("CLIENT EVENT");
     expect(model.nodeById.get(caller).label).toContain("FUNCTION");
@@ -54,16 +56,31 @@ describe("client flow", () => {
     const focused = withClientJourney({...flow,steps:[...flow.steps,...flow.steps],services:["svc:api:remote"]},"submit",{requestOnly:true});
     expect(focused.steps).toHaveLength(4);
     expect(focused.services).toEqual([]);
-    expect(buildModel({level:"flow",flow:focused,services:[]}).layout.rankDir).toBe("TB");
+    expect(buildModel({level:"flow",flow:focused,services:[]}).layout.name).toBe("serpentine");
   });
-  it("keeps the full server graph available through native keyboard-accessible scope controls", () => {
+  it("defaults to clients plus server, with explicit focus and All flows controls", () => {
     const onScope = vi.fn();
     const section = clientFlowSection(flow,"demo",{onScope});
     document.getElementById("sections").append(section);
-    expect(section.querySelector('input[value="request"]').checked).toBe(true);
-    section.querySelector('input[value="full"]').click();
-    expect(onScope).toHaveBeenCalledWith("full");
+    expect(section.querySelector('input[value="full"]').checked).toBe(true);
+    expect(section.querySelector('input[value="request"]').checked).toBe(false);
+    expect(section.querySelector(".flow-all-link").getAttribute("href")).toBe("#/repo/demo/flows");
+    section.querySelector('input[value="request"]').click();
+    expect(onScope).toHaveBeenCalledWith("request");
     expect(section.querySelectorAll(".client-flow__step")).toHaveLength(calls.length);
+  });
+  it("origin selection retains all server evidence and only changes the highlighted client edges", () => {
+    const server = { ...flow, steps: [...flow.steps, {from:flow.entry,to:"svc:kv:CACHE",kind:"read",arguments:[],returns:[]}],
+      services:["svc:kv:CACHE"], dropped:[{hop:2,count:4}], truncated:true, depth:6 };
+    const a = withClientJourney(server, "submit");
+    const b = withClientJourney(server, "effect");
+    expect(a.steps.map((s) => [s.from,s.to])).toEqual(b.steps.map((s) => [s.from,s.to]));
+    expect(a.steps.slice(-server.steps.length)).toEqual(server.steps);
+    expect(b).toMatchObject({ services:server.services, dropped:server.dropped, truncated:true, depth:6 });
+    expect(a.steps.find((s) => s.from === first.trigger.id).clientPathSelected).toBe(true);
+    expect(b.steps.find((s) => s.from === first.trigger.id).clientPathSelected).toBe(false);
+    expect(b.steps.find((s) => s.from === effect.trigger.id).clientPathSelected).toBe(true);
+    expect(buildModel({level:"flow",flow:b}).layout.name).toBe("dagre");
   });
   it("preserves explicit callee parameter declarations when a caller has no declared type", () => {
     const typed = {...first, symbols:[...first.symbols.filter((symbol) => symbol.id !== send),{id:send,parameters:[{explicitType:{text:"string",source:"typescript"}}]}]};

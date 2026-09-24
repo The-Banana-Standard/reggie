@@ -1,10 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanupOverview, formatRoute, parentRoute, parseRoute, renderConceptEntity, renderRouteEntity, renderSymbolEntity, renderValueTree, renderNav, routeForNode } from "./app.js";
+import { cleanupOverview, flowRow, formatRoute, parentRoute, parseRoute, renderConceptEntity, renderRouteEntity, renderSymbolEntity, renderValueTree, renderNav, routeForNode } from "./app.js";
 import { resetDom } from "./test/dom-fixture.js";
 
 beforeEach(() => resetDom());
 
 describe("browser router", () => {
+  it("shows known client links and honest unmatched endpoint coverage in the overview", () => {
+    const base = {id:"admin",title:"GET /api/admin",route:"/api/admin",steps:2,depth:1,services:[],source:{file:"functions/api/admin.js"}};
+    const unmatched = flowRow(base,"demo",() => null,0);
+    expect(unmatched.textContent).toContain("No statically matched client");
+    expect(unmatched.querySelector(".card__title").getAttribute("href")).toBe("#/repo/demo/flow/admin");
+    const matched = flowRow({...base, clients:[{id:"client:10",file:"src/Chat.jsx",label:"<img> Submit"}],clientsTruncated:true},"demo",() => null,0);
+    expect(matched.querySelector('a[href="#/repo/demo/file/src/Chat.jsx"]')).toBeTruthy();
+    expect(matched.textContent).toContain("additional origins may be missing");
+    expect(matched.querySelector("img")).toBeNull();
+  });
   const routes = [
     [{ level: "workspace", query: {} }, "#/ws"],
     [{ level: "repo", repo: "personal site", query: {} }, "#/repo/personal%20site/overview"],

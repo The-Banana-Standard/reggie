@@ -16,3 +16,7 @@ Flows now expose typed endpoint/function/method/class/file/service/response node
 ## how · 2026-09-24 · Codex via jacobpress · medium
 HTTP flows expose additive client journeys and lexical call conditions; flow summaries count client origins. Server steps remain the shared static trace rather than a runtime branch simulation.
 
+## how · 2026-09-24 · Codex via jacobpress · medium
+Flow summaries expose deduplicated source-backed client origin nodes and a client truncation flag. The original path count remains distinct from the unique origin count.
+sources: complete-data-flow-view
+
